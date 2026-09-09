@@ -511,8 +511,8 @@
   .rot-cfg label{font-size:12.5px;color:var(--sub);}
   .rot-cfg input{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:var(--radius-sm);padding:8px 10px;font-size:16px;font-family:inherit;min-height:38px;}
   .rot-cfg input[type=number]{width:68px;}
-  .rot-head{display:grid;grid-template-columns:38px minmax(104px,1fr) minmax(126px,1.3fr) 128px 128px 100px;gap:6px;font-size:12px;color:var(--sub);margin-bottom:4px;}
-  .rot-row{display:grid;grid-template-columns:38px minmax(104px,1fr) minmax(126px,1.3fr) 128px 128px 100px;gap:6px;align-items:center;margin-bottom:6px;}
+  .rot-head{display:grid;grid-template-columns:34px minmax(68px,1fr) minmax(92px,1.1fr) 96px 96px 96px 96px 80px;gap:6px;font-size:12px;color:var(--sub);margin-bottom:4px;}
+  .rot-row{display:grid;grid-template-columns:34px minmax(68px,1fr) minmax(92px,1.1fr) 96px 96px 96px 96px 80px;gap:6px;align-items:center;margin-bottom:6px;}
   .rot-row input{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:var(--radius-sm);padding:8px 9px;font-size:16px;font-family:inherit;width:100%;min-width:0;min-height:38px;}
   .rot-no{font-size:12.5px;color:var(--sub);text-align:center;}
   .rot-ops{display:flex;gap:4px;}
@@ -520,9 +520,10 @@
   .rot-bulk summary{font-size:12.5px;color:var(--sub);cursor:pointer;padding:4px 0;}
   #aRotBulk{width:100%;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:var(--radius-sm);padding:10px 11px;font-size:16px;font-family:inherit;margin:6px 0;}
   @media(max-width:700px){
-    .rot-head{display:none;}
-    .rot-row{grid-template-columns:1fr;gap:5px;padding:8px 0;border-bottom:1px solid var(--line);}
-    .rot-no{text-align:left;font-weight:600;}
+    .rot-head{display:grid;font-size:11px;}
+    .rot-row{grid-template-columns:34px minmax(68px,1fr) minmax(92px,1.1fr) 96px 96px 96px 96px 80px;gap:5px;padding:8px 0;border-bottom:1px solid var(--line);}
+    .rot-list{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+    .rot-no{text-align:center;font-weight:600;}
   }
   .mrec-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);}
   .mrec-main{flex:1;min-width:0;}
@@ -1016,7 +1017,7 @@
       <textarea id="aRotBulk" rows="4" placeholder="一行一轮，首个词为收件人，其余为尺寸要求：&#10;@Cafejunky A5 双面写&#10;@holmes9139 A4"></textarea>
       <button type="button" class="btn btn-ghost btn-sm" id="aRotBulkBtn">导入为轮次</button>
     </details>
-    <div class="rot-head"><span>轮次</span><span>收件人</span><span>尺寸要求</span><span>截止日</span><span>已寄日</span><span></span></div>
+    <div class="rot-head"><span>轮次</span><span>收件人</span><span>尺寸要求</span><span>截止日</span><span>已写完</span><span>已寄出</span><span>已收到</span><span>操作</span></div>
     <div id="aRotList" class="rot-list"></div>
     <button type="button" class="btn btn-ghost btn-sm" id="aRotAdd" style="margin-top:6px;">＋ 添加一轮</button>
     <input type="hidden" id="aRotation" value="[]">
@@ -2265,6 +2266,8 @@ function renderTable(){
       }else if(Array.isArray(a.rotation) && a.rotation.length){
         rotHtml=`<div class="note"><span class="badge" style="background:var(--ok);color:#fff">✓ 全部轮次已寄出，已闭环</span></div>`;
       }
+      const rotSum=rotSummaryHtml(a);
+      if(rotSum) rotHtml=rotHtml+rotSum;
       return `<tr>
         <td data-label="活动名称"><div class="pc"><b title="${esc(a.title)}">${esc(a.title)||"—"}</b></div>${rotHtml}${a.url?`<div class="note"><a href="${safeUrl(a.url)}" target="_blank" rel="noopener">🔗 ${esc(a.url)}</a></div>`:""}${a.note?`<div class="note">${esc(a.note)}</div>`:""}${doneMark}</td>
         <td data-label="类型">${esc(k)}</td>
@@ -2514,7 +2517,7 @@ function rotDstr(d){ const p=n=>String(n).padStart(2,"0"); return d.getFullYear(
 function renderRotEditor(){
   const box=document.getElementById("aRotList"); if(!box) return;
   if(!actEditingRot.length){
-    box.innerHTML='<div class="muted" style="font-size:12.5px;padding:6px 0;">还没有轮次。点「添加一轮」或批量粘贴，按顺序登记每轮收件人与对方要求的尺寸；填了「已寄日」的轮次算完成。</div>';
+    box.innerHTML='<div class="muted" style="font-size:12.5px;padding:6px 0;">还没有轮次。点「添加一轮」或批量粘贴，按顺序登记每轮收件人与对方要求的尺寸；可分别记录「已写完 / 已寄出 / 已收到」三个时间节点追踪进度。</div>';
     rotSyncInput(); return;
   }
   box.innerHTML=actEditingRot.map((r,i)=>'<div class="rot-row">'
@@ -2522,7 +2525,9 @@ function renderRotEditor(){
     +'<input data-ri="'+i+'" data-rf="to" value="'+esc(r.to||"")+'" placeholder="收件人" aria-label="第'+(i+1)+'轮收件人">'
     +'<input data-ri="'+i+'" data-rf="size" value="'+esc(r.size||"")+'" placeholder="尺寸要求" aria-label="第'+(i+1)+'轮尺寸要求">'
     +'<input type="date" data-ri="'+i+'" data-rf="due" value="'+esc(r.due||"")+'" aria-label="第'+(i+1)+'轮截止日">'
-    +'<input type="date" data-ri="'+i+'" data-rf="sent" value="'+esc(r.sent||"")+'" aria-label="第'+(i+1)+'轮已寄日">'
+    +'<input type="date" data-ri="'+i+'" data-rf="written" value="'+esc(r.written||"")+'" aria-label="第'+(i+1)+'轮已写完">'
+    +'<input type="date" data-ri="'+i+'" data-rf="sent" value="'+esc(r.sent||"")+'" aria-label="第'+(i+1)+'轮已寄出">'
+    +'<input type="date" data-ri="'+i+'" data-rf="received" value="'+esc(r.received||"")+'" aria-label="第'+(i+1)+'轮已收到">'
     +'<span class="rot-ops">'
     +'<button type="button" class="mini" data-rup="'+i+'" title="上移" aria-label="上移">↑</button>'
     +'<button type="button" class="mini" data-rdn="'+i+'" title="下移" aria-label="下移">↓</button>'
@@ -2537,7 +2542,7 @@ function renderRotEditor(){
   rotSyncInput();
 }
 function rotAddRow(){
-  actEditingRot.push({to:"",size:"",due:"",sent:""}); renderRotEditor();
+  actEditingRot.push({to:"",size:"",due:"",written:"",sent:"",received:""}); renderRotEditor();
   const box=document.getElementById("aRotList");
   const rows=box?box.querySelectorAll(".rot-row"):[];
   const last=rows.length?rows[rows.length-1].querySelector("input"):null;
@@ -2549,7 +2554,7 @@ function rotBulkImport(){
   if(!lines.length){ toast("请先粘贴名单（一行一轮）","danger"); return; }
   lines.forEach(l=>{
     const m=l.match(/^(\S+)\s*([\s\S]*)$/);
-    actEditingRot.push({to:m?m[1]:l, size:m?(m[2]||"").trim():"", due:"", sent:""});
+    actEditingRot.push({to:m?m[1]:l, size:m?(m[2]||"").trim():"", due:"", written:"", sent:"", received:""});
   });
   if(ta) ta.value="";
   renderRotEditor(); toast("已导入 "+lines.length+" 轮，可再点「推算各轮日期」");
@@ -2566,6 +2571,7 @@ function rotGenDue(){
 function nextRotIdx(a){ if(!a||!Array.isArray(a.rotation)) return -1; return a.rotation.findIndex(r=>!r||!r.sent); }
 function rotNext(a){ const i=nextRotIdx(a); if(i<0) return null; const r=a.rotation[i]||{}; return {idx:i, to:r.to||"", size:r.size||"", due:r.due||""}; }
 function rotDueState(r){ if(!r||!r.due) return ""; const t=new Date(r.due+"T00:00:00"); if(isNaN(t)) return ""; const d0=new Date(); d0.setHours(0,0,0,0); const diff=Math.round((t-d0)/86400000); return diff<0?"overdue":(diff<=3?"duesoon":"ok"); }
+function rotSummaryHtml(a){ if(!a||!Array.isArray(a.rotation)||!a.rotation.length) return ""; const n=a.rotation.length; const w=a.rotation.filter(r=>r&&r.written).length; const s=a.rotation.filter(r=>r&&r.sent).length; const rc=a.rotation.filter(r=>r&&r.received).length; return `<div class="note" style="font-size:12px;opacity:.85">进度：写完 ${w}/${n} · 寄出 ${s}/${n} · 收到 ${rc}/${n}</div>`; }
 function openActivityModal(id){
   const a=id? activities.find(x=>x.id===id):null;
   document.getElementById("actModalTitle").textContent = a? "编辑活动" : "新建活动";
@@ -2586,7 +2592,7 @@ function openActivityModal(id){
     document.getElementById("aMax").value=(a.max!=null&&a.max!=="")?a.max:"";
     document.getElementById("aDeadline").value=a.deadline||"";
     document.getElementById("aNote").value=a.note||"";
-    actEditingRot = Array.isArray(a.rotation) ? a.rotation.map(r=>({to:r.to||"", size:r.size||"", due:r.due||"", sent:r.sent||""})) : [];
+    actEditingRot = Array.isArray(a.rotation) ? a.rotation.map(r=>({to:r.to||"", size:r.size||"", due:r.due||"", written:r.written||"", sent:r.sent||"", received:r.received||""})) : [];
   }
   renderRotEditor();
   renderActLinkChips();
@@ -2681,7 +2687,7 @@ function saveActivityModal(){
     status: document.getElementById("aStatus").value,
     links: actEditingLinks.map(l=>({type:l.type, id:l.id})),
     note: document.getElementById("aNote").value.trim(),
-    rotation: actEditingRot.map(r=>({to:(r.to||"").trim(), size:(r.size||"").trim(), due:r.due||"", sent:r.sent||""}))
+    rotation: actEditingRot.map(r=>({to:(r.to||"").trim(), size:(r.size||"").trim(), due:r.due||"", written:r.written||"", sent:r.sent||"", received:r.received||""}))
   };
   // 轮换名单非空时，进度由「已寄轮数 / 总轮数」派生，避免手填漂移
   if(data.rotation.length){
@@ -3378,12 +3384,13 @@ function exportCSV(){
   }else if(view==="activity"){
     // F1 修复：此前活动视图落入 else 兜底（代寄分支），导出文件名与内容都是代寄数据
     name="postcards_activity";
-    rows.push(["活动名称","类型","平台","进度","状态","截止日","关联","备注"]);
+    rows.push(["活动名称","类型","平台","进度","状态","截止日","关联","轮换","备注"]);
     filteredActivities().forEach(a=>{
       const k=(actKindList.find(o=>o.key===a.kind)||{}).label||a.kind||"";
       const prog=(a.max>0? (a.cur||0)+"/"+a.max : String(a.cur||0));
       const links=(Array.isArray(a.links)?a.links:[]).map(l=>actLinkItemLabel(l.type,l.id)).filter(Boolean).join("；");
-      rows.push([a.title,k,a.platform,prog,(ACT_STATUS[a.status]||{}).label||a.status||"",a.deadline||"",links,a.note||""]);
+      const rot=(Array.isArray(a.rotation)?a.rotation:[]).map(r=>[r.to||"",r.size||"",r.due||"",r.written||"",r.sent||"",r.received||""].join("|")).join(" ; ");
+      rows.push([a.title,k,a.platform,prog,(ACT_STATUS[a.status]||{}).label||a.status||"",a.deadline||"",links,rot,a.note||""]);
     });
   }else{
     name="postcards_proxy";
