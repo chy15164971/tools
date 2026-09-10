@@ -3547,7 +3547,10 @@ function renderToday(){
   list.querySelectorAll("[data-subtick]").forEach(b=>b.onclick=()=>{
     const t=state.tasks.find(x=>x.id===b.dataset.subtick); if(!t) return;
     const s=(t.subtasks||[]).find(x=>x.id===b.dataset.sid); if(!s) return;
-    subToggle(t, s, b.dataset.date);
+    const date=b.dataset.date;
+    const beforeAll=t.subtasks.every(x=>subIsDone(t,x,date));   // 勾选前是否已全勾（用于判定回退）
+    subToggle(t, s, date);
+    syncDoneFromSubtasks(t, date, beforeAll);
     save();
     renderToday();
   });
@@ -3894,6 +3897,41 @@ function subToggle(t, s, date){
     if(arr.length) t.subDone[d]=arr; else delete t.subDone[d];
   }else{
     s.done=!s.done;
+  }
+}
+// 子任务勾选变化 → 联动整任务完成态（用户诉求：子任务全部完成后不必再手动点「完成」）。
+// 规则：① 所有子任务勾完且任务尚未完成 ⇒ 自动标记完成；② 从「全勾」变为「有未勾」且任务正处于完成态 ⇒ 自动撤销完成。
+//   用「本时刻勾选前后是否全勾」的跳变判断，无需持久化标记，云同步丢字段也不影响（不会误把手动完成的任务翻回未完成）。
+//   注意：手动点「完成」按钮（markDoneBtn）不设任何标记，故其完成的任务即便后续取消某个子任务也不会被本函数翻回（beforeAll 为 false 时不触发回退）。
+function syncDoneFromSubtasks(t, date, beforeAll){
+  if(!t || !t.subtasks || !t.subtasks.length) return;
+  const rec=isRecTask(t);
+  const d = rec ? (date||subTodayKey()) : date;
+  const afterAll = t.subtasks.every(s=>subIsDone(t, s, d));
+  const before = (beforeAll===true || beforeAll===false) ? beforeAll : afterAll;  // 缺省视为无跳变 → 仅可能正向自动完成
+  if(rec){
+    const dd = t.doneDates||[];
+    const nowDone = dd.indexOf(d)>=0;
+    if(afterAll && !nowDone){
+      t.doneDates = dd.concat(d);
+      setDoneAt(t, d, doneAtIsoFor(d));
+      pushHistory(t, d);
+      if(typeof announce==="function") announce("子任务已全部完成，已自动标记为完成");
+    } else if(!afterAll && before && nowDone){
+      t.doneDates = dd.filter(x=>x!==d);
+      setDoneAt(t, d, null);
+    }
+  } else {
+    const nowDone = t.status==="done";
+    if(afterAll && !nowDone){
+      t.status="done";
+      setDoneAt(t, d, doneAtIsoFor(d));
+      pushHistory(t, d);
+      if(typeof announce==="function") announce("子任务已全部完成，已自动标记为完成");
+    } else if(!afterAll && before && nowDone){
+      t.status="todo";
+      setDoneAt(t, d, null);
+    }
   }
 }
 // 子任务进度尾标，如 (2/5)。重复任务按 date（缺省今天）统计，非重复任务按 s.done
@@ -6248,8 +6286,10 @@ function saveTask(){
     touchTask(et); save(); closeModal(); renderAll(); toast("已单独修改该日任务"); return;
   }
   let t;
+  let _subBeforeAll=false;   // 保存前子任务是否已全勾（供 syncDoneFromSubtasks 判定回退）
   if(editingId){
     t=state.tasks.find(x=>x.id===editingId);
+    _subBeforeAll=(t.subtasks||[]).every(s=>!!s.done);
     Object.assign(t, data);
     if(rec.freq==="none"){
       // P0-2：转非重复时保留最近一次打卡历史，而非清空（避免数据丢失 / 状态自相矛盾）
@@ -6271,6 +6311,7 @@ function saveTask(){
     t=Object.assign({id:"t"+Date.now().toString(36)+Math.random().toString(36).slice(2,5), status:"todo", doneDates:[], createdAt:Date.now()}, data);
     state.tasks.push(t);
   }
+  syncDoneFromSubtasks(t, editingDate, _subBeforeAll);
   touchTask(t);
   save(); closeModal(); renderAll(); toast(editingId?"已保存修改":"已新建任务");
 }
