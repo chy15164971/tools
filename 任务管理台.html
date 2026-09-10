@@ -573,9 +573,28 @@
   .mstep .mfin{width:auto;padding:0 9px;font-size:11.5px;font-weight:600;color:var(--ok);border-color:rgba(16,185,129,.35);}
   .mstep .mfin:hover{background:rgba(16,185,129,.12);color:var(--ok);}
   .mstep .munfin{width:auto;padding:0 9px;font-size:11.5px;font-weight:600;color:var(--sub);}
-  .mcard.done{opacity:.86;}
-  .mcard.done::before{background:var(--ok);}
+  /* 完成态：整体「退到背景层」——大幅淡出 + 去饱和 + 顶部条转灰 + 满条转灰，
+     让视线自然落在仍在读/追/听的条目上。悬停/聚焦（或触屏点按）时恢复，
+     保证「↺ 撤销」等按钮仍清晰可点。 */
+  .mcard.done{opacity:.46;filter:grayscale(.55);background:var(--soft);border-color:transparent;padding:12px 15px;transition:opacity .18s ease,filter .18s ease;}
+  .mcard.done::before{background:var(--line);}
+  .mcard.done .mname{color:var(--sub);font-weight:600;}
+  .mcard.done .mmeta,.mcard.done .mmeta b{color:var(--sub);font-weight:500;}
+  .mcard.done .mpct{color:var(--sub);}
+  .mcard.done .mhint{color:var(--sub);}
+  .mcard.done .mbadge{background:transparent;border:1px solid var(--line);color:var(--sub);}
+  .mcard.done .fill{background:var(--line);}
+  .mcard.done .mstep button{opacity:.75;}
+  /* 恢复可读性：鼠标悬停 / 键盘聚焦卡内控件 / 触屏按压 */
+  @media (hover:hover){
+    .mcard.done:hover,.mcard.done:focus-within{opacity:1;filter:none;background:var(--card);border-color:var(--line);}
+    .mcard.done:hover .mbadge,.mcard.done:focus-within .mbadge{background:var(--pri-soft);border-color:transparent;color:var(--pri);}
+    .mcard.done:hover .mname,.mcard.done:focus-within .mname{color:var(--ink);}
+  }
+  /* 触屏设备无 hover：基准不透明度抬高一点，避免「淡到点不着」 */
+  @media (hover:none){ .mcard.done{opacity:.62;} }
   .mcard .mdone{flex:none;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:rgba(16,185,129,.14);color:var(--ok);}
+  .mcard.done .mdone{background:transparent;border:1px dashed rgba(16,185,129,.5);}
   .media-done-sep{font-size:12px;font-weight:700;color:var(--ok);margin:8px 2px 0;padding:7px 2px 0;border-top:1px dashed var(--line);}
   .media-empty{text-align:center;color:var(--sub);font-size:13px;padding:18px;}
   .mrec-list{display:flex;flex-direction:column;gap:8px;max-height:min(56vh,560px);overflow:auto;margin-top:4px;}
@@ -789,6 +808,8 @@
   [data-theme="dark"] .modal,
   [data-theme="dark"] .stat-card,
   [data-theme="dark"] .media-stat{ background:var(--card); }
+  /* 完成态在暗色下同样退到背景层（此规则需在 .mcard 覆盖之后，特异性亦更高） */
+  [data-theme="dark"] .mcard.done{ background:var(--soft); border-color:transparent; }
   [data-theme="dark"] .today-item.overdue{ background:#241a1a; border-color:#5a2a2a; }
   [data-theme="dark"] .dcell.out{ background:#11162a; }
   [data-theme="dark"] .dcell.weekend{ background:#141a2b; }
