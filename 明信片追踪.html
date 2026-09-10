@@ -160,7 +160,7 @@
   .lb-item .lb-n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px;}
   .lb-item .lb-a{opacity:.4;font-size:11px;flex:none;}
   .lrow{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
-  .lrow input{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:var(--radius-sm);padding:9px 11px;font-size:14px;font-family:inherit;}
+  .lrow input{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:var(--radius-sm);padding:9px 11px;font-size:16px;font-family:inherit;}
   .lrow .l-emoji{flex:none;width:48px;text-align:center;padding-left:4px;padding-right:4px;}
   .lrow .l-name{flex:0 1 140px;min-width:0;}
   .lrow .l-url{flex:1;min-width:0;}
@@ -191,7 +191,7 @@
   .chips{display:flex;gap:6px;flex-wrap:wrap;}
   .chip{border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;font-family:inherit;}
   .chip.active{background:var(--pri);color:var(--white);border-color:var(--pri);}
-  .filters input,.filters select{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:var(--radius-sm);padding:8px 10px;font-size:13.5px;font-family:inherit;min-height:38px;}
+  .filters input,.filters select{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:var(--radius-sm);padding:8px 10px;font-size:16px;font-family:inherit;min-height:38px;}
   .filters .search{flex:1;min-width:0;width:100%;}
   .search-wrap{flex:1;min-width:140px;position:relative;display:flex;}
   .search-clear{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:none;color:var(--sub);cursor:pointer;font-size:14px;padding:4px 6px;line-height:1;}
@@ -322,7 +322,7 @@
   .muted{color:var(--sub);font-size:12px;}
   .stepwrap{display:flex;align-items:center;gap:10px;}
   .stepwrap .badge{font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;flex:none;}
-  .opt-row .opt-in{flex:1;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:var(--radius-sm);padding:9px 11px;font-size:14px;font-family:inherit;}
+  .opt-row .opt-in{flex:1;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:var(--radius-sm);padding:9px 11px;font-size:16px;font-family:inherit;}
   .opt-del{border:1px solid #ffd9d9;background:var(--card);color:var(--danger);border-radius:var(--radius-sm);width:38px;height:38px;flex:none;cursor:pointer;font-size:17px;line-height:1;font-family:inherit;}
   .opt-del:hover{background:var(--warnbg);}
   .modal-act{display:flex;gap:10px;justify-content:flex-end;margin-top:6px;}
@@ -408,7 +408,7 @@
     .filters .search{width:100%;min-height:42px;padding-right:34px;}
     .filters .chips{flex:1 1 100% !important;order:-2;}
     .chip{padding:6px 11px;font-size:12.5px;min-height:34px;}
-    .filters select,.filters input{min-height:42px;font-size:15px;}
+    .filters select,.filters input{min-height:42px;font-size:16px;}
     .btn-reset{flex:1 1 100% !important;min-height:42px;}
     /* 列表卡片 */
     .tablecard{border-radius:var(--radius);margin-top:2px;}
@@ -2264,7 +2264,8 @@ function renderTable(){
         const tag=rs==="overdue"?" · 已逾期":(rs==="duesoon"?" · 临近":"");
         rotHtml=`<div class="note"><span class="badge ${cls}">下一轮 R${nr.idx+1} → ${esc(nr.to||"待定")}${nr.size?" · "+esc(nr.size):""}${nr.due?" · "+esc(nr.due)+tag:""}</span></div>`;
       }else if(Array.isArray(a.rotation) && a.rotation.length){
-        rotHtml=`<div class="note"><span class="badge" style="background:var(--ok);color:#fff">✓ 全部轮次已寄出，已闭环</span></div>`;
+        const allRecv=a.rotation.every(r=>r&&r.received);
+        rotHtml=`<div class="note"><span class="badge" style="background:var(--ok);color:#fff">${allRecv?"✓ 全部轮次已收到，已闭环":"✓ 全部轮次已寄出 · 待确认收到"}</span></div>`;
       }
       const rotSum=rotSummaryHtml(a);
       if(rotSum) rotHtml=rotHtml+rotSum;
@@ -2373,23 +2374,50 @@ function readForm(dir){
   o.status=document.getElementById(def.statusId).value || def.defaultStatus;
   return o;
 }
+/* 状态↔日期一致性：状态回退时清掉不再成立的日期（决策 D2：直接清掉，不留档）。
+   背景：原先只在目标状态日期为空时「补填」，从不反向清退，导致「状态=未写」却残留 arrived 日期，
+   污染排序 / 在途天数 / CSV 导出。寄出链等级：未写0 < 未寄1 < 在途2 < 已到3；
+   「退回」(4) 视同已寄出，保留 sent/arrived（退回说明确实寄出去过）。 */
+const SENT_RANK={unwritten:0, unsent:1, transit:2, arrived:3, returned:4};
+function normalizeRecDates(rec, dir){
+  if(!rec) return rec;
+  const today=new Date().toISOString().slice(0,10);
+  if(dir==="sent"){
+    const k=(SENT_RANK[rec.status]!=null) ? SENT_RANK[rec.status] : 0;
+    if(k < SENT_RANK.transit) rec.sent="";
+    if(k < SENT_RANK.arrived) rec.arrived="";
+    if(rec.status==="transit" && !rec.sent) rec.sent=today;
+    if(rec.status==="arrived" && !rec.arrived) rec.arrived=today;
+  }else{
+    if(rec.status!=="received") rec.received="";
+    else if(!rec.received) rec.received=today;
+  }
+  return rec;
+}
 function changeRecStatus(dir, id, status){
   const p=findRec(dir,id); if(!p) return;
   p.status=status;
-  if(dir==="sent"){
-    if(status==="transit" && !p.sent) p.sent=new Date().toISOString().slice(0,10);
-    if(status==="arrived" && !p.arrived) p.arrived=new Date().toISOString().slice(0,10);
-  }else{
-    if(status==="received" && !p.received) p.received=new Date().toISOString().slice(0,10);
-  }
+  normalizeRecDates(p, dir);
   save(); renderAll(); toast("状态已更新");
+}
+// 删除记录后同步摘掉活动里的关联引用，避免死链长期累积并污染 CSV 导出（原先只显示「（关联已删）」）
+function unlinkFromActivities(id){
+  let n=0;
+  activities.forEach(a=>{
+    if(a && Array.isArray(a.links) && a.links.length){
+      const before=a.links.length;
+      a.links=a.links.filter(l=>l && l.id!==id);
+      if(a.links.length!==before){ n+=before-a.links.length; touch(a); }
+    }
+  });
+  return n;
 }
 async function delRec(dir, id){
   const p=findRec(dir,id); if(!p) return;
   const nm=p[REC_DEFS[dir].nameField]||"未命名";
   if(!(await confirmDialog("删除「"+nm+"」这张"+(dir==="sent"?"寄出":"收到")+"记录？",{danger:true}))) return;
   const arr=REC_DEFS[dir].arr(); const idx=arr.findIndex(x=>x.id===id);
-  if(idx>=0){ arr.splice(idx,1); pushTomb(id); tombSave(); }   // 墓碑：让删除能跨设备传播
+  if(idx>=0){ arr.splice(idx,1); unlinkFromActivities(id); pushTomb(id); tombSave(); }   // 墓碑：让删除能跨设备传播
   save(); renderAll(); toast("已删除");
 }
 // D8：图片输入框 → 预览图绑定（有值显示、点击放大），sent/received 共用
@@ -2422,11 +2450,7 @@ function saveRecModal(dir){
   if(!nameVal){ toast("请填写"+def.nameLabel, "danger"); return; }
   const id=document.getElementById(def.idId).value;
   const data=readForm(dir);
-  if(dir==="received" && data.status==="received" && !data.received) data.received=new Date().toISOString().slice(0,10);
-  if(dir==="sent"){
-    if(data.status==="transit" && !data.sent) data.sent=new Date().toISOString().slice(0,10);
-    if(data.status==="arrived" && !data.arrived) data.arrived=new Date().toISOString().slice(0,10);
-  }
+  normalizeRecDates(data, dir);   // 补填 + 回退清退，保证状态与日期自洽
   let cur;
   if(id){ cur=findRec(dir,id); if(cur) Object.assign(cur, data); }
   else { cur=Object.assign({id:uid()}, data); REC_DEFS[dir].arr().unshift(cur); }
@@ -2694,6 +2718,13 @@ function saveActivityModal(){
     data.max=String(data.rotation.length);
     data.cur=String(data.rotation.filter(r=>r.sent).length);
   }
+  // RR 三节点日期先后：只提示不拦截（补录历史时允许乱序），异常项列出前 3 个
+  const rotWarn=[];
+  data.rotation.forEach((r,i)=>{
+    const seq=[["已写完",r.written],["已寄出",r.sent],["已收到",r.received]].filter(x=>x[1]);
+    for(let j=1;j<seq.length;j++){ if(seq[j][1] < seq[j-1][1]) rotWarn.push("R"+(i+1)+" "+seq[j-1][0]+"晚于"+seq[j][0]); }
+  });
+  if(rotWarn.length) toast("注意："+rotWarn.length+" 轮日期先后异常（"+rotWarn.slice(0,3).join("、")+"），已保存请核对", "warn");
   if(!data.title){ toast("请填写活动名称", "danger"); return; }
   if(id){
     const a=activities.find(x=>x.id===id);
@@ -2848,7 +2879,7 @@ function saveProxyModal(){
 async function delProxy(id){
   if(!(await confirmDialog("确定删除这条代寄记录？",{danger:true, ok:"删除"}))) return;
   const gone=proxies.find(p=>p.id===id); const pid=gone&&gone.pairId;
-  proxies=proxies.filter(p=>p.id!==id); pushTomb(id);
+  proxies=proxies.filter(p=>p.id!==id); unlinkFromActivities(id); pushTomb(id);
   if(pid){  // F6 修复：删单腿后若 pairId 组只剩自己，解除关联，避免另一腿留悬空 pairId
     const rest=proxies.filter(p=>p.pairId===pid);
     if(rest.length<=1) rest.forEach(p=>{ delete p.pairId; touch(p); });
@@ -2860,7 +2891,7 @@ async function delProxy(id){
 async function delProxyPair(pairId){
   const n=proxies.filter(p=>p.pairId===pairId).length;
   if(!(await confirmDialog(`确定删除这一对互寄记录（${n} 条）？`,{danger:true, ok:"删除整对"}))) return;
-  proxies.filter(p=>p.pairId===pairId).forEach(p=>pushTomb(p.id));  // 整对逐条打墓碑
+  proxies.filter(p=>p.pairId===pairId).forEach(p=>{ unlinkFromActivities(p.id); pushTomb(p.id); });  // 整对逐条打墓碑
   proxies=proxies.filter(p=>p.pairId!==pairId); tombSave();
   save(); renderAll(); toast("已删除互寄对");
 }
