@@ -549,7 +549,7 @@
   .mcard.aud::before{background:var(--c6);}
   .mcard .mtop{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
   .mcard .mname{font-size:14.5px;font-weight:650;line-height:1.35;}
-  .mcard .mright{display:flex;align-items:center;gap:6px;flex:none;}
+  .mcard .mright{display:flex;align-items:center;gap:6px;flex:none;flex-wrap:wrap;justify-content:flex-end;}
   .mcard .mbadge{flex:none;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--pri-soft);color:var(--pri);}
   .mcard.tv .mbadge{background:#ffe9f1;color:var(--c4);}
   .mcard.aud .mbadge{background:rgba(155,107,255,.14);color:var(--c6);}
@@ -569,6 +569,13 @@
   .mstep button{width:26px;height:26px;border-radius:7px;border:1px solid var(--line);background:var(--card);color:var(--sub);font-size:15px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;}
   .mstep button:hover{background:var(--hover);color:var(--ink);}
   .mstep button:active{transform:scale(.9);}
+  .mstep .mfin{width:auto;padding:0 9px;font-size:11.5px;font-weight:600;color:var(--ok);border-color:rgba(16,185,129,.35);}
+  .mstep .mfin:hover{background:rgba(16,185,129,.12);color:var(--ok);}
+  .mstep .munfin{width:auto;padding:0 9px;font-size:11.5px;font-weight:600;color:var(--sub);}
+  .mcard.done{opacity:.86;}
+  .mcard.done::before{background:var(--ok);}
+  .mcard .mdone{flex:none;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:rgba(16,185,129,.14);color:var(--ok);}
+  .media-done-sep{font-size:12px;font-weight:700;color:var(--ok);margin:8px 2px 0;padding:7px 2px 0;border-top:1px dashed var(--line);}
   .media-empty{text-align:center;color:var(--sub);font-size:13px;padding:18px;}
   .mrec-list{display:flex;flex-direction:column;gap:8px;max-height:min(56vh,560px);overflow:auto;margin-top:4px;}
   .mrec-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--soft);}
@@ -6631,23 +6638,51 @@ function mediaSeed(){
   mediaSave();
 }
 function mPct(c){ return c.total>0 ? Math.round(c.current/c.total*100) : 0; }
+function mediaDone(c){ if(!c) return false; return c.total>0 ? (c.current>=c.total) : !!c.done; }
+function mediaFinish(id, kind){
+  const it=(media[kind]||[]).find(x=>x.id===id); if(!it) return;
+  if(mediaDone(it)) return;
+  it.prevCurrent = it.current;
+  if(it.total>0) it.current = it.total;
+  it.done = true;
+  mediaSave(); renderMedia(); toast("已标记完成 · 进度 100%");
+}
+function mediaUndoFinish(id, kind){
+  const it=(media[kind]||[]).find(x=>x.id===id); if(!it) return;
+  it.current = (typeof it.prevCurrent==="number") ? it.prevCurrent : 0;
+  delete it.prevCurrent;
+  it.done = false;
+  mediaSave(); renderMedia(); toast("已撤销完成");
+}
 const M_KINDS={books:{cls:"",verb:"已读",unit:"章"},tvs:{cls:"tv",verb:"已看",unit:"集"},auds:{cls:"aud",verb:"已听",unit:"集"}};
 function mCard(c, kind){
   const k=M_KINDS[kind]||M_KINDS.books;
   const p = mPct(c);
-  return `<div class="mcard ${k.cls}" data-id="${c.id}" data-kind="${kind}">
+  const dn = mediaDone(c);
+  const hintTxt = dn ? ("✓ 已完成 · 共 "+c.total+" "+k.unit) : (k.verb+" "+c.current+" "+k.unit+"，剩余 "+(c.total-c.current));
+  const finBtn = dn ? '<button class="munfin" data-unfinish title="撤销完成" aria-label="撤销完成">↺ 撤销</button>'
+                    : '<button class="mfin" data-finish title="标记完成（进度直接到 100%）" aria-label="标记完成">✓ 完成</button>';
+  return `<div class="mcard ${k.cls}${dn?" done":""}" data-id="${c.id}" data-kind="${kind}">
     <div class="mtop">
       <div class="mname">${esc(c.title)}</div>
       <div class="mright">
-        <span class="mbadge">${esc(c.type)}</span>
+        <span class="mbadge">${esc(c.type)}</span>${dn?'<span class="mdone">✓ 已完成</span>':''}
         <button class="micon" data-edit title="编辑" aria-label="编辑「${esc(c.title)}」">✎</button>
         <button class="micon" data-del title="删除" aria-label="删除「${esc(c.title)}」"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
       </div>
     </div>
     <div class="mmeta">进度 <b>${c.current} / ${c.total}</b> · 平台 ${esc(c.platform||"—")}</div>
     <div class="mbar"><div class="track"><i class="fill" data-w="${p}"></i></div><div class="mpct">${p}%</div></div>
-    <div class="mhint"><span class="mhint-txt">${k.verb} ${c.current} ${k.unit}，剩余 ${c.total-c.current}</span><span class="mstep"><button data-step="-1" title="减 1 ${k.unit}" aria-label="「${esc(c.title)}」减 1 ${k.unit}">−</button><button data-step="1" title="加 1 ${k.unit}" aria-label="「${esc(c.title)}」加 1 ${k.unit}">+</button></span></div>
+    <div class="mhint"><span class="mhint-txt">${hintTxt}</span><span class="mstep"><button data-step="-1" title="减 1 ${k.unit}" aria-label="「${esc(c.title)}」减 1 ${k.unit}">−</button><button data-step="1" title="加 1 ${k.unit}" aria-label="「${esc(c.title)}」加 1 ${k.unit}">+</button>${finBtn}</span></div>
   </div>`;
+}
+function mediaColHtml(arr, kind, emptyMsg){
+  const act=(arr||[]).filter(c=>!mediaDone(c));
+  const dn=(arr||[]).filter(c=>mediaDone(c));
+  if(!act.length && !dn.length) return '<div class="media-empty">'+emptyMsg+'</div>';
+  let h=act.map(c=>mCard(c,kind)).join("");
+  if(dn.length) h+='<div class="media-done-sep">✓ 已完成 '+dn.length+'</div>'+dn.map(c=>mCard(c,kind)).join("");
+  return h;
 }
 function renderMedia(){
   // 整页视图上下文搜索：按 名称/类型/平台 过滤，与项目/清单/OKR 视图同构
@@ -6672,15 +6707,15 @@ function renderMedia(){
   html+=`<div class="media-cols">`;
   html+=`  <div class="media-col">`;
   html+=`    <div class="media-sec"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> 在读图书</div>`;
-  html+=`    ${books.length ? books.map(c=>mCard(c,"books")).join("") : (mq ? '<div class="media-empty">没有匹配的在读图书</div>' : '<div class="media-empty">暂无在读图书，点右上方「+ 添加媒体」</div>')}`;
+  html+=`    ${mediaColHtml(books,"books", mq?'没有匹配的在读图书':'暂无在读图书，点右上方「+ 添加媒体」')}`;
   html+=`  </div>`;
   html+=`  <div class="media-col">`;
   html+=`    <div class="media-sec tv"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 3l4 4 4-4"/></svg>在追剧集</div>`;
-  html+=`    ${tvs.length ? tvs.map(c=>mCard(c,"tvs")).join("") : (mq ? '<div class="media-empty">没有匹配的在追剧集</div>' : '<div class="media-empty">暂无在追剧集</div>')}`;
+  html+=`    ${mediaColHtml(tvs,"tvs", mq?'没有匹配的在追剧集':'暂无在追剧集')}`;
   html+=`  </div>`;
   html+=`  <div class="media-col">`;
   html+=`    <div class="media-sec aud"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>在听 · 有声剧 / 播客</div>`;
-  html+=`    ${auds.length ? auds.map(c=>mCard(c,"auds")).join("") : (mq ? '<div class="media-empty">没有匹配的在听条目</div>' : '<div class="media-empty">暂无在听条目，点右上方「+ 添加媒体」</div>')}`;
+  html+=`    ${mediaColHtml(auds,"auds", mq?'没有匹配的在听条目':'暂无在听条目，点右上方「+ 添加媒体」')}`;
   html+=`  </div>`;
   html+=`</div>`;
   html+=`</div>`;
@@ -6692,6 +6727,8 @@ function renderMedia(){
     card.querySelector("[data-edit]").onclick=()=>openMedia(card.dataset.id, card.dataset.kind);
     card.querySelector("[data-del]").onclick=()=>delMedia(card.dataset.id, card.dataset.kind);
     card.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>stepMedia(card.dataset.id, card.dataset.kind, +b.dataset.step));
+    const mfb=card.querySelector("[data-finish]"); if(mfb) mfb.onclick=()=>mediaFinish(card.dataset.id, card.dataset.kind);
+    const mub=card.querySelector("[data-unfinish]"); if(mub) mub.onclick=()=>mediaUndoFinish(card.dataset.id, card.dataset.kind);
   });
   requestAnimationFrame(()=>setTimeout(()=>{
     v.querySelectorAll(".mcard .fill").forEach(f=>f.style.width=f.dataset.w+"%");
@@ -6700,9 +6737,13 @@ function renderMedia(){
 // 卡内快捷加减：±1 后就地更新该卡与平均进度，不整页重渲染（避免进度条每次从头动画）
 function stepMedia(id, kind, d){
   const it=(media[kind]||[]).find(x=>x.id===id); if(!it) return;
+  const wasDone=mediaDone(it); const oldCur=it.current;
   const nv=Math.min(it.total, Math.max(0, it.current+d));
   if(nv===it.current){ if(it.current>=it.total&&d>0) toast("已达到总量"); return; }
-  it.current=nv; mediaSave();
+  it.current=nv;
+  if(it.total>0){ it.done = it.current>=it.total; if(!wasDone && it.done) it.prevCurrent=oldCur; }
+  mediaSave();
+  if(mediaDone(it)!==wasDone){ renderMedia(); return; }
   const card=document.querySelector('.mcard[data-id="'+id+'"]');
   if(card){
     const p=mPct(it);
@@ -6744,6 +6785,7 @@ function saveMedia(){
     const it = oldArr.find(x=>x.id===mediaEditId);
     if(it){
       it.title=title; it.type=typeLabel; it.current=cur; it.total=tot; it.platform=platform;
+      if(tot>0){ it.done = (cur>=tot); if(!it.done) delete it.prevCurrent; }
       if(kind!==mediaEditKind){ // 编辑时换了类型 → 从旧分组搬到新分组（保留 id 与数据）
         const ix=oldArr.indexOf(it); if(ix>=0) oldArr.splice(ix,1);
         media[kind].push(it);
@@ -6752,7 +6794,7 @@ function saveMedia(){
   } else {
     media[kind].push({
       id:"m"+Date.now().toString(36)+Math.random().toString(36).slice(2,4),
-      title, type:typeLabel, current:cur, total:tot, platform
+      title, type:typeLabel, current:cur, total:tot, platform, done:(tot>0&&cur>=tot)
     });
   }
   mediaSave(); closeMedia(); renderAll(); toast("已保存");
