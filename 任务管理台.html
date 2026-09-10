@@ -533,6 +533,7 @@
   .media-stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center;}
   .media-stat .n{font-size:22px;font-weight:700;}
   .media-stat .l{font-size:12px;color:var(--sub);margin-top:2px;}
+  .media-stat .msub{display:block;font-size:11px;color:var(--sub);opacity:.72;margin-top:1px;}
   .media-sec{font-size:14px;font-weight:700;margin:14px 2px 10px;padding-left:10px;border-left:4px solid var(--pri);}
   .media-sec.tv{border-left-color:var(--c4);}
   .media-sec.aud{border-left-color:var(--c6);}
@@ -6691,7 +6692,7 @@ function renderMedia(){
   const booksAll=media.books, tvsAll=media.tvs, audsAll=media.auds;
   const books=booksAll.filter(mHit), tvs=tvsAll.filter(mHit), auds=audsAll.filter(mHit);
   const avg=a=> a.length ? Math.round(a.reduce((s,x)=>s+mPct(x),0)/a.length) : 0;
-  const avgAll=avg([...booksAll,...tvsAll,...audsAll]);
+  const avgAll=avg([...booksAll,...tvsAll,...audsAll].filter(c=>!mediaDone(c)));
   let html=`<div class="media-wrap">`;
   if(mq){
     const hitN=books.length+tvs.length+auds.length, allN=booksAll.length+tvsAll.length+audsAll.length;
@@ -6699,10 +6700,13 @@ function renderMedia(){
   }
   html+=`<div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:10px;"><span class="media-avg">平均进度 <b id="mediaAvgN">${avgAll}%</b></span><button class="btn btn-ghost btn-sm" id="mediaRecover">↺ 找回误删</button><button class="btn btn-pri btn-sm" id="mediaAdd">+ 添加媒体</button></div>`;
   // 三列与上方三张统计卡同为 repeat(3,1fr)：在读 / 在追 / 在听 1:1 对齐上方标签
+  // 统计卡口径：主数字=进行中（在读/在追/在听），已完成不再计入，另以副标注「已完成 N」呈现
+  const mActive=a=>a.filter(c=>!mediaDone(c)).length, mDone=a=>a.filter(c=>mediaDone(c)).length;
+  const mStat=(act,doneN,label,color)=>`<div class="media-stat"><div class="n" style="color:${color}">${act}</div><div class="l">${label}${doneN?`<span class="msub">已完成 ${doneN}</span>`:""}</div></div>`;
   html+=`<div class="media-stats">
-    <div class="media-stat"><div class="n" style="color:var(--pri)">${books.length}</div><div class="l">在读书籍</div></div>
-    <div class="media-stat"><div class="n" style="color:var(--c4)">${tvs.length}</div><div class="l">在追剧集</div></div>
-    <div class="media-stat"><div class="n" style="color:var(--c6)">${auds.length}</div><div class="l">在听剧集</div></div>
+    ${mStat(mActive(books),mDone(books),"在读书籍","var(--pri)")}
+    ${mStat(mActive(tvs),mDone(tvs),"在追剧集","var(--c4)")}
+    ${mStat(mActive(auds),mDone(auds),"在听剧集","var(--c6)")}
   </div>`;
   html+=`<div class="media-cols">`;
   html+=`  <div class="media-col">`;
