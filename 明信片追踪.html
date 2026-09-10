@@ -327,6 +327,7 @@
   .opt-del:hover{background:var(--warnbg);}
   .modal-act{display:flex;gap:10px;justify-content:flex-end;margin-top:6px;}
   .hint{font-size:12px;color:var(--sub);margin-top:4px;}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0;}
   .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(16px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:11px;font-size:13.5px;opacity:0;transition:opacity .25s, transform .25s;z-index:120;pointer-events:none;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   .toast.success{background:var(--ok);color:var(--white);}
@@ -615,7 +616,7 @@
   </div>
 
   <div class="topview">
-    <div class="segtabs" id="segtabs" data-page-node-id="l9tYVZY8FvIFuMPrOMoT7t"></div>
+    <div class="segtabs" id="segtabs" role="tablist" aria-label="视图切换" data-page-node-id="l9tYVZY8FvIFuMPrOMoT7t"></div>
     <button class="btn btn-pri btn-sm" id="btnAdd" style="margin-left:auto"></button>
   </div>
 
@@ -1133,6 +1134,7 @@
 
 <input type="file" id="fileInput" accept="application/json" style="display:none;" data-page-node-id="iNNbJaTJ67zAidzCuo13Ke">
 <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true" data-page-node-id="1sJrF2pXt6vJsZbJvpQQdd"></div>
+<div id="srAnnounce" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <!-- 自定义确认弹窗（替代原生 confirm，体验/风格统一） -->
 <div class="mask" id="confirmMask" data-page-node-id="QOe2uRSx5DlzKeYiCy3yhp">
@@ -1252,7 +1254,16 @@ var _emojiRe=null;
  *   · toast            —— 任务台用全局 toastT / 明信片用 el._timer → 统一挂元素（免全局污染）
  *
  * 依赖约定：本层函数引用宿主文件已定义的 cloud / CLOUD_KEY / CLOUD_KEY_ALT /
- *   EMOJI_ICON / _emojiRe 等，函数体延迟求值，故本块置于脚本最前仍安全。
+ *   esc / EMOJI_ICON / _emojiRe 等。
+ *
+ * ⚠️ 放置位置铁律（2026-09-10 血案，务必先读）：
+ *   本块必须与上述标识符 **处于同一作用域**，否则静默失效。
+ *   · 任务管理台 —— 应用代码在脚本顶层 → 本块置于脚本最前即可；
+ *   · 明信片追踪 —— 应用整体包在 (function(){ … })() 内，esc / cloud / CLOUD_KEY
+ *     都是 IIFE 私有 → 本块必须置于该 IIFE **内部**。
+ *     曾因放在 IIFE 外，导致 safeUrl() 里的 esc() 抛 `ReferenceError: esc is not
+ *     defined`，初始化中断、页面整片空白。
+ *   移动本块后，务必在浏览器/jsdom 里实测「零报错 + 页面正常渲染」再发布。
  * ==========================================================================*/
 
 const PAGE_SIZE=100;
@@ -1375,6 +1386,53 @@ function toast(msg, kind){
   t.textContent=msg;
   t.className="toast"+(kind?(" "+kind):"");
   t.classList.add("show"); clearTimeout(t._timer); t._timer=setTimeout(()=>t.classList.remove("show"),1800);
+}
+
+/* ---------- 无障碍增强（D4 B+） ---------- */
+
+/* N4 无障碍播报：写入 <div id="srAnnounce" role="status" aria-live="polite">。
+   相同文本去重 —— 整页重渲染很频繁，若不去重会把读屏刷爆。
+   注：toast 本身已是 aria-live，故本函数只用于「不该弹视觉提示」的静默反馈
+   （如列表条数/页码变化），不要用它重复 toast 的职责。 */
+function announce(msg){
+  const el=document.getElementById("srAnnounce"); if(!el||!msg) return;
+  if(el.__last===msg) return;
+  el.__last=msg;
+  el.textContent="";
+  setTimeout(function(){ el.textContent=msg; }, 30);   // 先清空再写，确保读屏感知到「变化」
+}
+
+/* N4 分页列表摘要：播报「共 N 条，当前第 a–b 条（第 p/P 页）」。
+   由分页型列表在渲染末尾调用；页码取自本层 _pg，与分页条自动一致。 */
+function announceList(key, total){
+  const n=Number(total)||0;
+  if(n<=0){ announce("没有匹配的记录"); return; }
+  if(n<=PAGE_SIZE){ announce("共 "+n+" 条"); return; }
+  const pages=Math.max(1,Math.ceil(n/PAGE_SIZE));
+  const p=Math.max(1,Math.min(pages,Number(_pg[key])||1));
+  announce("共 "+n+" 条，当前第 "+((p-1)*PAGE_SIZE+1)+"–"+Math.min(n,p*PAGE_SIZE)+" 条（第 "+p+"/"+pages+" 页）");
+}
+
+/* N3 tablist 键盘导航：←/→ 切页签、Home/End 到首末（自动激活，符合 ARIA tabs 惯例）。
+   宿主若已自行处理该 tablist 并 preventDefault（任务台 #seg 自带方向键逻辑），
+   本层靠 e.defaultPrevented 自动让位，不会双重切换。 */
+function bindTablistKeys(){
+  if(window.__tabKeysBound) return;
+  window.__tabKeysBound=true;
+  document.addEventListener("keydown",function(e){
+    if(e.defaultPrevented) return;                       // 宿主已处理 → 让位
+    const k=e.key;
+    if(k!=="ArrowRight"&&k!=="ArrowLeft"&&k!=="Home"&&k!=="End") return;
+    const t=e.target, tl=(t&&t.closest)?t.closest('[role="tablist"]'):null; if(!tl) return;
+    const bs=[].slice.call(tl.querySelectorAll('[role="tab"]')).filter(function(b){ return !b.disabled; });
+    if(bs.length<2) return;
+    const i=bs.indexOf(t); if(i<0) return;
+    e.preventDefault();
+    const j = k==="Home" ? 0 : k==="End" ? bs.length-1
+            : k==="ArrowRight" ? (i+1)%bs.length : (i-1+bs.length)%bs.length;
+    try{ bs[j].focus(); }catch(_){}
+    try{ bs[j].click(); }catch(_){}
+  });
 }
 /* <<< SHARED:END */
 /* ===== 数据 ===== */
@@ -1730,7 +1788,7 @@ function renderTabs(){
   const el=document.getElementById("segtabs");
   const lbl=tabLabels();
   const items=[["sent",lbl.sent],["received",lbl.received],["__sep__",""],["proxy",lbl.proxy],["activity",lbl.activity]];
-  el.innerHTML=items.map(([v,t])=> v==="__sep__" ? `<span class="seg-sep"></span>` : `<button class="seg ${view===v?"active":""}" data-v="${v}">${tabIcon(v)}<span class="tab-label" data-v="${v}" title="${v==="proxy"?"代寄 = 请人代寄并写回 · 双击可重命名":"双击可重命名该分类"}">${esc(t)}</span></button>`).join("");
+  el.innerHTML=items.map(([v,t])=> v==="__sep__" ? `<span class="seg-sep"></span>` : `<button class="seg ${view===v?"active":""}" data-v="${v}" role="tab" aria-selected="${view===v?"true":"false"}">${tabIcon(v)}<span class="tab-label" data-v="${v}" title="${v==="proxy"?"代寄 = 请人代寄并写回 · 双击可重命名":"双击可重命名该分类"}">${esc(t)}</span></button>`).join("");
   el.querySelectorAll(".seg").forEach(b=>{
     const label=b.querySelector(".tab-label");
     // 单击 = 立即切换视图（同视图跳过，避免双击第一下触发重渲染）
@@ -2466,6 +2524,8 @@ function renderTable(){
     pgr.style.display=list.length>PAGE_SIZE?"":"none";
   }
   pgBind();
+  // N4 无障碍播报：列表/筛选/翻页变化后播报条数与页码（文本相同自动去重，不刷屏）
+  announceList("pc-"+view, list.length);
 }
 // M1：表格事件委托——整表 innerHTML 重建后不再逐行重绑事件，改为在 tbody 上挂一次稳定监听器（性能优化 + 避免监听器反复创建销毁）
 function bindTableDelegation(){
@@ -3804,6 +3864,22 @@ renderAll();
 // 打开即拉取云端最新（手机端更新 → 电脑端打开即见）；并启动轻量轮询，长开页面也能及时同步
 cloudAutoDownload();
 setInterval(cloudAutoDownload, 60000);
+
+/* ===== 无障碍增强（D4 B+）：N1 弹窗补 dialog 语义 + N3 tablist 方向键 ===== */
+(function(){
+  // N1：弹窗缺 role/aria-modal 时，读屏读不出「弹窗已打开」及其边界；用标题作可读名
+  document.querySelectorAll(".mask").forEach(function(m,i){
+    if(!m.getAttribute("role")) m.setAttribute("role","dialog");
+    if(!m.getAttribute("aria-modal")) m.setAttribute("aria-modal","true");
+    if(m.getAttribute("aria-labelledby")||m.getAttribute("aria-label")) return;
+    var h=m.querySelector(".modal h2, .modal h3, .w-modal h2, .w-modal h3, h2, h3");
+    if(!h) return;
+    if(!h.id) h.id="dlgTitle"+(i+1);
+    m.setAttribute("aria-labelledby",h.id);   // 用 id 关联，标题文案动态变化也能跟上
+  });
+  // N3：tablist 键盘导航（←/→ 切页签、Home/End 首末）
+  bindTablistKeys();
+})();
 })();
 /* P2-14 焦点陷阱：弹窗(.mask/[role=dialog])打开时 Tab 焦点锁定在弹窗内，关闭后焦点回归触发元素 */
 (function(){
