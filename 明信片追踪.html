@@ -1226,7 +1226,15 @@
   </div>
 </div>
 
-<script>/* >>> SHARED:BEGIN —— 由 _shared/shared.js 自动生成，请勿直接编辑本块 */
+<script>
+
+
+var EMOJI_ICON={"🌟":"star","⚠":"warn","⚠️":"warn","🔍":"search","🎯":"target","📌":"pin","📥":"inbox","⏰":"alarm","📊":"bar","🔀":"shuffle","🎨":"palette","⚡":"bolt","📈":"up","📤":"out","📁":"folder","⏳":"glass","💡":"bulb","🌱":"seed","🔥":"fire","🎉":"pop","📅":"cal","👁":"eye","✨":"spark","🌍":"globe","🔁":"repeat","🔄":"refresh","📦":"box","🔗":"link","✉":"mail"};
+var _emojiRe=null;
+
+
+(function(){
+/* >>> SHARED:BEGIN —— 由 _shared/shared.js 自动生成，请勿直接编辑本块 */
 /* ============================================================================
  * shared.js —— 任务管理台 / 明信片追踪 公共层（单一事实源）
  * ----------------------------------------------------------------------------
@@ -1369,13 +1377,6 @@ function toast(msg, kind){
   t.classList.add("show"); clearTimeout(t._timer); t._timer=setTimeout(()=>t.classList.remove("show"),1800);
 }
 /* <<< SHARED:END */
-
-
-var EMOJI_ICON={"🌟":"star","⚠":"warn","⚠️":"warn","🔍":"search","🎯":"target","📌":"pin","📥":"inbox","⏰":"alarm","📊":"bar","🔀":"shuffle","🎨":"palette","⚡":"bolt","📈":"up","📤":"out","📁":"folder","⏳":"glass","💡":"bulb","🌱":"seed","🔥":"fire","🎉":"pop","📅":"cal","👁":"eye","✨":"spark","🌍":"globe","🔁":"repeat","🔄":"refresh","📦":"box","🔗":"link","✉":"mail"};
-var _emojiRe=null;
-
-
-(function(){
 /* ===== 数据 ===== */
 const KEY="wb_postcards_v1";
 const WKEY="wb_postcards_widgets_v1";
