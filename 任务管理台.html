@@ -9128,11 +9128,16 @@ function scheduleCloudRetry(){
   }, delay);
 }
 let _upTimer=null;
+let _pendingUpload=false;   // 已被启动门禁拦下的待传改动（拉取一旦成功必须补传，否则永久搁置）
 function cloudAutoUpload(){
   if(_cloudBusy) return;
-  if(!_bootSyncAllowed) return;   // 启动拉取未完成/失败前绝不自动上传，保护 Gist 不被空数据覆盖
   if(!cloud.auto) return;
   if(!cloud.token||!cloud.gist) return;
+  // 启动拉取未完成/失败前不自动上传（保护 Gist 不被空数据覆盖），但要记下「有待传改动」。
+  // 说明：当前各合并分支（情形 1/2/4）末尾都会调用 mediaSave/habitSave/... 间接触发上传，
+  // 所以多数情况下补传是「顺带」发生的，并非已知的丢数据缺陷。此处显式记录，是为了让
+  // 「拉取一旦恢复必补传」成为不依赖分支实现细节的硬保证（内容一致的分支不与任何 *Save() 相连）。
+  if(!_bootSyncAllowed){ _pendingUpload=true; return; }
   if(_upTimer) clearTimeout(_upTimer);
   _upTimer=setTimeout(()=>{ cloudUpload(true); }, 1500);   // 防抖：连续保存只触发一次上传
 }
@@ -9316,7 +9321,11 @@ async function cloudSilentPull(){
   _pullBusy=true;
   try{
     await cloudStartupPull(true);
-    if(window.__pullOk){ _pullFailN=0; markSynced(); } else { _pullFailN=Math.min(6,_pullFailN+1); }
+    if(window.__pullOk){
+      _pullFailN=0; markSynced();
+      // 自愈补传：此前被 _bootSyncAllowed 拦下的改动在此刻补传（cloudUpload 先读云端再合并写回，不会覆盖其他设备数据）
+      if(_pendingUpload){ _pendingUpload=false; cloudAutoUpload(); }
+    } else { _pullFailN=Math.min(6,_pullFailN+1); }
   }catch(e){ _pullFailN=Math.min(6,_pullFailN+1); }
   finally{ _pullBusy=false; }
 }
