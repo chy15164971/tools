@@ -1327,8 +1327,15 @@ function parseConfig(txt){
   const out={gist:"", token:""};
   if(!txt) return out;
   String(txt).split(/\r?\n/).forEach(ln=>{
-    const m=ln.match(/^\s*(Gist\s*ID|Gist|Token)\s*[:：]\s*(.+?)\s*$/i);
-    if(m){ const k=m[1].toLowerCase(); const v=m[2]; if(k.indexOf("gist")===0) out.gist=v; else if(k==="token") out.token=v; }
+    const m=ln.match(/^\s*(Gist\s*ID|Gist|Token)\s*[:：]\s*(.*)$/i);
+    if(!m) return;
+    // 关键：值必须 trim 后非空才算数。原用 (.+?)\s*$ 会把「冒号后的空格」本身当成值，
+    // 于是 "Token: "（空配置）被解析成 " " —— truthy，绕过「没找到配置」校验，
+    // 把空格写进 cloud.token 去请求 API，用户只看到含糊的「云端暂无数据 / 读取失败」。
+    const v=(m[2]||"").trim();
+    if(!v) return;
+    const k=m[1].toLowerCase();
+    if(k.indexOf("gist")===0) out.gist=v; else if(k==="token") out.token=v;
   });
   return out;
 }
@@ -3870,7 +3877,7 @@ document.getElementById("csDownload").onclick=()=>{ cloud.token=document.getElem
 document.getElementById("csRecover").onclick=()=>openRecoverModal();
 document.getElementById("recoverClose").onclick=closeRecoverModal;
 { const mr=document.getElementById("recoverMask"); if(mr) mr.addEventListener("click", e=>{ if(e.target===mr) closeRecoverModal(); }); }
-document.getElementById("csCopy").onclick=()=>{ try{ const txt="Gist ID: "+(cloud.gist||"")+"\nToken: "+(cloud.token||""); if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(()=>{ setCloudStatus("已复制同步配置，可粘贴到另一台设备 ✓"); toast("已复制同步配置，可粘贴到另一台设备 ✓","success"); }, ()=>{ setCloudStatus("复制失败，请手动复制"); toast("复制失败，请手动复制","danger"); }); } else { setCloudStatus("当前浏览器不支持自动复制，请手动复制"); toast("当前浏览器不支持自动复制，请手动复制","warn"); } }catch(e){ const _m="复制失败："+(e&&e.message?e.message:e); setCloudStatus(_m); toast(_m,"danger"); } };
+document.getElementById("csCopy").onclick=()=>{ try{ const _ti=document.getElementById("csToken"), _gi=document.getElementById("csGist"); const _t=((_ti&&_ti.value)||"").trim(), _g=((_gi&&_gi.value)||"").trim(); if(_t) cloud.token=_t; if(_g) cloud.gist=_g; if(_t||_g) cloudSave(); if(!cloud.gist&&!cloud.token){ setCloudStatus("本机尚未配置 Gist ID / Token，没有可复制的配置", true); toast("本机尚未配置，无配置可复制","warn"); return; } const txt="Gist ID: "+(cloud.gist||"")+"\nToken: "+(cloud.token||""); if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(()=>{ setCloudStatus("已复制同步配置，可粘贴到另一台设备 ✓"); toast("已复制同步配置，可粘贴到另一台设备 ✓","success"); }, ()=>{ setCloudStatus("复制失败，请手动复制"); toast("复制失败，请手动复制","danger"); }); } else { setCloudStatus("当前浏览器不支持自动复制，请手动复制"); toast("当前浏览器不支持自动复制，请手动复制","warn"); } }catch(e){ const _m="复制失败："+(e&&e.message?e.message:e); setCloudStatus(_m); toast(_m,"danger"); } };
 document.getElementById("csPaste").onclick=async()=>{ try{ if(!(navigator.clipboard&&navigator.clipboard.readText)){ setCloudStatus("当前浏览器不支持自动读取剪贴板，请手动把配置粘贴到上方两个输入框", true); toast("当前浏览器不支持自动读取剪贴板，请手动粘贴配置","warn"); return; } const txt=await navigator.clipboard.readText(); const cfg=parseConfig(txt); if(!cfg.gist&&!cfg.token){ setCloudStatus("剪贴板里没找到 Gist ID / Token，请确认先从另一台设备点过「复制配置」", true); toast("剪贴板里没有有效的同步配置，请先从另一台设备复制","warn"); return; } document.getElementById("csToken").value=cfg.token||""; document.getElementById("csGist").value=cfg.gist||""; cloud.token=cfg.token||""; cloud.gist=cfg.gist||""; cloudSave(); setCloudStatus("已从剪贴板填入配置，正在拉取云端数据…"); toast("已从剪贴板填入配置，正在拉取云端数据…"); await cloudPull(true); }catch(e){ setCloudStatus("粘贴失败："+(e&&e.message?e.message:e)+"（可手动把配置粘贴到上方输入框）", true); toast("粘贴失败："+(e&&e.message?e.message:e),"danger"); } };
 document.getElementById("csSync").onclick=async()=>{ if(!cloud.token||!cloud.gist){ setCloudStatus("请先在上方填写 Token 与 Gist ID", true); return; } setCloudStatus("同步中…"); const r=await withBusy("csSync", ()=>cloudPull(true)); if(r===true) setCloudStatus("已同步 ✓ "+new Date().toLocaleTimeString()); else if(r==="cancel") setCloudStatus("已取消同步"); else setCloudStatus("同步失败：无法读取云端（网络受限，或 Token / Gist ID 有误），已保留本机数据，稍后会自动重试", true); };
 document.getElementById("csExport").onclick=()=>{ exportJSON(); };
