@@ -217,6 +217,12 @@
   th{color:var(--sub);font-weight:600;font-size:12.5px;background:var(--bg2);}
   tbody tr:last-child td{border-bottom:none;}
   tbody tr:hover{background:var(--hover);}
+  /* 已完成/已到 行：沉底并弱化，降低视觉权重（保留操作列可点） */
+  tbody tr.row-done{background:rgba(120,130,150,.07);}
+  tbody tr.row-done td:not(.col-act){opacity:.6;}
+  tbody tr.row-done .pc b{color:var(--sub);font-weight:600;}
+  tbody tr.row-done .dot{opacity:.55;}
+  tbody tr.row-done:hover{background:var(--hover);}
   .pc{display:inline-flex;align-items:center;gap:7px;max-width:100%;min-width:0;font-size:14px;color:var(--ink);}
   .pc b{font-weight:700;font-size:14px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .pc>div{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -2284,6 +2290,21 @@ function applySort(arr, dir){
 }
 // 每步独立按真实字段判定完成态（不再用顺序计数，避免「中间空却显示已完成」的假象）
 function firstUndone(p){ const steps=proxyStepsOf(p); for(let j=0;j<steps.length;j++) if(!p[steps[j].k]) return j; return -1; }
+/* 各视图「已完成/已到」判定：用于把这类行稳定沉底 + 弱化 */
+function isSentDone(p){ return p && p.status==="arrived"; }            // 寄出：已到
+function isRecvDone(p){ return p && p.status==="received"; }           // 收到：已收(=已到)
+function proxyUnitDone(u){                                             // 代寄：四节点全完成
+  if(!u) return false;
+  if(u.type==="pair"){ const d=l=> (l? firstUndone(l)===-1 : false); return d(u.me)&&d(u.them); }
+  return firstUndone(u.p)===-1;
+}
+function isActDone(a){ return a && (a.status==="done"||a.status==="closed"); } // 活动：已结束/已关闭
+/* 稳定把「已完成」沉到列表最末（各组内原有相对顺序不变），与 applySort 排序叠加 */
+function sinkDoneLast(list, isDone){
+  const keep=[], sink=[];
+  for(let i=0;i<list.length;i++){ (isDone(list[i])?sink:keep).push(list[i]); }
+  return keep.concat(sink);
+}
 // 点击节点切换代寄步骤状态：仅切换该步自身（完成↔回退），不级联、不触碰其它步骤的日期
 function toggleProxyStep(pid, idx){
   const p=proxies.find(x=>x.id===pid); if(!p) return;
@@ -2357,11 +2378,11 @@ function proxyBaseCells(p, dotColor){
     <td class="hide-sm" data-label="类型">${esc(p.type)||"—"}</td>
     <td class="hide-sm" data-label="张数">${esc(p.cardCount||1)}</td>`;
 }
-function renderProxySingleRow(p){
+function renderProxySingleRow(p, isDone){
   const st=PROXY_STATUS[proxyStatusOf(p)]||PROXY_STATUS.ready;
   const stLabel=proxyStatusText(p);
   const rd=proxyReturnDays(p);
-  return `<tr>
+  return `<tr class="${isDone?"row-done":""}">
     ${proxyBaseCells(p, st.color)}
     <td data-label="往返步骤">${renderProxySingleStepper(p)}</td>
     <td data-label="状态">${lostBadge("proxy",p)}<span class="badge" style="background:${st.color}22;color:${st.color}">${stLabel}</span></td>
@@ -2369,14 +2390,14 @@ function renderProxySingleRow(p){
     <td class="col-act" data-label="操作"><div class="row-act"><button class="linkbtn act-primary" data-pedit="${p.id}">编辑</button><button class="linkbtn act-secondary" data-conv="proxy:${p.id}">转换</button><button class="linkbtn danger act-primary" data-pdel="${p.id}">删除</button><details class="act-more"><summary class="linkbtn">⋯</summary><div class="act-more-body"><button class="linkbtn act-secondary" data-conv="proxy:${p.id}">转换</button></div></details></div></td>
   </tr>`;
 }
-function renderProxyPairRow(u){
+function renderProxyPairRow(u, isDone){
   const {me, them, pairId}=u;
   const base = me || them;
   const st=proxyPairStatus(me, them);
   const lostPair = isLostProxy(me) || isLostProxy(them);
   const rd=proxyReturnDays(me);
   const convId = me?me.id:them.id;
-  return `<tr>
+  return `<tr class="${isDone?"row-done":""}">
     ${proxyBaseCells(base, st.color)}
     <td data-label="往返步骤">${renderProxyPairStepper(me, them)}</td>
     <td data-label="状态">${lostPair?`<span class="badge" style="background:rgba(239,68,68,.14);color:var(--danger);margin-right:6px;">⚠ 可能丢失</span>`:""}<span class="badge" style="background:${st.color}22;color:${st.color}">${st.label}</span></td>
@@ -2394,7 +2415,7 @@ function renderTable(){
   const cg=document.getElementById(map[view]); if(cg) cg.style.display="";
   let list=[];
   if(view==="sent"){
-    list=filteredSent();
+    list=sinkDoneLast(filteredSent(), isSentDone);
     thead.innerHTML=`<tr>
       <th>收件人</th>
       <th>国家 / 地区 · 城市</th>
@@ -2412,7 +2433,7 @@ function renderTable(){
     tb.innerHTML=pgSlice(list,"pc-"+view,pgSig()).map(p=>{
       const d=transitDays(p);
       const stOpts=STATUS_ORDER.map(s=>`<option value="${s}" ${p.status===s?"selected":""}>${STATUSES[s].label}</option>`).join("");
-      return `<tr>
+      return `<tr class="${isSentDone(p)?"row-done":""}">
         <td data-label="收件人"><div class="pc"><span class="dot" style="background:${(STATUSES[p.status]||STATUSES.unsent).color}"></span><b title="${esc(p.recipient)}">${esc(p.recipient)||"—"}</b></div>${p.note?`<div class="note">${esc(p.note)}</div>`:""}</td>
         <td data-label="国家 / 地区 · 城市">${esc(p.country)||"—"}${p.city?` · ${esc(p.city)}`:""}<div class="m-extra">${[p.platform,p.type,p.channel].filter(Boolean).map(esc).join(" · ")||"—"}</div></td>
         <td class="hide-sm" data-label="渠道">${esc(p.channel)||"—"}${p.trackingNo?` · 📦${esc(p.trackingNo)}`:""}</td>
@@ -2427,7 +2448,7 @@ function renderTable(){
       </tr>`;
     }).join("");
   }else if(view==="received"){
-    list=filteredRecv();
+    list=sinkDoneLast(filteredRecv(), isRecvDone);
     thead.innerHTML=`<tr>
       <th>寄件人</th>
       <th>国家 / 地区 · 城市</th>
@@ -2442,7 +2463,7 @@ function renderTable(){
     tb.innerHTML=pgSlice(list,"pc-"+view,pgSig()).map(p=>{
       const st=RECV_STATUSES[p.status]||RECV_STATUSES.transit;
       const stOpts=RECV_STATUS_ORDER.map(s=>`<option value="${s}" ${p.status===s?"selected":""}>${RECV_STATUSES[s].label}</option>`).join("");
-      return `<tr>
+      return `<tr class="${isRecvDone(p)?"row-done":""}">
         <td data-label="寄件人"><div class="pc"><span class="dot" style="background:${st.color}"></span><b title="${esc(p.sender)}">${esc(p.sender)||"—"}</b></div>${p.note?`<div class="note">${esc(p.note)}</div>`:""}</td>
         <td data-label="国家 / 地区 · 城市">${esc(p.country)||"—"}${p.city?` · ${esc(p.city)}`:""}<div class="m-extra">${[p.platform,p.type].filter(Boolean).map(esc).join(" · ")||"—"}</div></td>
         <td class="hide-sm" data-label="平台">${esc(p.platform)||"—"}</td>
@@ -2454,7 +2475,7 @@ function renderTable(){
       </tr>`;
     }).join("");
   }else if(view==="proxy"){
-    list=buildProxyUnits();
+    list=sinkDoneLast(buildProxyUnits(), proxyUnitDone);
     thead.innerHTML=`<tr>
       <th>对方（代寄人）</th>
       <th>国家 / 地区 · 城市</th>
@@ -2467,9 +2488,9 @@ function renderTable(){
       <th class="col-act">操作</th>
     </tr>`;
     document.getElementById("emptyText").textContent="还没有代寄(write-back)记录。点「新建代寄」添加：填好对方与共享信息，勾选「互相代寄」即会合并成同一人的一条互寄记录，保存后按 4 个节点逐步更新进度即可。";
-    tb.innerHTML=pgSlice(list,"pc-"+view,pgSig()).map(u=> u.type==="pair" ? renderProxyPairRow(u) : renderProxySingleRow(u.p)).join("");
+    tb.innerHTML=pgSlice(list,"pc-"+view,pgSig()).map(u=> u.type==="pair" ? renderProxyPairRow(u, proxyUnitDone(u)) : renderProxySingleRow(u.p, proxyUnitDone(u))).join("");
   }else{
-    list=filteredActivities();
+    list=sinkDoneLast(filteredActivities(), isActDone);
     thead.innerHTML=`<tr>
       <th>活动名称</th>
       <th>类型</th>
@@ -2507,7 +2528,7 @@ function renderTable(){
       }
       const rotSum=rotSummaryHtml(a);
       if(rotSum) rotHtml=rotHtml+rotSum;
-      return `<tr>
+      return `<tr class="${isActDone(a)?"row-done":""}">
         <td data-label="活动名称"><div class="pc"><b title="${esc(a.title)}">${esc(a.title)||"—"}</b></div>${rotHtml}${a.url?`<div class="note"><a href="${safeUrl(a.url)}" target="_blank" rel="noopener">🔗 ${esc(a.url)}</a></div>`:""}${a.note?`<div class="note">${esc(a.note)}</div>`:""}${doneMark}</td>
         <td data-label="类型">${esc(k)}</td>
         <td class="hide-sm" data-label="平台">${esc(a.platform)||"—"}</td>
