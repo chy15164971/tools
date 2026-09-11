@@ -3320,8 +3320,9 @@ function mergeById(local, incoming, del){
   });
   return out;
 }
+// 返回值约定：false = 本次未成功且可重试；true = 已处理/无需重试
 async function cloudUpload(silent){
-  if(!cloud.token||!cloud.gist){ if(!silent) setCloudStatus("请先填写 Token 与 Gist ID", true); return; }
+  if(!cloud.token||!cloud.gist){ if(!silent) setCloudStatus("请先填写 Token 与 Gist ID", true); return false; }
   const localSavedAt=Number(localStorage.getItem(SAVED_AT)||0);
   // 冲突检测：云端有比本地更新的保存时，不应静默覆盖（多标签/多设备场景防数据丢失）
   // H1 修复：读云端失败 → 放弃本次上传，绝不拿「可能过旧的本地整包」覆盖云端（此前"数据消失"的共同机理）
@@ -3329,17 +3330,17 @@ async function cloudUpload(silent){
   if(peek.err){
     setCloudPill("err");
     if(!silent) setCloudStatus("无法读取云端状态，已放弃上传以避免覆盖云端数据，请稍后重试", true);
-    return;
+    return false;   // 网络/鉴权问题 → 交给自动重试
   }
   const remote=(peek.empty?null:peek.savedAt);
   if(remote && remote>localSavedAt+2000){
     if(silent){
       // 自动上传遇到云端更新：不静默暂停，改为自动拉取合并（自愈），避免「数据不同步」且不再卡在错误态
       setCloudPill("syncing"); setCloudStatus("检测到云端有更新，自动拉取合并…");
-      await cloudPull(true);
-      return;
+      await cloudPull(true);   // 拉取合并后本地 save() 会重新排队上传，无需本层重试
+      return true;
     }
-    if(!(await confirmDialog("云端数据比本地更新（"+new Date(remote).toLocaleString()+"），上传将用本地覆盖云端，继续？",{danger:true,ok:"仍上传"}))){ setCloudStatus("已取消上传"); return; }
+    if(!(await confirmDialog("云端数据比本地更新（"+new Date(remote).toLocaleString()+"），上传将用本地覆盖云端，继续？",{danger:true,ok:"仍上传"}))){ setCloudStatus("已取消上传"); return true; }   // 用户主动取消，不重试
   }
   if(!silent) setCloudStatus("上传中…");
   setCloudPill("syncing");
@@ -3351,14 +3352,21 @@ async function cloudUpload(silent){
     }, 15000);
     if(!res.ok){ let d="HTTP "+res.status; try{ const ej=await res.json(); if(ej&&ej.message) d+=" · "+ej.message; }catch(_){} throw new Error(d); }
     if(!silent) setCloudStatus("上传成功 ✓ "+new Date().toLocaleTimeString());
-    setCloudPill("ok");
-  }catch(e){ if(!silent) setCloudStatus("上传失败："+(e&&e.message?e.message:e), true); setCloudPill("err"); }
+    setCloudPill("ok"); markSynced(); cloudRetryReset();   // 成功 → 记最后同步时间并清除重试链
+    return true;
+  }catch(e){
+    if(!silent) setCloudStatus("上传失败："+(e&&e.message?e.message:e), true);
+    setCloudPill("err");
+    return false;   // 可重试
+  }
 }
 // 拉取云端并合并到本地（silent=true 用于自动同步，不弹确认；false 用于手动「下载合并」按钮）
+// 返回值约定：false = 拉取失败；"cancel" = 用户取消；true = 已合并/已是最新
 async function cloudPull(silent){
-  if(!cloud.token||!cloud.gist){ if(!silent) setCloudStatus("请先填写 Token 与 Gist ID", true); return; }
+  window.__pullOk=false;
+  if(!cloud.token||!cloud.gist){ if(!silent) setCloudStatus("请先填写 Token 与 Gist ID", true); return false; }
   if(!silent){
-    if(!(await confirmDialog("将把云端数据合并到本地（按 id 合并：云端更新的记录覆盖本地旧版本；本地新增/更新的记录保留），确认？",{}))){ setCloudStatus("已取消下载"); return; }
+    if(!(await confirmDialog("将把云端数据合并到本地（按 id 合并：云端更新的记录覆盖本地旧版本；本地新增/更新的记录保留），确认？",{}))){ setCloudStatus("已取消下载"); return "cancel"; }
   }
   if(!silent) setCloudStatus("下载中…");
   setCloudPill("syncing");
@@ -3391,27 +3399,85 @@ async function cloudPull(silent){
     if(changed>0 || settingsApplied){ save(); renderAll(); } // 有变化才落盘/回传/重绘，避免 60s 轮询空写与表格抖动
     if(remote) localStorage.setItem(SAVED_AT, String(Math.max(Date.now(), remote))); // 抬平 savedAt，避免拉取后被冲突检测误暂停
     setCloudStatus((changed>0||settingsApplied) ? ("同步完成 ✓ 新增/更新 "+(changed+(settingsApplied?1:0))+" 项（"+new Date().toLocaleString()+"）") : ("已是最新（"+new Date().toLocaleString()+"）"));
-    setCloudPill("ok");
+    setCloudPill("ok"); window.__pullOk=true; markSynced();   // 拉取成功 → 标记成功并记最后同步时间
     if(settingsApplied){ try{ renderTabs(); renderStats(); }catch(e){} } // 设置变化需重渲染标签栏与统计卡
     renderAll();
-  }catch(e){ if(!silent) setCloudStatus("下载失败："+(e&&e.message?e.message:e), true); setCloudPill("err"); }
+    return true;
+  }catch(e){
+    if(!silent) setCloudStatus("下载失败："+(e&&e.message?e.message:e), true);
+    setCloudPill("err");
+    return false;
+  }
 }
 // 手动「下载合并」按钮：保留确认
-async function cloudDownload(){ await cloudPull(false); }
+async function cloudDownload(){ return await cloudPull(false); }
 let _upTimer=null, _lastPull=0;
-function cloudAutoUpload(){ if(_cloudBusy) return; if(!cloud.auto) return; if(!cloud.token||!cloud.gist) return; if(_upTimer) clearTimeout(_upTimer); _upTimer=setTimeout(()=>cloudUpload(true), 1500); }
-// 自动拉取：节流 + 有弹窗打开时跳过（避免覆盖正在编辑的内容）
-function cloudAutoDownload(){
+let _pullBusy=false, _pullFailN=0;      // 拉取防并发 + 失败退避计数
+let _upRetryN=0, _upRetryTimer=null;    // 上传失败指数退避重试
+
+// 记录「最后同步时间」到状态灯悬停提示（上传/拉取成功均刷新）
+function markSynced(){
+  try{
+    window.__lastSyncAt=Date.now();
+    const el=document.getElementById("cloudPill");
+    if(el) el.title="最后同步 "+new Date(window.__lastSyncAt).toLocaleTimeString();
+  }catch(_){}
+}
+/* 上传失败自动重试（3→6→12→24→48s，最多 5 次后停止并亮红灯）
+   此前上传失败即静默放弃：手机端网络抖动一次，这次改动就永远只留在本机 ——
+   正是「手机端点完成、电脑端刷新却看不到」的主要成因之一。 */
+function cloudRetryReset(){ _upRetryN=0; if(_upRetryTimer){ clearTimeout(_upRetryTimer); _upRetryTimer=null; } }
+function cloudRetryTick(){
+  if(!(cloud.token && cloud.gist && cloud.auto)){ cloudRetryReset(); return; } // 配置被改/关闭自动同步 → 停止重试
+  if(_cloudBusy){ _upRetryTimer=setTimeout(cloudRetryTick, 3000); return; }     // 忙 → 稍后再试，不丢弃待传
+  _upRetryTimer=null;
+  cloudUpload(true).then(ok=>{ if(ok===false) scheduleCloudRetry(); });
+}
+function scheduleCloudRetry(){
+  if(_upRetryN>=5){
+    cloudRetryReset(); setCloudPill("err");
+    try{ toast("云同步多次失败，已停止自动重试。可稍后点「上传到云端」手动重试","danger"); }catch(_){}
+    return;
+  }
+  _upRetryN++;
+  const delay=Math.min(60000, 3000*Math.pow(2,_upRetryN-1));
+  clearTimeout(_upRetryTimer);
+  _upRetryTimer=setTimeout(cloudRetryTick, delay);
+}
+function cloudAutoUpload(){
   if(_cloudBusy) return;
+  if(!cloud.auto) return;
   if(!cloud.token||!cloud.gist) return;
-  const now=Date.now();
-  if(now-_lastPull < 8000) return;
-  _lastPull=now;
+  if(_upTimer) clearTimeout(_upTimer);
+  _upTimer=setTimeout(()=>{
+    _upTimer=null;
+    cloudUpload(true).then(ok=>{ if(ok===false) scheduleCloudRetry(); });
+  }, 1500);
+}
+// 自动拉取：防并发 + 仅前台 + 失败退避 + 节流 + 有弹窗打开时跳过（避免覆盖正在编辑的内容）
+function cloudAutoDownload(){
+  if(_cloudBusy||_pullBusy) return;
+  if(!cloud.token||!cloud.gist) return;
+  if(document.visibilityState==="hidden") return;  // 后台不轮询：省电 + 省 GitHub API 配额，切回前台会立即补拉
   if(document.querySelector(".mask.show")) return; // 正在编辑 → 不拉
-  cloudPull(true);
+  const now=Date.now();
+  if(_pullFailN>1 && now-_lastPull < Math.min(120000, 10000*Math.pow(2,_pullFailN-2))) return; // 连续失败才退避 10→20→40→80→120s；首次失败不减速，下一次轮询即重试
+  if(now-_lastPull < 8000) return;                 // 正常节流
+  _lastPull=now;
+  _pullBusy=true;
+  Promise.resolve(cloudPull(true))
+    .then(()=>{ if(window.__pullOk){ _pullFailN=0; markSynced(); } else { _pullFailN=Math.min(6,_pullFailN+1); } })
+    .catch(()=>{ _pullFailN=Math.min(6,_pullFailN+1); })
+    .finally(()=>{ _pullBusy=false; });
 }
 // 待传兜底：页面隐藏/卸载时若还有待传，立即补传（移动端防丢上传）
-function cloudFlush(){ if(_cloudBusy) return; if(_upTimer){ clearTimeout(_upTimer); _upTimer=null; cloudUpload(true); } }
+function cloudFlush(){
+  if(_cloudBusy) return;
+  if(_upTimer){
+    clearTimeout(_upTimer); _upTimer=null;
+    cloudUpload(true).then(ok=>{ if(ok===false) scheduleCloudRetry(); });
+  }
+}
 
 /* ===== 工具 ===== */
 
@@ -3806,7 +3872,7 @@ document.getElementById("recoverClose").onclick=closeRecoverModal;
 { const mr=document.getElementById("recoverMask"); if(mr) mr.addEventListener("click", e=>{ if(e.target===mr) closeRecoverModal(); }); }
 document.getElementById("csCopy").onclick=()=>{ try{ const txt="Gist ID: "+(cloud.gist||"")+"\nToken: "+(cloud.token||""); if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(()=>{ setCloudStatus("已复制同步配置，可粘贴到另一台设备 ✓"); toast("已复制同步配置，可粘贴到另一台设备 ✓","success"); }, ()=>{ setCloudStatus("复制失败，请手动复制"); toast("复制失败，请手动复制","danger"); }); } else { setCloudStatus("当前浏览器不支持自动复制，请手动复制"); toast("当前浏览器不支持自动复制，请手动复制","warn"); } }catch(e){ const _m="复制失败："+(e&&e.message?e.message:e); setCloudStatus(_m); toast(_m,"danger"); } };
 document.getElementById("csPaste").onclick=async()=>{ try{ if(!(navigator.clipboard&&navigator.clipboard.readText)){ setCloudStatus("当前浏览器不支持自动读取剪贴板，请手动把配置粘贴到上方两个输入框", true); toast("当前浏览器不支持自动读取剪贴板，请手动粘贴配置","warn"); return; } const txt=await navigator.clipboard.readText(); const cfg=parseConfig(txt); if(!cfg.gist&&!cfg.token){ setCloudStatus("剪贴板里没找到 Gist ID / Token，请确认先从另一台设备点过「复制配置」", true); toast("剪贴板里没有有效的同步配置，请先从另一台设备复制","warn"); return; } document.getElementById("csToken").value=cfg.token||""; document.getElementById("csGist").value=cfg.gist||""; cloud.token=cfg.token||""; cloud.gist=cfg.gist||""; cloudSave(); setCloudStatus("已从剪贴板填入配置，正在拉取云端数据…"); toast("已从剪贴板填入配置，正在拉取云端数据…"); await cloudPull(true); }catch(e){ setCloudStatus("粘贴失败："+(e&&e.message?e.message:e)+"（可手动把配置粘贴到上方输入框）", true); toast("粘贴失败："+(e&&e.message?e.message:e),"danger"); } };
-document.getElementById("csSync").onclick=async()=>{ if(!cloud.token||!cloud.gist){ setCloudStatus("请先在上方填写 Token 与 Gist ID", true); return; } setCloudStatus("同步中…"); try{ await withBusy("csSync", ()=>cloudPull(true)); setCloudStatus("已同步 ✓ "+new Date().toLocaleTimeString()); }catch(e){ setCloudStatus("同步失败："+(e&&e.message?e.message:e), true); } };
+document.getElementById("csSync").onclick=async()=>{ if(!cloud.token||!cloud.gist){ setCloudStatus("请先在上方填写 Token 与 Gist ID", true); return; } setCloudStatus("同步中…"); const r=await withBusy("csSync", ()=>cloudPull(true)); if(r===true) setCloudStatus("已同步 ✓ "+new Date().toLocaleTimeString()); else if(r==="cancel") setCloudStatus("已取消同步"); else setCloudStatus("同步失败：无法读取云端（网络受限，或 Token / Gist ID 有误），已保留本机数据，稍后会自动重试", true); };
 document.getElementById("csExport").onclick=()=>{ exportJSON(); };
 document.getElementById("csImport").onclick=()=>{ document.getElementById("fileInput").click(); };
 document.addEventListener("click",e=>{ const m=document.getElementById("menu"); if(m.classList.contains("show") && !e.target.closest(".menu-wrap")) m.classList.remove("show"); });
@@ -3852,7 +3918,7 @@ try{ const t=localStorage.getItem("wb_theme_v1")||localStorage.getItem("wb_postc
 // 应用前缀隔离迁移（2026-08-27）：wb_cloudsync_v1 → wb_postcards_cloudsync_v1，迁移后清理旧键（唯一跨文件串扰点）
 (function(){ try{ const o="wb_cloudsync_v1", n="wb_postcards_cloudsync_v1"; const v=localStorage.getItem(o); if(v!==null){ if(localStorage.getItem(n)===null) localStorage.setItem(n, v); localStorage.removeItem(o); } }catch(e){} })();
 cloudLoad();
-setCloudPill(cloud.token&&cloud.gist?"ok":"off");
+setCloudPill(cloud.token&&cloud.gist?"syncing":"off");   // 未配置=仅本地；已配置则等首次拉取结果，不谎报「已同步」
 tombLoad();
 load();
 loadLinks();
@@ -3863,7 +3929,7 @@ fillSelect("aPlatform","platform","");
 renderAll();
 // 打开即拉取云端最新（手机端更新 → 电脑端打开即见）；并启动轻量轮询，长开页面也能及时同步
 cloudAutoDownload();
-setInterval(cloudAutoDownload, 60000);
+setInterval(cloudAutoDownload, 15000);   // 15s（仅前台时真正发起）；Gist 方案的下限，秒级实时需服务端推送
 
 /* ===== 无障碍增强（D4 B+）：N1 弹窗补 dialog 语义 + N3 tablist 方向键 ===== */
 (function(){
