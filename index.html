@@ -9027,6 +9027,7 @@ async function cloudUpload(silent){
     if(!silent) setCloudStatus("上传成功 ✓ "+t+mSum);
     else if(mSum){ const _n=Date.now(); if(_n-(window._lastCloudMergeToast||0)>30000){ window._lastCloudMergeToast=_n; toast("云同步"+mSum, "info"); } }
     setCloudPill("ok");
+    markSynced();   // 上传成功同样算一次成功同步，刷新「最后同步」时间
     if(_upRetryN>0){ _upRetryN=0; clearTimeout(_upRetryTimer); }   // O7：成功后重置重试计数
   }catch(e){
     if(phase==="read"){
@@ -9259,10 +9260,12 @@ function dataSigOf(obj){
    +"|"+s(habits.map(h=>[h.id,(h.days||[]).length]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
 }
 async function cloudStartupPull(silent){
+  window.__pullOk=false;   // 供静默轮询判定本次拉取成败（本函数内部自行 catch，不向外抛错）
   try{
     const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 12000);
     if(!res.ok) throw new Error("HTTP "+res.status);   // H2：云不可达/认证失败 → 走 catch，不放开自动上传
     _bootSyncAllowed=true;   // 云可达且有数据，启动期内的自动上传/落盘上传均放开
+    window.__pullOk=true;
     const data=await res.json();
     const f=data.files&&data.files["taskhub.json"];
     if(!f||!f.content) return;
@@ -9291,9 +9294,33 @@ async function cloudStartupPull(silent){
     }
   }catch(e){ console.error("启动时云拉取失败：", e); setCloudPill("err"); /* H2：拉取失败保持 _bootSyncAllowed=false，防止近空本地覆盖 Gist */ }
 }
-// 静默轮询 + 切回前台拉取（与明信片追踪一致：长开页面也能及时同步手机端更新；遇到冲突不弹窗，交由用户手动处理）
-function cloudSilentPull(){ if(!_bootSyncAllowed||!cloud.token||!cloud.gist) return; if(document.querySelector(".mask.show")) return; cloudStartupPull(true); }
-setInterval(cloudSilentPull, 60000);
+// 静默轮询 + 切回前台拉取（长开页面也能及时同步其他端；遇到冲突不弹窗，交由用户手动处理）
+// 自愈关键：不再以 _bootSyncAllowed 作为前置 —— 首拉失败时仍持续尝试（拉取只读，绝不会上传覆盖云端），
+// 一旦拉取成功即自动恢复「自动上传」能力。此前首拉失败会让该端整个会话彻底失去自动同步，
+// 是「手机端已完成、电脑端刷新却没变化」的主要根因之一。
+let _pullBusy=false, _pullFailN=0;
+function markSynced(){
+  try{
+    window.__lastSyncAt=Date.now();
+    const el=document.getElementById("cloudPill");
+    if(el) el.title="最后同步 "+new Date(window.__lastSyncAt).toLocaleTimeString();
+  }catch(_){}
+}
+async function cloudSilentPull(){
+  if(!cloud.token||!cloud.gist) return;
+  if(_pullBusy) return;                            // 防并发拉取
+  if(document.visibilityState==="hidden") return;   // 后台不轮询：省电 + 省 GitHub API 配额，切回前台会立即补拉
+  if(document.querySelector(".mask.show")) return;  // 弹窗操作中不打扰
+  if(_pullFailN>0 && Date.now()-(window.__lastPullTry||0) < Math.min(120000, 15000*Math.pow(2,_pullFailN-1))) return; // 失败退避 15→30→60→120s
+  window.__lastPullTry=Date.now();
+  _pullBusy=true;
+  try{
+    await cloudStartupPull(true);
+    if(window.__pullOk){ _pullFailN=0; markSynced(); } else { _pullFailN=Math.min(6,_pullFailN+1); }
+  }catch(e){ _pullFailN=Math.min(6,_pullFailN+1); }
+  finally{ _pullBusy=false; }
+}
+setInterval(()=>{ cloudSilentPull(); }, 15000);   // 每 15s 一次（仅可见时真正发起）；Gist 方案的下限，秒级实时需服务端推送
 document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState!=="hidden") cloudSilentPull(); });
 window.addEventListener("pageshow", ()=>{ cloudSilentPull(); }); // iOS 从后台/bfcache 恢复时立即拉取
 window.addEventListener("focus", ()=>{ cloudSilentPull(); });   // 切回本窗口时立即拉取
@@ -9399,7 +9426,7 @@ if(_ob){ _ob.addEventListener("click", toggleTopOverview); _ob.addEventListener(
     setCloudPill("syncing");
     try{
       await cloudStartupPull();   // 成功拉取会置 _bootSyncAllowed=true；失败则保持 false，保护 Gist
-      setCloudPill("ok");
+      setCloudPill(window.__pullOk ? "ok" : "err");   // 修复：拉取失败不得被无条件覆盖成「已同步」，否则用户误以为同步正常
       renderAll();                // 拉取成功后再刷新一次，呈现云端数据
     }catch(e){ setCloudPill("err"); }
   } else {
