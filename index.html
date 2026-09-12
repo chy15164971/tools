@@ -8397,7 +8397,7 @@ document.getElementById("csDownload").onclick=()=>{ cloud.token=document.getElem
 document.getElementById("csRecover").onclick=()=>openRecoverModal();
 document.getElementById("csCopy").onclick=()=>{ try{ const _ti=document.getElementById("csToken"), _gi=document.getElementById("csGist"); const _t=((_ti&&_ti.value)||"").trim(), _g=((_gi&&_gi.value)||"").trim(); if(_t) cloud.token=_t; if(_g) cloud.gist=_g; if(_t||_g) cloudSave(); if(!cloud.gist&&!cloud.token){ setCloudStatus("本机尚未配置 Gist ID / Token，没有可复制的配置", true); toast("本机尚未配置，无配置可复制","warn"); return; } const txt="Gist ID: "+(cloud.gist||"")+"\nToken: "+(cloud.token||""); if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(()=>{ setCloudStatus("已复制同步配置，可粘贴到另一台设备 ✓"); toast("已复制同步配置，可粘贴到另一台设备 ✓","success"); }, ()=>{ setCloudStatus("复制失败，请手动复制"); toast("复制失败，请手动复制","danger"); }); } else { setCloudStatus("当前浏览器不支持自动复制，请手动复制"); toast("当前浏览器不支持自动复制，请手动复制","warn"); } }catch(e){ const _m="复制失败："+(e&&e.message?e.message:e); setCloudStatus(_m); toast(_m,"danger"); } };
 document.getElementById("csPaste").onclick=async()=>{ try{ if(!(navigator.clipboard&&navigator.clipboard.readText)){ setCloudStatus("当前浏览器不支持自动读取剪贴板，请手动把配置粘贴到上方两个输入框", true); toast("当前浏览器不支持自动读取剪贴板，请手动粘贴配置","warn"); return; } const txt=await navigator.clipboard.readText(); const cfg=parseConfig(txt); if(!cfg.gist&&!cfg.token){ setCloudStatus("剪贴板里没找到 Gist ID / Token，请确认先从另一台设备点过「复制配置」", true); toast("剪贴板里没有有效的同步配置，请先从另一台设备复制","warn"); return; } document.getElementById("csToken").value=cfg.token||""; document.getElementById("csGist").value=cfg.gist||""; cloud.token=cfg.token||""; cloud.gist=cfg.gist||""; cloudSave(); setCloudStatus("已从剪贴板填入配置，正在从云端恢复数据…"); toast("已从剪贴板填入配置，正在从云端恢复数据…"); await restoreFromCloudAfterPaste(); }catch(e){ setCloudStatus("粘贴失败："+(e&&e.message?e.message:e)+"（可手动把配置粘贴到上方输入框）", true); toast("粘贴失败："+(e&&e.message?e.message:e),"danger"); } };
-document.getElementById("csSync").onclick=async()=>{ if(!cloud.token||!cloud.gist){ setCloudStatus("请先在上方填写 Token 与 Gist ID", true); return; } setCloudStatus("同步中…"); try{ await withBusy("csSync", ()=>cloudStartupPull(true)); setCloudStatus("已同步 ✓ "+new Date().toLocaleTimeString()); }catch(e){ setCloudStatus("同步失败："+(e&&e.message?e.message:e), true); } };
+document.getElementById("csSync").onclick=async()=>{ if(!cloud.token||!cloud.gist){ setCloudStatus("请先在上方填写 Token 与 Gist ID", true); return; } setCloudStatus("同步中…"); try{ await withBusy("csSync", ()=>cloudStartupPull(true)); if(window.__pullOk){ setCloudStatus("已同步 ✓ "+new Date().toLocaleTimeString()); } else { setCloudStatus("同步失败："+(window.__lastPullErr||"读取云端失败")+"（可核对 Token 是否有 gist 读写权限、Gist ID 是否正确，或稍后重试，可能为临时限流）", true); } }catch(e){ setCloudStatus("同步失败："+(e&&e.message?e.message:e), true); } };
 document.getElementById("csToggleToken").onclick=()=>{ const inp=document.getElementById("csToken"); const btn=document.getElementById("csToggleToken"); if(inp.type==="password"){ inp.type="text"; btn.textContent="隐藏"; }else{ inp.type="password"; btn.textContent="显示"; } };
 
 document.getElementById("csAuto").checked=cloud.auto;
@@ -9275,7 +9275,7 @@ function dataSigOf(obj){
 async function cloudStartupPull(silent){
   window.__pullOk=false;   // 供静默轮询判定本次拉取成败（本函数内部自行 catch，不向外抛错）
   try{
-    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 12000);
+    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 20000);
     if(!res.ok) throw new Error("HTTP "+res.status);   // H2：云不可达/认证失败 → 走 catch，不放开自动上传
     _bootSyncAllowed=true;   // 云可达且有数据，启动期内的自动上传/落盘上传均放开
     window.__pullOk=true;
@@ -9305,7 +9305,20 @@ async function cloudStartupPull(silent){
       applyCloudSecondary(obj); renderAll();
       setCloudPill("ok"); if(!silent) setCloudStatus("已合并云端更新 ✓ "+new Date().toLocaleTimeString());
     }
-  }catch(e){ console.error("启动时云拉取失败：", e); setCloudPill("err"); /* H2：拉取失败保持 _bootSyncAllowed=false，防止近空本地覆盖 Gist */ }
+  }catch(e){
+    const _m=(e&&e.name==="AbortError")?"网络超时（20 秒内未连上 GitHub）":((e&&e.message)?e.message:String(e));
+    window.__lastPullErr=_m;
+    console.error("启动时云拉取失败：", e);
+    setCloudPill("err");
+    // 首拉失败此前「只置红灯、无任何提示」，是「一直同步失败却查不出原因」的主因。
+    // 这里低频（60s 节流）把真实原因弹给用户，并写入状态灯悬浮提示，便于自查。
+    try{
+      const _el=document.getElementById("cloudPill");
+      if(_el) _el.title="云同步失败："+_m+"（后台自动重试中，最后尝试 "+new Date().toLocaleTimeString()+"）";
+      const _n=Date.now();
+      if(_n-(window.__lastPullErrToast||0)>60000){ window.__lastPullErrToast=_n; toast("云同步失败："+_m+"（后台自动重试中）","danger"); }
+    }catch(_){}
+  }
 }
 // 静默轮询 + 切回前台拉取（长开页面也能及时同步其他端；遇到冲突不弹窗，交由用户手动处理）
 // 自愈关键：不再以 _bootSyncAllowed 作为前置 —— 首拉失败时仍持续尝试（拉取只读，绝不会上传覆盖云端），
