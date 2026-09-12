@@ -9013,7 +9013,7 @@ async function cloudUpload(silent){
     // 先读云端、把云端任务合并进本地，再整体写回 —— 杜绝「本地保存即整体覆盖云端」丢失另一设备改动（A-merge）
     // H1 修复：读云端失败（网络不可达 / HTTP 非 2xx）→ 放弃本次上传，仅保留本地已落盘，
     //          绝不拿「可能过旧的本地整包」覆盖云端（此前多次"数据消失"的共同机理）。
-    const r2=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 12000);
+    const r2=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 20000);
     if(!r2.ok) throw new Error("HTTP "+r2.status);
     const d2=await r2.json();
     const ff=d2.files&&d2.files["taskhub.json"];
@@ -9041,7 +9041,7 @@ async function cloudUpload(silent){
       // 读云端失败：放弃上传以保护云端数据。自动上传静默跳过等下次重试；手动上传明确提示。
       setCloudPill("err");
       if(!silent) setCloudStatus("无法读取云端，已放弃本次上传以避免覆盖云端数据，请稍后重试", true);
-      else { const _n=Date.now(); if(_n-(window._lastCloudErrToast||0)>30000){ window._lastCloudErrToast=_n; toast("云同步跳过：无法读取云端，本次不上传以保护数据", "warn"); } scheduleCloudRetry(); }
+      else { const _n=Date.now(); const _reason=(e&&e.message)?e.message:"未知错误"; window.__lastCloudReadErr=_reason; if(_n-(window._lastCloudErrToast||0)>30000){ window._lastCloudErrToast=_n; toast("云同步跳过：读取云端失败（"+_reason+"），本次不上传以保护数据", "warn"); } scheduleCloudRetry(/HTTP 429/.test(_reason)?30000:undefined); }
       return;
     }
     setCloudPill("err");
