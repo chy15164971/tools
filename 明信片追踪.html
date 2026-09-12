@@ -306,6 +306,12 @@
   .mini{border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:var(--radius-sm);width:38px;height:38px;flex:none;cursor:pointer;font-size:15px;line-height:1;font-family:inherit;}
   .mini:hover{background:var(--hover);color:var(--pri);}
   .opt-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+  /* 代寄模式切换（往返 write-back / 单向代寄） */
+  .seg-mode{display:flex;gap:6px;flex-wrap:wrap;}
+  .seg-opt{border:1.5px solid var(--border);background:var(--card);color:var(--text);border-radius:9px;padding:7px 11px;font-size:13px;cursor:pointer;transition:.15s;font-weight:600;}
+  .seg-opt:hover{border-color:var(--pri);}
+  .seg-opt.active{background:var(--pri);border-color:var(--pri);color:#fff;}
+  .muted{color:var(--muted);}
   /* 代寄：4 节点往返步骤条（.stepper 旧版 9 条规则已删——实际渲染只用 .stepper-pair/.sp-*，D6 死代码） */
   .sp-node{width:24px;height:24px;border-radius:50%;border:2px solid #c5ccdb;background:var(--card);color:#aab2c2;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:none;}
   .sp-node.done{background:var(--pri);border-color:var(--pri);color:var(--white);}
@@ -910,8 +916,17 @@
     <h3 data-page-node-id="U7n8KjA7lZCX2jErkJ4f9X"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="cH6sBDFJNlb3hcvbWBWmNx"><path d="M3 7l9 6 9-6" data-page-node-id="maMUZS2tswqfwRzEmbDNFn"/><rect x="3" y="5" width="18" height="14" rx="2" data-page-node-id="EcrnPkUFOFJ6chxr4Oi4LJ"/></svg><span id="proxyModalTitle" data-page-node-id="rWoH39yRb76Y0Wy52tHZMg">新建代寄（write-back）</span></h3>
     <input type="hidden" id="pId" data-page-node-id="cbFLCLOvlC0YQDohx5YB5x">
     <input type="hidden" id="pDirection" value="me" data-page-node-id="ihxoHu4MmJ5VUpJs31hfI4">
+    <input type="hidden" id="pProxyMode" value="back">
+    <div class="field">
+      <label>代寄模式</label>
+      <div class="seg-mode" id="proxyModeSeg">
+        <button type="button" class="seg-opt active" data-mode="back">🔄 往返 write-back</button>
+        <button type="button" class="seg-opt" data-mode="oneway">➡️ 单向代寄（对方找我）</button>
+      </div>
+      <div class="muted" id="proxyModeHint" style="font-size:12px;margin-top:4px;">我请对方代寄并写回：我寄出 → 对方收 → 对方写回寄出 → 我收到</div>
+    </div>
     <div class="field" data-page-node-id="2HOXeIKb2JaUt4Cpq8xLC0">
-      <label data-page-node-id="ELu27BDOIbzpUVVgImGjDH">对方（代寄人）*</label>
+      <label id="pProxyLbl" data-page-node-id="ELu27BDOIbzpUVVgImGjDH">对方（代寄人）*</label>
       <input id="pProxy" placeholder="如：Anna（德国笔友，帮我代寄盖章）" data-page-node-id="PQeO8RqdsVbxaYUo9Zcx1U">
     </div>
     <div class="row2" data-page-node-id="Hm780VlviA5tmMjFsXpkzl">
@@ -942,25 +957,25 @@
       <label data-page-node-id="29XNJtBDc8nHIzGrQuiEmW">代寄张数（本次代寄几张片）</label>
       <input type="number" min="1" step="1" id="pCardCount" placeholder="如：1" data-page-node-id="ZlC1IN1e2qKi6IFFpW0DUz">
     </div>
-    <div class="sub-h" data-page-node-id="5TJ94onm3KEYtYDM0pnV29">往返节点（按实际进度填写，状态自动推算）</div>
-    <div class="row2" data-page-node-id="yd1KNZWMqXIjelfGAFrryY">
+    <div class="sub-h" id="proxyStepsSub" data-page-node-id="5TJ94onm3KEYtYDM0pnV29">往返节点（按实际进度填写，状态自动推算）</div>
+    <div class="row2" id="proxyRowMain" data-page-node-id="yd1KNZWMqXIjelfGAFrryY">
       <div class="field" data-page-node-id="uFYfWE4VnGNrcC2qHqKu0Y">
         <label id="pSentLbl" data-page-node-id="r6cqcWjKmQBQSNyLaRoFqn">① 我寄出日</label>
         <input type="date" id="pSent" data-page-node-id="zPgjmQRBOFkp9tGAqjTrxI">
       </div>
-      <div class="field" data-page-node-id="i2c05RKhbOZeWxCkDv0m0g">
-        <label id="pProxyRecvLbl" data-page-node-id="A0aG1hhTBmlNvTvPh2rtXb">② 对方收日</label>
-        <input type="date" id="pProxyRecv" data-page-node-id="A2hbME1d06bmo98bGHXlF9">
+      <div class="field" data-page-node-id="KCQgR2niuUqgiwBryxZhek">
+        <label id="pDoneLbl" data-page-node-id="zawGoNo98ZZuR5FYEVGBvU">② 完成日</label>
+        <input type="date" id="pGotBack" data-page-node-id="EHAdTjydo2AagZbEz1W7XZ">
       </div>
     </div>
-    <div class="row2" data-page-node-id="D58kX2FtxIs8OaXWSJM5Pi">
-      <div class="field" data-page-node-id="IZmnFlr6lPtI08fGasqm4d">
-        <label id="pProxyBackLbl" data-page-node-id="cHkJlHHMbBOrG2DF0rtNug">③ 对方写回寄出日</label>
-        <input type="date" id="pProxyBack" data-page-node-id="0HRCrM39p4XmLCRUJVOB12">
+    <div class="row2" id="proxyRowBackOnly" data-page-node-id="D58kX2FtxIs8OaXWSJM5Pi">
+      <div class="field" data-page-node-id="i2c05RKhbOZeWxCkDv0m0g">
+        <label id="pProxyRecvLbl" data-page-node-id="A0aG1hhTBmlNvTvPh2rtXb">③ 对方收日</label>
+        <input type="date" id="pProxyRecv" data-page-node-id="A2hbME1d06bmo98bGHXlF9">
       </div>
-      <div class="field" data-page-node-id="KCQgR2niuUqgiwBryxZhek">
-        <label id="pGotBackLbl" data-page-node-id="zawGoNo98ZZuR5FYEVGBvU">④ 我收到日</label>
-        <input type="date" id="pGotBack" data-page-node-id="EHAdTjydo2AagZbEz1W7XZ">
+      <div class="field" data-page-node-id="IZmnFlr6lPtI08fGasqm4d">
+        <label id="pProxyBackLbl" data-page-node-id="cHkJlHHMbBOrG2DF0rtNug">④ 对方写回寄出日</label>
+        <input type="date" id="pProxyBack" data-page-node-id="0HRCrM39p4XmLCRUJVOB12">
       </div>
     </div>
     <div class="field" data-page-node-id="UVJzlEAbdFvtZT4JgedRSA">
@@ -1495,7 +1510,16 @@ const PROXY_STEPS_THEM=[
   {k:"proxyBack", label:"我写回寄出"},
   {k:"gotBack",   label:"对方收到"}
 ];
-function proxyStepsOf(p){ return (p && p.direction==="them") ? PROXY_STEPS_THEM : PROXY_STEPS; }
+// 单向代寄（对方找我代寄，我寄出不回寄）：仅 2 节点，完成复用 gotBack 字段以共用完成态样式/统计
+const PROXY_STEPS_ONEWAY=[
+  {k:"sent",    label:"我寄出"},
+  {k:"gotBack", label:"对方收"}
+];
+function proxyStepsOf(p){
+  if(p && p.proxyMode==="oneway") return PROXY_STEPS_ONEWAY;
+  if(p && p.direction==="them") return PROXY_STEPS_THEM;
+  return PROXY_STEPS;
+}
 const PROXY_STATUS={
   ready:    {label:"准备中",     color:"#9aa3b2"},
   sent:     {label:"寄出在途",   color:"#f5a623"},
@@ -1517,10 +1541,16 @@ const ACT_STATUS={
 };
 // 状态由「首个未完成步骤索引 firstUndone」派生，而非裸计数：跳过中间节点直接勾第 3/4 步时，
 // 状态/计数与步进条（firstUndone 驱动）保持一致，不会出现「中间空却显示已完成」的自相矛盾
-function proxyStatusOf(p){ const i=firstUndone(p); return ["ready","sent","proxyRecv","proxyBack","gotBack"][i<0?4:i]; }
-// 状态文字随方向翻转，保证「我寄出/对方寄出」语义正确
+function proxyStatusOf(p){
+  const i=firstUndone(p);
+  if(p && p.proxyMode==="oneway") return ["ready","sent","gotBack"][i<0?2:i];
+  return ["ready","sent","proxyRecv","proxyBack","gotBack"][i<0?4:i];
+}
+// 状态文字随方向翻转，保证「我寄出/对方寄出」语义正确；单向代寄为「我寄出→对方收」
 function proxyStatusText(p){
-  const i=firstUndone(p); const idx=i<0?4:i;
+  const i=firstUndone(p);
+  if(p && p.proxyMode==="oneway"){ const idx=i<0?2:i; return ["准备中","我寄出在途","对方已收"][idx]||"准备中"; }
+  const idx=i<0?4:i;
   if(p && p.direction==="them") return ["准备中","对方已寄出","我已收","我写回中","对方已收"][idx]||"准备中";
   return ["准备中","我寄出在途","对方已收","对方寄回中","我已收"][idx]||"准备中";
 }
@@ -2331,11 +2361,12 @@ function renderProxyPairStepper(me, them){
   }
   return `<div class="stepper-pair"><div class="sp-caps"><span class="sp-cap me">▲ 我 → 对方</span><span class="sp-cap them">▼ 对方 → 我</span></div><div class="sp-grid">${cols.join("")}</div></div>`;
 }
-// 单条代寄 stepper：4 列网格，每列单圆 + 单标签（与互寄对共用 24×24 sp-node 样式，圆圈大小统一）
+// 单条代寄 stepper：按实际步数渲染（往返 4 步 / 单向 2 步），每列单圆 + 单标签
 function renderProxySingleStepper(p){
   const cols=[];
-  for(let i=0;i<4;i++){
-    cols.push(`<div class="sp-col">${proxyStepNode(p,i)}<div class="sp-lab single">${proxyStepsOf(p)[i].label}</div></div>`);
+  const steps=proxyStepsOf(p);
+  for(let i=0;i<steps.length;i++){
+    cols.push(`<div class="sp-col">${proxyStepNode(p,i)}<div class="sp-lab single">${steps[i].label}</div></div>`);
   }
   return `<div class="stepper-pair"><div class="sp-grid single">${cols.join("")}</div></div>`;
 }
@@ -2482,12 +2513,12 @@ function renderTable(){
       <th class="hide-sm">平台</th>
       <th class="hide-sm">类型</th>
       <th class="hide-sm">张数</th>
-      <th>往返步骤</th>
+      <th>步骤</th>
       <th>状态</th>
-      <th class="hide-sm">往返天数</th>
+      <th class="hide-sm">天数</th>
       <th class="col-act">操作</th>
     </tr>`;
-    document.getElementById("emptyText").textContent="还没有代寄(write-back)记录。点「新建代寄」添加：填好对方与共享信息，勾选「互相代寄」即会合并成同一人的一条互寄记录，保存后按 4 个节点逐步更新进度即可。";
+    document.getElementById("emptyText").textContent="还没有代寄记录。点「新建代寄」添加：默认是「往返 write-back」（我请对方代寄并写回，4 节点）；若对方找你代寄、只需你寄出，可在弹窗顶部切到「单向代寄」，填好对方与寄出/收到日即可。";
     tb.innerHTML=pgSlice(list,"pc-"+view,pgSig()).map(u=> u.type==="pair" ? renderProxyPairRow(u, proxyUnitDone(u)) : renderProxySingleRow(u.p, proxyUnitDone(u))).join("");
   }else{
     list=sinkDoneLast(filteredActivities(), isActDone);
@@ -3028,10 +3059,9 @@ function openActivityLink(id, idx){
   else if(l.type==="received") openRecModal("received", l.id);
   else if(l.type==="proxy") openProxyModal(l.id);
 }
-/* ===== 操作：代寄 / write-back ===== */
+/* ===== 操作：代寄 / write-back / 单向代寄 ===== */
 function openProxyModal(id){
   const p=id? proxies.find(x=>x.id===id):null;
-  document.getElementById("proxyModalTitle").textContent=p?"编辑代寄（write-back）":"新建代寄（write-back）";
   const g=pid=>{ const el=document.getElementById(pid); if(el) el.value=""; };
   ["pProxy","pCountry","pCity","pExchange","pCardCount","pSent","pProxyRecv","pProxyBack","pGotBack","pNote"].forEach(g);
   document.getElementById("pId").value=id||"";
@@ -3039,10 +3069,12 @@ function openProxyModal(id){
   fillOptions("pPlatform", proxies.map(x=>x.platform).concat(platList));
   fillOptions("pType", proxies.map(x=>x.type).concat(typeList));
   fillOptions("pCountry", proxies.map(x=>x.country).concat(countryList));
-  // 方向：编辑时沿用原条目方向；新建默认「我寄出在先」
+  // 模式：编辑时沿用原条目模式（旧条目无 proxyMode 一律按往返处理）；新建默认「往返 write-back」
+  const mode = (p && p.proxyMode==="oneway") ? "oneway" : "back";
   const dir = p ? (p.direction||"me") : "me";
   document.getElementById("pDirection").value = dir;
-  setProxyStepLabels(dir);
+  applyProxyModeUI(mode, dir, !!p);
+  document.getElementById("proxyModalTitle").textContent=(p?"编辑代寄":"新建代寄")+(mode==="oneway"?"（单向代寄）":"（write-back）");
   if(p){
     document.getElementById("pProxy").value=p.proxy||"";
     document.getElementById("pCountry").value=p.country||"";
@@ -3063,13 +3095,33 @@ function openProxyModal(id){
   proxySnapshot=formSnapshot(PROXY_FORM_IDS); // F9 记录打开时快照，供 Esc 脏检查比对
   document.getElementById("maskProxy").classList.add("show");
 }
-// 往返节点标签随方向翻转：me = 我寄出在先；them = 对方寄出在先（互寄的另一条腿）
-function setProxyStepLabels(dir){
+// 代寄模式 / 方向 → 同步弹窗标签、可见节点、对方字段文案、互寄勾选可用性
+function applyProxyModeUI(mode, dir, isEdit){
+  const isOne = mode==="oneway";
+  document.getElementById("pProxyMode").value = mode;
+  document.querySelectorAll("#proxyModeSeg .seg-opt").forEach(b=> b.classList.toggle("active", b.dataset.mode===mode));
+  document.getElementById("proxyRowBackOnly").style.display = isOne ? "none" : "";
   const steps = dir==="them" ? PROXY_STEPS_THEM : PROXY_STEPS;
-  document.getElementById("pSentLbl").textContent      = "① "+steps[0].label+"日";
-  document.getElementById("pProxyRecvLbl").textContent= "② "+steps[1].label+"日";
-  document.getElementById("pProxyBackLbl").textContent= "③ "+steps[2].label+"日";
-  document.getElementById("pGotBackLbl").textContent   = "④ "+steps[3].label+"日";
+  document.getElementById("pSentLbl").textContent = "① "+steps[0].label+"日";
+  if(isOne){
+    document.getElementById("pDoneLbl").textContent = "② 对方收日（完成）";
+    document.getElementById("proxyStepsSub").textContent = "代寄节点（我寄出 → 对方收，单向不回寄）";
+    document.getElementById("proxyModeHint").textContent = "对方找我代寄：我寄出 → 对方收（完成），无需对方写回";
+    document.getElementById("pProxyLbl").textContent = "对方（找我代寄的人）*";
+    document.getElementById("pProxy").placeholder = "如：小明（让我帮他寄北京邮戳片）";
+  }else{
+    document.getElementById("pDoneLbl").textContent = "② "+steps[3].label+"日";
+    document.getElementById("pProxyRecvLbl").textContent = "③ "+steps[1].label+"日";
+    document.getElementById("pProxyBackLbl").textContent = "④ "+steps[2].label+"日";
+    document.getElementById("proxyStepsSub").textContent = "往返节点（按实际进度填写，状态自动推算）";
+    document.getElementById("proxyModeHint").textContent = "我请对方代寄并写回："+steps[0].label+" → "+steps[1].label+" → "+steps[2].label+" → "+steps[3].label;
+    document.getElementById("pProxyLbl").textContent = "对方（代寄人）*";
+    document.getElementById("pProxy").placeholder = "如：Anna（德国笔友，帮我代寄盖章）";
+  }
+  // 单向代寄无镜像腿，禁用互寄勾选
+  const m=document.getElementById("pMutualChk"); m.disabled=isOne;
+  if(m.closest(".chk")) m.closest(".chk").style.display = isOne ? "none" : "";
+  if(isOne) m.checked=false;
 }
 function closeProxyModal(){ document.getElementById("maskProxy").classList.remove("show"); proxySnapshot=null; }
 // 互寄对：编辑任一条腿时，把共享描述字段同步写回 pairId 相同的另一条腿（日期各腿独立，不覆盖）
@@ -3089,6 +3141,7 @@ function proxySharedMeta(data){
 }
 function saveProxyModal(){
   const id=document.getElementById("pId").value.trim();
+  const mode = document.getElementById("pProxyMode").value.trim()==="oneway" ? "oneway" : "back";
   const data={
     proxy: document.getElementById("pProxy").value.trim(),
     country: document.getElementById("pCountry").value.trim(),
@@ -3101,15 +3154,23 @@ function saveProxyModal(){
     proxyRecv: document.getElementById("pProxyRecv").value.trim(),
     proxyBack: document.getElementById("pProxyBack").value.trim(),
     gotBack: document.getElementById("pGotBack").value.trim(),
-    note: document.getElementById("pNote").value.trim()
+    note: document.getElementById("pNote").value.trim(),
+    proxyMode: mode
   };
   if(!data.proxy){ toast("请填写对方（代寄人）", "danger"); return; }
+  // 单向代寄：只用到 我寄出(sent) + 完成(gotBack)，清空写回步骤并强制 direction=me
+  if(mode==="oneway"){ data.proxyRecv=""; data.proxyBack=""; data.direction="me"; }
   const mutual=document.getElementById("pMutualChk").checked;
   if(id){
     const p=proxies.find(x=>x.id===id);
     if(!p){ toast("未找到该条代寄记录", "danger"); return; }
     Object.assign(p, data); touch(p);
-    if(p.pairId) syncMutualMeta(p.pairId, p); // 已是互寄对 → 同步共享字段到另一条腿
+    // 单向代寄从原互寄对切来 → 解绑镜像腿，避免悬空
+    if(mode==="oneway" && p.pairId){
+      const pid=p.pairId; delete p.pairId;
+      proxies.forEach(o=>{ if(o.id!==p.id && o.pairId===pid) proxies.splice(proxies.indexOf(o),1); });
+    }
+    if(p.pairId) syncMutualMeta(p.pairId, p); // 仍是互寄对 → 同步共享字段到另一条腿
     // 事后补勾「互相代寄」：编辑旧条目时若用户勾上 mutual 且原条目无 pairId → 当下生成反向镜像腿
     if(mutual && !p.pairId){
       const pairId="pr_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -3802,6 +3863,17 @@ document.getElementById("btnRecvCancel").onclick=()=>closeRecModal("received");
 document.getElementById("btnRecvSave").onclick=()=>saveRecModal("received");
 document.getElementById("btnProxyCancel").onclick=()=>closeProxyModal();
 document.getElementById("btnProxySave").onclick=()=>saveProxyModal();
+// 代寄模式切换：更新弹窗 UI（标签/可见节点/对方字段/互寄可用性），并即时同步标题
+document.querySelectorAll("#proxyModeSeg .seg-opt").forEach(b=>{
+  b.onclick=()=>{
+    const mode=b.dataset.mode;
+    const dir=document.getElementById("pDirection").value||"me";
+    if(mode==="oneway"){ document.getElementById("pProxyRecv").value=""; document.getElementById("pProxyBack").value=""; }
+    applyProxyModeUI(mode, dir, !!document.getElementById("pId").value);
+    const isEdit=!!document.getElementById("pId").value;
+    document.getElementById("proxyModalTitle").textContent=(isEdit?"编辑代寄":"新建代寄")+(mode==="oneway"?"（单向代寄）":"（write-back）");
+  };
+});
 document.getElementById("btnActCancel").onclick=()=>closeActivityModal();
 document.getElementById("btnActSave").onclick=()=>saveActivityModal();
 document.getElementById("aKind").onchange=()=>updateActProgressVisibility();
