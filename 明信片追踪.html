@@ -960,11 +960,11 @@
     <div class="sub-h" id="proxyStepsSub" data-page-node-id="5TJ94onm3KEYtYDM0pnV29">往返节点（按实际进度填写，状态自动推算）</div>
     <div class="row2" id="proxyRowOneway" data-page-node-id="pcOnewayRow" style="display:none;">
       <div class="field" data-page-node-id="pcOnewayA">
-        <label id="pEnvSentLbl" data-page-node-id="pcOnewayA1">① 对方寄信封给我日</label>
+        <label id="pEnvSentLbl" data-page-node-id="pcOnewayA1">① 对方寄出日</label>
         <input type="date" id="pEnvSent" data-page-node-id="pcOnewayA2">
       </div>
       <div class="field" data-page-node-id="pcOnewayB">
-        <label id="pEnvRecvLbl" data-page-node-id="pcOnewayB1">② 我收到日</label>
+        <label id="pEnvRecvLbl" data-page-node-id="pcOnewayB1">② 我收日</label>
         <input type="date" id="pEnvRecv" data-page-node-id="pcOnewayB2">
       </div>
     </div>
@@ -1522,10 +1522,10 @@ const PROXY_STEPS_THEM=[
 ];
 // 单向代寄（对方找我代寄，我寄出不回寄）：仅 2 节点，完成复用 gotBack 字段以共用完成态样式/统计
 const PROXY_STEPS_ONEWAY=[
-  {k:"envSent",  label:"对方寄信封给我"},
-  {k:"envRecv",  label:"我收到"},
-  {k:"sent",     label:"我寄出"},
-  {k:"gotBack",  label:"对方收"}
+  {k:"envSent",  label:"对方寄出"},
+  {k:"envRecv",  label:"我收"},
+  {k:"sent",     label:"我写回寄出"},
+  {k:"gotBack",  label:"对方收到"}
 ];
 function proxyStepsOf(p){
   if(p && p.proxyMode==="oneway") return PROXY_STEPS_ONEWAY;
@@ -1534,8 +1534,8 @@ function proxyStepsOf(p){
 }
 const PROXY_STATUS={
   ready:    {label:"准备中",     color:"#9aa3b2"},
-  envSent:  {label:"对方已寄信封给我", color:"#fb923c"},
-  envRecv:  {label:"我已收到信封", color:"#4aa3ff"},
+  envSent:  {label:"对方已寄出", color:"#fb923c"},
+  envRecv:  {label:"我已收", color:"#4aa3ff"},
   sent:     {label:"寄出在途",   color:"#f5a623"},
   proxyRecv:{label:"对方已收",   color:"#4aa3ff"},
   proxyBack:{label:"对方寄回中", color:"#a06bff"},
@@ -1560,10 +1560,10 @@ function proxyStatusOf(p){
   if(p && p.proxyMode==="oneway") return ["ready","envSent","envRecv","sent","gotBack"][i<0?4:i];
   return ["ready","sent","proxyRecv","proxyBack","gotBack"][i<0?4:i];
 }
-// 状态文字随模式/方向翻转；单向代寄为「对方寄信封给我→我收到→我寄出→对方收」
+// 状态文字随模式/方向翻转；单向代寄为「对方寄出→我收→我写回寄出→对方收到」
 function proxyStatusText(p){
   const i=firstUndone(p);
-  if(p && p.proxyMode==="oneway"){ const idx=i<0?4:i; return ["准备中","对方已寄信封给我（待我收）","我已收到（待我寄出）","我寄出在途","对方已收"][idx]||"准备中"; }
+  if(p && p.proxyMode==="oneway"){ const idx=i<0?4:i; return ["准备中","对方已寄出（待我收）","我已收（待我写回寄出）","我写回寄出在途","对方已收"][idx]||"准备中"; }
   const idx=i<0?4:i;
   if(p && p.direction==="them") return ["准备中","对方已寄出","我已收","我写回中","对方已收"][idx]||"准备中";
   return ["准备中","我寄出在途","对方已收","对方寄回中","我已收"][idx]||"准备中";
@@ -3119,12 +3119,12 @@ function applyProxyModeUI(mode, dir, isEdit){
   document.getElementById("proxyRowBackOnly").style.display = isOne ? "none" : "";
   document.getElementById("proxyRowOneway").style.display = isOne ? "" : "none";
   if(isOne){
-    document.getElementById("pEnvSentLbl").textContent = "① 对方寄信封给我日";
-    document.getElementById("pEnvRecvLbl").textContent = "② 我收到日";
-    document.getElementById("pSentLbl").textContent = "③ 我寄出日";
-    document.getElementById("pDoneLbl").textContent = "④ 对方收日（完成）";
-    document.getElementById("proxyStepsSub").textContent = "代寄节点（对方寄信封给我 → 我收到 → 我寄出 → 对方收，单向不回寄）";
-    document.getElementById("proxyModeHint").textContent = "对方找我代寄：对方先把信封寄给我 → 我收到 → 我寄出 → 对方收（完成）";
+    document.getElementById("pEnvSentLbl").textContent = "① 对方寄出日";
+    document.getElementById("pEnvRecvLbl").textContent = "② 我收日";
+    document.getElementById("pSentLbl").textContent = "③ 我写回寄出日";
+    document.getElementById("pDoneLbl").textContent = "④ 对方收到日（完成）";
+    document.getElementById("proxyStepsSub").textContent = "代寄节点（对方寄出 → 我收 → 我写回寄出 → 对方收到，单向不回寄）";
+    document.getElementById("proxyModeHint").textContent = "对方找我代寄：对方先寄出 → 我收 → 我写回寄出 → 对方收到（完成）";
     document.getElementById("pProxyLbl").textContent = "对方（找我代寄的人）*";
     document.getElementById("pProxy").placeholder = "如：小明（让我帮他寄北京邮戳片，先把信封寄给我）";
   }else{
@@ -3180,7 +3180,7 @@ function saveProxyModal(){
     proxyMode: mode
   };
   if(!data.proxy){ toast("请填写对方（代寄人）", "danger"); return; }
-  // 单向代寄：用到 对方寄信封给我(envSent) + 我收到(envRecv) + 我寄出(sent) + 完成(gotBack)，清空写回步骤并强制 direction=me
+  // 单向代寄：用到 对方寄出(envSent) + 我收(envRecv) + 我写回寄出(sent) + 完成(gotBack)，清空写回步骤并强制 direction=me
   if(mode==="oneway"){ data.proxyRecv=""; data.proxyBack=""; data.direction="me"; }
   else { data.envSent=""; data.envRecv=""; } // 往返模式不携带单向信封字段
   const mutual=document.getElementById("pMutualChk").checked;
@@ -3796,7 +3796,7 @@ function exportCSV(){
     });
   }else{
     name="postcards_proxy";
-    rows.push(["对方","国家","城市","平台","类型","方向","张数","对方寄信封给我","我收到信封","我寄出","对方收","对方写回","我收到","状态","备注"]);
+    rows.push(["对方","国家","城市","平台","类型","方向","张数","对方寄出","我收","我写回寄出","对方收","对方写回","我收到","状态","备注"]);
     filteredProxy().forEach(p=>rows.push([p.proxy,p.country,p.city,p.platform,p.type,p.direction||"me",p.cardCount||1,p.envSent||"",p.envRecv||"",p.sent,p.proxyRecv,p.proxyBack,p.gotBack,proxyStatusText(p),p.note]));
   }
   const escC=v=>`"${String(v==null?"":v).replace(/"/g,'""')}"`;
