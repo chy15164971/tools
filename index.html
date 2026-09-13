@@ -475,6 +475,10 @@
   body:not(.modal-full) .full-only{display:none !important;}
   body.modal-full .mode-toggle .mt-btn[data-mode="full"]{background:var(--pri);color:var(--white);border-color:var(--pri);}
   .modal-actions .btn{flex:1;justify-content:center;}
+  .choose-list{display:flex;flex-direction:column;gap:6px;margin:8px 0 2px;max-height:46vh;overflow:auto;}
+  .choose-item{padding:10px 12px;cursor:pointer;border-radius:8px;font-size:14px;text-align:left;background:var(--bg2,#f6f7f9);border:1px solid transparent;}
+  .choose-item:hover,.choose-item:focus-visible{border-color:var(--pri);outline:none;}
+  .choose-item[aria-current="true"]{border-color:var(--pri);font-weight:600;}
   /* 任务「推迟」快捷菜单 */
   .defer-pop{display:flex;flex-direction:column;gap:10px;margin:10px 0 2px;padding:10px 12px;border:1px dashed var(--line);border-radius:11px;background:var(--pri-soft);}
   .defer-pop .dp-grp{display:flex;flex-direction:column;gap:7px;}
@@ -2313,6 +2317,31 @@
       <button class="btn btn-ghost" id="confirmExtra" style="display:none;"></button>
       <button class="btn btn-ghost" id="confirmCancel" data-page-node-id="DquP4NMwefAN8RdI6QjRFr">取消</button>
       <button class="btn btn-pri" id="confirmOk" data-page-node-id="8MTALu2FNR3Z7LUwygs3r3">确定</button>
+    </div>
+  </div>
+</div>
+
+<!-- 通用文本输入弹窗（替代原生 prompt，统一弹窗体验/支持 ESC 与遮罩关闭） -->
+<div class="mask" id="promptMask">
+  <div class="modal" style="max-width:400px;">
+    <h3 id="promptTitle">输入</h3>
+    <p class="hint" id="promptMsg" style="margin-top:0;font-size:14px;color:var(--ink);white-space:pre-wrap;"></p>
+    <input class="field" id="promptInput" type="text" autocomplete="off" spellcheck="false">
+    <div class="modal-act">
+      <button class="btn btn-ghost" id="promptCancel">取消</button>
+      <button class="btn btn-pri" id="promptOk">确定</button>
+    </div>
+  </div>
+</div>
+
+<!-- 通用选项选择弹窗（替代「用 prompt 手打选项名」的易错交互） -->
+<div class="mask" id="chooseMask">
+  <div class="modal" style="max-width:400px;">
+    <h3 id="chooseTitle">请选择</h3>
+    <p class="hint" id="chooseMsg" style="margin-top:0;font-size:14px;color:var(--ink);white-space:pre-wrap;"></p>
+    <div id="chooseList" class="choose-list"></div>
+    <div class="modal-act">
+      <button class="btn btn-ghost" id="chooseCancel">取消</button>
     </div>
   </div>
 </div>
@@ -5774,8 +5803,8 @@ function renderOkr(){
   v.querySelectorAll("[data-krdel]").forEach(b=>b.onclick=()=>{
     const id=b.dataset.krdel; for(const o of state.okrs){ const ix=o.krs.findIndex(x=>x.id===id); if(ix>=0){ o.krs.splice(ix,1); break; } } okrsSave(); renderAll();
   });
-  v.querySelectorAll("[data-krnote]").forEach(b=>b.onclick=()=>{
-    const id=b.dataset.krnote; const txt=prompt("添加进度备注（如：8/20 完成初稿）"); if(txt===null||!txt.trim()) return;
+  v.querySelectorAll("[data-krnote]").forEach(b=>b.onclick=async ()=>{
+    const id=b.dataset.krnote; const txt=await promptModal("添加进度备注",{title:"添加进度备注",placeholder:"例如：8/20 完成初稿"}); if(txt===null||!txt.trim()) return;
     for(const o of state.okrs){ const k=o.krs.find(x=>x.id===id); if(k){ k.notes=k.notes||[]; k.notes.push({date:ymd(startOfDay(new Date())), text:txt.trim()}); break; } }
     okrsSave(); renderAll();
   });
@@ -6469,9 +6498,9 @@ function duplicateTask(id){   // 复制：克隆所有字段，重置完成态�
   state.tasks.push(c); save();
   openModal(c.id,null); toast("已复制任务");
 }
-function saveTemplateFromModal(){
+async function saveTemplateFromModal(){
   const t=state.tasks.find(x=>x.id===editingId); if(!t) return;
-  const name=(window.prompt&&window.prompt("模板名称：", t.title||"模板"))||""; if(!name.trim()) return;
+  const name=await promptModal("给这个模板起个名字",{title:"存为模板",value:t.title||"模板"}); if(name===null||!name.trim()) return;
   const arr=templatesLoad();
   arr.push({id:newId("tp"), name:name.trim(), data:{
     title:t.title, desc:t.desc, cat:t.cat, priority:t.priority,
@@ -6811,13 +6840,13 @@ function renamePri(i, newName){
 }
 function moveCat(i, dir){ const j=i+dir; if(j<0||j>=cats.length) return; const t=cats[i]; cats[i]=cats[j]; cats[j]=t; catsSave(); renderOptList(); }
 function movePri(i, dir){ const j=i+dir; if(j<0||j>=pris.length) return; const t=pris[i]; pris[i]=pris[j]; pris[j]=t; prisSave(); renderOptList(); }
-function delCat(i){
+async function delCat(i){
   if(cats.length<=1){ toast("至少保留 1 个分类"); return; }
   const c=cats[i], cnt=state.tasks.filter(t=>t.cat===c.name).length;
   let target=null;
   if(cnt>0){
     const others=cats.filter((_,j)=>j!==i).map(x=>x.name);
-    const pick=prompt('分类「'+c.name+'」下还有 '+cnt+' 个任务。\n删除后迁移到哪个分类？可选项：\n'+others.join(' / '), others[0]);
+    const pick=await chooseModal('分类「'+c.name+'」下还有 '+cnt+' 个任务，删除后迁移到哪个分类？',{title:"删除分类",options:others,value:others[0]});
     if(pick==null){ toast("已取消删除"); return; }
     target=(pick||"").trim();
     if(!others.includes(target)){ toast("未选择有效分类，已取消"); return; }
@@ -6825,16 +6854,16 @@ function delCat(i){
   if(target) state.tasks.forEach(t=>{ if(t.cat===c.name) t.cat=target; });
   cats.splice(i,1); catsSave(); save(); rebuildCatPriSelects(); renderOptList(); renderAll();
 }
-function delPri(i){
+async function delPri(i){
   if(pris.length<=1){ toast("至少保留 1 个优先级"); return; }
   const p=pris[i], cnt=state.tasks.filter(t=>t.priority===p.name).length;
   let target=null;
   if(cnt>0){
     const others=pris.filter((_,j)=>j!==i).map(x=>x.name);
-    const pick=prompt('优先级「'+p.name+'」下还有 '+cnt+' 个任务。\n删除后迁移到哪个优先级？可选项：\n'+others.join(' / '), others[0]);
+    const pick=await chooseModal('优先级「'+p.name+'」下还有 '+cnt+' 个任务，删除后迁移到哪个优先级？',{title:"删除优先级",options:others,value:others[0]});
     if(pick==null){ toast("已取消删除"); return; }
     target=(pick||"").trim();
-    if(!others.includes(target)){ toast("未选择有效分类，已取消"); return; }
+    if(!others.includes(target)){ toast("未选择有效优先级，已取消"); return; }
   }
   if(target) state.tasks.forEach(t=>{ if(t.priority===p.name) t.priority=target; });
   pris.splice(i,1); prisSave(); save(); rebuildCatPriSelects(); renderOptList(); renderAll();
@@ -7841,10 +7870,10 @@ function inlineEditItem(row, lid, iid){
   input.addEventListener("blur", commit);
   input.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); commit(); } else if(e.key==="Escape"){ done=true; renderAll(); } });
 }
-function dueEditItem(lid, iid){
+async function dueEditItem(lid, iid){
   const l=lists.find(x=>x.id===lid); if(!l) return;
   const it=l.items.find(x=>x.id===iid); if(!it) return;
-  const v=prompt("设置截止日期（格式 YYYY-MM-DD，留空取消）", it.due||""); if(v===null) return;
+  const v=await promptModal("格式 YYYY-MM-DD；留空表示清除截止日期",{title:"设置截止日期",value:it.due||"",placeholder:"2026-09-20"}); if(v===null) return;
   setItemDue(lid, iid, v.trim());
 }
 function detail_match_selBar(v, sel){
@@ -7865,8 +7894,8 @@ function applyItemSort(arr, val){
   });
 }
 function isOverdueDate(d){ try{ return parseLocal(d) < startOfDay(new Date()); }catch(e){ return false; } }
-function newList(){
-  const name=prompt("清单名称（例如：待读图书 / 待寄明信片）","");
+async function newList(){
+  const name=await promptModal("例如：待读图书 / 待寄明信片",{title:"新建清单",placeholder:"清单名称"});
   if(name===null) return;
   const nm=name.trim(); if(!nm){ toast("名称不能为空"); return; }
   snapshot();
@@ -7875,17 +7904,17 @@ function newList(){
   state.selList=id;
   listsSave(); renderAll(); toast("已新建清单");
 }
-function renameList(lid){
+async function renameList(lid){
   const l=lists.find(x=>x.id===lid); if(!l) return;
-  const name=prompt("重命名清单", l.name);
+  const name=await promptModal("给清单起个新名字",{title:"重命名清单",value:l.name});
   if(name===null) return;
   const nm=name.trim(); if(!nm) return;
   snapshot();
   l.name=nm; l.updated=Date.now(); listsSave(); renderAll(); toast("已重命名");
 }
-function editListEmoji(lid){
+async function editListEmoji(lid){
   const l=lists.find(x=>x.id===lid); if(!l) return;
-  const v=prompt("设置清单图标\n可粘贴任意 emoji（如 📚 ✉️ 🎯），留空恢复默认", l.emoji||"");
+  const v=await promptModal("可粘贴任意 emoji（如 📚 ✉️ 🎯），留空恢复默认",{title:"设置清单图标",value:l.emoji||"",placeholder:"📋"});
   if(v===null) return;
   snapshot();
   const e=v.trim().slice(0,16);   // 防滥用：限长，emoji 组合串一般远小于此
@@ -7960,10 +7989,10 @@ function refreshListCounts(lid){
     if(badge){ badge.textContent="待办 "+p+"/"+t; badge.classList.toggle("zero", !p); }
   }
 }
-function editItem(lid,iid){
+async function editItem(lid,iid){
   const l=lists.find(x=>x.id===lid); if(!l) return;
   const it=l.items.find(x=>x.id===iid); if(!it) return;
-  const text=prompt("编辑条目", it.text);
+  const text=await promptModal("修改这条清单条目的内容",{title:"编辑条目",value:it.text});
   if(text===null) return;
   const t=text.trim(); if(!t) return;
   snapshot();
@@ -8233,7 +8262,59 @@ function confirmDialog(message, opts){
       else { extraBtn.style.display="none"; extraBtn.onclick=null; }
     }
     mask.onclick=function(e){ if(e.target.id==="confirmMask") finish(false); };
+    document.addEventListener("keydown", onKey); // 修复：此前只 removeEventListener 从未 add，导致 Esc 无法关闭确认框（与明信片 M-14 对齐）
     mask.classList.add("show");
+  });
+}
+
+/* ===== 通用文本输入弹窗：替代原生 prompt()，统一弹窗体验、支持 Esc/遮罩关闭、回车确认 =====
+   返回 trim 后的字符串；取消/关闭返回 null。opts:{title,message,value,placeholder,ok} */
+function promptModal(message, opts){
+  opts=opts||{};
+  return new Promise(function(resolve){
+    const mask=document.getElementById("promptMask");
+    const inp=document.getElementById("promptInput");
+    if(!mask||!inp){ resolve(window.prompt?window.prompt(message||"",opts.value||""):null); return; }   // 兜底：DOM 缺失时不阻断流程
+    document.getElementById("promptTitle").textContent=opts.title||"输入";
+    document.getElementById("promptMsg").textContent=message||"";
+    inp.value=opts.value||"";
+    inp.placeholder=opts.placeholder||"";
+    const okBtn=document.getElementById("promptOk"), cancelBtn=document.getElementById("promptCancel");
+    okBtn.textContent=opts.ok||"确定";
+    let done=false;
+    function finish(v){ if(done) return; done=true; mask.classList.remove("show"); mask.onclick=null; document.removeEventListener("keydown", onKey); resolve(v); }
+    function onKey(e){ if(e.key==="Escape"){ finish(null); return; } if(e.key==="Enter"){ finish(String(inp.value).trim()); } }
+    okBtn.onclick=function(){ finish(String(inp.value).trim()); };
+    cancelBtn.onclick=function(){ finish(null); };
+    mask.onclick=function(e){ if(e.target.id==="promptMask") finish(null); };
+    document.addEventListener("keydown", onKey);
+    mask.classList.add("show");
+    setTimeout(function(){ try{ inp.focus(); inp.select(); }catch(e){} },0);
+  });
+}
+
+/* ===== 通用选项选择弹窗：替代「用 prompt 手打选项名」的易错交互（易错且非产品级） =====
+   opts:{title,message,options:[{value,label,desc}|string],value}；返回选中 value，取消返回 null */
+function chooseModal(message, opts){
+  opts=opts||{};
+  return new Promise(function(resolve){
+    const mask=document.getElementById("chooseMask"), listEl=document.getElementById("chooseList");
+    if(!mask||!listEl){ resolve(window.prompt?window.prompt(message||""):null); return; }
+    document.getElementById("chooseTitle").textContent=opts.title||"请选择";
+    document.getElementById("chooseMsg").textContent=message||"";
+    const arr=(opts.options||[]).map(function(o){ return (typeof o==="string")?{value:o,label:o,desc:""}:o; });
+    listEl.innerHTML=arr.map(function(o){
+      return '<button type="button" class="choose-item" data-cv="'+esc(String(o.value))+'" aria-current="'+((opts.value===o.value)?"true":"false")+'">'+esc(o.label)+(o.desc?'<span class="hint" style="display:block;font-size:12px;">'+esc(o.desc)+'</span>':'')+'</button>';
+    }).join("");
+    let done=false;
+    function finish(v){ if(done) return; done=true; mask.classList.remove("show"); mask.onclick=null; document.removeEventListener("keydown", onKey); resolve(v); }
+    function onKey(e){ if(e.key==="Escape") finish(null); }
+    listEl.querySelectorAll(".choose-item").forEach(function(b){ b.onclick=function(){ finish(b.dataset.cv); }; });
+    document.getElementById("chooseCancel").onclick=function(){ finish(null); };
+    mask.onclick=function(e){ if(e.target.id==="chooseMask") finish(null); };
+    document.addEventListener("keydown", onKey);
+    mask.classList.add("show");
+    const first=listEl.querySelector(".choose-item"); if(first) setTimeout(function(){ try{ first.focus(); }catch(e){} },0);
   });
 }
 
@@ -8960,9 +9041,12 @@ function habitRowHtml(h, weekDays, todayKey, restoreMode){
     </div>${cells}</div>`;
 }
 /* 习惯快捷操作 */
-function habitQuick(id){
+async function habitQuick(id){
   const h=habits.find(x=>x.id===id); if(!h||h.archived||h.paused) return;
-  const act=prompt("习惯快捷操作：输入 1 本周目标日全完成 / 2 清空本周","1");
+  const act=await chooseModal("选择要执行的快捷操作",{title:"习惯快捷操作",options:[
+    {value:"1",label:"本周目标日全完成",desc:"把本周的目标日一次性标记完成"},
+    {value:"2",label:"清空本周",desc:"清除本周已打的卡"}
+  ],value:"1"});
   if(act===null) return;
   h.days=h.days||[];
   if(act==="1"){
