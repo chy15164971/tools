@@ -7768,7 +7768,7 @@ function renderLists(){
       const p=listPending(l);
       const on=l.id===sel?" on":"";
       return `<div class="ltree-item${on}" data-lid="${l.id}" draggable="true">
-        <span class="lemoji">${esc(l.emoji||LIST_DEFAULT_EMOJI)}</span>
+        <span class="lemoji">${escNoIcon(l.emoji||LIST_DEFAULT_EMOJI)}</span>
         <span class="lname" data-pick>${esc(l.name)}</span>
         <span class="lcount">${p}</span>
         <button class="lmenu" data-del title="删除清单" aria-label="删除清单「${esc(l.name)}」">✕</button>
@@ -7790,7 +7790,7 @@ function renderLists(){
     const p=listPending(l);
     detail+=`<div class="lcard">
       <div class="lhead">
-        <span class="lhead-emoji" data-emojiedit title="点此修改图标">${esc(l.emoji||LIST_DEFAULT_EMOJI)}</span><div class="lname" data-rename title="点名称可重命名">${esc(l.name)}</div>
+        <span class="lhead-emoji" data-emojiedit title="点此修改图标">${escNoIcon(l.emoji||LIST_DEFAULT_EMOJI)}</span><div class="lname" data-rename title="点名称可重命名">${esc(l.name)}</div>
         <span class="lcount">待办 ${p}/${items.length}</span>
         ${lq?`<span class="badge">🔍 匹配 ${items.length}/${dispItems.length}</span>`:""}
         <select class="sortsel" id="itemSort" title="排序条目">${sortOpts}</select>
@@ -8086,7 +8086,7 @@ function renderListsPanel(){
     const open = openLists[l.id];
     return `<div class="lp-list" data-lid="${l.id}">
       <div class="lp-head" data-lid="${l.id}">
-        <span class="lp-emoji" data-lid="${l.id}" title="点此修改图标">${esc(l.emoji||LIST_DEFAULT_EMOJI)}</span>
+        <span class="lp-emoji" data-lid="${l.id}" title="点此修改图标">${escNoIcon(l.emoji||LIST_DEFAULT_EMOJI)}</span>
         <span class="lp-name">${esc(l.name)}</span>
         <span class="lp-badge ${p?'':'zero'}">待办 ${p}/${t}</span>
         <button aria-label="在清单视图打开" class="lp-go" data-go="${l.id}" title="在清单视图打开">↗</button>
@@ -8187,6 +8187,7 @@ function setupListsPanelEvents(){
 
 /* ===== 工具 ===== */
 function esc(s){var _e=(s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));return iconify(_e);}
+function escNoIcon(s){return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}   // 仅转义 HTML，不转 SVG 图标：清单图标统一按原生 emoji 渲染，避免「命中 iconify 映射表的 emoji 变小灰图标、其余保持彩色」导致风格不一致
 
 /* ==== 云同步防重入 withBusy（P0-1）====
    同一时刻只允许一个云同步请求在飞：请求期间禁用触发按钮 + 加 .is-busy 转圈 + aria-busy="true"，
