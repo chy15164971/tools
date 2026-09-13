@@ -496,6 +496,7 @@
   /* P0-1 云同步防重入：请求飞行期间的忙态指示（spinner 用纯 CSS border 实现，零依赖、离线可用） */
   @keyframes wbspin{to{transform:rotate(360deg)}}
   .btn.is-busy{opacity:.65;cursor:progress;}
+  .modal input:disabled,.modal select:disabled{opacity:.5;cursor:not-allowed;background:var(--sub2,#eef0f3);}
   .btn.is-busy::after{content:"";display:inline-block;width:12px;height:12px;margin-left:6px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:wbspin .7s linear infinite;vertical-align:-1px;}
   @media (prefers-reduced-motion:reduce){ .btn.is-busy::after{animation:none;} }  /* 反馈类型配色（P2-8） */
   .fileIn{display:none;}
@@ -2070,9 +2071,11 @@
       <input id="m_title" maxlength="60" placeholder="书名或剧名" data-page-node-id="nwBaSBpLDSlvtzDcMlftpT">
     </div>
     <div class="row2" data-page-node-id="ciO2Lh6s611xwD03CLhTcj">
-      <div class="field" data-page-node-id="uIPvyDPRRVdObiIoJKYSQf"><label data-page-node-id="Wy7Rmw1vMEGhRXo4PQONeA">当前进度（章 / 集 / 期）</label><input id="m_current" type="number" min="0" value="0" data-page-node-id="5fsyIdOG03DIXKmW7XQEAi"></div>
-      <div class="field" data-page-node-id="jhfuDRYezcmAWmEkWsx18S"><label data-page-node-id="WEmn2AoKNWgQFSqepIAOln">总量（章 / 集 / 期）</label><input id="m_total" type="number" min="1" value="1" data-page-node-id="1ifvXh5MLdL7f58FQzSFiO"></div>
+      <div class="field" data-page-node-id="uIPvyDPRRVdObiIoJKYSQf"><label data-page-node-id="Wy7Rmw1vMEGhRXo4PQONeA">当前进度</label><input id="m_current" type="number" min="0" value="0" data-page-node-id="5fsyIdOG03DIXKmW7XQEAi"></div>
+      <div class="field" data-page-node-id="jhfuDRYezcmAWmEkWsx18S"><label data-page-node-id="WEmn2AoKNWgQFSqepIAOln">总量</label><input id="m_total" type="number" min="1" value="1" data-page-node-id="1ifvXh5MLdL7f58FQzSFiO"></div>
     </div>
+    <div class="field" data-page-node-id="mUnitField"><label data-page-node-id="mUnitLabel">单位（如 章 / 集 / 页 / 课，进度看板按你填的单位展示）</label><input id="m_unit" maxlength="8" placeholder="章" data-page-node-id="mUnitInput"></div>
+    <label class="chk" style="display:flex;align-items:center;gap:6px;min-height:34px;cursor:pointer;margin:2px 0 6px;"><input type="checkbox" id="m_percent" data-page-node-id="mPercentChk"> 以百分比记录（当前进度直接填 0–100，如 45 表示 45%）</label>
     <div class="field" data-page-node-id="0kNLnUOWz90yuxHJDNILQd"><label data-page-node-id="j4uA53cmc0CPZSZwy9arSL">平台（可选）</label><input id="m_platform" placeholder="微信读书 / B站 / 腾讯视频 ..." data-page-node-id="jmdAsrRf3ZZTWy7YWThm4r"></div>
     <div class="modal-actions" data-page-node-id="JDjhWL2uuMJDgaCGBBGfbV">
       <button class="btn btn-ghost" id="mCancel" data-page-node-id="f15oA1JNDPYqXP2b5Hluto">取消</button>
@@ -7243,11 +7246,18 @@ function mediaUndoFinish(id, kind){
   mediaSave(); renderMedia(); toast("已撤销完成");
 }
 const M_KINDS={books:{cls:"",verb:"已读",unit:"章"},tvs:{cls:"tv",verb:"已看",unit:"集"},auds:{cls:"aud",verb:"已听",unit:"集"}};
+function defaultUnit(kind){ const k=M_KINDS[kind]||M_KINDS.books; return k.unit; }
 function mCard(c, kind){
   const k=M_KINDS[kind]||M_KINDS.books;
+  const unit = c.unit || defaultUnit(kind);
+  const isPct = !!c.percent;
   const p = mPct(c);
   const dn = mediaDone(c);
-  const hintTxt = dn ? ("✓ 已完成 · 共 "+c.total+" "+k.unit) : (k.verb+" "+c.current+" "+k.unit+"，剩余 "+(c.total-c.current));
+  const hintTxt = isPct
+    ? (dn ? "✓ 已完成 · 100%" : (k.verb+" "+c.current+"%（剩余 "+(100-c.current)+"%）"))
+    : (dn ? ("✓ 已完成 · 共 "+c.total+" "+unit) : (k.verb+" "+c.current+" "+unit+"，剩余 "+(c.total-c.current)));
+  const pctText = isPct ? (c.current+"%") : (p+"%");
+  const metaHtml = isPct ? ("进度 <b>"+c.current+"%</b>") : ("进度 <b>"+c.current+" / "+c.total+"</b> "+unit);
   const finBtn = dn ? '<button class="munfin" data-unfinish title="撤销完成" aria-label="撤销完成">↺ 撤销</button>'
                     : '<button class="mfin" data-finish title="标记完成（进度直接到 100%）" aria-label="标记完成">✓ 完成</button>';
   return `<div class="mcard ${k.cls}${dn?" done":""}" data-id="${c.id}" data-kind="${kind}">
@@ -7259,9 +7269,9 @@ function mCard(c, kind){
         <button class="micon" data-del title="删除" aria-label="删除「${esc(c.title)}」"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
       </div>
     </div>
-    <div class="mmeta">进度 <b>${c.current} / ${c.total}</b> · 平台 ${esc(c.platform||"—")}</div>
-    <div class="mbar"><div class="track"><i class="fill" data-w="${p}"></i></div><div class="mpct">${p}%</div></div>
-    <div class="mhint"><span class="mhint-txt">${hintTxt}</span><span class="mstep"><button data-step="-1" title="减 1 ${k.unit}" aria-label="「${esc(c.title)}」减 1 ${k.unit}">−</button><button data-step="1" title="加 1 ${k.unit}" aria-label="「${esc(c.title)}」加 1 ${k.unit}">+</button>${finBtn}</span></div>
+    <div class="mmeta">${metaHtml} · 平台 ${esc(c.platform||"—")}</div>
+    <div class="mbar"><div class="track"><i class="fill" data-w="${p}"></i></div><div class="mpct">${pctText}</div></div>
+    <div class="mhint"><span class="mhint-txt">${hintTxt}</span><span class="mstep"><button data-step="-1" title="减 1 ${isPct?'%':unit}" aria-label="「${esc(c.title)}」减 1 ${isPct?'%':unit}">−</button><button data-step="1" title="加 1 ${isPct?'%':unit}" aria-label="「${esc(c.title)}」加 1 ${isPct?'%':unit}">+</button>${finBtn}</span></div>
   </div>`;
 }
 function mediaColHtml(arr, kind, emptyMsg){
@@ -7329,8 +7339,10 @@ function renderMedia(){
 function stepMedia(id, kind, d){
   const it=(media[kind]||[]).find(x=>x.id===id); if(!it) return;
   const wasDone=mediaDone(it); const oldCur=it.current;
-  const nv=Math.min(it.total, Math.max(0, it.current+d));
-  if(nv===it.current){ if(it.current>=it.total&&d>0) toast("已达到总量"); return; }
+  const isPct=!!it.percent;
+  const maxv = isPct ? 100 : it.total;
+  const nv=Math.min(maxv, Math.max(0, it.current+d));
+  if(nv===it.current){ if(it.current>=maxv&&d>0) toast(isPct?"已达到 100%":"已达到总量"); return; }
   it.current=nv;
   if(it.total>0){ it.done = it.current>=it.total; if(!wasDone && it.done) it.prevCurrent=oldCur; }
   mediaSave();
@@ -7339,15 +7351,33 @@ function stepMedia(id, kind, d){
   if(card){
     const p=mPct(it);
     const f=card.querySelector(".fill"); if(f) f.style.width=p+"%";
-    const pc=card.querySelector(".mpct"); if(pc) pc.textContent=p+"%";
-    const mb=card.querySelector(".mmeta b"); if(mb) mb.textContent=it.current+" / "+it.total;
+    const pc=card.querySelector(".mpct"); if(pc) pc.textContent=(isPct?it.current:p)+"%";
+    const mb=card.querySelector(".mmeta b"); if(mb) mb.textContent=isPct?(it.current+"%"):(it.current+" / "+it.total);
     const k=M_KINDS[kind]||M_KINDS.books;
-    const ht=card.querySelector(".mhint-txt"); if(ht) ht.textContent=`${k.verb} ${it.current} ${k.unit}，剩余 ${it.total-it.current}`;
+    const unit=it.unit||defaultUnit(kind);
+    const ht=card.querySelector(".mhint-txt"); if(ht) ht.textContent=isPct?`${k.verb} ${it.current}%（剩余 ${100-it.current}%）`:`${k.verb} ${it.current} ${unit}，剩余 ${it.total-it.current}`;
   }
   const avgEl=document.getElementById("mediaAvgN");
   if(avgEl){ const all=[...media.books,...media.tvs,...media.auds]; avgEl.textContent=(all.length?Math.round(all.reduce((s,x)=>s+mPct(x),0)/all.length):0)+"%"; }
 }
 let mediaEditId=null, mediaEditKind=null;
+function typeValToKind(tv){ return tv==="tv"?"tvs":tv==="aud"?"auds":"books"; }
+function applyPercentMode(){
+  const p = document.getElementById("m_percent").checked;
+  const totEl = document.getElementById("m_total");
+  const unitEl = document.getElementById("m_unit");
+  const curEl = document.getElementById("m_current");
+  if(p){
+    totEl.value = 100; totEl.disabled = true;
+    unitEl.value = "%"; unitEl.disabled = true;
+    curEl.setAttribute("max","100");
+  } else {
+    totEl.disabled = false;
+    unitEl.disabled = false;
+    if(unitEl.value==="%") unitEl.value = defaultUnit(typeValToKind(document.getElementById("m_type").value));
+    curEl.removeAttribute("max");
+  }
+}
 function openMedia(id, kind){
   mediaEditId=id||null; mediaEditKind=kind||null;
   const t = id ? ((media[kind]||[]).find(x=>x.id===id) || null) : null;
@@ -7357,25 +7387,36 @@ function openMedia(id, kind){
   document.getElementById("m_title").value = t ? t.title : "";
   document.getElementById("m_current").value = t ? t.current : 0;
   document.getElementById("m_total").value = t ? t.total : 1;
+  document.getElementById("m_unit").value = t ? (t.unit || defaultUnit(kind)) : defaultUnit(kind);
+  document.getElementById("m_percent").checked = !!(t && t.percent);
   document.getElementById("m_platform").value = t ? (t.platform||"") : "";
+  applyPercentMode();
   document.getElementById("mediaMask").classList.add("show");
   mediaSnapshot();
 }
 function saveMedia(){
   const title=document.getElementById("m_title").value.trim();
   if(!title){ toast("请填写名称"); return; }
-  const cur=Math.max(0, +document.getElementById("m_current").value||0);
-  const tot=Math.max(1, +document.getElementById("m_total").value||1);
-  if(cur>tot){ toast("当前进度不能大于总量"); return; }
+  const percent = document.getElementById("m_percent").checked;
   const typeVal = document.getElementById("m_type").value;
   const kind = typeVal==="tv" ? "tvs" : typeVal==="aud" ? "auds" : "books";
   const typeLabel = typeVal==="tv" ? "剧集/真人秀" : typeVal==="aud" ? "有声剧/播客" : "书籍";
+  let cur, tot, unit;
+  if(percent){
+    tot = 100; unit = "%";
+    cur = Math.max(0, Math.min(100, +document.getElementById("m_current").value||0));
+  } else {
+    tot = Math.max(1, +document.getElementById("m_total").value||1);
+    unit = (document.getElementById("m_unit").value.trim()) || defaultUnit(kind);
+    cur = Math.max(0, Math.min(tot, +document.getElementById("m_current").value||0));
+  }
+  if(cur>tot){ toast("当前进度不能大于总量"); return; }
   const platform=document.getElementById("m_platform").value.trim();
   if(mediaEditId){
     const oldArr = media[mediaEditKind] || media.books;
     const it = oldArr.find(x=>x.id===mediaEditId);
     if(it){
-      it.title=title; it.type=typeLabel; it.current=cur; it.total=tot; it.platform=platform;
+      it.title=title; it.type=typeLabel; it.current=cur; it.total=tot; it.unit=unit; it.percent=percent; it.platform=platform;
       if(tot>0){ it.done = (cur>=tot); if(it.done){ if(typeof it.prevCurrent!=="number") it.prevCurrent=Math.max(0,tot-1); } else delete it.prevCurrent; }
       if(kind!==mediaEditKind){ // 编辑时换了类型 → 从旧分组搬到新分组（保留 id 与数据）
         const ix=oldArr.indexOf(it); if(ix>=0) oldArr.splice(ix,1);
@@ -7385,7 +7426,7 @@ function saveMedia(){
   } else {
     media[kind].push({
       id:"m"+Date.now().toString(36)+Math.random().toString(36).slice(2,4),
-      title, type:typeLabel, current:cur, total:tot, platform, done:(tot>0&&cur>=tot),
+      title, type:typeLabel, current:cur, total:tot, unit, percent, platform, done:(tot>0&&cur>=tot),
       prevCurrent: (tot>0&&cur>=tot) ? Math.max(0,tot-1) : undefined   // 新建即完成时也能安全撤销
     });
   }
@@ -7417,7 +7458,7 @@ const RECOVER_DEFS=[
     collect:o=>{ const out=[]; if(o&&o.media){ ["books","tvs","auds"].forEach(k=>{ (o.media[k]||[]).forEach(x=>{ if(x&&x.id) out.push(Object.assign({__kind:k},x)); }); }); } return out; },
     local:()=>[].concat(media.books||[],media.tvs||[],media.auds||[]),
     name:x=>(x&&x.title!=null)?String(x.title):"(无名称)",
-    meta:x=>{ const k=M_KINDS[x.__kind]||M_KINDS.books; return k.verb+" "+(x.current||0)+"/"+(x.total||0)+(x.platform?" · "+x.platform:""); },
+    meta:x=>{ const k=M_KINDS[x.__kind]||M_KINDS.books; if(x.percent) return (x.current||0)+"%"+(x.platform?" · "+x.platform:""); return k.verb+" "+(x.current||0)+"/"+(x.total||0)+(x.platform?" · "+x.platform:""); },
     score:(a,b)=>(a.current||0)-(b.current||0),
     restore:x=>{ const k=x.__kind||"books"; delete x.__kind; (media[k]||(media[k]=[])).push(x); mediaSave(); }},
   {key:"habits",label:"习惯",icon:"✓",
@@ -7591,7 +7632,10 @@ async function runGistScan(opts){
   }
 }
 let _mediaSnap="";
-function mediaFormStr(){ return ["m_type","m_title","m_current","m_total","m_platform"].map(id=>document.getElementById(id).value).join("~~|~~"); }
+function mediaFormStr(){
+  const ids=["m_type","m_title","m_current","m_total","m_platform","m_unit"];
+  return ids.map(id=>document.getElementById(id).value).join("~~|~~") + "~~|~~" + (document.getElementById("m_percent").checked?"1":"0");
+}
 function mediaSnapshot(){ _mediaSnap=mediaFormStr(); }
 function mediaDirty(){ return mediaFormStr()!==_mediaSnap; }
 
@@ -8597,6 +8641,7 @@ document.getElementById("btnBackfillSkip").onclick=async()=>{
 };
 document.getElementById("mCancel").onclick=closeMedia;
 document.getElementById("mSave").onclick=saveMedia;
+document.getElementById("m_percent").addEventListener("change", applyPercentMode);
 document.getElementById("mDelete").onclick=()=>{ if(mediaEditId) delMedia(mediaEditId, mediaEditKind); };
 document.getElementById("recoverClose").onclick=closeRecoverModal;
 document.getElementById("recoverScan").onclick=()=>runGistScan({});
