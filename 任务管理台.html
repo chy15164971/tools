@@ -1387,6 +1387,22 @@
 .pgbtn:disabled{opacity:.4;cursor:not-allowed;}
 .pgdots{color:var(--sub);padding:0 2px;}
 @media(max-width:640px){ .pager{justify-content:center;} .pg-info{width:100%;text-align:center;} }
+/* 纪念日视图（data-v="anniv"）*/
+.anniv-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+.anniv-stat{font-size:13px;color:var(--sub);}
+.anniv-list{display:flex;flex-direction:column;gap:10px;}
+.anniv-card{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);}
+.anniv-card.anniv-soon{border-left:4px solid var(--pri);}
+.anniv-dot{width:12px;height:12px;border-radius:50%;flex:none;}
+.anniv-main{flex:1;min-width:0;}
+.anniv-name{font-weight:600;font-size:15px;color:var(--ink);}
+.anniv-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:3px;font-size:12.5px;color:var(--sub);}
+.anniv-badge{border:1px solid;padding:1px 8px;border-radius:999px;font-size:12px;line-height:1.6;}
+.anniv-note{color:var(--sub);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.anniv-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none;}
+.anniv-count{font-weight:700;font-size:15px;color:var(--pri);white-space:nowrap;}
+.anniv-count.anniv-today{color:#ff5c8a;}
+.anniv-acts{display:flex;gap:6px;}
 </style>
 </head>
 <body data-page-node-id="CV4rbwQAy9hVefvRdCnBAQ">
@@ -1582,6 +1598,7 @@
         <button data-v="habit" role="tab" aria-selected="false" aria-label="习惯打卡视图" data-page-node-id="0adBED8TvhheP0MbbQBCep">习惯</button>
         <button data-v="stats" role="tab" aria-selected="false" aria-label="统计视图" data-page-node-id="3aIKIMya3U1AAlpMJqTHXS">统计</button>
         <button data-v="review" role="tab" aria-selected="false" title="周/日回顾体检" aria-label="定期回顾视图" data-page-node-id="7L5GSW0ixl7UNB2xo54n22">回顾</button>
+      <button data-v="anniv" role="tab" aria-selected="false" title="纪念日记录与倒计时" aria-label="纪念日视图" data-page-node-id="annivTabBtn">📅 纪念日</button>
       </div>
     </div>
     <div class="nav" data-page-node-id="BZXxHMKdbITOK5VDD7FTo0">
@@ -2647,7 +2664,7 @@ function rebuildCatPriSelects(){
 }
 
 /* ===== 状态 ===== */
-let state = { tasks: [], view: "month", cur: new Date(), filter:{ q:"", cat:"", pri:"", tag:"" }, selList: null, projects: [], okrs: [] };
+let state = { tasks: [], view: "month", cur: new Date(), filter:{ q:"", cat:"", pri:"", tag:"" }, selList: null, projects: [], okrs: [], anniv: [] };
 
 /* ===== 日期工具 ===== */
 const DAY=86400000;
@@ -3268,9 +3285,119 @@ function maybeBackupHint(){
 function load(){
   let has=false;
   try{ const raw=localStorage.getItem(KEY); if(raw){ const v=JSON.parse(raw); if(Array.isArray(v)){ state.tasks=v; has=true; } } }catch(e){}
-  projectsLoad(); okrsLoad();   // 有任务时也会提前 return，必须在此无条件加载项目/目标，否则刷新即丢失
+  projectsLoad(); okrsLoad(); annivLoad();   // 有任务时也会提前 return，必须在此无条件加载项目/目标/纪念日，否则刷新即丢失
   return has;
 }
+/* ===== 纪念日（集成视图，data-v="anniv"）=====
+   数据：state.anniv = [{id,name,cat,date(YYYY-MM-DD),yearly(bool),note,created}]
+   - 年度重复(yearly)：只取月日，倒计时算「下一次到来」的天数（今年已过则算明年），始终显示「还有 N 天」/「今天」
+   - 非年度(单次)：按完整日期算净天数，未来显示「还有 N 天」、过去显示「已过 N 天」
+   云同步：复用任务台 Gist 同一套机制，anniv 并入 syncPayload 与各处云端对象落地。 */
+const ANNIV_KEY="wb_anniv_v1";
+const ANNIV_CATS=[{name:"生日",color:"#ff5c8a"},{name:"恋爱",color:"#ff7ab6"},{name:"节日",color:"#ffb020"},{name:"工作",color:"#4F7CFF"},{name:"其他",color:"#9aa0ab"}];
+function annivCatColor(n){ const c=ANNIV_CATS.find(x=>x.name===n); return c?c.color:"#9aa0ab"; }
+function annivLoad(){ try{ const r=localStorage.getItem(ANNIV_KEY); if(r){ const a=JSON.parse(r); if(Array.isArray(a)) state.anniv=a; } }catch(e){} if(!Array.isArray(state.anniv)) state.anniv=[]; }
+function annivSave(){ if(!Array.isArray(state.anniv)) state.anniv=[]; try{ localStorage.setItem(ANNIV_KEY, JSON.stringify(state.anniv)); }catch(e){} markLocalSave(); cloudAutoUpload(); }
+function annivNextOccurrence(a, today){
+  const p=String(a.date||"").split("-"); if(p.length<3) return null;
+  const mm=+p[1], dd=+p[2], y=today.getFullYear();
+  let next=new Date(y, mm-1, dd);
+  if(startOfDay(next) < today) next=new Date(y+1, mm-1, dd);
+  return next;
+}
+function annivDaysLeft(a, today){
+  if(!a.date) return null;
+  if(a.yearly){ const next=annivNextOccurrence(a, today); if(!next) return null; return Math.round((startOfDay(next)-today)/86400000); }
+  const t=startOfDay(parseLocal(a.date)); return Math.round((t-today)/86400000);
+}
+function annivCountdownText(a, today){
+  const d=annivDaysLeft(a, today); if(d==null) return "未设日期";
+  if(a.yearly){ if(d===0) return "今天 🎉"; return "还有 "+d+" 天"; }
+  if(d===0) return "就是今天"; if(d>0) return "还有 "+d+" 天"; return "已过 "+(-d)+" 天";
+}
+function annivRow(a){
+  const today=startOfDay(new Date());
+  const d=annivDaysLeft(a, today);
+  const soon=(a.yearly && d!=null && d>=0 && d<=7) || (!a.yearly && d!=null && d>0 && d<=7);
+  const col=annivCatColor(a.cat);
+  const daysTxt=annivCountdownText(a, today);
+  return '<div class="anniv-card'+(soon?" anniv-soon":"")+'">'
+    +'<div class="anniv-dot" style="background:'+col+'"></div>'
+    +'<div class="anniv-main">'
+      +'<div class="anniv-name">'+esc(a.name||"(未命名)")+'</div>'
+      +'<div class="anniv-meta"><span class="anniv-badge" style="color:'+col+';border-color:'+col+'">'+esc(a.cat||"其他")+'</span>'
+      +'<span class="anniv-date">'+(a.yearly?"每年 "+String(a.date).slice(5):String(a.date).slice(0,10))+'</span>'
+      +(a.note?'<span class="anniv-note">'+esc(a.note)+'</span>':'')+'</div>'
+    +'</div>'
+    +'<div class="anniv-right"><div class="anniv-count'+(d===0?" anniv-today":"")+'">'+daysTxt+'</div>'
+      +'<div class="anniv-acts"><button class="btn btn-ghost btn-sm" data-aedit="'+a.id+'">编辑</button>'
+      +'<button class="btn btn-ghost btn-sm" data-adel="'+a.id+'" title="删除">✕</button></div></div>'
+    +'</div>';
+}
+function renderAnniv(){
+  const box=document.getElementById("view"); if(!box) return;
+  const list=(state.anniv||[]).slice();
+  const today=startOfDay(new Date());
+  list.forEach(a=>{ a._d=annivDaysLeft(a, today); });
+  list.sort((a,b)=>{ const ra=a._d, rb=b._d; if(ra==null) return 1; if(rb==null) return -1; const ka=ra<0?1:0, kb=rb<0?1:0; if(ka!==kb) return ka-kb; if(ra>=0) return ra-rb; return rb-ra; });
+  const upcoming=list.filter(a=>a._d!=null && a._d>=0).length;
+  const soon7=list.filter(a=>{ const d=a._d; return a.yearly ? (d!=null&&d>=0&&d<=7) : (d!=null&&d>0&&d<=7); }).length;
+  let html='<div class="anniv-head">'
+    +'<button class="btn btn-pri" id="btnNewAnniv">＋ 新建纪念日</button>'
+    +'<div class="anniv-stat">共 '+list.length+' 个 · 即将到来 '+upcoming+' 个 · 7 天内 '+soon7+' 个</div>'
+    +'</div>';
+  if(!list.length){ html+=emptyState("📅","还没有纪念日，点击「新建纪念日」记录生日、恋爱纪念、节日等",'<button class="btn btn-pri" id="btnNewAnniv2" style="margin-top:10px;">＋ 新建纪念日</button>'); }
+  else { html+='<div class="anniv-list">'+list.map(annivRow).join("")+'</div>'; }
+  box.innerHTML=html;
+  const open=()=>openAnnivModal(null);
+  const b1=document.getElementById("btnNewAnniv"); if(b1) b1.onclick=open;
+  const b2=document.getElementById("btnNewAnniv2"); if(b2) b2.onclick=open;
+  box.querySelectorAll("[data-aedit]").forEach(b=>b.onclick=()=>openAnnivModal(b.dataset.aedit));
+  box.querySelectorAll("[data-adel]").forEach(b=>b.onclick=async()=>{ const id=b.dataset.adel; const a=(state.anniv||[]).find(x=>x.id===id); if(!(await confirmDialog("删除纪念日「"+(a?a.name:"")+"」？",{danger:true}))) return; state.anniv=state.anniv.filter(x=>x.id!==id); annivSave(); renderAll(); toast("已删除纪念日"); });
+}
+let _annivBound=false;
+function bindAnnivModalOnce(){
+  if(_annivBound) return; _annivBound=true;
+  const save=document.getElementById("btnAnnivSave"); if(save) save.onclick=saveAnnivModal;
+  const cancel=document.getElementById("btnAnnivCancel"); if(cancel) cancel.onclick=closeAnnivModal;
+  const m=document.getElementById("annivMask"); if(m) m.addEventListener("click", e=>{ if(e.target.id==="annivMask") closeAnnivModal(); });
+  window.addEventListener("keydown", e=>{ if(e.key==="Escape"){ const mm=document.getElementById("annivMask"); if(mm&&mm.classList.contains("show")) closeAnnivModal(); } });
+}
+function openAnnivModal(id){
+  bindAnnivModalOnce();
+  const a = id ? (state.anniv||[]).find(x=>x.id===id) : null;
+  document.getElementById("aId").value = id||"";
+  document.getElementById("aName").value = a?a.name:"";
+  document.getElementById("aCat").value = a?a.cat:ANNIV_CATS[0].name;
+  document.getElementById("aDate").value = a&&a.date ? String(a.date).slice(0,10) : ymd(startOfDay(new Date()));
+  document.getElementById("aYearly").checked = a? !!a.yearly : true;
+  document.getElementById("aNote").value = a?a.note:"";
+  document.getElementById("annivModalTitle").textContent = a?"编辑纪念日":"新建纪念日";
+  document.getElementById("annivMask").classList.add("show");
+  setTimeout(()=>{ try{ document.getElementById("aName").focus(); }catch(_){} },50);
+}
+function closeAnnivModal(){ const m=document.getElementById("annivMask"); if(m) m.classList.remove("show"); }
+function saveAnnivModal(){
+  const name=document.getElementById("aName").value.trim();
+  if(!name){ toast("请填写名称","danger"); return; }
+  const date=document.getElementById("aDate").value;
+  if(!date){ toast("请选择日期","danger"); return; }
+  const id=document.getElementById("aId").value.trim();
+  const data={ name, cat:document.getElementById("aCat").value.trim()||"其他", date, yearly:document.getElementById("aYearly").checked, note:document.getElementById("aNote").value.trim() };
+  if(id){ const a=(state.anniv||[]).find(x=>x.id===id); if(a) Object.assign(a, data); }
+  else { state.anniv=state.anniv||[]; state.anniv.push(Object.assign({id:"av_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6)}, data)); }
+  annivSave(); closeAnnivModal(); renderAll(); toast(id?"已保存修改":"已新建纪念日");
+}
+// 云端对象合并：把云端 anniv 并入本地（id 对齐，云端优先，保留本地独有）
+function mergeAnnivIntoLocal(obj){
+  if(!Array.isArray(obj.anniv)) return;
+  const m=new Map();
+  (state.anniv||[]).forEach(x=>{ if(x&&x.id) m.set(x.id, x); });
+  obj.anniv.forEach(x=>{ if(x&&x.id) m.set(x.id, x); });   // 同 id 云端覆盖本地（最新为准）
+  state.anniv=Array.from(m.values());
+  annivSave();
+}
+
 function seed(){
   const t = new Date(); const y=null;
   let _sid=0;
@@ -4482,6 +4609,7 @@ function renderCur(){
   else if(state.view==="projects") s="项目";
   else if(state.view==="okr") s="目标 OKR";
   else if(state.view==="review") s="定期回顾";
+  else if(state.view==="anniv") s="纪念日";
   else { s=d.getFullYear()+"年"+(d.getMonth()+1)+"月 · 甘特"; }
   document.getElementById("curdate").textContent=s;
 }
@@ -5839,7 +5967,7 @@ function renderAllNow(){
   const _hs = Array.from(_hsEls).map(e=>e.scrollLeft);
   renderCur();
   const isMedia = state.view==="media";
-  const isFullPage = isMedia||state.view==="stats"||state.view==="habit"||state.view==="lists"||state.view==="projects"||state.view==="okr"||state.view==="review"; // 整页视图
+  const isFullPage = isMedia||state.view==="stats"||state.view==="habit"||state.view==="lists"||state.view==="projects"||state.view==="okr"||state.view==="review"||state.view==="anniv"; // 整页视图
   const isInbox = state.view==="inbox";
   // 非日历/收件箱视图：日期导航用 display:none 彻底移出布局，避免右侧留下空白占位带（P0-3）
   document.querySelector(".nav").style.display = (isFullPage||isInbox)?"none":"";
@@ -5869,6 +5997,7 @@ function renderAllNow(){
   else if(state.view==="projects") renderProjects();
   else if(state.view==="okr") renderOkr();
   else if(state.view==="review") renderReview();
+  else if(state.view==="anniv") renderAnniv();
   else renderGantt();
   renderToday();
   renderHabitPanel();
@@ -8988,7 +9117,7 @@ function applyCfg(c){
   try{ if(c["wb_taskhub_habit_style_v1"] && typeof applyHabitStyle==="function") applyHabitStyle(); }catch(e){}
   try{ if(c["wb_taskhub_remind_v1"] && typeof loadRemind==="function") loadRemind(); }catch(e){}
 }
-function syncPayload(){ return {tasks:state.tasks, media, habits, cats, pris, lists, tagTree, projects:state.projects, okrs:state.okrs, deleted:deletedIds, cfg:collectCfg(), savedAt:Date.now()}; }   // R8：stats(完成流水缓存)不上云 —— 权威口径=任务 doneDates，可本地重建，避免每包 5000 条冗余
+function syncPayload(){ return {tasks:state.tasks, media, habits, cats, pris, lists, tagTree, projects:state.projects, okrs:state.okrs, anniv:state.anniv, deleted:deletedIds, cfg:collectCfg(), savedAt:Date.now()}; }   // R8：stats(完成流水缓存)不上云 —— 权威口径=任务 doneDates，可本地重建，避免每包 5000 条冗余
 // 兼容 classic token(ghp_/token 前缀) 与 fine-grained token(github_pat_/Bearer 前缀)，避免换细粒度 token 后 401
 
 // 带超时的 fetch：国内访问 api.github.com 常被静默挂起，必须超时兜底，否则界面一直转圈无反馈
@@ -9078,6 +9207,7 @@ async function cloudDownload(){
     if(Array.isArray(obj.tagTree)){ tagTree=obj.tagTree; saveTags(); }
     if(Array.isArray(obj.projects)){ state.projects=obj.projects; projectsSave(); }
     if(Array.isArray(obj.okrs)){ state.okrs=obj.okrs; okrsSave(); }
+    if(Array.isArray(obj.anniv)){ state.anniv=obj.anniv; annivSave(); }
     deletedIds=(obj.deleted||[]).map(normTomb); deletedIdsSave();
     rebuildCatPriSelects();
     applyCfg(obj.cfg);   // M9：手动下载同步配置
@@ -9160,6 +9290,7 @@ function applyCloudObj(obj){
   if(Array.isArray(obj.pris)) pris=obj.pris;
   if(Array.isArray(obj.projects)) state.projects=obj.projects;
   if(Array.isArray(obj.okrs)) state.okrs=obj.okrs;
+  if(Array.isArray(obj.anniv)){ state.anniv=obj.anniv; annivSave(); }
   deletedIds=(obj.deleted||[]).map(normTomb); deletedIdsSave();
   const cloudT=obj.savedAt||0;
   _markSave=false; saveQuiet(); mediaSave(); habitSave(); listsSave(); catsSave(); prisSave(); projectsSave(); okrsSave(); saveTags(); _markSave=true;
@@ -9177,6 +9308,7 @@ function applyCloudSecondary(obj){
   if(Array.isArray(obj.pris)) pris=obj.pris;
   if(Array.isArray(obj.projects)) state.projects=obj.projects;
   if(Array.isArray(obj.okrs)) state.okrs=obj.okrs;
+  if(Array.isArray(obj.anniv)){ state.anniv=obj.anniv; annivSave(); }
   mediaSave(); habitSave(); listsSave(); catsSave(); prisSave(); projectsSave(); okrsSave(); saveTags();
   rebuildCatPriSelects();
 }
@@ -9200,6 +9332,7 @@ function mergeCloudSecondaryUnion(obj){
   if(Array.isArray(obj.pris)) pris=union(pris,obj.pris,namek);
   if(Array.isArray(obj.projects)) state.projects=union(state.projects,obj.projects,idk);
   if(Array.isArray(obj.okrs)) state.okrs=union(state.okrs,obj.okrs,idk);
+  if(Array.isArray(obj.anniv)) mergeAnnivIntoLocal(obj);
   mediaSave(); habitSave(); listsSave(); catsSave(); prisSave(); projectsSave(); okrsSave(); saveTags();
   rebuildCatPriSelects();
 }
@@ -9528,5 +9661,28 @@ if(_ob){ _ob.addEventListener("click", toggleTopOverview); _ob.addEventListener(
 
 <!-- 「更多」菜单遮罩：移动端底部 Sheet 打开时铺满屏幕，点击关闭（桌面端由 CSS 隐藏） -->
 <div class="menu-backdrop" id="menuBackdrop" aria-hidden="true"></div>
+
+<!-- 纪念日编辑弹窗（data-v="anniv" 视图使用；绑定在 openAnnivModal 内懒加载） -->
+<div class="mask" id="annivMask" role="dialog" aria-modal="true" aria-labelledby="annivModalTitle">
+  <div class="modal" style="max-width:480px;">
+    <h2 id="annivModalTitle">新建纪念日</h2>
+    <input type="hidden" id="aId">
+    <div class="field" style="margin-top:4px;"><label for="aName">名称 *</label><input id="aName" placeholder="如：交往纪念日 / 妈妈生日 / 公司周年"></div>
+    <div class="field"><label for="aCat">分类</label><input id="aCat" list="annivCatsList" placeholder="生日 / 恋爱 / 节日 / 工作 / 其他，可自定义">
+      <datalist id="annivCatsList">
+        <option value="生日"></option><option value="恋爱"></option><option value="节日"></option><option value="工作"></option><option value="其他"></option>
+      </datalist>
+    </div>
+    <div class="row2">
+      <div class="field"><label for="aDate">日期 *</label><input type="date" id="aDate"></div>
+      <div class="field" style="justify-content:flex-end;"><label class="chk" style="display:flex;align-items:center;gap:6px;height:38px;cursor:pointer;"><input type="checkbox" id="aYearly" checked> 每年重复</label></div>
+    </div>
+    <div class="field"><label for="aNote">备注</label><textarea id="aNote" rows="2" placeholder="可选，如：准备礼物 / 发祝福"></textarea></div>
+    <div class="row2" style="margin-top:12px;">
+      <button class="btn btn-ghost" id="btnAnnivCancel" type="button">取消</button>
+      <button class="btn btn-pri" id="btnAnnivSave" type="button">保存</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
