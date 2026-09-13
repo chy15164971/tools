@@ -865,6 +865,9 @@
   .widget-row{display:flex;flex-wrap:wrap;gap:14px;align-items:stretch;grid-column:1/-1;min-width:0;}
   .widget-row>.panel,
   .widget-row>.custom-card{flex:1 1 320px;min-width:0;margin:0;display:flex;flex-direction:column;min-height:min(46vh,420px);max-height:min(64vh,580px);}
+  /* 折叠态只占标题条高度：不再被同行等高对齐（align-items:stretch）拉伸成一大片空白卡片。
+     此前折叠后面板内部已 display:none，但 min-height 46vh 仍在 → 顶部三栏里出现"有标题没内容"的空壳。 */
+  .widget-row>.panel.collapsible.collapsed{align-self:start;min-height:auto;max-height:none;}
   /* 关键：面板本身有 max-height 限制（min(64vh,580px)），其内部可滚动区必须允许收缩（flex-shrink:1），
      否则展开大量项时子项高度被撑到内容真实高度、撑破面板 max-height，overflow:auto 永不触发 → 整页纵向溢出。
      min-height:0 是 flex 子项能收缩出滚动空间的前提（与 flex-grow:1 配合，多余内容在面板内滚动而非撑破）。 */
@@ -5219,9 +5222,11 @@ let uiPrefs={collapsed:{top:false,habit:false,list:false}, topOpen:false, touche
 try{ const _r=localStorage.getItem("wb_taskhub_ui_v1"); if(_r){ const _o=JSON.parse(_r); if(_o&&_o.collapsed) uiPrefs.collapsed=Object.assign({top:false,habit:false,list:false},_o.collapsed); if(_o.touched!==undefined) uiPrefs.touched=!!_o.touched; if(_o.topOpen!==undefined) uiPrefs.topOpen=!!_o.topOpen; } }catch(e){}
 function saveUIPrefs(){ try{ localStorage.setItem("wb_taskhub_ui_v1", JSON.stringify(uiPrefs)); }catch(e){} }
 const PANEL_KEYS={top:"toppanel",habit:"habitpanel",list:"listpanel"};
-/* P1-15：某些整页视图与顶部 widget 内容完全重复（清单视图 vs 待办清单面板、习惯视图 vs 习惯打卡面板）。
-   进入这些视图时把对应 widget 临时收起（不改用户持久偏好，切回其它视图自动恢复），避免同屏两处相同信息。 */
-const VIEW_DUP_PANEL={lists:"list", habit:"habit"};
+/* P1-15：某些整页视图与顶部 widget 内容完全重复（习惯视图 vs 习惯打卡面板）。
+   进入这些视图时把对应 widget 临时收起（不改用户持久偏好，切回其它视图自动恢复），避免同屏两处相同信息。
+   注：「清单」视图曾用同一规则自动收起顶部「清单速览」，导致该栏只剩空白卡片；
+   按用户反馈已移除该映射——清单视图下顶部「清单速览」与其他视图一致，正常展开、内容照常渲染。 */
+const VIEW_DUP_PANEL={habit:"habit"};
 function applyPanelCollapse(isFullPage, view){
   const dup = view ? VIEW_DUP_PANEL[view] : null;
   for(const k in PANEL_KEYS){
