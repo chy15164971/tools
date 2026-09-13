@@ -2074,7 +2074,7 @@
       <div class="field" data-page-node-id="uIPvyDPRRVdObiIoJKYSQf"><label data-page-node-id="Wy7Rmw1vMEGhRXo4PQONeA">当前进度</label><input id="m_current" type="number" min="0" value="0" data-page-node-id="5fsyIdOG03DIXKmW7XQEAi"></div>
       <div class="field" data-page-node-id="jhfuDRYezcmAWmEkWsx18S"><label data-page-node-id="WEmn2AoKNWgQFSqepIAOln">总量</label><input id="m_total" type="number" min="1" value="1" data-page-node-id="1ifvXh5MLdL7f58FQzSFiO"></div>
     </div>
-    <div class="field" data-page-node-id="mUnitField"><label data-page-node-id="mUnitLabel">单位（如 章 / 集 / 页 / 课，进度看板按你填的单位展示）</label><input id="m_unit" maxlength="8" placeholder="章" data-page-node-id="mUnitInput"></div>
+    <div class="field" data-page-node-id="mUnitField"><label data-page-node-id="mUnitLabel">单位（如 章 / 集 / 页 / 课；百分比模式下可选留空）</label><input id="m_unit" maxlength="8" placeholder="章" data-page-node-id="mUnitInput"></div>
     <label class="chk" style="display:flex;align-items:center;gap:6px;min-height:34px;cursor:pointer;margin:2px 0 6px;"><input type="checkbox" id="m_percent" data-page-node-id="mPercentChk"> 以百分比记录（当前进度直接填 0–100，如 45 表示 45%）</label>
     <div class="field" data-page-node-id="0kNLnUOWz90yuxHJDNILQd"><label data-page-node-id="j4uA53cmc0CPZSZwy9arSL">平台（可选）</label><input id="m_platform" placeholder="微信读书 / B站 / 腾讯视频 ..." data-page-node-id="jmdAsrRf3ZZTWy7YWThm4r"></div>
     <div class="modal-actions" data-page-node-id="JDjhWL2uuMJDgaCGBBGfbV">
@@ -7369,11 +7369,14 @@ function applyPercentMode(){
   const curEl = document.getElementById("m_current");
   if(p){
     totEl.value = 100; totEl.disabled = true;
-    unitEl.value = "%"; unitEl.disabled = true;
+    unitEl.disabled = false;                 // 百分比模式下单位可选填，允许留空（如 Kindle 只看得到百分比）
+    unitEl.placeholder = "可选（如 位置 / 章节名）";
+    if(unitEl.value==="%") unitEl.value = ""; // 旧数据遗留的 "%" 清空，交回用户决定
     curEl.setAttribute("max","100");
   } else {
     totEl.disabled = false;
     unitEl.disabled = false;
+    unitEl.placeholder = "章";
     if(unitEl.value==="%") unitEl.value = defaultUnit(typeValToKind(document.getElementById("m_type").value));
     curEl.removeAttribute("max");
   }
@@ -7387,7 +7390,7 @@ function openMedia(id, kind){
   document.getElementById("m_title").value = t ? t.title : "";
   document.getElementById("m_current").value = t ? t.current : 0;
   document.getElementById("m_total").value = t ? t.total : 1;
-  document.getElementById("m_unit").value = t ? (t.unit || defaultUnit(kind)) : defaultUnit(kind);
+  document.getElementById("m_unit").value = t ? (t.unit===undefined ? defaultUnit(kind) : (t.unit||"")) : defaultUnit(kind);
   document.getElementById("m_percent").checked = !!(t && t.percent);
   document.getElementById("m_platform").value = t ? (t.platform||"") : "";
   applyPercentMode();
@@ -7403,7 +7406,7 @@ function saveMedia(){
   const typeLabel = typeVal==="tv" ? "剧集/真人秀" : typeVal==="aud" ? "有声剧/播客" : "书籍";
   let cur, tot, unit;
   if(percent){
-    tot = 100; unit = "%";
+    tot = 100; unit = (document.getElementById("m_unit").value.trim()) || ""; // 百分比模式单位可选：留空则无单位
     cur = Math.max(0, Math.min(100, +document.getElementById("m_current").value||0));
   } else {
     tot = Math.max(1, +document.getElementById("m_total").value||1);
