@@ -7649,6 +7649,7 @@ function mediaDirty(){ return mediaFormStr()!==_mediaSnap; }
 
 /* ===== 待办清单 / 库存（轻量模块，与媒体/习惯平级） ===== */
 let lists = [];
+const LIST_DEFAULT_EMOJI = "📋";   // 清单未单独设图标时的统一兜底图标（避免两处渲染不一致）
 let openLists = {};   // 顶部清单面板：各清单展开/收起状态
 const LISTS_KEY = "wb_taskhub_lists_v1";
 function listTouch(l){ if(l && !l.updated) l.updated = Date.now(); return l; }   // 首次给清单打时间戳
@@ -7767,7 +7768,7 @@ function renderLists(){
       const p=listPending(l);
       const on=l.id===sel?" on":"";
       return `<div class="ltree-item${on}" data-lid="${l.id}" draggable="true">
-        <span class="lemoji">${esc(l.emoji||"📁")}</span>
+        <span class="lemoji">${esc(l.emoji||LIST_DEFAULT_EMOJI)}</span>
         <span class="lname" data-pick>${esc(l.name)}</span>
         <span class="lcount">${p}</span>
         <button class="lmenu" data-del title="删除清单" aria-label="删除清单「${esc(l.name)}」">✕</button>
@@ -7789,7 +7790,7 @@ function renderLists(){
     const p=listPending(l);
     detail+=`<div class="lcard">
       <div class="lhead">
-        <div class="lname" data-rename title="点名称可重命名">${esc(l.emoji?l.emoji+" ":"")}${esc(l.name)}</div>
+        <span class="lhead-emoji" data-emojiedit title="点此修改图标">${esc(l.emoji||LIST_DEFAULT_EMOJI)}</span><div class="lname" data-rename title="点名称可重命名">${esc(l.name)}</div>
         <span class="lcount">待办 ${p}/${items.length}</span>
         ${lq?`<span class="badge">🔍 匹配 ${items.length}/${dispItems.length}</span>`:""}
         <select class="sortsel" id="itemSort" title="排序条目">${sortOpts}</select>
@@ -7881,6 +7882,15 @@ function renameList(lid){
   const nm=name.trim(); if(!nm) return;
   snapshot();
   l.name=nm; l.updated=Date.now(); listsSave(); renderAll(); toast("已重命名");
+}
+function editListEmoji(lid){
+  const l=lists.find(x=>x.id===lid); if(!l) return;
+  const v=prompt("设置清单图标\n可粘贴任意 emoji（如 📚 ✉️ 🎯），留空恢复默认", l.emoji||"");
+  if(v===null) return;
+  snapshot();
+  const e=v.trim().slice(0,16);   // 防滥用：限长，emoji 组合串一般远小于此
+  l.emoji = (e===LIST_DEFAULT_EMOJI) ? "" : e;   // 与默认一致则不冗余存储
+  l.updated=Date.now(); listsSave(); renderAll(); toast("已更新图标");
 }
 async function delList(lid){
   const l=lists.find(x=>x.id===lid); if(!l) return;
@@ -8076,7 +8086,7 @@ function renderListsPanel(){
     const open = openLists[l.id];
     return `<div class="lp-list" data-lid="${l.id}">
       <div class="lp-head" data-lid="${l.id}">
-        <span class="lp-emoji">${esc(l.emoji||"📋")}</span>
+        <span class="lp-emoji" data-lid="${l.id}" title="点此修改图标">${esc(l.emoji||LIST_DEFAULT_EMOJI)}</span>
         <span class="lp-name">${esc(l.name)}</span>
         <span class="lp-badge ${p?'':'zero'}">待办 ${p}/${t}</span>
         <button aria-label="在清单视图打开" class="lp-go" data-go="${l.id}" title="在清单视图打开">↗</button>
@@ -8118,6 +8128,7 @@ function setupListsEvents(){
     }
     const card=t.closest(".lcard"); if(!card) return;
     const lid=state.selList;
+    if(t.closest("[data-emojiedit]")){ editListEmoji(lid); return; }
     if(t.closest("[data-rename]")){ renameList(lid); return; }
     if(t.closest("[data-ldel]")){ delList(lid); return; }
     if(t.closest("[data-newadd]")){ const inp=card.querySelector("[data-new]"); addItem(lid, inp?inp.value:""); return; }
@@ -8154,6 +8165,7 @@ function setupListsPanelEvents(){
   const el=document.getElementById("listsPanelBody"); if(!el) return;
   el.addEventListener("click", e=>{
     const t=e.target;
+    const emo=t.closest(".lp-emoji"); if(emo){ editListEmoji(emo.dataset.lid); return; }
     if(t.closest(".lp-go")){ state.view="lists"; syncSeg(); renderAll(); return; }
     const head=t.closest(".lp-head"); if(head){ openLists[head.dataset.lid]=!openLists[head.dataset.lid]; renderListsPanel(); return; }
     if(t.closest("[data-newadd]")){ const box=t.closest(".lp-list"); const inp=box?box.querySelector("[data-new]"):null; addItem(box?box.dataset.lid:"", inp?inp.value:""); return; }
