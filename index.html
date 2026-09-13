@@ -1399,7 +1399,9 @@
 .anniv-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:3px;font-size:12.5px;color:var(--sub);}
 .anniv-badge{border:1px solid;padding:1px 8px;border-radius:999px;font-size:12px;line-height:1.6;}
 .anniv-note{color:var(--sub);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.anniv-lunar{color:var(--pri);opacity:.85;font-size:12px;background:color-mix(in srgb,var(--pri) 10%,transparent);padding:1px 7px;border-radius:999px;}
+.anniv-date{color:var(--ink);font-weight:500;}
+.anniv-date-sub{color:var(--sub);font-size:12px;margin-left:2px;}
+.anniv-date.lunar{color:var(--pri);font-weight:600;}
 .lunar-preview{font-size:12.5px;color:var(--pri);margin:-4px 2px 2px;min-height:18px;}
 .anniv-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none;}
 .anniv-count{font-weight:700;font-size:15px;color:var(--pri);white-space:nowrap;}
@@ -3291,7 +3293,9 @@ function load(){
   return has;
 }
 /* ===== 纪念日（集成视图，data-v="anniv"）=====
-   数据：state.anniv = [{id,name,cat,date(YYYY-MM-DD),yearly(bool),note,created}]
+   数据：state.anniv = [{id,name,cat,date(YYYY-MM-DD),yearly(bool),note,created,
+                         calType("solar"|"lunar"), lunar({m,d,leap})?}]
+   - calType 默认 "solar"；为 "lunar" 时以 lunar{m,d,leap} 为准（由 date 反查得到），date 作为公历参照年
    - 年度重复(yearly)：只取月日，倒计时算「下一次到来」的天数（今年已过则算明年），始终显示「还有 N 天」/「今天」
    - 非年度(单次)：按完整日期算净天数，未来显示「还有 N 天」、过去显示「已过 N 天」
    云同步：复用任务台 Gist 同一套机制，anniv 并入 syncPayload 与各处云端对象落地。 */
@@ -3355,37 +3359,78 @@ const Lunar=(function(){
     const o=solar2lunar(y,m,d); if(!o||o.ly<1900) return '';
     return '农历'+gz(o.ly)+'年 '+(o.isLeap?'闰':'')+LMON[o.lm-1]+'月'+LDAY[o.ld-1];
   }
-  return { text };
+  // 农历月日 → 展示串（如「闰五月初十」），无效返回 ''
+  function lunarMD(m,d,isLeap){
+    if(m<1||m>12||d<1||d>30) return '';
+    return (isLeap?'闰':'')+LMON[m-1]+'月'+LDAY[d-1];
+  }
+  // 农历日期 → 公历 {y,m,d}（用于按农历倒计时）；越界/无效/该月天数不符返回 null
+  function toSolar(ly,lm,ld,isLeap){
+    if(ly<1900||ly>2100) return null;
+    if(lm<1||lm>12||ld<1) return null;
+    const lp=leapMonth(ly);
+    if(isLeap && lp!==lm) return null;            // 该年无此闰月
+    const md = isLeap ? leapDays(ly) : monthDays(ly,lm);
+    if(ld>md) return null;
+    let off=0;
+    for(let y=1900; y<ly; y++) off+=lYearDays(y);  // 累计此前各农历年天数
+    for(let i=1;i<lm;i++){ off+=monthDays(ly,i); if(lp>0&&i===lp) off+=leapDays(ly); }
+    if(isLeap) off+=monthDays(ly,lp);             // 闰月前先经过其正月份
+    off+=(ld-1);
+    const base=Date.UTC(1900,0,31);               // 1900-01-31 = 农历1900正月初一
+    const dt=new Date(base+off*86400000);
+    return {y:dt.getUTCFullYear(), m:dt.getUTCMonth()+1, d:dt.getUTCDate()};
+  }
+  return { text, toLunar:solar2lunar, toSolar, lunarMD };
 })();
 function annivLoad(){ try{ const r=localStorage.getItem(ANNIV_KEY); if(r){ const a=JSON.parse(r); if(Array.isArray(a)) state.anniv=a; } }catch(e){} if(!Array.isArray(state.anniv)) state.anniv=[]; }
 function annivSave(){ if(!Array.isArray(state.anniv)) state.anniv=[]; try{ localStorage.setItem(ANNIV_KEY, JSON.stringify(state.anniv)); }catch(e){} markLocalSave(); cloudAutoUpload(); }
-function annivNextOccurrence(a, today){
-  const p=String(a.date||"").split("-"); if(p.length<3) return null;
-  const mm=+p[1], dd=+p[2], y=today.getFullYear();
-  let next=new Date(y, mm-1, dd);
-  if(startOfDay(next) < today) next=new Date(y+1, mm-1, dd);
-  return next;
+function annivSolarDate(a, today){
+  if(a.calType==="lunar" && a.lunar && a.lunar.m){
+    const m=a.lunar.m, d=a.lunar.d, leap=!!a.lunar.leap;
+    if(a.yearly){
+      let y=today.getFullYear();
+      let s=Lunar.toSolar(y,m,d,leap);
+      let gd = s? new Date(s.y, s.m-1, s.d):null;
+      if(!gd) return null;
+      if(startOfDay(gd) < today){ const s2=Lunar.toSolar(y+1,m,d,leap); gd = s2? new Date(s2.y, s2.m-1, s2.d):null; }
+      return gd;
+    } else {
+      const refY = a.date ? (+String(a.date).slice(0,4)) : today.getFullYear();
+      const s=Lunar.toSolar(refY,m,d,leap);
+      return s? new Date(s.y, s.m-1, s.d):null;
+    }
+  }
+  if(a.yearly){
+    const p=String(a.date||"").split("-"); if(p.length<3) return null;
+    const mm=+p[1], dd=+p[2], y=today.getFullYear();
+    let next=new Date(y, mm-1, dd);
+    if(startOfDay(next) < today) next=new Date(y+1, mm-1, dd);
+    return next;
+  }
+  const t=parseLocal(a.date); return t? startOfDay(t):null;
 }
 function annivDaysLeft(a, today){
-  if(!a.date) return null;
-  if(a.yearly){ const next=annivNextOccurrence(a, today); if(!next) return null; return Math.round((startOfDay(next)-today)/86400000); }
-  const t=startOfDay(parseLocal(a.date)); return Math.round((t-today)/86400000);
+  const s=annivSolarDate(a, today); if(!s) return null;
+  return Math.round((startOfDay(s)-today)/86400000);
 }
 function annivCountdownText(a, today){
   const d=annivDaysLeft(a, today); if(d==null) return "未设日期";
   if(a.yearly){ if(d===0) return "今天 🎉"; return "还有 "+d+" 天"; }
   if(d===0) return "就是今天"; if(d>0) return "还有 "+d+" 天"; return "已过 "+(-d)+" 天";
 }
-function annivLunarText(a){
-  if(!a.date) return '';
-  const p=String(a.date).split("-"); if(p.length<3) return '';
-  const mm=+p[1], dd=+p[2];
-  let y = a.yearly ? new Date().getFullYear() : +p[0];
-  // 跳过不存在的日期（如 02-29 平年、或早于 1900），向后找有效年份
-  let guard=0;
-  while(y<2101 && !(new Date(y,mm-1,dd).getDate()===dd) && guard<400){ y++; guard++; }
-  if(y>=2101) return '';
-  return Lunar.text(y, mm, dd);
+function annivDateLabel(a){
+  if(a.calType==="lunar" && a.lunar && a.lunar.m){
+    const {m,d,leap}=a.lunar;
+    const md=Lunar.lunarMD(m,d,!!leap);
+    const main=(a.yearly?"每年 农历":"农历")+md;
+    const refY=a.yearly? new Date().getFullYear() : (a.date?+String(a.date).slice(0,4):new Date().getFullYear());
+    const s=Lunar.toSolar(refY,m,d,!!leap);
+    const sub = s? ("公历 "+s.y+"-"+String(s.m).padStart(2,"0")+"-"+String(s.d).padStart(2,"0")) : "";
+    return {main, sub};
+  }
+  const main = a.yearly? ("每年 "+String(a.date).slice(5)) : String(a.date).slice(0,10);
+  return {main, sub:""};
 }
 function annivRow(a){
   const today=startOfDay(new Date());
@@ -3393,14 +3438,14 @@ function annivRow(a){
   const soon=(a.yearly && d!=null && d>=0 && d<=7) || (!a.yearly && d!=null && d>0 && d<=7);
   const col=annivCatColor(a.cat);
   const daysTxt=annivCountdownText(a, today);
-  const lunar=annivLunarText(a);
+  const dl=annivDateLabel(a);
   return '<div class="anniv-card'+(soon?" anniv-soon":"")+'">'
     +'<div class="anniv-dot" style="background:'+col+'"></div>'
     +'<div class="anniv-main">'
       +'<div class="anniv-name">'+esc(a.name||"(未命名)")+'</div>'
       +'<div class="anniv-meta"><span class="anniv-badge" style="color:'+col+';border-color:'+col+'">'+esc(a.cat||"其他")+'</span>'
-      +'<span class="anniv-date">'+(a.yearly?"每年 "+String(a.date).slice(5):String(a.date).slice(0,10))+'</span>'
-      +(lunar?'<span class="anniv-lunar">'+lunar+'</span>':'')
+      +'<span class="anniv-date'+(a.calType==="lunar"?" lunar":"")+'">'+dl.main+'</span>'
+      +(dl.sub?'<span class="anniv-date-sub">'+dl.sub+'</span>':'')
       +(a.note?'<span class="anniv-note">'+esc(a.note)+'</span>':'')+'</div>'
     +'</div>'
     +'<div class="anniv-right"><div class="anniv-count'+(d===0?" anniv-today":"")+'">'+daysTxt+'</div>'
@@ -3436,14 +3481,23 @@ function bindAnnivModalOnce(){
   const cancel=document.getElementById("btnAnnivCancel"); if(cancel) cancel.onclick=closeAnnivModal;
   const m=document.getElementById("annivMask"); if(m) m.addEventListener("click", e=>{ if(e.target.id==="annivMask") closeAnnivModal(); });
   const da=document.getElementById("aDate"); if(da) da.addEventListener("input", updateAnnivLunar);
+  const ca=document.getElementById("aCal"); if(ca) ca.addEventListener("change", updateAnnivLunar);
   window.addEventListener("keydown", e=>{ if(e.key==="Escape"){ const mm=document.getElementById("annivMask"); if(mm&&mm.classList.contains("show")) closeAnnivModal(); } });
 }
 function updateAnnivLunar(){
   const el=document.getElementById("aLunar"); if(!el) return;
   const v=document.getElementById("aDate").value;
-  if(!v){ el.textContent=""; return; }
+  const cal=document.getElementById("aCal") ? document.getElementById("aCal").value : "solar";
+  if(!v){ el.textContent=""; el.classList.remove("lunar-on"); return; }
   const p=v.split("-"); if(p.length<3){ el.textContent=""; return; }
-  el.textContent = Lunar.text(+p[0], +p[1], +p[2]) || "";
+  const txt=Lunar.text(+p[0], +p[1], +p[2]);
+  if(cal==="lunar"){
+    el.textContent = (txt? txt : "该日期无法转换为农历") + "（将按农历此日提醒）";
+    el.classList.add("lunar-on");
+  } else {
+    el.textContent = txt ? ("对应农历：" + txt) : "（该日期无对应农历）";
+    el.classList.remove("lunar-on");
+  }
 }
 function openAnnivModal(id){
   bindAnnivModalOnce();
@@ -3452,6 +3506,7 @@ function openAnnivModal(id){
   document.getElementById("aName").value = a?a.name:"";
   document.getElementById("aCat").value = a?a.cat:ANNIV_CATS[0].name;
   document.getElementById("aDate").value = a&&a.date ? String(a.date).slice(0,10) : ymd(startOfDay(new Date()));
+  document.getElementById("aCal").value = a? (a.calType||"solar") : "solar";
   document.getElementById("aYearly").checked = a? !!a.yearly : true;
   document.getElementById("aNote").value = a?a.note:"";
   document.getElementById("annivModalTitle").textContent = a?"编辑纪念日":"新建纪念日";
@@ -3465,9 +3520,18 @@ function saveAnnivModal(){
   if(!name){ toast("请填写名称","danger"); return; }
   const date=document.getElementById("aDate").value;
   if(!date){ toast("请选择日期","danger"); return; }
+  const calType=document.getElementById("aCal").value;
+  const yearly=document.getElementById("aYearly").checked;
+  let lunar=null;
+  if(calType==="lunar"){
+    const p=date.split("-"); const o=Lunar.toLunar(+p[0],+p[1],+p[2]);
+    if(!o||o.ly<1900){ toast("该日期无法转换为农历，请换一个日期或选「公历」","danger"); return; }
+    lunar={m:o.lm, d:o.ld, leap:!!o.isLeap};
+  }
   const id=document.getElementById("aId").value.trim();
-  const data={ name, cat:document.getElementById("aCat").value.trim()||"其他", date, yearly:document.getElementById("aYearly").checked, note:document.getElementById("aNote").value.trim() };
-  if(id){ const a=(state.anniv||[]).find(x=>x.id===id); if(a) Object.assign(a, data); }
+  const data={ name, cat:document.getElementById("aCat").value.trim()||"其他", date, yearly, note:document.getElementById("aNote").value.trim(), calType };
+  if(lunar) data.lunar=lunar;
+  if(id){ const a=(state.anniv||[]).find(x=>x.id===id); if(a){ Object.assign(a, data); if(!lunar) delete a.lunar; } }
   else { state.anniv=state.anniv||[]; state.anniv.push(Object.assign({id:"av_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6)}, data)); }
   annivSave(); closeAnnivModal(); renderAll(); toast(id?"已保存修改":"已新建纪念日");
 }
@@ -9758,8 +9822,9 @@ if(_ob){ _ob.addEventListener("click", toggleTopOverview); _ob.addEventListener(
     </div>
     <div class="row2">
       <div class="field"><label for="aDate">日期 *</label><input type="date" id="aDate"></div>
-      <div class="field" style="justify-content:flex-end;"><label class="chk" style="display:flex;align-items:center;gap:6px;height:38px;cursor:pointer;"><input type="checkbox" id="aYearly" checked> 每年重复</label></div>
+      <div class="field"><label for="aCal">历法</label><select id="aCal"><option value="solar">公历</option><option value="lunar">农历</option></select></div>
     </div>
+    <div class="field" style="justify-content:flex-end;"><label class="chk" style="display:flex;align-items:center;gap:6px;height:38px;cursor:pointer;"><input type="checkbox" id="aYearly" checked> 每年重复</label></div>
     <div class="lunar-preview" id="aLunar"></div>
     <div class="field"><label for="aNote">备注</label><textarea id="aNote" rows="2" placeholder="可选，如：准备礼物 / 发祝福"></textarea></div>
     <div class="row2" style="margin-top:12px;">
