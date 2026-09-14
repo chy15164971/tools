@@ -15,7 +15,16 @@
  *   · toast            —— 任务台用全局 toastT / 明信片用 el._timer → 统一挂元素（免全局污染）
  *
  * 依赖约定：本层函数引用宿主文件已定义的 cloud / CLOUD_KEY / CLOUD_KEY_ALT /
- *   EMOJI_ICON / _emojiRe 等，函数体延迟求值，故本块置于脚本最前仍安全。
+ *   esc / EMOJI_ICON / _emojiRe 等。
+ *
+ * ⚠️ 放置位置铁律（2026-09-10 血案，务必先读）：
+ *   本块必须与上述标识符 **处于同一作用域**，否则静默失效。
+ *   · 任务管理台 —— 应用代码在脚本顶层 → 本块置于脚本最前即可；
+ *   · 明信片追踪 —— 应用整体包在 (function(){ … })() 内，esc / cloud / CLOUD_KEY
+ *     都是 IIFE 私有 → 本块必须置于该 IIFE **内部**。
+ *     曾因放在 IIFE 外，导致 safeUrl() 里的 esc() 抛 `ReferenceError: esc is not
+ *     defined`，初始化中断、页面整片空白。
+ *   移动本块后，务必在浏览器/jsdom 里实测「零报错 + 页面正常渲染」再发布。
  * ==========================================================================*/
 
 const PAGE_SIZE=100;
@@ -79,8 +88,15 @@ function parseConfig(txt){
   const out={gist:"", token:""};
   if(!txt) return out;
   String(txt).split(/\r?\n/).forEach(ln=>{
-    const m=ln.match(/^\s*(Gist\s*ID|Gist|Token)\s*[:：]\s*(.+?)\s*$/i);
-    if(m){ const k=m[1].toLowerCase(); const v=m[2]; if(k.indexOf("gist")===0) out.gist=v; else if(k==="token") out.token=v; }
+    const m=ln.match(/^\s*(Gist\s*ID|Gist|Token)\s*[:：]\s*(.*)$/i);
+    if(!m) return;
+    // 关键：值必须 trim 后非空才算数。原用 (.+?)\s*$ 会把「冒号后的空格」本身当成值，
+    // 于是 "Token: "（空配置）被解析成 " " —— truthy，绕过「没找到配置」校验，
+    // 把空格写进 cloud.token 去请求 API，用户只看到含糊的「云端暂无数据 / 读取失败」。
+    const v=(m[2]||"").trim();
+    if(!v) return;
+    const k=m[1].toLowerCase();
+    if(k.indexOf("gist")===0) out.gist=v; else if(k==="token") out.token=v;
   });
   return out;
 }
@@ -139,3 +155,200 @@ function toast(msg, kind){
   t.className="toast"+(kind?(" "+kind):"");
   t.classList.add("show"); clearTimeout(t._timer); t._timer=setTimeout(()=>t.classList.remove("show"),1800);
 }
+
+/* ---------- 无障碍增强（D4 B+） ---------- */
+
+/* N4 无障碍播报：写入 <div id="srAnnounce" role="status" aria-live="polite">。
+   相同文本去重 —— 整页重渲染很频繁，若不去重会把读屏刷爆。
+   注：toast 本身已是 aria-live，故本函数只用于「不该弹视觉提示」的静默反馈
+   （如列表条数/页码变化），不要用它重复 toast 的职责。 */
+function announce(msg){
+  const el=document.getElementById("srAnnounce"); if(!el||!msg) return;
+  if(el.__last===msg) return;
+  el.__last=msg;
+  el.textContent="";
+  setTimeout(function(){ el.textContent=msg; }, 30);   // 先清空再写，确保读屏感知到「变化」
+}
+
+/* N4 分页列表摘要：播报「共 N 条，当前第 a–b 条（第 p/P 页）」。
+   由分页型列表在渲染末尾调用；页码取自本层 _pg，与分页条自动一致。 */
+function announceList(key, total){
+  const n=Number(total)||0;
+  if(n<=0){ announce("没有匹配的记录"); return; }
+  if(n<=PAGE_SIZE){ announce("共 "+n+" 条"); return; }
+  const pages=Math.max(1,Math.ceil(n/PAGE_SIZE));
+  const p=Math.max(1,Math.min(pages,Number(_pg[key])||1));
+  announce("共 "+n+" 条，当前第 "+((p-1)*PAGE_SIZE+1)+"–"+Math.min(n,p*PAGE_SIZE)+" 条（第 "+p+"/"+pages+" 页）");
+}
+
+/* N3 tablist 键盘导航：←/→ 切页签、Home/End 到首末（自动激活，符合 ARIA tabs 惯例）。
+   宿主若已自行处理该 tablist 并 preventDefault（任务台 #seg 自带方向键逻辑），
+   本层靠 e.defaultPrevented 自动让位，不会双重切换。 */
+function bindTablistKeys(){
+  if(window.__tabKeysBound) return;
+  window.__tabKeysBound=true;
+  document.addEventListener("keydown",function(e){
+    if(e.defaultPrevented) return;                       // 宿主已处理 → 让位
+    const k=e.key;
+    if(k!=="ArrowRight"&&k!=="ArrowLeft"&&k!=="Home"&&k!=="End") return;
+    const t=e.target, tl=(t&&t.closest)?t.closest('[role="tablist"]'):null; if(!tl) return;
+    const bs=[].slice.call(tl.querySelectorAll('[role="tab"]')).filter(function(b){ return !b.disabled; });
+    if(bs.length<2) return;
+    const i=bs.indexOf(t); if(i<0) return;
+    e.preventDefault();
+    const j = k==="Home" ? 0 : k==="End" ? bs.length-1
+            : k==="ArrowRight" ? (i+1)%bs.length : (i-1+bs.length)%bs.length;
+    try{ bs[j].focus(); }catch(_){}
+    try{ bs[j].click(); }catch(_){}
+  });
+}
+
+/* ============================================================================
+ * 通用弹窗（审查 C1/R1：统一底座，消除「同名分叉」）
+ * ----------------------------------------------------------------------------
+ * 此前 confirmDialog 在任务台 / 明信片各实现一份且已分叉（明信片确认框曾缺
+ * ESC 注册，见 M-14）。现收敛为单一事实源，由 inject_shared.py 注入两文件后统一维护。
+ * promptModal / chooseModal 为任务台专用交互；明信片暂无对应 DOM，函数以
+ * 「DOM 缺失则兜底」避免阻断流程。
+ * 依赖约定：本层引用宿主已定义的 esc（明信片为 IIFE 私有，任务台为全局）；
+ *   DOM 容器 #confirmMask / #promptMask / #chooseMask 由宿主 HTML 提供。
+ * ==========================================================================*/
+
+function confirmTitle(message, opts){
+  if(opts && opts.title) return opts.title;
+  var m=message||"";
+  if(/删除|移除|清空|彻底|回收站/.test(m)) return "删除确认";
+  if(/覆盖/.test(m)) return "覆盖确认";
+  if(/退出|放弃|取消订阅/.test(m)) return "操作确认";
+  return "确认";
+}
+
+function confirmDialog(message, opts){
+  opts=opts||{};
+  return new Promise(function(resolve){
+    const mask=document.getElementById("confirmMask");
+    const titleEl=document.getElementById("confirmTitle");
+    const msgEl=document.getElementById("confirmMsg");
+    if(!mask||!titleEl||!msgEl){ resolve(false); return; }   // 兜底：DOM 缺失时不阻断流程
+    titleEl.textContent=confirmTitle(message, opts);
+    msgEl.textContent=message||"";
+    const okBtn=document.getElementById("confirmOk");
+    const cancelBtn=document.getElementById("confirmCancel");
+    okBtn.textContent=opts.ok||"确定";
+    cancelBtn.textContent=opts.cancel||"取消";
+    okBtn.className="btn "+(opts.danger?"btn-danger":"btn-pri");
+    let done=false;
+    function finish(v){ if(done) return; done=true; mask.classList.remove("show"); mask.onclick=null; document.removeEventListener("keydown", onKey); resolve(v); }
+    function onKey(e){ if(e.key==="Escape") finish(false); }
+    okBtn.onclick=function(){ finish(true); };
+    cancelBtn.onclick=function(){ finish(false); };
+    /* M5：可选的第三个按钮（如导入时的「覆盖导入」），返回 opts.extraValue；不需要时隐藏 */
+    const extraBtn=document.getElementById("confirmExtra");
+    if(extraBtn){
+      if(opts.extra){ extraBtn.style.display=""; extraBtn.textContent=opts.extra;
+        extraBtn.className="btn "+(opts.extraDanger?"btn-danger":"btn-ghost");
+        extraBtn.onclick=function(){ finish(opts.extraValue||"extra"); }; }
+      else { extraBtn.style.display="none"; extraBtn.onclick=null; }
+    }
+    mask.onclick=function(e){ if(e.target.id==="confirmMask") finish(false); };
+    document.addEventListener("keydown", onKey); // M-14 修复：必须 add，否则 Esc 无法关闭确认框
+    mask.classList.add("show");
+  });
+}
+
+/* 通用文本输入弹窗：替代原生 prompt()，统一弹窗体验、支持 Esc/遮罩关闭、回车确认。
+   返回 trim 后的字符串；取消/关闭返回 null。opts:{title,message,value,placeholder,ok} */
+function promptModal(message, opts){
+  opts=opts||{};
+  return new Promise(function(resolve){
+    const mask=document.getElementById("promptMask");
+    const inp=document.getElementById("promptInput");
+    if(!mask||!inp){ resolve(window.prompt?window.prompt(message||"",opts.value||""):null); return; }
+    document.getElementById("promptTitle").textContent=opts.title||"输入";
+    document.getElementById("promptMsg").textContent=message||"";
+    inp.value=opts.value||"";
+    inp.placeholder=opts.placeholder||"";
+    const okBtn=document.getElementById("promptOk"), cancelBtn=document.getElementById("promptCancel");
+    okBtn.textContent=opts.ok||"确定";
+    let done=false;
+    function finish(v){ if(done) return; done=true; mask.classList.remove("show"); mask.onclick=null; document.removeEventListener("keydown", onKey); resolve(v); }
+    function onKey(e){ if(e.key==="Escape"){ finish(null); return; } if(e.key==="Enter"){ finish(String(inp.value).trim()); } }
+    okBtn.onclick=function(){ finish(String(inp.value).trim()); };
+    cancelBtn.onclick=function(){ finish(null); };
+    mask.onclick=function(e){ if(e.target.id==="promptMask") finish(null); };
+    document.addEventListener("keydown", onKey);
+    mask.classList.add("show");
+    setTimeout(function(){ try{ inp.focus(); inp.select(); }catch(e){} },0);
+  });
+}
+
+/* 通用选项选择弹窗：替代「用 prompt 手打选项名」的易错交互。
+   opts:{title,message,options:[{value,label,desc}|string],value}；返回选中 value，取消返回 null */
+function chooseModal(message, opts){
+  opts=opts||{};
+  return new Promise(function(resolve){
+    const mask=document.getElementById("chooseMask"), listEl=document.getElementById("chooseList");
+    if(!mask||!listEl){ resolve(window.prompt?window.prompt(message||""):null); return; }
+    document.getElementById("chooseTitle").textContent=opts.title||"请选择";
+    document.getElementById("chooseMsg").textContent=message||"";
+    const arr=(opts.options||[]).map(function(o){ return (typeof o==="string")?{value:o,label:o,desc:""}:o; });
+    listEl.innerHTML=arr.map(function(o){
+      return '<button type="button" class="choose-item" data-cv="'+esc(String(o.value))+'" aria-current="'+((opts.value===o.value)?"true":"false")+'">'+esc(o.label)+(o.desc?'<span class="hint" style="display:block;font-size:12px;">'+esc(o.desc)+'</span>':'')+'</button>';
+    }).join("");
+    let done=false;
+    function finish(v){ if(done) return; done=true; mask.classList.remove("show"); mask.onclick=null; document.removeEventListener("keydown", onKey); resolve(v); }
+    function onKey(e){ if(e.key==="Escape") finish(null); }
+    listEl.querySelectorAll(".choose-item").forEach(function(b){ b.onclick=function(){ finish(b.dataset.cv); }; });
+    document.getElementById("chooseCancel").onclick=function(){ finish(null); };
+    mask.onclick=function(e){ if(e.target.id==="chooseMask") finish(null); };
+    document.addEventListener("keydown", onKey);
+    mask.classList.add("show");
+    const first=listEl.querySelector(".choose-item"); if(first) setTimeout(function(){ try{ first.focus(); }catch(e){} },0);
+  });
+}
+
+/* 通用空状态（审查 T3：统一空状态文案与样式，避免散落硬编码）。
+   返回 .empty 块；icon 为 emoji/SVG，text 为主文案，sub 为次要说明，actionHtml 为可选操作按钮。 */
+function emptyState(icon, text, sub, actionHtml){
+  return '<div class="empty"><div class="empty-ic">'+esc(icon||"📭")+'</div><div>'+esc(text||"暂无数据")+
+    (sub?'<br><small style="color:var(--sub);font-weight:400;display:inline-block;margin-top:6px;">'+esc(sub)+'</small>':'')+
+    '</div>'+(actionHtml||'')+'</div>';
+}
+
+/* 弹窗无障碍：背景锁滚 + 焦点陷阱（审查 M4/M5，单一事实源）。
+   监听 .mask 的 show 增删：打开时锁 body 滚动 + 聚焦首个可聚焦元素（除非打开者已显式聚焦）；
+   关闭时归还焦点 + 还原滚动。全局 Tab 仅最上层弹窗响应，边界回环。 */
+(function(){
+  var SEL='.mask';
+  function topModal(){
+    var all=Array.prototype.slice.call(document.querySelectorAll(SEL+'.show'));
+    return all.length?all[all.length-1]:null;
+  }
+  function fmap(el){
+    return Array.prototype.slice.call(el.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'));
+  }
+  var obs=new MutationObserver(function(muts){
+    muts.forEach(function(m){
+      var el=m.target;
+      if(!(el instanceof Element)||!el.matches||!el.matches(SEL)||m.attributeName!=='class') return;
+      if(el.classList.contains('show')){
+        if(!el._a11yStored){ el._a11yStored=document.activeElement; }
+        var f=fmap(el);
+        if(f.length && !el.contains(document.activeElement)){ try{ f[0].focus(); }catch(e){} }
+      }else{
+        if(el._a11yStored && el._a11yStored.focus && document.contains(el._a11yStored)){ try{ el._a11yStored.focus(); }catch(e){} }
+        el._a11yStored=null;
+      }
+    });
+    document.body.style.overflow = topModal()?'hidden':'';
+  });
+  obs.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class']});
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Tab') return;
+    var root=topModal(); if(!root) return;
+    var f=fmap(root); if(!f.length) return;
+    var first=f[0], last=f[f.length-1];
+    if(e.shiftKey){ if(document.activeElement===first||!root.contains(document.activeElement)){ e.preventDefault(); last.focus(); } }
+    else { if(document.activeElement===last||!root.contains(document.activeElement)){ e.preventDefault(); first.focus(); } }
+  });
+})();

@@ -43,12 +43,12 @@
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{overflow-x:hidden;}
   html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
-  /* 全局可见焦点样式（P1-9）：键盘用户能明确看到焦点落在哪；鼠标点击不触发 */
+  /* 全局可见焦点样式（）：键盘用户能明确看到焦点落在哪；鼠标点击不触发 */
   a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,
   [tabindex]:focus-visible,[role="button"]:focus-visible,[role="tab"]:focus-visible{
     outline:2px solid var(--pri); outline-offset:2px; border-radius:6px;
   }
-  /* 跳至主内容（P1-9）：默认移出视野，键盘聚焦时出现在左上角 */
+  /* 跳至主内容（）：默认移出视野，键盘聚焦时出现在左上角 */
   .skip-link{position:absolute;left:-9999px;top:0;z-index:200;background:var(--pri);color:var(--white);
     padding:10px 16px;border-radius:0 0 10px 0;font-weight:600;font-size:14px;text-decoration:none;white-space:nowrap;}
   .skip-link:focus,.skip-link:focus-visible{left:0;outline:3px solid var(--white);outline-offset:-3px;}
@@ -150,7 +150,7 @@
         border-radius:9px;color:var(--ink);font-size:13.5px;cursor:pointer;text-align:left;font-family:inherit;}
   .menu .mitem:hover{background:var(--hover);}
   .menu .mitem svg{width:15px;height:15px;color:var(--sub);margin-right:7px;}
-  /* 菜单分组：标题 + 分隔线 + 危险项（P0-1 / P1-13：低频入口收进来后必须分组才不显乱） */
+  /* 菜单分组：标题 + 分隔线 + 危险项（ / ：低频入口收进来后必须分组才不显乱） */
   .menu .mgroup{padding:8px 11px 4px;font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--sub);text-transform:none;cursor:default;}
   .menu .mgroup:hover{background:none;}
   .menu .mgroup.danger{color:var(--danger);}
@@ -210,7 +210,7 @@
   @media (prefers-reduced-motion: reduce){
     .menu,.menu-backdrop{transition:none!important;}
   }
-  /* 顶栏控件收敛后：品牌与操作区同行，换行时左对齐（P0-1） */
+  /* 顶栏控件收敛后：品牌与操作区同行，换行时左对齐（） */
   .topbar{flex-wrap:wrap;row-gap:8px;}
   .topbar .spacer{flex:1 1 auto;min-width:0;}
   @media (max-width:560px){
@@ -249,7 +249,7 @@
     .today-list{width:100%;padding:0;}
     .today-item{width:100%;}
   }
-  /* 窄屏收敛顶栏：低频控件收进 ⋯ 菜单，顶栏只留核心（P0-1） */
+  /* 窄屏收敛顶栏：低频控件收进 ⋯ 菜单，顶栏只留核心（） */
   /* 断点 860 互补区间 A：≤860 隐藏顶栏低频控件（与下方 min-width:861 成对） */
   @media(max-width:860px){
     #fLead{display:none;}
@@ -290,7 +290,7 @@
   /* 视图切换 */
   .viewbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
   /* 视图切换：按「任务 / 管理 / 成长」三段分组。分组只用竖线分隔 + 读屏 role/aria-label 表达，
-     不再放可见小字（此前 11px 灰字既显碎、又容易被误当成可点按钮）；窄屏横向滚动（P0-2） */
+     不再放可见小字（此前 11px 灰字既显碎、又容易被误当成可点按钮）；窄屏横向滚动（） */
   .seg{display:flex;align-items:center;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;
        flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
   .seg::-webkit-scrollbar{display:none;}
@@ -311,11 +311,11 @@
   .curdate{font-weight:700;font-size:15px;min-width:140px;text-align:center;}
   /* 「今天」按钮是文字按钮：override 上方 .nav button 强制 40×40 方形导致"今/天"两字竖排的问题（V-1） */
   #todayBtn{width:auto;height:auto;min-height:36px;padding:7px 11px;white-space:nowrap;flex:none;}
-  /* 视图级主标题：强化为 20px + 主题色竖条，形成清晰的位置锚点（P1-3） */
+  /* 视图级主标题：强化为 20px + 主题色竖条，形成清晰的位置锚点（） */
   .viewtitle{font-size:20px;font-weight:700;color:var(--ink);margin:4px 0 12px;letter-spacing:.2px;display:flex;align-items:center;gap:8px;}
   .viewtitle::before{content:"";width:4px;height:18px;border-radius:3px;background:var(--pri);flex:none;}
-  /* 「筛选中」浮标：整页视图筛选栏隐藏时，说明条件仍在生效并可一键清除（P0-4） */
-  /* 整页视图的精简筛选栏：只留搜索框 + 清除按钮（P1-4） */
+  /* 「筛选中」浮标：整页视图筛选栏隐藏时，说明条件仍在生效并可一键清除（） */
+  /* 整页视图的精简筛选栏：只留搜索框 + 清除按钮（） */
   .filterbar.q-only .fsearch{max-width:min(360px,100%);}
   .filter-badge{margin-left:auto;display:inline-flex;align-items:center;gap:6px;flex:none;
     font-size:12.5px;font-weight:600;color:var(--pri);background:var(--pri-soft);
@@ -327,11 +327,11 @@
   .seg button .ic{margin-right:0;}
   .filter-badge span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .filter-badge .fb-x{font-weight:700;text-decoration:underline;flex:none;}
-  /* 视图内搜索命中提示条（P1-4）：项目/清单/OKR/进度看板共用观感 */
+  /* 视图内搜索命中提示条（）：项目/清单/OKR/进度看板共用观感 */
   .hitbar{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--sub);
     background:var(--pri-soft);border:1px dashed var(--pri);border-radius:8px;padding:6px 10px;margin-bottom:10px;}
   .hitbar b{color:var(--pri);}
-  /* P2-5：习惯视图统一工具条（替换原先重复的两处内联样式） */
+  /* ：习惯视图统一工具条（替换原先重复的两处内联样式） */
   .habit-actions{display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
   @media(max-width:560px){.habit-actions{justify-content:stretch;}.habit-actions .btn{flex:1;}}
   .media-hitbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px;color:var(--sub);
@@ -453,8 +453,8 @@
   .checks{display:flex;gap:6px;flex-wrap:wrap;}
   .checks label{display:flex;align-items:center;gap:4px;background:var(--hover);border:1px solid var(--line);border-radius:9px;padding:7px 9px;font-size:13px;font-weight:500;color:var(--ink);cursor:pointer;margin:0;}
   .checks input{width:auto;}
-  .modal-actions{display:flex;gap:10px;margin-top:8px;position:sticky;bottom:0;background:var(--card);padding:12px 0 4px;z-index:2;}  /* 长表单下操作栏常驻可见（P2-3） */
-  /* 数据管理弹窗：本地备份 / 云同步 双 Tab（P0-5） */
+  .modal-actions{display:flex;gap:10px;margin-top:8px;position:sticky;bottom:0;background:var(--card);padding:12px 0 4px;z-index:2;}  /* 长表单下操作栏常驻可见（） */
+  /* 数据管理弹窗：本地备份 / 云同步 双 Tab（） */
   .dtabs{display:flex;gap:4px;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:16px;}
   .dtab{flex:1;border:none;background:transparent;border-radius:9px;padding:9px 12px;font-size:14px;font-weight:600;color:var(--sub);cursor:pointer;font-family:inherit;min-height:40px;transition:.15s;}
   .dtab:hover{color:var(--ink);}
@@ -475,6 +475,14 @@
   body:not(.modal-full) .full-only{display:none !important;}
   body.modal-full .mode-toggle .mt-btn[data-mode="full"]{background:var(--pri);color:var(--white);border-color:var(--pri);}
   .modal-actions .btn{flex:1;justify-content:center;}
+  /* 首次引导（审查 F1：轻量一次性浮层，localStorage 门控，不干扰既有流程） */
+  #introMask .modal{max-width:520px;}
+  .intro-hero{font-size:22px;font-weight:800;margin:0 0 4px;display:flex;align-items:center;gap:10px;}
+  .intro-sub{color:var(--sub);font-size:13px;margin:0 0 14px;line-height:1.6;}
+  .intro-list{list-style:none;padding:0;margin:0 0 16px;display:grid;gap:10px;}
+  .intro-list li{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;}
+  .intro-list .ic{font-size:18px;line-height:1;flex:0 0 auto;}
+  .intro-list b{color:var(--ink);}
   .choose-list{display:flex;flex-direction:column;gap:6px;margin:8px 0 2px;max-height:46vh;overflow:auto;}
   .choose-item{padding:10px 12px;cursor:pointer;border-radius:8px;font-size:14px;text-align:left;background:var(--bg2,#f6f7f9);border:1px solid transparent;}
   .choose-item:hover,.choose-item:focus-visible{border-color:var(--pri);outline:none;}
@@ -497,19 +505,19 @@
   .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(16px);background:var(--ink-strong);color:var(--white);padding:10px 16px;border-radius:11px;font-size:13px;opacity:0;transition:opacity .25s, transform .25s;pointer-events:none;z-index:80;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   .toast.success{background:var(--ok);color:var(--white);} .toast.danger{background:var(--danger);color:var(--white);} .toast.warn{background:var(--warn);color:var(--ink-strong);}
-  /* P0-1 云同步防重入：请求飞行期间的忙态指示（spinner 用纯 CSS border 实现，零依赖、离线可用） */
+  /*  云同步防重入：请求飞行期间的忙态指示（spinner 用纯 CSS border 实现，零依赖、离线可用） */
   @keyframes wbspin{to{transform:rotate(360deg)}}
   .btn.is-busy{opacity:.65;cursor:progress;}
   .modal input:disabled,.modal select:disabled{opacity:.5;cursor:not-allowed;background:var(--sub2,#eef0f3);}
   .btn.is-busy::after{content:"";display:inline-block;width:12px;height:12px;margin-left:6px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:wbspin .7s linear infinite;vertical-align:-1px;}
-  @media (prefers-reduced-motion:reduce){ .btn.is-busy::after{animation:none;} }  /* 反馈类型配色（P2-8） */
+  @media (prefers-reduced-motion:reduce){ .btn.is-busy::after{animation:none;} }  /* 反馈类型配色（） */
   .fileIn{display:none;}
   @media(max-width:560px){
     .wrap{padding:10px 12px 0;}
     .brand{font-size:16px;}
     .seg button{padding:9px 11px;}
     .curdate{min-width:110px;font-size:13px;}
-    /* 月历窄屏降级：日格压扁，chip 只留色块/时间，标题隐藏防截断（P2-6） */
+    /* 月历窄屏降级：日格压扁，chip 只留色块/时间，标题隐藏防截断（） */
     .dcell{height:76px;padding:4px 5px;}
     .dcell .chip{font-size:0;gap:3px;justify-content:center;padding:2px 3px;}
     .dcell .chip .ct{font-size:11px;padding:0 3px;}
@@ -743,7 +751,7 @@
 
   /* 统计视图 */
   .stats-wrap{display:flex;flex-direction:column;gap:14px;}
-  /* P1-6：指标卡自适应列数（含完成率环形卡），避免四种指标挤一行时数字过小 */
+  /* ：指标卡自适应列数（含完成率环形卡），避免四种指标挤一行时数字过小 */
   .stat-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:12px;}
   .stat-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center;
     display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:86px;}
@@ -754,14 +762,14 @@
   .stat-card.ring-card svg{width:60px;height:60px;flex:none;}
   .stat-card.ring-card .rt{font-size:12px;color:var(--sub);line-height:1.3;}
   .stat-card.ring-card .rt b{display:block;color:var(--ink);font-size:18px;}
-  /* P1-6：双栏并置（分类/优先级、趋势/习惯+OKR），减少纵向留白 */
+  /* ：双栏并置（分类/优先级、趋势/习惯+OKR），减少纵向留白 */
   .stat-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;}
   .stat-grid2 .stat-sec{min-width:0;}
   /* 双栏下标签列基准值放窄，实际宽度由 fitBarLabels() 按组内最长名称撑开（保证单行） */
   .stat-grid2 .barrow .bl{width:88px;}
   .stat-sec{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;}
   .stat-sec h4{margin:0 0 14px;font-size:14px;color:var(--ink);display:flex;align-items:center;gap:7px;}
-  /* P2-1：小节标题右侧的补充说明（如「按 12 天聚合」） */
+  /* ：小节标题右侧的补充说明（如「按 12 天聚合」） */
   .sec-note{font-size:11px;font-weight:400;color:var(--sub);background:var(--hover);border-radius:999px;padding:2px 8px;}
   /* 行高稳定：让多行 bl 也能撑出统一行高，避免不同分类标签长短不齐导致行高抖动 */
   .barrow{display:flex;align-items:center;gap:12px;margin-bottom:10px;font-size:13px;min-height:34px;}
@@ -793,7 +801,7 @@
   .trend .num.rec{color:var(--line);font-weight:600;}
   .trend .lab{font-size:11px;color:var(--sub);white-space:nowrap;}
   .trend .num{font-size:12px;font-weight:700;color:var(--pri);line-height:1;}
-  /* P2-1：长区间（全部）聚合后柱子变多，压缩间距与字号，标签省略号截断 */
+  /* ：长区间（全部）聚合后柱子变多，压缩间距与字号，标签省略号截断 */
   .trend.dense{gap:4px;padding:6px 4px 0;}
   .trend.dense .lab{font-size:11px;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
   .trend.dense .num{font-size:11px;}
@@ -842,7 +850,7 @@
   [data-theme="dark"] .gname{ background:#1d2435; }
   [data-theme="dark"] .gantt-row.head{ background:#1d2435; }
   [data-theme="dark"] ::placeholder{ color:#6b7488; }
-  /* ===== P1-6 补漏：原先无 dark 覆盖的浅彩徽章 / hover / 胶囊 / 状态字 ===== */
+  /* =====  补漏：原先无 dark 覆盖的浅彩徽章 / hover / 胶囊 / 状态字 ===== */
   [data-theme="dark"] .cloudpill.off{ background:#232a3a; color:#8b94a3; border-color:#232a3a; }
   [data-theme="dark"] .btn-danger{ border-color:var(--line); }
   [data-theme="dark"] .menu .mitem.danger:hover{ background:#3a2024; }
@@ -981,14 +989,14 @@
   .w-presets button .pi{font-size:16px;}
   .w-presets button .pd{font-size:11px;color:var(--sub);line-height:1.3;}
 
-  /* 顶部三栏可折叠：收起时仅保留标题栏，主视图上移（P1-1）。整页视图首屏默认折叠，手动偏好持久化 */
+  /* 顶部三栏可折叠：收起时仅保留标题栏，主视图上移（）。整页视图首屏默认折叠，手动偏好持久化 */
   .panel.collapsible .ptoggle{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:none;background:none;color:var(--sub);cursor:pointer;border-radius:7px;flex:none;padding:0;margin-left:2px;}
   .panel.collapsible .ptoggle:hover{background:var(--hover);color:var(--ink);}
   .panel.collapsible .ptoggle svg{width:15px;height:15px;transition:transform .18s;}
   .panel.collapsible.collapsed .ptoggle svg{transform:rotate(-90deg);}
   .panel.collapsible.collapsed > :not(h3){display:none;}
   .panel.collapsible.collapsed{margin-bottom:8px;}
-  /* P1-15：自动收起的重复 widget 给一个简短的状态后缀 + title 完整说明，避免长文本把面板撑变形 */
+  /* ：自动收起的重复 widget 给一个简短的状态后缀 + title 完整说明，避免长文本把面板撑变形 */
   .panel.collapsible.dup-hidden > h3::after{content:"· 已展开";font-size:11px;font-weight:400;color:var(--sub);margin-left:auto;white-space:nowrap;}
   @media(max-width:860px){.panel.collapsible.dup-hidden > h3::after{content:"· 已展开";}}
 
@@ -1129,7 +1137,7 @@
 .vhead h2{font-size:20px;margin:0;}
 .proj-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(20,30,50,.05);}
 .proj-top{display:flex;align-items:center;justify-content:space-between;}
-/* P1-5：项目名兼作折叠开关——点名字展开/收起其下任务列表 */
+/* ：项目名兼作折叠开关——点名字展开/收起其下任务列表 */
 .proj-name{font-size:16px;font-weight:700;display:flex;align-items:center;gap:7px;border:none;background:none;padding:4px 0;
   cursor:pointer;color:inherit;font-family:inherit;text-align:left;min-width:0;flex:1;border-radius:6px;}
 .proj-name:hover{color:var(--pri);}
@@ -1223,7 +1231,7 @@
 /* ===== 甘特图增强 ===== */
 .gantt-ranges{display:flex;gap:6px;margin:0 0 8px;flex-wrap:wrap;align-items:center;}
 .gantt-ranges button.active{background:var(--pri);color:var(--white);border-color:var(--pri);}
-/* P2-4：工具条分组——桌面「定位组 + 显示组」同排，窄屏显示组折叠 */
+/* ：工具条分组——桌面「定位组 + 显示组」同排，窄屏显示组折叠 */
 .gantt-ranges .gtools-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;min-width:0;}
 .gantt-ranges .gtools-toggle{display:none;}
 @media(max-width:860px){
@@ -1271,7 +1279,7 @@
 .stat-extra .stat-sec{min-width:0;}
 .habit-fit-bar{display:flex;align-items:center;gap:8px;}
 .habit-fit-bar .bf{flex:1;}
-/* P1-6 健康度小节：左标签（含副说明）+ 右进度条，两条纵向堆叠，替代原 stat-extra 双卡 */
+/*  健康度小节：左标签（含副说明）+ 右进度条，两条纵向堆叠，替代原 stat-extra 双卡 */
 .health-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px dashed var(--line);}
 .health-row:last-child{border-bottom:none;padding-bottom:0;}
 .health-row:first-of-type{padding-top:0;}
@@ -1349,7 +1357,7 @@
   *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important;}
 }
 
-/* ===== 移动端触控目标统一 ≥40px（P1-11 / WCAG 2.5.5）=====
+/* ===== 移动端触控目标统一 ≥40px（ / WCAG 2.5.5）=====
    放在样式表末尾，确保能覆盖前面各组件里写死的 24~28px 图标按钮尺寸。 */
 @media(max-width:860px){
   .btn-sm{min-height:40px;padding:9px 12px;}
@@ -1394,7 +1402,7 @@
 .pgbtn.cur{background:var(--pri);border-color:var(--pri);color:#fff;}
 .pgbtn:disabled{opacity:.4;cursor:not-allowed;}
 .pgdots{color:var(--sub);padding:0 2px;}
-@media(max-width:640px){ .pager{justify-content:center;} .pg-info{width:100%;text-align:center;} }
+@media(max-width:640px){ .pager{justify-content:center;} .pg-info{width:100%;text-align:center;} .modal-actions{flex-direction:column-reverse;} }
 /* 纪念日视图（data-v="anniv"）*/
 .anniv-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
 .anniv-stat{font-size:13px;color:var(--sub);}
@@ -1448,7 +1456,7 @@
 <symbol id="ic-link" viewBox="0 0 24 24"><path d="M9 15l-3-3a3 3 0 014.2-4.2l1.5 1.5 1.4-1.4-1.5-1.5A5 5 0 006 14l3 3zm6-6l3 3a3 3 0 01-4.2 4.2l-1.5-1.5-1.4 1.4 1.5 1.5A5 5 0 0018 10l-3-3z"/></symbol>
 <symbol id="ic-mail" viewBox="0 0 24 24"><path d="M3 5h18v14H3zm2 2v2l8 5 8-5V7l-8 5z"/></symbol>
 </defs></svg>
-<!-- 跳至主内容：键盘/读屏用户可跳过顶栏直达视图区（P1-9） -->
+<!-- 跳至主内容：键盘/读屏用户可跳过顶栏直达视图区（） -->
 <a class="skip-link" href="#view">跳到主内容</a>
 <!-- 全局搜索 / 命令面板 -->
 <div class="mask cmd-mask" id="cmdMask" data-page-node-id="OdwL2WIcUEiroYHKrCmrEV">
@@ -1638,7 +1646,7 @@
 
 </div>
 
-<!-- 数据管理弹窗：本地备份 / 云同步 双 Tab（P0-5）
+<!-- 数据管理弹窗：本地备份 / 云同步 双 Tab（）
      原页内底部 #backupPanel 会让页面跳到最底部且标题错位，改为居中弹窗，所有控件 id 保持不变。 -->
 <div class="mask" id="dataMask" role="dialog" aria-modal="true" aria-labelledby="dataTitle">
   <div class="modal" style="max-width:540px;">
@@ -1758,7 +1766,7 @@
       <button type="button" class="mt-btn" data-mode="full" data-page-node-id="wCYwdaMeOv8oFusnnyLHZM"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="ykoy0u8jUHYVhBqn2lg4bc"><rect x="3" y="4" width="18" height="18" rx="2" data-page-node-id="pRf3d1ESDfBfXD5eSxcLV6"/><path d="M8 2v4M16 2v4M3 10h18" data-page-node-id="L2t1a1LCTiguygZHFhBCOQ"/></svg>完整</button>
       <span class="mt-hint" id="mtHint" data-page-node-id="Wt1IqCHdt03rQlGYLJv2cc">标题 + 分类 + 日期，其余走默认值</span>
     </div>
-    <!-- P1-2：快速模式只留「标题 / 分类 + 优先级 / 单个日期」，其余全部归入完整模式 -->
+    <!-- ：快速模式只留「标题 / 分类 + 优先级 / 单个日期」，其余全部归入完整模式 -->
     <div class="field" data-page-node-id="BxxCp3DMQ95WIKpDHDCd94">
       <label data-page-node-id="DkYxqNfBjjfjFVuOvGFNni">标题</label>
       <input id="f_title" placeholder="例如：交付设计评审稿" maxlength="60" data-page-node-id="B7PFtaDQNVjrMaAqZZGyNj">
@@ -1929,7 +1937,7 @@
       <div id="doneLogField" class="done-log" style="display:none;margin-top:8px;padding:8px 10px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;"></div>
     </div>
     <div class="modal-actions" data-page-node-id="UyIkajQdeycBntUiKmIrcd">
-      <!-- P1-3：主次分明——「取消」收窄为自适应宽度靠左，只有「保存」占满剩余空间且为主色 -->
+      <!-- ：主次分明——「取消」收窄为自适应宽度靠左，只有「保存」占满剩余空间且为主色 -->
       <button class="btn btn-ghost" id="btnCancel" style="flex:none;width:auto;" data-page-node-id="FqPi09t2n8GVVKuu6k0tvF">取消</button>
       <button class="btn btn-ghost" id="btnDefer" style="display:none;flex:none;width:auto;" data-page-node-id="VnWmjANaddZ0NCzSt3vLQY">⏰ 推迟/延期</button>
       <button class="btn btn-ghost" id="btnDup" style="display:none;flex:none;width:auto;" title="复制当前任务（保留所有字段，生成新任务）">📋 复制</button>
@@ -2575,6 +2583,156 @@ function bindTablistKeys(){
     try{ bs[j].click(); }catch(_){}
   });
 }
+
+/* ============================================================================
+ * 通用弹窗（审查 C1/R1：统一底座，消除「同名分叉」）
+ * ----------------------------------------------------------------------------
+ * 此前 confirmDialog 在任务台 / 明信片各实现一份且已分叉（明信片确认框曾缺
+ * ESC 注册，见 M-14）。现收敛为单一事实源，由 inject_shared.py 注入两文件后统一维护。
+ * promptModal / chooseModal 为任务台专用交互；明信片暂无对应 DOM，函数以
+ * 「DOM 缺失则兜底」避免阻断流程。
+ * 依赖约定：本层引用宿主已定义的 esc（明信片为 IIFE 私有，任务台为全局）；
+ *   DOM 容器 #confirmMask / #promptMask / #chooseMask 由宿主 HTML 提供。
+ * ==========================================================================*/
+
+function confirmTitle(message, opts){
+  if(opts && opts.title) return opts.title;
+  var m=message||"";
+  if(/删除|移除|清空|彻底|回收站/.test(m)) return "删除确认";
+  if(/覆盖/.test(m)) return "覆盖确认";
+  if(/退出|放弃|取消订阅/.test(m)) return "操作确认";
+  return "确认";
+}
+
+function confirmDialog(message, opts){
+  opts=opts||{};
+  return new Promise(function(resolve){
+    const mask=document.getElementById("confirmMask");
+    const titleEl=document.getElementById("confirmTitle");
+    const msgEl=document.getElementById("confirmMsg");
+    if(!mask||!titleEl||!msgEl){ resolve(false); return; }   // 兜底：DOM 缺失时不阻断流程
+    titleEl.textContent=confirmTitle(message, opts);
+    msgEl.textContent=message||"";
+    const okBtn=document.getElementById("confirmOk");
+    const cancelBtn=document.getElementById("confirmCancel");
+    okBtn.textContent=opts.ok||"确定";
+    cancelBtn.textContent=opts.cancel||"取消";
+    okBtn.className="btn "+(opts.danger?"btn-danger":"btn-pri");
+    let done=false;
+    function finish(v){ if(done) return; done=true; mask.classList.remove("show"); mask.onclick=null; document.removeEventListener("keydown", onKey); resolve(v); }
+    function onKey(e){ if(e.key==="Escape") finish(false); }
+    okBtn.onclick=function(){ finish(true); };
+    cancelBtn.onclick=function(){ finish(false); };
+    /* M5：可选的第三个按钮（如导入时的「覆盖导入」），返回 opts.extraValue；不需要时隐藏 */
+    const extraBtn=document.getElementById("confirmExtra");
+    if(extraBtn){
+      if(opts.extra){ extraBtn.style.display=""; extraBtn.textContent=opts.extra;
+        extraBtn.className="btn "+(opts.extraDanger?"btn-danger":"btn-ghost");
+        extraBtn.onclick=function(){ finish(opts.extraValue||"extra"); }; }
+      else { extraBtn.style.display="none"; extraBtn.onclick=null; }
+    }
+    mask.onclick=function(e){ if(e.target.id==="confirmMask") finish(false); };
+    document.addEventListener("keydown", onKey); // M-14 修复：必须 add，否则 Esc 无法关闭确认框
+    mask.classList.add("show");
+  });
+}
+
+/* 通用文本输入弹窗：替代原生 prompt()，统一弹窗体验、支持 Esc/遮罩关闭、回车确认。
+   返回 trim 后的字符串；取消/关闭返回 null。opts:{title,message,value,placeholder,ok} */
+function promptModal(message, opts){
+  opts=opts||{};
+  return new Promise(function(resolve){
+    const mask=document.getElementById("promptMask");
+    const inp=document.getElementById("promptInput");
+    if(!mask||!inp){ resolve(window.prompt?window.prompt(message||"",opts.value||""):null); return; }
+    document.getElementById("promptTitle").textContent=opts.title||"输入";
+    document.getElementById("promptMsg").textContent=message||"";
+    inp.value=opts.value||"";
+    inp.placeholder=opts.placeholder||"";
+    const okBtn=document.getElementById("promptOk"), cancelBtn=document.getElementById("promptCancel");
+    okBtn.textContent=opts.ok||"确定";
+    let done=false;
+    function finish(v){ if(done) return; done=true; mask.classList.remove("show"); mask.onclick=null; document.removeEventListener("keydown", onKey); resolve(v); }
+    function onKey(e){ if(e.key==="Escape"){ finish(null); return; } if(e.key==="Enter"){ finish(String(inp.value).trim()); } }
+    okBtn.onclick=function(){ finish(String(inp.value).trim()); };
+    cancelBtn.onclick=function(){ finish(null); };
+    mask.onclick=function(e){ if(e.target.id==="promptMask") finish(null); };
+    document.addEventListener("keydown", onKey);
+    mask.classList.add("show");
+    setTimeout(function(){ try{ inp.focus(); inp.select(); }catch(e){} },0);
+  });
+}
+
+/* 通用选项选择弹窗：替代「用 prompt 手打选项名」的易错交互。
+   opts:{title,message,options:[{value,label,desc}|string],value}；返回选中 value，取消返回 null */
+function chooseModal(message, opts){
+  opts=opts||{};
+  return new Promise(function(resolve){
+    const mask=document.getElementById("chooseMask"), listEl=document.getElementById("chooseList");
+    if(!mask||!listEl){ resolve(window.prompt?window.prompt(message||""):null); return; }
+    document.getElementById("chooseTitle").textContent=opts.title||"请选择";
+    document.getElementById("chooseMsg").textContent=message||"";
+    const arr=(opts.options||[]).map(function(o){ return (typeof o==="string")?{value:o,label:o,desc:""}:o; });
+    listEl.innerHTML=arr.map(function(o){
+      return '<button type="button" class="choose-item" data-cv="'+esc(String(o.value))+'" aria-current="'+((opts.value===o.value)?"true":"false")+'">'+esc(o.label)+(o.desc?'<span class="hint" style="display:block;font-size:12px;">'+esc(o.desc)+'</span>':'')+'</button>';
+    }).join("");
+    let done=false;
+    function finish(v){ if(done) return; done=true; mask.classList.remove("show"); mask.onclick=null; document.removeEventListener("keydown", onKey); resolve(v); }
+    function onKey(e){ if(e.key==="Escape") finish(null); }
+    listEl.querySelectorAll(".choose-item").forEach(function(b){ b.onclick=function(){ finish(b.dataset.cv); }; });
+    document.getElementById("chooseCancel").onclick=function(){ finish(null); };
+    mask.onclick=function(e){ if(e.target.id==="chooseMask") finish(null); };
+    document.addEventListener("keydown", onKey);
+    mask.classList.add("show");
+    const first=listEl.querySelector(".choose-item"); if(first) setTimeout(function(){ try{ first.focus(); }catch(e){} },0);
+  });
+}
+
+/* 通用空状态（审查 T3：统一空状态文案与样式，避免散落硬编码）。
+   返回 .empty 块；icon 为 emoji/SVG，text 为主文案，sub 为次要说明，actionHtml 为可选操作按钮。 */
+function emptyState(icon, text, sub, actionHtml){
+  return '<div class="empty"><div class="empty-ic">'+esc(icon||"📭")+'</div><div>'+esc(text||"暂无数据")+
+    (sub?'<br><small style="color:var(--sub);font-weight:400;display:inline-block;margin-top:6px;">'+esc(sub)+'</small>':'')+
+    '</div>'+(actionHtml||'')+'</div>';
+}
+
+/* 弹窗无障碍：背景锁滚 + 焦点陷阱（审查 M4/M5，单一事实源）。
+   监听 .mask 的 show 增删：打开时锁 body 滚动 + 聚焦首个可聚焦元素（除非打开者已显式聚焦）；
+   关闭时归还焦点 + 还原滚动。全局 Tab 仅最上层弹窗响应，边界回环。 */
+(function(){
+  var SEL='.mask';
+  function topModal(){
+    var all=Array.prototype.slice.call(document.querySelectorAll(SEL+'.show'));
+    return all.length?all[all.length-1]:null;
+  }
+  function fmap(el){
+    return Array.prototype.slice.call(el.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'));
+  }
+  var obs=new MutationObserver(function(muts){
+    muts.forEach(function(m){
+      var el=m.target;
+      if(!(el instanceof Element)||!el.matches||!el.matches(SEL)||m.attributeName!=='class') return;
+      if(el.classList.contains('show')){
+        if(!el._a11yStored){ el._a11yStored=document.activeElement; }
+        var f=fmap(el);
+        if(f.length && !el.contains(document.activeElement)){ try{ f[0].focus(); }catch(e){} }
+      }else{
+        if(el._a11yStored && el._a11yStored.focus && document.contains(el._a11yStored)){ try{ el._a11yStored.focus(); }catch(e){} }
+        el._a11yStored=null;
+      }
+    });
+    document.body.style.overflow = topModal()?'hidden':'';
+  });
+  obs.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class']});
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Tab') return;
+    var root=topModal(); if(!root) return;
+    var f=fmap(root); if(!f.length) return;
+    var first=f[0], last=f[f.length-1];
+    if(e.shiftKey){ if(document.activeElement===first||!root.contains(document.activeElement)){ e.preventDefault(); last.focus(); } }
+    else { if(document.activeElement===last||!root.contains(document.activeElement)){ e.preventDefault(); first.focus(); } }
+  });
+})();
 /* <<< SHARED:END */
 
 /* ============================================================================
@@ -4286,7 +4444,7 @@ function renderTagPicker(){
     const v=b.dataset.tag;
     const on=cur.includes(v);
     if(on) b.classList.add("on");
-    /* P1-8：标签 chip 是开关，需让读屏软件知道当前是否选中 */
+    /* ：标签 chip 是开关，需让读屏软件知道当前是否选中 */
     b.setAttribute("role","button");
     b.setAttribute("aria-pressed", on?"true":"false");
     b.setAttribute("aria-label","标签 "+v);
@@ -4506,7 +4664,7 @@ function renderDay(){
 let ganttRange="month";
 /* 单日任务（跨度仅 1 天）默认隐藏，状态持久化 */
 let ganttHideSingle=true;
-/* P2-4：窄屏「⚙ 显示选项」展开态（仅内存中保持，重渲染后沿用，不写 localStorage） */
+/* ：窄屏「⚙ 显示选项」展开态（仅内存中保持，重渲染后沿用，不写 localStorage） */
 let ganttToolsOpen=false;
 /* 排序：start=按开始时间 / cat=按分类 / pri=按优先级 / title=按名称 */
 let ganttSort="start";
@@ -4687,7 +4845,7 @@ function renderGantt(){
     }
   }
   const legend=`<div class="legend">`+cats.map(c=>`<span><i style="background:${c.color}"></i>${esc(c.name)}</span>`).join("")+`</div>`;
-  /* P2-4：工具条拆成「定位组（项目/时间）」与「显示组（排序/单日开关/展开）」两行，
+  /* ：工具条拆成「定位组（项目/时间）」与「显示组（排序/单日开关/展开）」两行，
      桌面同排用竖线分隔，窄屏把显示组折叠进「⚙ 显示选项」，避免一屏塞 8 个控件。 */
   const toolbar=`<div class="gantt-ranges" id="ganttRanges">
     <div class="gtools-row gtools-main">${projSel}<span class="gantt-sep"></span>${rangeBtns}</div>
@@ -4756,7 +4914,7 @@ function focusProjectGantt(pid){
     : ("「"+name+"」下还没有排期任务，已切到甘特图"));
 }
 function attachGanttDrag(bar, colW){
-  // P0-2：Pointer Events 统一鼠标 + 触屏（pointerdown 移动端亦可拖拽平移；轻点仍打开任务）
+  // ：Pointer Events 统一鼠标 + 触屏（pointerdown 移动端亦可拖拽平移；轻点仍打开任务）
   const cw=colW||30;
   bar.addEventListener("pointerdown", e=>{
     if(e.pointerType==="mouse" && e.button!==0) return;
@@ -4974,7 +5132,7 @@ function openInboxNew(){
   const cb=document.getElementById("f_nodate");
   if(cb && !cb.checked){ cb.checked=true; toggleNoDate(); }
 }
-// 把收件箱任务安排进日程：打开编辑弹窗预填今天，时间可改（P2-5）
+// 把收件箱任务安排进日程：打开编辑弹窗预填今天，时间可改（）
 function planInbox(id){
   const t=state.tasks.find(x=>x.id===id); if(!t) return;
   openModal(id, ymd(startOfDay(new Date())));
@@ -5008,7 +5166,7 @@ function statsRangeDays(){
   if(statsRange===30) return rangeDays(addDays(startOfDay(new Date()),-29), startOfDay(new Date()));
   if(statsRange===90) return rangeDays(addDays(startOfDay(new Date()),-89), startOfDay(new Date()));
   if(statsRange===120) return rangeDays(addDays(startOfDay(new Date()),-119), startOfDay(new Date()));
-  /* P2-1：真·全部——从最早一条完成记录 / 最早一个任务起始日 算到今天（上限 2 年，避免图表被拉爆） */
+  /* ：真·全部——从最早一条完成记录 / 最早一个任务起始日 算到今天（上限 2 年，避免图表被拉爆） */
   if(statsRange===0) return rangeDays(statsEarliestDay(), startOfDay(new Date()));
   return rangeDays(addDays(startOfDay(new Date()),-6), startOfDay(new Date()));
 }
@@ -5104,7 +5262,7 @@ function renderStats(){
   const catPct=c=>total? Math.round(catCount[c]/total*100):0;
   const priPct=p=>total? Math.round(priCount[p]/total*100):0;
   const days=statsRangeDays();
-  /* P2-1：区间超过 45 天时按「每 N 天一根柱」聚合，柱数恒定 ≤30，标签只保留起始日 */
+  /* ：区间超过 45 天时按「每 N 天一根柱」聚合，柱数恒定 ≤30，标签只保留起始日 */
   const bucket = days.length>45 ? Math.ceil(days.length/30) : 1;
   const trend=[];
   if(bucket===1){
@@ -5130,7 +5288,7 @@ function renderStats(){
   let html=`<div class="stats-wrap">`;
   html+=noSearchNote("统计");
   html+=`<div class="stats-ranges">${rangeBtns}<span style="flex:1"></span><button class="btn btn-ghost btn-sm" id="btnExportStats">📤 导出统计报告</button></div>`;
-  /* P1-6：完成率环形图并入指标行（原来独占一整行），指标卡改为自适应列数 */
+  /* ：完成率环形图并入指标行（原来独占一整行），指标卡改为自适应列数 */
   html+=`<div class="stat-cards">
     <div class="stat-card ring-card">${ring}<div class="rt">总体完成率<b>${rate}%</b></div></div>
     <div class="stat-card"><div class="n">${total}</div><div class="l">总任务</div></div>
@@ -5138,7 +5296,7 @@ function renderStats(){
     <div class="stat-card"><div class="n" style="color:var(--pri)">${rangeDone}</div><div class="l">区间内完成</div></div>
     <div class="stat-card"><div class="n" style="color:var(--warn)">${total-done}</div><div class="l">进行中</div></div>
   </div>`;
-  /* P1-6：分类分布与优先级分布并置双栏 */
+  /* ：分类分布与优先级分布并置双栏 */
   html+=`<div class="stat-grid2">`;
   html+=`<div class="stat-sec"><h4>分类分布${staleCats.length?`<button class="sec-fix" data-stale-fix type="button" title="把任务上残留的旧分类名合并到现行分类">整理 ${staleCats.length} 个遗留值</button>`:""}</h4>`;
   for(const c of catOrder){ const n=catCount[c]; const pct=catPct(c); const st=staleCatSet.has(c); html+=`<div class="barrow${st?" stale":""}"><div class="bl" title="${esc(c)}${st?" · 已不在现行分类列表中":""}">${esc(c)}${st?'<span class="stale-chip">遗留</span>':""}</div><div class="bt"><i class="bf" style="width:${pct}%;background:${catColor(c)}"></i></div><div class="bv"><span class="bv-n">${n}</span><span class="bv-sep">·</span><span class="bv-pct">${pct}%</span></div></div>`; }
@@ -5147,7 +5305,7 @@ function renderStats(){
   for(const p of priOrder){ const n=priCount[p]; const pct=priPct(p); const st=stalePriSet.has(p); html+=`<div class="barrow${st?" stale":""}"><div class="bl" title="${esc(p)}${st?" · 已不在现行优先级列表中":""}">${esc(p)}${st?'<span class="stale-chip">遗留</span>':""}</div><div class="bt"><i class="bf" style="width:${pct}%;background:${priColor(p)}"></i></div><div class="bv"><span class="bv-n">${n}</span><span class="bv-sep">·</span><span class="bv-pct">${pct}%</span></div></div>`; }
   html+=`</div>`;
   html+=`</div>`;
-  /* P1-6：完成趋势与「习惯 / OKR」健康度并置，右栏两条进度条纵向堆叠 */
+  /* ：完成趋势与「习惯 / OKR」健康度并置，右栏两条进度条纵向堆叠 */
   html+=`<div class="stat-grid2">`;
   html+=`<div class="stat-sec"><h4>完成趋势（区间内）${bucket>1?`<small class="sec-note">按 ${bucket} 天聚合</small>`:""}</h4><div class="trend${bucket>1?' dense':''}">`;
   trend.forEach((x,ti)=>{ const cls = !x.has ? ' norec' : (x.n===0 ? ' zero' : ''); const shown = !x.has ? '—' : x.n; const h = !x.has ? 3 : (x.n/trendMax*100); const lb = (bucket>1 && ti%trendLabelEvery!==0 && ti!==trend.length-1) ? "" : x.lab; html+=`<div class="col" title="${x.lab}${x.has?(' · '+x.n+' 项完成'):' · 无数据'}"><div class="num${!x.has?' rec':''}">${shown}</div><div class="bar${cls}" style="height:${h}%"></div><div class="lab">${lb}</div></div>`; });
@@ -5246,12 +5404,12 @@ function refreshTagFilter(){
   sel.value=([...set].includes(cur))?cur:"";
 }
 
-/* ===== 顶部三栏折叠（P1-1）：整页视图首屏默认折叠，手动偏好持久化 ===== */
+/* ===== 顶部三栏折叠（）：整页视图首屏默认折叠，手动偏好持久化 ===== */
 let uiPrefs={collapsed:{top:false,habit:false,list:false}, topOpen:false, touched:false};
 try{ const _r=localStorage.getItem("wb_taskhub_ui_v1"); if(_r){ const _o=JSON.parse(_r); if(_o&&_o.collapsed) uiPrefs.collapsed=Object.assign({top:false,habit:false,list:false},_o.collapsed); if(_o.touched!==undefined) uiPrefs.touched=!!_o.touched; if(_o.topOpen!==undefined) uiPrefs.topOpen=!!_o.topOpen; } }catch(e){}
 function saveUIPrefs(){ try{ localStorage.setItem("wb_taskhub_ui_v1", JSON.stringify(uiPrefs)); }catch(e){} }
 const PANEL_KEYS={top:"toppanel",habit:"habitpanel",list:"listpanel"};
-/* P1-15：某些整页视图与顶部 widget 内容完全重复（习惯视图 vs 习惯打卡面板）。
+/* ：某些整页视图与顶部 widget 内容完全重复（习惯视图 vs 习惯打卡面板）。
    进入这些视图时把对应 widget 临时收起（不改用户持久偏好，切回其它视图自动恢复），避免同屏两处相同信息。
    注：「清单」视图曾用同一规则自动收起顶部「清单速览」，导致该栏只剩空白卡片；
    按用户反馈已移除该映射——清单视图下顶部「清单速览」与其他视图一致，正常展开、内容照常渲染。 */
@@ -5312,7 +5470,7 @@ function renderOverview(){
   const ovToday=document.getElementById("ovToday");
   const chipToday=document.getElementById("ovChipToday");
   if(ovToday) ovToday.textContent = ts.pending;
-  /* P2-3：单位/口径写清楚——有逾期时把「其中 N 项逾期」直接写进 tooltip，避免与顶栏收件箱角标混淆 */
+  /* ：单位/口径写清楚——有逾期时把「其中 N 项逾期」直接写进 tooltip，避免与顶栏收件箱角标混淆 */
   if(chipToday){
     chipToday.classList.toggle("warn", ts.overdue>0);
     chipToday.title = ts.overdue>0 ? ("今日待办 "+ts.pending+" 项，其中 "+ts.overdue+" 项已逾期") : ("今天到期且未完成 "+ts.pending+" 项（不含收件箱无日期任务）");
@@ -5342,7 +5500,7 @@ function renderOverview(){
       chipList.title = "共 "+lists.length+" 个清单，其中 "+activeLists+" 个仍有待办条目";
     }
   }
-  /* P2-3：给整条概览补一句无障碍摘要，读屏时能一次听清三个数字的含义 */
+  /* ：给整条概览补一句无障碍摘要，读屏时能一次听清三个数字的含义 */
   bar.setAttribute("aria-label",
     "快捷概览：今日待办 "+ts.pending+" 项"+(ts.overdue>0?("（含逾期 "+ts.overdue+" 项）"):"")
     + "；今日已打卡 "+habDone+"/"+habActive.length+" 个习惯"
@@ -5615,11 +5773,11 @@ async function applyMerge(){
 function projName(id){ const p=state.projects.find(x=>x.id===id); return p?p.name:""; }
 
 /* ===== 项目视图（P0） ===== */
-/* P1-5：项目卡的任务列表默认折叠（项目多时单屏能看到全部项目），展开状态按项目 id 记忆 */
+/* ：项目卡的任务列表默认折叠（项目多时单屏能看到全部项目），展开状态按项目 id 记忆 */
 const projExpanded=new Set();
 function renderProjects(){
   const v=document.getElementById("view");
-  /* P1-4：整页视图搜索——按项目名/描述/其下任务标题过滤 */
+  /* ：整页视图搜索——按项目名/描述/其下任务标题过滤 */
   const q=(state.filter.q||"").trim().toLowerCase();
   let pool=state.projects.filter(p=>!p.archived);
   if(q) pool=pool.filter(p=>
@@ -5682,7 +5840,7 @@ function renderProjects(){
   v.querySelectorAll("[data-openkr]").forEach(b=>b.onclick=()=>okrOpenKR(b.dataset.openkr));
   /* 「📊 甘特图」：跳到甘特图视图并只显示该项目的任务（不再在项目卡里另起一套甘特图） */
   v.querySelectorAll("[data-projgantt]").forEach(b=>b.onclick=()=>focusProjectGantt(b.dataset.projgantt));
-  /* P1-5：点项目名展开 / 收起任务列表 */
+  /* ：点项目名展开 / 收起任务列表 */
   v.querySelectorAll("[data-fold]").forEach(b=>b.onclick=e=>{
     e.stopPropagation();
     const id=b.dataset.fold;
@@ -5725,7 +5883,7 @@ function renderOkr(){
     recordOkrTrend();
     const byParent={}; for(const o of state.okrs){ (byParent[o.parent||""]=byParent[o.parent||""]||[]).push(o); }
     const ids=new Set(state.okrs.map(o=>o.id));
-    /* P1-4：OKR 视图搜索——按目标标题 / KR 标题过滤 */
+    /* ：OKR 视图搜索——按目标标题 / KR 标题过滤 */
     const oq=(state.filter.q||"").trim().toLowerCase();
     let okrTitleHit=false;
     const rootsAll=state.okrs.filter(o=>!o.parent||!ids.has(o.parent));
@@ -6019,7 +6177,7 @@ async function projDelete(){
   const id=document.getElementById("pj_id").value; if(!id) return;
   if(!(await confirmDialog("删除该项目？",{danger:true}))) return;
   state.projects=state.projects.filter(x=>x.id!==id); projectsSave();
-  // P0-1：清理被删项目下任务的悬空引用，并独立落盘（任务 key 独立于项目 key，必须显式 save 才持久化）
+  // ：清理被删项目下任务的悬空引用，并独立落盘（任务 key 独立于项目 key，必须显式 save 才持久化）
   for(const t of state.tasks){ if(t.project===id) t.project=""; }
   save();
   document.getElementById("projMask").classList.remove("show"); renderAll();
@@ -6075,7 +6233,7 @@ function okrSave(){
     const o=state.okrs.find(x=>x.id===objId); if(!o) return;
     const auto=document.getElementById("okr_k_auto").checked;
     const k=o.krs.find(x=>x.id===krId);
-    // P1-6：关掉「自动汇总」且未填手动目标值时，用当前派生进度平滑过渡，避免进度静默归零
+    // ：关掉「自动汇总」且未填手动目标值时，用当前派生进度平滑过渡，避免进度静默归零
     let cur=0, tgt=Math.max(0,+document.getElementById("okr_k_target").value||0);
     if(!auto && k && tgt===0){
       const e=krEffective(k); cur=e.current; tgt=e.target;
@@ -6103,10 +6261,10 @@ async function okrDelete(){
   else {
     if(!(await confirmDialog("删除该目标及其所有 KR？",{danger:true}))) return;
     state.okrs=state.okrs.filter(x=>x.id!==objId);
-    for(const c of state.okrs){ if(c.parent===objId) c.parent=""; }   // P1-5：重置子目标的孤儿父引用
+    for(const c of state.okrs){ if(c.parent===objId) c.parent=""; }   // ：重置子目标的孤儿父引用
     for(const t of state.tasks){ if(t.krId && !state.okrs.flatMap(x=>x.krs).some(k=>k.id===t.krId)) t.krId=""; }
   }
-  save();   // 任务引用变更需独立落盘（P0-1 关联修复）
+  save();   // 任务引用变更需独立落盘（ 关联修复）
   okrsSave(); document.getElementById("okrMask").classList.remove("show"); renderAll();
 }
 function okrOpenKR(krId){ const o=state.okrs.find(x=>x.krs.some(k=>k.id===krId)); if(o) okrOpen(o.id, krId); }
@@ -6153,18 +6311,18 @@ function renderAllNow(){
   const isMedia = state.view==="media";
   const isFullPage = isMedia||state.view==="stats"||state.view==="habit"||state.view==="lists"||state.view==="projects"||state.view==="okr"||state.view==="review"||state.view==="anniv"; // 整页视图
   const isInbox = state.view==="inbox";
-  // 非日历/收件箱视图：日期导航用 display:none 彻底移出布局，避免右侧留下空白占位带（P0-3）
+  // 非日历/收件箱视图：日期导航用 display:none 彻底移出布局，避免右侧留下空白占位带（）
   document.querySelector(".nav").style.display = (isFullPage||isInbox)?"none":"";
-  // 筛选栏：日历/收件箱显示完整四项；整页视图只留搜索框（P1-4 给整页视图上下文搜索能力）
+  // 筛选栏：日历/收件箱显示完整四项；整页视图只留搜索框（ 给整页视图上下文搜索能力）
   const fb=document.getElementById("filterbar");
   fb.style.display = "";
   fb.classList.toggle("q-only", !!isFullPage);
   ["fCat","fPri","fTag"].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display = isFullPage?"none":""; });
   const fsEl=document.getElementById("fSearch");
   if(fsEl) fsEl.placeholder = isFullPage ? "在当前视图内搜索…" : "搜索任务标题…";
-  // 筛选在整页视图下仍然生效但筛选栏不可见 → 显示「筛选中」浮标，避免静默过滤（P0-4）
+  // 筛选在整页视图下仍然生效但筛选栏不可见 → 显示「筛选中」浮标，避免静默过滤（）
   updateFilterBadge(isFullPage);
-  // 整页视图下三栏首屏默认折叠给主视图让位（P1-1）
+  // 整页视图下三栏首屏默认折叠给主视图让位（）
   applyPanelCollapse(isFullPage, state.view);
   // 所有整页视图（进度/统计/习惯/清单）均保留顶部「今天要处理 / 习惯打卡 / 待办清单」三栏，不再隐藏侧栏
   const lay=document.getElementById("layout");
@@ -6203,7 +6361,7 @@ function renderAllNow(){
   if(_tl) _tl.scrollTop=_stt;
   if(_view){ const els=_view.querySelectorAll(".timeline,.tcols"); els.forEach((e,ix)=>{ if(_hs[ix]!=null) e.scrollLeft=_hs[ix]; }); }
 }
-/* P1-8 重渲染合并：同一事件内的多次 renderAll 合并为 1–2 次实际渲染，且不丢最新状态 */
+/*  重渲染合并：同一事件内的多次 renderAll 合并为 1–2 次实际渲染，且不丢最新状态 */
 let _raPending=false, _raDirty=false, _raErrAt=0;
 function renderAll(){
   if(_raPending){ _raDirty=true; return; }
@@ -6223,12 +6381,12 @@ function renderAll(){
     queueMicrotask(()=>{ _raPending=false; if(_raDirty){ _raDirty=false; renderAll(); } });
   }
 }
-/* ===== 筛选状态可见性（P0-4）=====
+/* ===== 筛选状态可见性（）=====
    筛选栏在整页视图（统计/习惯/清单/项目/目标/回顾/进度）下被隐藏，但 state.filter 仍会过滤
    「今天要处理」等顶部 widget —— 以前用户看不到任何依据。这里在视图标题右侧挂一个浮标，
    写明当前生效的条件，并提供一键清除。 */
 /* hiddenOnly=true 时只统计「当前界面上看不到」的条件（分类/优先级/标签），
-   搜索关键词 q 在整页视图已有可见输入框，不该再算成静默过滤（P1-4 后调整） */
+   搜索关键词 q 在整页视图已有可见输入框，不该再算成静默过滤（ 后调整） */
 function activeFilterCount(hiddenOnly){
   const f=state.filter||{};
   const keys = hiddenOnly ? ["cat","pri","tag"] : ["q","cat","pri","tag"];
@@ -6269,7 +6427,7 @@ function syncSeg(){
   const vt=document.getElementById("viewtitle");
   if(vt){ const map={inbox:"收件箱",month:"月视图",week:"周视图",day:"日视图",gantt:"甘特图",stats:"统计",media:"进度看板",habit:"习惯打卡",lists:"待办清单",projects:"项目",okr:"目标 OKR",review:"定期回顾"};
     vt.textContent=map[state.view]||state.view; }
-  /* 角标补充朗读单位，避免读成「收件箱3」（P1-14） */
+  /* 角标补充朗读单位，避免读成「收件箱3」（） */
   const badge=(id,unit)=>{ const el=document.getElementById(id); if(!el) return;
     const n=(el.textContent||"").trim(); el.setAttribute("aria-label", (n||"0")+" "+unit); };
   badge("inboxCount","项待处理"); badge("inboxCountTop","项待处理");
@@ -6548,7 +6706,7 @@ function saveTask(){
     const etime=document.getElementById("f_etime").value||"00:00";
     start=sdate+"T"+stime; end=edate+"T"+etime;
     if(parseLocal(end)<parseLocal(start)){
-      /* P1-2：统一行为——自动让结束跟随开始，不打断录入；仅全屏模式额外轻提示，不再弹错阻断 */
+      /* ：统一行为——自动让结束跟随开始，不打断录入；仅全屏模式额外轻提示，不再弹错阻断 */
       end=sdate+"T"+stime;
       try{ document.getElementById("f_edate").value=sdate; document.getElementById("f_etime").value=stime; }catch(_){}
       if(document.body.classList.contains("modal-full")) toast("结束时间已自动跟随开始时间");
@@ -6559,13 +6717,13 @@ function saveTask(){
     rec.interval=Math.max(1, +document.getElementById("f_interval").value||1);
     if(rec.freq==="weekly"){
       rec.daysOfWeek=[...document.querySelectorAll("#weekDays input:checked")].map(cb=>+cb.value);
-      if(rec.daysOfWeek.length===0){ toast("请至少选择一个星期几"); return; }   // P1-1：未选星期则阻止保存
+      if(rec.daysOfWeek.length===0){ toast("请至少选择一个星期几"); return; }   // ：未选星期则阻止保存
     }
     const ru=document.getElementById("f_runtil").value;
     if(ru){
       rec.until=ru;
       // sdate 是 else 块内 const，此处改用函数级作用域的 start 截取日期部分比较（避免作用域外引用）
-      if(parseLocal(ru) < parseLocal(start.slice(0,10))){ toast("重复截止日不能早于开始日"); return; }   // P1-3：until 合法性校验
+      if(parseLocal(ru) < parseLocal(start.slice(0,10))){ toast("重复截止日不能早于开始日"); return; }   // ：until 合法性校验
     }
   }
   const data={
@@ -6612,7 +6770,7 @@ function saveTask(){
     _subBeforeAll=(t.subtasks||[]).every(s=>!!s.done);
     Object.assign(t, data);
     if(rec.freq==="none"){
-      // P0-2：转非重复时保留最近一次打卡历史，而非清空（避免数据丢失 / 状态自相矛盾）
+      // ：转非重复时保留最近一次打卡历史，而非清空（避免数据丢失 / 状态自相矛盾）
       t.doneDates=t.doneDates||[];
       if(t.doneDates.length){
         t.status="done";
@@ -6623,7 +6781,7 @@ function saveTask(){
       } else {
         t.status=t.status||"todo";
       }
-      delete t.overrides;   // P0-3：转非重复后清掉旧单日覆盖，避免日后改回重复时复活
+      delete t.overrides;   // ：转非重复后清掉旧单日覆盖，避免日后改回重复时复活
     }
     // 整组编辑某日时，清除该日的单独 override，使其重新跟随整组模板
     if(editingDate && t.recurrence && t.recurrence.freq!=="none") delRecOverride(t, editingDate);
@@ -7767,7 +7925,7 @@ function renderLists(){
   const v=document.getElementById("view");
   // 解析选中清单：若 selList 失效则回退到第一个
   if(!lists.some(l=>l.id===state.selList)) state.selList = lists[0] ? lists[0].id : null;
-  /* P1-7：「+ 新建清单」作用于左侧清单树，放进左树头部与清单列表同处一区，
+  /* ：「+ 新建清单」作用于左侧清单树，放进左树头部与清单列表同处一区，
      不再悬在整页右上角（那里看起来像作用于右侧详情）。 */
   const head="";
   // 左树
@@ -7776,12 +7934,12 @@ function renderLists(){
       <option value="name-desc">名称 Z→A</option>
       <option value="time-asc">修改时间 旧→新</option>
       <option value="time-desc">修改时间 新→旧</option>`;
-  /* P1-4：清单视图搜索——按清单名 / 条目内容过滤左侧清单树 */
+  /* ：清单视图搜索——按清单名 / 条目内容过滤左侧清单树 */
   const lq=(state.filter.q||"").trim().toLowerCase();
   const treeLists = lq
     ? lists.filter(l=>String(l.name||"").toLowerCase().includes(lq) || (l.items||[]).some(i=>String(i.text||"").toLowerCase().includes(lq)))
     : lists;
-  /* P1-4：搜索时若当前选中的清单不在命中结果里，自动切到第一个命中的清单，
+  /* ：搜索时若当前选中的清单不在命中结果里，自动切到第一个命中的清单，
      否则右侧详情会停在一个与搜索无关的清单上，看起来像「搜索没生效」。 */
   if(lq && treeLists.length && !treeLists.some(l=>l.id===state.selList)) state.selList=treeLists[0].id;
   const sel=state.selList;
@@ -7813,7 +7971,7 @@ function renderLists(){
     const l=lists.find(x=>x.id===sel);
     const rawItems=l.items||[];
     const dispItems=rawItems.slice(); if(l.sortItem) applyItemSort(dispItems, l.sortItem);
-    /* P1-4：搜索命中了清单名 → 该清单下条目全部展示；否则只展示文本命中的条目 */
+    /* ：搜索命中了清单名 → 该清单下条目全部展示；否则只展示文本命中的条目 */
     const listHit = !!lq && String(l.name||"").toLowerCase().includes(lq);
     const items = (lq && !listHit) ? dispItems.filter(it=>String(it.text||"").toLowerCase().includes(lq)) : dispItems;
     const p=listPending(l);
@@ -8137,7 +8295,7 @@ function toggleListsAll(){
 /* ===== 清单视图 / 顶部清单面板：容器级事件委托（只绑定一次，避免每次渲染逐行重绑） ===== */
 function setupListsEvents(){
   const v=document.getElementById("view"); if(!v) return;
-  /* P1-10：删除条目是 div[role=button]，补键盘可达（Enter / 空格触发 click） */
+  /* ：删除条目是 div[role=button]，补键盘可达（Enter / 空格触发 click） */
   v.addEventListener("keydown", e=>{
     if(state.view!=="lists") return;
     if(e.key!=="Enter" && e.key!==" ") return;
@@ -8218,7 +8376,7 @@ function setupListsPanelEvents(){
 function esc(s){var _e=(s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));return iconify(_e);}
 function escNoIcon(s){return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}   // 仅转义 HTML，不转 SVG 图标：清单图标统一按原生 emoji 渲染，避免「命中 iconify 映射表的 emoji 变小灰图标、其余保持彩色」导致风格不一致
 
-/* ==== 云同步防重入 withBusy（P0-1）====
+/* ==== 云同步防重入 withBusy（）====
    同一时刻只允许一个云同步请求在飞：请求期间禁用触发按钮 + 加 .is-busy 转圈 + aria-busy="true"，
    finally 中恢复。自动同步（cloudAutoUpload / cloudAutoDownload / cloudFlush）检测到忙则静默跳过，
    下次触发会补上，绝不并发。目的：避免重复点击触发并发请求，导致后发先至的旧数据覆盖新数据。
@@ -8236,123 +8394,6 @@ async function withBusy(btn, fn){
     if(b){ try{ b.disabled=false; b.classList.remove("is-busy"); b.removeAttribute("aria-busy"); }catch(_){} }
   }
 }
-
-function confirmDialog(message, opts){
-  opts=opts||{};
-  return new Promise(function(resolve){
-    const mask=document.getElementById("confirmMask");
-    document.getElementById("confirmTitle").textContent=opts.title||"确认";
-    document.getElementById("confirmMsg").textContent=message||"";
-    const okBtn=document.getElementById("confirmOk");
-    const cancelBtn=document.getElementById("confirmCancel");
-    okBtn.textContent=opts.ok||"确定";
-    cancelBtn.textContent=opts.cancel||"取消";
-    okBtn.className="btn "+(opts.danger?"btn-danger":"btn-pri");
-    let done=false;
-    function finish(v){ if(done) return; done=true; mask.classList.remove("show"); mask.onclick=null; document.removeEventListener("keydown", onKey); resolve(v); }
-    function onKey(e){ if(e.key==="Escape") finish(false); }
-    okBtn.onclick=function(){ finish(true); };
-    cancelBtn.onclick=function(){ finish(false); };
-    /* M5：可选的第三个按钮（如导入时的「覆盖导入」），返回 opts.extraValue；不需要时隐藏 */
-    const extraBtn=document.getElementById("confirmExtra");
-    if(extraBtn){
-      if(opts.extra){ extraBtn.style.display=""; extraBtn.textContent=opts.extra;
-        extraBtn.className="btn "+(opts.extraDanger?"btn-danger":"btn-ghost");
-        extraBtn.onclick=function(){ finish(opts.extraValue||"extra"); }; }
-      else { extraBtn.style.display="none"; extraBtn.onclick=null; }
-    }
-    mask.onclick=function(e){ if(e.target.id==="confirmMask") finish(false); };
-    document.addEventListener("keydown", onKey); // 修复：此前只 removeEventListener 从未 add，导致 Esc 无法关闭确认框（与明信片 M-14 对齐）
-    mask.classList.add("show");
-  });
-}
-
-/* ===== 通用文本输入弹窗：替代原生 prompt()，统一弹窗体验、支持 Esc/遮罩关闭、回车确认 =====
-   返回 trim 后的字符串；取消/关闭返回 null。opts:{title,message,value,placeholder,ok} */
-function promptModal(message, opts){
-  opts=opts||{};
-  return new Promise(function(resolve){
-    const mask=document.getElementById("promptMask");
-    const inp=document.getElementById("promptInput");
-    if(!mask||!inp){ resolve(window.prompt?window.prompt(message||"",opts.value||""):null); return; }   // 兜底：DOM 缺失时不阻断流程
-    document.getElementById("promptTitle").textContent=opts.title||"输入";
-    document.getElementById("promptMsg").textContent=message||"";
-    inp.value=opts.value||"";
-    inp.placeholder=opts.placeholder||"";
-    const okBtn=document.getElementById("promptOk"), cancelBtn=document.getElementById("promptCancel");
-    okBtn.textContent=opts.ok||"确定";
-    let done=false;
-    function finish(v){ if(done) return; done=true; mask.classList.remove("show"); mask.onclick=null; document.removeEventListener("keydown", onKey); resolve(v); }
-    function onKey(e){ if(e.key==="Escape"){ finish(null); return; } if(e.key==="Enter"){ finish(String(inp.value).trim()); } }
-    okBtn.onclick=function(){ finish(String(inp.value).trim()); };
-    cancelBtn.onclick=function(){ finish(null); };
-    mask.onclick=function(e){ if(e.target.id==="promptMask") finish(null); };
-    document.addEventListener("keydown", onKey);
-    mask.classList.add("show");
-    setTimeout(function(){ try{ inp.focus(); inp.select(); }catch(e){} },0);
-  });
-}
-
-/* ===== 通用选项选择弹窗：替代「用 prompt 手打选项名」的易错交互（易错且非产品级） =====
-   opts:{title,message,options:[{value,label,desc}|string],value}；返回选中 value，取消返回 null */
-function chooseModal(message, opts){
-  opts=opts||{};
-  return new Promise(function(resolve){
-    const mask=document.getElementById("chooseMask"), listEl=document.getElementById("chooseList");
-    if(!mask||!listEl){ resolve(window.prompt?window.prompt(message||""):null); return; }
-    document.getElementById("chooseTitle").textContent=opts.title||"请选择";
-    document.getElementById("chooseMsg").textContent=message||"";
-    const arr=(opts.options||[]).map(function(o){ return (typeof o==="string")?{value:o,label:o,desc:""}:o; });
-    listEl.innerHTML=arr.map(function(o){
-      return '<button type="button" class="choose-item" data-cv="'+esc(String(o.value))+'" aria-current="'+((opts.value===o.value)?"true":"false")+'">'+esc(o.label)+(o.desc?'<span class="hint" style="display:block;font-size:12px;">'+esc(o.desc)+'</span>':'')+'</button>';
-    }).join("");
-    let done=false;
-    function finish(v){ if(done) return; done=true; mask.classList.remove("show"); mask.onclick=null; document.removeEventListener("keydown", onKey); resolve(v); }
-    function onKey(e){ if(e.key==="Escape") finish(null); }
-    listEl.querySelectorAll(".choose-item").forEach(function(b){ b.onclick=function(){ finish(b.dataset.cv); }; });
-    document.getElementById("chooseCancel").onclick=function(){ finish(null); };
-    mask.onclick=function(e){ if(e.target.id==="chooseMask") finish(null); };
-    document.addEventListener("keydown", onKey);
-    mask.classList.add("show");
-    const first=listEl.querySelector(".choose-item"); if(first) setTimeout(function(){ try{ first.focus(); }catch(e){} },0);
-  });
-}
-
-/* ===== 弹窗无障碍：背景锁滚 + 焦点陷阱（审查 M4/M5） ===== */
-(function(){
-  var SEL='.mask';
-  function topModal(){
-    var all=Array.prototype.slice.call(document.querySelectorAll(SEL+'.show'));
-    return all.length?all[all.length-1]:null;
-  }
-  function fmap(el){
-    return Array.prototype.slice.call(el.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'));
-  }
-  var obs=new MutationObserver(function(muts){
-    muts.forEach(function(m){
-      var el=m.target;
-      if(!(el instanceof Element)||!el.matches||!el.matches(SEL)||m.attributeName!=='class') return;
-      if(el.classList.contains('show')){
-        if(!el._a11yStored){ el._a11yStored=document.activeElement; }
-        var f=fmap(el);
-        if(f.length && !el.contains(document.activeElement)){ try{ f[0].focus(); }catch(e){} }
-      }else{
-        if(el._a11yStored && el._a11yStored.focus && document.contains(el._a11yStored)){ try{ el._a11yStored.focus(); }catch(e){} }
-        el._a11yStored=null;
-      }
-    });
-    document.body.style.overflow = topModal()?'hidden':'';
-  });
-  obs.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class']});
-  document.addEventListener('keydown',function(e){
-    if(e.key!=='Tab') return;
-    var root=topModal(); if(!root) return;
-    var f=fmap(root); if(!f.length) return;
-    var first=f[0], last=f[f.length-1];
-    if(e.shiftKey){ if(document.activeElement===first||!root.contains(document.activeElement)){ e.preventDefault(); last.focus(); } }
-    else { if(document.activeElement===last||!root.contains(document.activeElement)){ e.preventDefault(); first.focus(); } }
-  });
-})();
 
 /* ===== 选择模式 + 批量操作（任务/清单/项目通用） ===== */
 let selMode=false, selView="", selIds=new Set();
@@ -8613,7 +8654,7 @@ function toggleRemind(){
 
 /* ===== 事件 ===== */
 document.getElementById("seg").onclick=e=>{ const b=e.target.closest("button"); if(!b)return; state.view=b.dataset.v; syncSeg(); renderAll(); };
-/* tablist 键盘导航：← → 切换视图（P0-2 配套的无障碍要求） */
+/* tablist 键盘导航：← → 切换视图（ 配套的无障碍要求） */
 document.getElementById("seg").addEventListener("keydown",e=>{
   if(e.key!=="ArrowRight" && e.key!=="ArrowLeft") return;
   const btns=[...document.querySelectorAll("#seg button")];
@@ -8638,7 +8679,7 @@ function nav(dir){
   renderAll();
 }
 document.getElementById("btnNew").onclick=()=>openModal(null,null);
-  const _fab=document.getElementById("fabNew"); if(_fab) _fab.onclick=()=>{ openModal(null,null); };   // P0-3：移动端底部快捷新建
+  const _fab=document.getElementById("fabNew"); if(_fab) _fab.onclick=()=>{ openModal(null,null); };   // ：移动端底部快捷新建
 bindDoneAtField();   // 完成时间（补打卡）字段：静态 DOM，只需绑一次
 document.getElementById("btnInboxTop").onclick=()=>{ state.view="inbox"; syncSeg(); renderAll(); };
 document.getElementById("btnListsTop").onclick=()=>{ state.view="lists"; syncSeg(); renderAll(); };
@@ -8797,10 +8838,10 @@ document.addEventListener("keydown",async e=>{ if(e.key!=="Escape") return;
   if(mediaOpen){ if(mediaDirty() && !(await confirmDialog("内容尚未保存，确定关闭吗？"))) return; closeMedia(); return; }
   if(habitOpen){ closeHabit(); return; }
   if(helpOpen){ document.getElementById("helpMask").classList.remove("show"); return; }
-  if(dataOpen){ closeDataModal(); return; }   // 数据管理弹窗 Esc 关闭（P0-5）
+  if(dataOpen){ closeDataModal(); return; }   // 数据管理弹窗 Esc 关闭（）
   { const ro=document.getElementById("recoverMask"); if(ro && ro.classList.contains("show")){ closeRecoverModal(); return; } }
 });
-/* 主任务弹窗：点击遮罩关闭（与媒体/习惯/数据弹窗行为一致 P1-3）；有未保存内容时二次确认 */
+/* 主任务弹窗：点击遮罩关闭（与媒体/习惯/数据弹窗行为一致 ）；有未保存内容时二次确认 */
 document.getElementById("mask").addEventListener("click", async e=>{
   if(e.target.id!=="mask") return;
   if(typeof formDirtyTask==="function" && formDirtyTask()){
@@ -8902,7 +8943,7 @@ document.addEventListener("keydown",e=>{
   if(inField() || e.ctrlKey || e.metaKey || e.altKey) return;
   const k=e.key.toLowerCase();
   if(k==="n"){ e.preventDefault(); openModal(null,null); }
-  /* P1-1：任何视图下 `/` 都唤起全局命令面板（可搜任务/媒体/习惯/清单/命令），
+  /* ：任何视图下 `/` 都唤起全局命令面板（可搜任务/媒体/习惯/清单/命令），
      不再出现「当前视图无搜索栏」的死路；日历/收件箱视图才优先聚焦页内筛选框。 */
   else if(k==="/"){
     e.preventDefault();
@@ -8936,7 +8977,7 @@ function updateThemeBtn(){
   const b=document.getElementById("btnTheme"); if(!b) return; b.setAttribute("aria-pressed", document.documentElement.dataset.theme==="dark"?"true":"false");
   const sun='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
   const contrast='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg>';
-  /* P2-2：文本固定为「切换主题」，当前状态由图标表达（亮色态显示太阳、暗色态显示半月），
+  /* ：文本固定为「切换主题」，当前状态由图标表达（亮色态显示太阳、暗色态显示半月），
      避免「按钮写『暗色』到底是要切到暗色还是当前是暗色」的歧义 */
   const dark = document.documentElement.dataset.theme==="dark";
   b.innerHTML=(dark?sun:contrast)+" 切换主题";
@@ -9136,7 +9177,7 @@ function bindNoSearchNote(root){
   const b=root.querySelector("#nsClear"); if(!b) return;
   b.onclick=()=>{ const c=document.getElementById("fClear"); if(c) c.click(); };
 }
-/* P2-5：习惯视图工具条与空态原先各写一份（按钮组 HTML 复制两遍、绑定逻辑复制两遍），
+/* ：习惯视图工具条与空态原先各写一份（按钮组 HTML 复制两遍、绑定逻辑复制两遍），
    抽成统一生成 + 统一绑定，改按钮时只需改一处。 */
 function habitActionsHtml(){
   return '<div class="habit-actions"><button class="btn btn-ghost btn-sm" id="habitBackfill" title="补打或取消过去某段日期的打卡">📅 补打/取消</button><button class="btn btn-ghost btn-sm" id="habitStyle" title="自定义打卡格子颜色/字体">🎨 打卡样式</button><button class="btn btn-pri btn-sm" id="habitAdd">+ 添加习惯</button></div>';
@@ -9362,7 +9403,7 @@ function unarchiveHabit(id){
    两页共用同一套 GitHub Gist 同步协议。以下函数属于跨页契约，实现必须保持一致：
      parseConfig()  · setCloudStatus()  · cloudUpload()  · cloudSave()  · cloudDownload()
      cloudPull()（明信片独立封装；任务台等价逻辑内联在 cloudDownload() 内）
-     withBusy()（防重入包装器，P0-1）
+     withBusy()（防重入包装器，）
    ⚠️ 修改上述任一函数时，必须同步修改 明信片追踪.html 的同名实现，否则两页会静默分叉
       （曾出现 cloudDownload 相似度仅 15% 的分叉）。
    已知「有意差异」，请勿强行对齐：
@@ -9379,7 +9420,7 @@ function cloudSave(){ try{ const s=JSON.stringify({token:cloud.token, gist:cloud
 
 
 
-/* ===== 数据管理弹窗（P0-5）=====
+/* ===== 数据管理弹窗（）=====
    唯一入口：顶栏云 pill → 居中弹窗 + 双 Tab（本地备份 / 云同步），
    取代原页面底部 #backupPanel（点击后页面跳到最底部、标题与入口语义不符）。
    注：「更多」菜单里的「云同步 / 备份」已于 2026-08-30 移除，避免同一功能两处入口。 */
@@ -9403,7 +9444,7 @@ function closeDataModal(){
   const m=document.getElementById("dataMask"); if(!m) return;
   m.classList.remove("show");
 }
-// P1-4：云 pill 点击 / 键盘 → 打开数据管理弹窗并直接定位到「云同步」Tab
+// ：云 pill 点击 / 键盘 → 打开数据管理弹窗并直接定位到「云同步」Tab
 (function(){
   const pill=document.getElementById("cloudPill"); if(!pill) return;
   const open=()=>openDataModal("cloud");
@@ -9416,9 +9457,9 @@ function closeDataModal(){
   const close=document.getElementById("dataClose");
   if(close) close.onclick=closeDataModal;
   const m=document.getElementById("dataMask");
-  if(m) m.addEventListener("click", e=>{ if(e.target===m) closeDataModal(); });   // 点遮罩关闭（P1-3 一致性）
+  if(m) m.addEventListener("click", e=>{ if(e.target===m) closeDataModal(); });   // 点遮罩关闭（ 一致性）
 })();
-// P1-5 / P2-14：键盘可达——任何带 role="button" 的非原生元素，Enter / Space 触发点击
+//  / ：键盘可达——任何带 role="button" 的非原生元素，Enter / Space 触发点击
 document.addEventListener("keydown", e=>{
   if(e.key!=="Enter" && e.key!==" ") return;
   const t=e.target;
@@ -9802,7 +9843,7 @@ async function cloudSilentPull(){
   if(!cloud.token||!cloud.gist) return;
   if(_pullBusy) return;                            // 防并发拉取
   if(document.visibilityState==="hidden") return;   // 后台不轮询：省电 + 省 GitHub API 配额，切回前台会立即补拉
-  if(document.querySelector(".mask.show")) return;  // 弹窗操作中不打扰
+  if(document.querySelector(".mask.show:not(#introMask)")) return;  // 弹窗操作中不打扰（欢迎引导框不计入，避免首启时阻断后台自愈轮询）
   if(_pullFailN>0 && Date.now()-(window.__lastPullTry||0) < Math.min(120000, 15000*Math.pow(2,_pullFailN-1))) return; // 失败退避 15→30→60→120s
   window.__lastPullTry=Date.now();
   _pullBusy=true;
@@ -9944,7 +9985,7 @@ if(_ob){ _ob.addEventListener("click", toggleTopOverview); _ob.addEventListener(
     _t=setTimeout(function(){ fitBarLabels(document.getElementById("view")); }, 160);
   });
 })();
-/* P2-14 焦点陷阱：弹窗(.mask/[role=dialog])打开时 Tab 焦点锁定在弹窗内，关闭后焦点回归触发元素 */
+/*  焦点陷阱：弹窗(.mask/[role=dialog])打开时 Tab 焦点锁定在弹窗内，关闭后焦点回归触发元素 */
 (function(){
   const F='a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
   function currentModal(){ return Array.from(document.querySelectorAll('.mask,[role="dialog"]')).find(e=>e.classList.contains('show')); }
@@ -10019,5 +10060,31 @@ if(_ob){ _ob.addEventListener("click", toggleTopOverview); _ob.addEventListener(
     </div>
   </div>
 </div>
+<div class="mask" id="introMask" role="dialog" aria-modal="true" aria-labelledby="introTitle" data-page-node-id="introMask">
+  <div class="modal">
+    <h3 class="intro-hero" id="introTitle">👋 欢迎使用任务管理台</h3>
+    <p class="intro-sub">一个页面管住任务、项目、OKR、清单、习惯、纪念日与媒体进度。挑常用的用就好，不用一次全开。</p>
+    <ul class="intro-list">
+      <li><span class="ic">✅</span><div><b>任务 / 清单</b>：日常待办与「待读图书」「待寄明信片」这类收集箱</div></li>
+      <li><span class="ic">🎯</span><div><b>项目 / OKR</b>：把大目标拆成可追踪的关键结果</div></li>
+      <li><span class="ic">📅</span><div><b>纪念日 / 习惯</b>：农历倒计时与每日打卡</div></li>
+      <li><span class="ic">📊</span><div><b>媒体进度</b>：读书 / 剧集按页、集或百分比自定义单位</div></li>
+      <li><span class="ic">☁️</span><div><b>云同步</b>：配置 GitHub Gist 后多端无缝衔接（可选）</div></li>
+    </ul>
+    <div class="modal-actions"><button class="btn btn-pri" id="introStart" type="button">开始使用</button></div>
+  </div>
+</div>
+<script>
+(function(){
+  try{
+    if(localStorage.getItem('th_intro_seen')!=='1'){
+      var m=document.getElementById('introMask');
+      if(m){ m.classList.add('show'); localStorage.setItem('th_intro_seen','1'); }
+    }
+    var btn=document.getElementById('introStart');
+    if(btn){ btn.onclick=function(){ var m=document.getElementById('introMask'); if(m) m.classList.remove('show'); }; }
+  }catch(e){}
+})();
+</script>
 </body>
 </html>

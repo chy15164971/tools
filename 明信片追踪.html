@@ -35,7 +35,7 @@
     --ok:#2bd99a; --warn:#ff9a4d; --danger:#ff6b6b;
   --warnbg:#3a1f1f; }
 
-  /* ===== P1-6 补漏：明信片此前无组件级 dark 覆盖，浅彩徽章/胶囊/节点/边框在此适配 ===== */
+  /* =====  补漏：明信片此前无组件级 dark 覆盖，浅彩徽章/胶囊/节点/边框在此适配 ===== */
   [data-theme="dark"] .cloudpill.off{ background:#232a3a; color:#8b94a3; border-color:#232a3a; }
   [data-theme="dark"] .btn-danger{ border-color:var(--line); }
   [data-theme="dark"] .opt-del{ border-color:var(--line); }
@@ -44,10 +44,23 @@
   [data-theme="dark"] .sp-node{ border-color:var(--line); color:var(--muted); }
   [data-theme="dark"] .sp-node.done{ border-color:var(--pri); color:var(--white); }
   [data-theme="dark"] .sp-node.cur{ border-color:var(--pri); color:var(--pri); }
+  /* 暗色组件级覆盖：与任务台对齐的基础集（输入框 / 占位符 / 滚动条 / 卡片 / 弹窗 / 提示），仅用本文件已定义的暗色变量 */
+  [data-theme="dark"] input,
+  [data-theme="dark"] select,
+  [data-theme="dark"] textarea{ background:var(--bg2); color:var(--ink); border-color:var(--line); }
+  [data-theme="dark"] ::placeholder{ color:#6b7488; }
+  [data-theme="dark"] .field{ background:var(--bg2); color:var(--ink); border-color:var(--line); }
+  [data-theme="dark"] .toast{ background:var(--line); color:var(--ink); }
+  [data-theme="dark"] .btn-ghost{ background:transparent; border-color:var(--line); color:var(--ink); }
+  [data-theme="dark"] .card,
+  [data-theme="dark"] .modal{ border-color:var(--line); }
+  [data-theme="dark"] ::-webkit-scrollbar{ width:10px; height:10px; }
+  [data-theme="dark"] ::-webkit-scrollbar-thumb{ background:#2a3142; border-radius:6px; }
+  [data-theme="dark"] ::-webkit-scrollbar-track{ background:transparent; }
   /* === SHARED TOKENS END === */
   /* 源: _ops/_workbench/design_tokens.css · 改色请改源后跑 sync_tokens.js 一键同步 */
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  /* 跳至主内容（对齐任务管理台 P1-9）：默认移出视野，键盘聚焦时出现在左上角 */
+  /* 跳至主内容（对齐任务管理台 ）：默认移出视野，键盘聚焦时出现在左上角 */
   .skip-link{position:absolute;left:-9999px;top:0;z-index:200;background:var(--pri);color:var(--white);
     padding:10px 16px;border-radius:0 0 10px 0;font-weight:600;font-size:14px;text-decoration:none;white-space:nowrap;}
   .skip-link:focus,.skip-link:focus-visible{left:0;outline:3px solid var(--white);outline-offset:-3px;}
@@ -89,7 +102,7 @@
   .dtab{flex:1;border:none;background:transparent;border-radius:9px;padding:9px 12px;font-size:14px;font-weight:600;color:var(--sub,#6b7488);cursor:pointer;font-family:inherit;min-height:40px;transition:.15s;}
   .dtab:hover{color:var(--ink,#1f2430);}
   .dtab.active{background:var(--pri);color:var(--white);}
-    /* ===== 键盘可见焦点（P1-5）：与「任务管理台.html」对齐 =====
+    /* ===== 键盘可见焦点（）：与「任务管理台.html」对齐 =====
      键盘 Tab 时显示清晰焦点环；用 :focus-visible 保证鼠标点击不触发，不影响鼠标用户观感。
      原先本页只有 .dtab 一条焦点规则（任务台有 12 条），键盘用户几乎看不到焦点位置。 */
   a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,
@@ -290,6 +303,10 @@
   .modal{background:var(--card);border-radius:var(--radius-lg);width:100%;max-width:460px;padding:18px;box-shadow:0 24px 60px rgba(20,30,60,.28);}
   #maskActivity .modal{max-width:860px;}
   .modal h3{margin:0 0 14px;font-size:17px;display:flex;align-items:center;gap:8px;}
+  /* 空状态（与任务台 .empty 视觉语言统一，审查 T3） */
+  .empty{color:var(--sub);font-size:13px;text-align:center;padding:28px 12px;display:flex;flex-direction:column;align-items:center;gap:10px;}
+  .empty .empty-ic{font-size:26px;line-height:1;}
+  .empty .btn{margin-top:4px;}
   .opt-x{margin-left:auto;border:none;background:none;font-size:21px;line-height:1;color:var(--sub);cursor:pointer;padding:2px 8px;border-radius:6px;}
   .opt-x:hover{background:var(--hover);color:var(--ink);}
   .field{margin-bottom:12px;}
@@ -337,7 +354,7 @@
   .opt-row .opt-in{flex:1;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:var(--radius-sm);padding:9px 11px;font-size:16px;font-family:inherit;}
   .opt-del{border:1px solid #ffd9d9;background:var(--card);color:var(--danger);border-radius:var(--radius-sm);width:38px;height:38px;flex:none;cursor:pointer;font-size:17px;line-height:1;font-family:inherit;}
   .opt-del:hover{background:var(--warnbg);}
-  .modal-act{display:flex;gap:10px;justify-content:flex-end;margin-top:6px;}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:6px;}
   .hint{font-size:12px;color:var(--sub);margin-top:4px;}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0;}
   .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(16px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:11px;font-size:13.5px;opacity:0;transition:opacity .25s, transform .25s;z-index:120;pointer-events:none;}
@@ -345,7 +362,7 @@
   .toast.success{background:var(--ok);color:var(--white);}
   .toast.danger{background:var(--danger);color:var(--white);}
   .toast.warn{background:var(--warn);color:var(--ink-strong);}
-  /* P0-1 云同步防重入：请求飞行期间的忙态指示（spinner 用纯 CSS border 实现，零依赖、离线可用） */
+  /*  云同步防重入：请求飞行期间的忙态指示（spinner 用纯 CSS border 实现，零依赖、离线可用） */
   @keyframes wbspin{to{transform:rotate(360deg)}}
   .btn.is-busy{opacity:.65;cursor:progress;}
   .btn.is-busy::after{content:"";display:inline-block;width:12px;height:12px;margin-left:6px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:wbspin .7s linear infinite;vertical-align:-1px;}
@@ -449,8 +466,8 @@
     .row2 .field{width:100%;}
     .sel-row{flex-wrap:nowrap;gap:8px;}
     .mini{width:44px;height:44px;}
-    .modal-act{flex-direction:column-reverse;gap:10px;margin-top:10px;}
-    .modal-act .btn{width:100%;justify-content:center;min-height:46px;font-size:15px;}
+    .modal-actions{flex-direction:column-reverse;gap:10px;margin-top:10px;}
+    .modal-actions .btn{width:100%;justify-content:center;min-height:46px;font-size:15px;}
     .chk{font-size:13px;}
     .hint{font-size:11.5px;}
     /* 代寄步骤条 */
@@ -755,7 +772,7 @@
     </div>
     <label class="chk" data-page-node-id="PFyoT9Ljm3YHnzAKD3kSwy"><input type="checkbox" id="fExchangeChk" data-page-node-id="Dax1SR9QZcVo3kiW00as2p"> 🔗 这是一次交换（保存后自动生成并关联对方条目）</label>
     <button type="button" class="btn btn-ghost btn-sm" id="fLinkBtn" style="margin-top:4px;display:none;" data-page-node-id="v5HJd5DN9zhy9UjiCINH1H">🔗 关联已有对方（事后绑定）</button>
-    <div class="modal-act" data-page-node-id="Y82A5wJ90RCIqI0RCbnxhn">
+    <div class="modal-actions" data-page-node-id="Y82A5wJ90RCIqI0RCbnxhn">
       <button class="btn btn-ghost" id="btnCancel" data-page-node-id="vXqKHbCIgbnzqibD3paZDC">取消</button>
       <button class="btn btn-pri" id="btnSave" data-page-node-id="BCgmb7uzIgBwf1JzeoMAxt">保存</button>
     </div>
@@ -818,7 +835,7 @@
     </div>
     <label class="chk" data-page-node-id="UJ83Vteuxcs2orhWaFTmXS"><input type="checkbox" id="rExchangeChk" data-page-node-id="9b79oWoFsqieaNItQxYQpV"> 🔗 这是一次交换（保存后自动生成并关联对方条目）</label>
     <button type="button" class="btn btn-ghost btn-sm" id="rLinkBtn" style="margin-top:4px;display:none;" data-page-node-id="5mmBbROfNgL8cb781LVlz5">🔗 关联已有对方（事后绑定）</button>
-    <div class="modal-act" data-page-node-id="yCakcbW95BLZRlFvFhpZtq">
+    <div class="modal-actions" data-page-node-id="yCakcbW95BLZRlFvFhpZtq">
       <button class="btn btn-ghost" id="btnRecvCancel" data-page-node-id="JuvlOw56Ucm4WKbxS2aRyA">取消</button>
       <button class="btn btn-pri" id="btnRecvSave" data-page-node-id="WRoxsGQtqj1PC6gAAocR8p">保存</button>
     </div>
@@ -904,7 +921,7 @@
     <p class="muted" style="font-size:12px;margin:-4px 0 12px;line-height:1.5;">扫描 Gist 全部历史版本，列出本地已缺失的寄出 / 收到 / 代寄 / 活动记录（按 id 去重，多版本取较新者）。点「恢复」即可加回对应分组。</p>
     <div id="recoverList" class="mrec-list"></div>
     <div id="recoverStatus" class="muted" style="font-size:12px;margin-top:8px;"></div>
-    <div class="modal-act">
+    <div class="modal-actions">
       <button class="btn btn-ghost" id="recoverClose">关闭</button>
     </div>
   </div>
@@ -994,7 +1011,7 @@
     </div>
     <label class="chk" data-page-node-id="Q0qqyodOFypO3RAZisp4Kr"><input type="checkbox" id="pMutualChk" data-page-node-id="rFAEtNDCQOGvKmnFGZHSZa"> 🔁 互相代寄（同时记录对方那张片，自动关联、共享信息预填）</label>
     <button type="button" class="btn btn-ghost btn-sm" id="pLinkBtn" style="margin-top:4px;display:none;" data-page-node-id="XeArojxLbUpDaFrBrMASud">🔗 关联已有对方（事后绑定）</button>
-    <div class="modal-act" data-page-node-id="vy38HOBnAn3rBGkoYUlafa">
+    <div class="modal-actions" data-page-node-id="vy38HOBnAn3rBGkoYUlafa">
       <button class="btn btn-ghost" id="btnProxyCancel" data-page-node-id="d3Cn4TVauKvRB9RtJER8Pi">取消</button>
       <button class="btn btn-pri" id="btnProxySave" data-page-node-id="tFYLDABkBbcpc4USpIpO4j">保存</button>
     </div>
@@ -1087,7 +1104,7 @@
       <label data-page-node-id="T2lGbwdxturYAiK6aLcjBa">备注</label>
       <textarea id="aNote" placeholder="如：还差 3 人满员，满了就开抽"></textarea>
     </div>
-    <div class="modal-act" data-page-node-id="NKjSkiScJylcBTYerrjfGa">
+    <div class="modal-actions" data-page-node-id="NKjSkiScJylcBTYerrjfGa">
       <button class="btn btn-ghost" id="btnActCancel" data-page-node-id="n2avoALWCLwYzYsCZlXyKG">取消</button>
       <button class="btn btn-pri" id="btnActSave" data-page-node-id="CCC6jD1cv6U2jyDYkT2Mg7">保存</button>
     </div>
@@ -1104,7 +1121,7 @@
       <input id="actKindNew" placeholder="新增类型，如：抽奖 / 拼团" data-page-node-id="EcsPJ6bLgCyZoxmB6BXKmf">
       <button class="btn btn-pri" id="actKindAdd" data-page-node-id="CA8KybEgZqZoP06MrCbez6">添加</button>
     </div>
-    <div class="modal-act" data-page-node-id="dFYHQH4ubS8nU7yfSveUHJ"><button class="btn btn-ghost" id="actKindDone" data-page-node-id="5HspD4KzcCtIHq9Hok1weB">完成</button></div>
+    <div class="modal-actions" data-page-node-id="dFYHQH4ubS8nU7yfSveUHJ"><button class="btn btn-ghost" id="actKindDone" data-page-node-id="5HspD4KzcCtIHq9Hok1weB">完成</button></div>
   </div>
 </div>
 
@@ -1121,7 +1138,7 @@
       </select>
     </div>
     <p class="hint" id="convHint" style="margin:12px 0 0;" data-page-node-id="VbhJrHhipgpwLuYLFmFBDJ"></p>
-    <div class="modal-act" data-page-node-id="vSYARVzCQSNSHHc0HIlhkS">
+    <div class="modal-actions" data-page-node-id="vSYARVzCQSNSHHc0HIlhkS">
       <button class="btn btn-ghost" id="btnConvCancel" data-page-node-id="Fp3ebX8R7fKDv3dSA01Dc9">取消</button>
       <button class="btn btn-pri" id="btnConvOk" data-page-node-id="LR7vUfZ8bl7iQGfWS8sY0I">转换</button>
     </div>
@@ -1138,7 +1155,7 @@
       <div class="field" style="flex:1;margin-bottom:0;" data-page-node-id="L06tWwxdVgnLhDgqoKbWHP"><input id="optsNew" placeholder="新增一项…" data-page-node-id="stIMLf1jdMK9kCzg44EHcq"></div>
       <button class="btn btn-pri btn-sm" id="optsAdd" data-page-node-id="HD6cwCy6zU9E9KT5pyyzBD">添加</button>
     </div>
-    <div class="modal-act" data-page-node-id="PPz6nLHgoW6s4Zjj9A7Lww">
+    <div class="modal-actions" data-page-node-id="PPz6nLHgoW6s4Zjj9A7Lww">
       <button class="btn btn-ghost" id="optsDone" data-page-node-id="A8M1rjHoSwW3bXBKlCTPrI">完成</button>
     </div>
   </div>
@@ -1156,7 +1173,7 @@
       <input class="l-url" id="linkNewUrl" placeholder="https://…" data-page-node-id="EEysHwSc9fDLlpPu1DsN5X">
       <button type="button" class="btn btn-pri btn-sm" id="linkAdd" style="flex:none;" data-page-node-id="qPI3Q366x05UiHCQ9AqDqP">添加</button>
     </div>
-    <div class="modal-act" data-page-node-id="aHhHGYuQIMMOevDst1yGWC">
+    <div class="modal-actions" data-page-node-id="aHhHGYuQIMMOevDst1yGWC">
       <button class="btn btn-ghost" id="linkReset" data-page-node-id="j01ElAY8Qutj7jqDk6FAu4">恢复默认</button>
       <button class="btn btn-pri" id="linksDone" data-page-node-id="r7990MLCeLsOaOGrc2KM4S">完成</button>
     </div>
@@ -1172,7 +1189,7 @@
   <div class="modal" style="max-width:400px;" data-page-node-id="iEiRsr4BNpgLFley3SILUX">
     <h3 id="confirmTitle" data-page-node-id="8YF4Egi4o681UvWlbbUj3a">确认</h3>
     <p class="hint" id="confirmMsg" style="margin-top:0;font-size:14px;color:var(--ink);white-space:pre-wrap;" data-page-node-id="5pyOlhfuBrFPTHhVxVsrui"></p>
-    <div class="modal-act" data-page-node-id="J1iTxd3tz5NMnn0cRoTatj">
+    <div class="modal-actions" data-page-node-id="J1iTxd3tz5NMnn0cRoTatj">
       <button class="btn btn-ghost" id="confirmCancel" data-page-node-id="q8vvy03ttLG0uxpYzWqOC2">取消</button>
       <button class="btn btn-pri" id="confirmOk" data-page-node-id="wnlmNgJ3rSajF0bd8zONpg">确定</button>
     </div>
@@ -1255,7 +1272,7 @@
     <h3 data-page-node-id="qoBphmGJf9TU0uj5EBhbjf">关联对方已有记录<button aria-label="关闭" type="button" class="opt-x" id="linkClose" title="关闭" data-page-node-id="cUtVOZyDu7r5l5jeDIDyGi">✕</button></h3>
     <p class="hint" id="linkHint" style="margin:0 0 10px;" data-page-node-id="lMMzs5KLSrUFUYzEV0pOWW"></p>
     <div id="linkPickList" style="max-height:52vh;overflow:auto;" data-page-node-id="0XDDESFopNfUPuCe4qoBEl"></div>
-    <div class="modal-act" data-page-node-id="BirhrKkvGeyu3oePdcHSia"><button class="btn btn-ghost" id="linkCancel" data-page-node-id="pEBveN2qB9TB10rVbVLFDO">取消</button></div>
+    <div class="modal-actions" data-page-node-id="BirhrKkvGeyu3oePdcHSia"><button class="btn btn-ghost" id="linkCancel" data-page-node-id="pEBveN2qB9TB10rVbVLFDO">取消</button></div>
   </div>
 </div>
 
@@ -1472,6 +1489,156 @@ function bindTablistKeys(){
     try{ bs[j].click(); }catch(_){}
   });
 }
+
+/* ============================================================================
+ * 通用弹窗（审查 C1/R1：统一底座，消除「同名分叉」）
+ * ----------------------------------------------------------------------------
+ * 此前 confirmDialog 在任务台 / 明信片各实现一份且已分叉（明信片确认框曾缺
+ * ESC 注册，见 M-14）。现收敛为单一事实源，由 inject_shared.py 注入两文件后统一维护。
+ * promptModal / chooseModal 为任务台专用交互；明信片暂无对应 DOM，函数以
+ * 「DOM 缺失则兜底」避免阻断流程。
+ * 依赖约定：本层引用宿主已定义的 esc（明信片为 IIFE 私有，任务台为全局）；
+ *   DOM 容器 #confirmMask / #promptMask / #chooseMask 由宿主 HTML 提供。
+ * ==========================================================================*/
+
+function confirmTitle(message, opts){
+  if(opts && opts.title) return opts.title;
+  var m=message||"";
+  if(/删除|移除|清空|彻底|回收站/.test(m)) return "删除确认";
+  if(/覆盖/.test(m)) return "覆盖确认";
+  if(/退出|放弃|取消订阅/.test(m)) return "操作确认";
+  return "确认";
+}
+
+function confirmDialog(message, opts){
+  opts=opts||{};
+  return new Promise(function(resolve){
+    const mask=document.getElementById("confirmMask");
+    const titleEl=document.getElementById("confirmTitle");
+    const msgEl=document.getElementById("confirmMsg");
+    if(!mask||!titleEl||!msgEl){ resolve(false); return; }   // 兜底：DOM 缺失时不阻断流程
+    titleEl.textContent=confirmTitle(message, opts);
+    msgEl.textContent=message||"";
+    const okBtn=document.getElementById("confirmOk");
+    const cancelBtn=document.getElementById("confirmCancel");
+    okBtn.textContent=opts.ok||"确定";
+    cancelBtn.textContent=opts.cancel||"取消";
+    okBtn.className="btn "+(opts.danger?"btn-danger":"btn-pri");
+    let done=false;
+    function finish(v){ if(done) return; done=true; mask.classList.remove("show"); mask.onclick=null; document.removeEventListener("keydown", onKey); resolve(v); }
+    function onKey(e){ if(e.key==="Escape") finish(false); }
+    okBtn.onclick=function(){ finish(true); };
+    cancelBtn.onclick=function(){ finish(false); };
+    /* M5：可选的第三个按钮（如导入时的「覆盖导入」），返回 opts.extraValue；不需要时隐藏 */
+    const extraBtn=document.getElementById("confirmExtra");
+    if(extraBtn){
+      if(opts.extra){ extraBtn.style.display=""; extraBtn.textContent=opts.extra;
+        extraBtn.className="btn "+(opts.extraDanger?"btn-danger":"btn-ghost");
+        extraBtn.onclick=function(){ finish(opts.extraValue||"extra"); }; }
+      else { extraBtn.style.display="none"; extraBtn.onclick=null; }
+    }
+    mask.onclick=function(e){ if(e.target.id==="confirmMask") finish(false); };
+    document.addEventListener("keydown", onKey); // M-14 修复：必须 add，否则 Esc 无法关闭确认框
+    mask.classList.add("show");
+  });
+}
+
+/* 通用文本输入弹窗：替代原生 prompt()，统一弹窗体验、支持 Esc/遮罩关闭、回车确认。
+   返回 trim 后的字符串；取消/关闭返回 null。opts:{title,message,value,placeholder,ok} */
+function promptModal(message, opts){
+  opts=opts||{};
+  return new Promise(function(resolve){
+    const mask=document.getElementById("promptMask");
+    const inp=document.getElementById("promptInput");
+    if(!mask||!inp){ resolve(window.prompt?window.prompt(message||"",opts.value||""):null); return; }
+    document.getElementById("promptTitle").textContent=opts.title||"输入";
+    document.getElementById("promptMsg").textContent=message||"";
+    inp.value=opts.value||"";
+    inp.placeholder=opts.placeholder||"";
+    const okBtn=document.getElementById("promptOk"), cancelBtn=document.getElementById("promptCancel");
+    okBtn.textContent=opts.ok||"确定";
+    let done=false;
+    function finish(v){ if(done) return; done=true; mask.classList.remove("show"); mask.onclick=null; document.removeEventListener("keydown", onKey); resolve(v); }
+    function onKey(e){ if(e.key==="Escape"){ finish(null); return; } if(e.key==="Enter"){ finish(String(inp.value).trim()); } }
+    okBtn.onclick=function(){ finish(String(inp.value).trim()); };
+    cancelBtn.onclick=function(){ finish(null); };
+    mask.onclick=function(e){ if(e.target.id==="promptMask") finish(null); };
+    document.addEventListener("keydown", onKey);
+    mask.classList.add("show");
+    setTimeout(function(){ try{ inp.focus(); inp.select(); }catch(e){} },0);
+  });
+}
+
+/* 通用选项选择弹窗：替代「用 prompt 手打选项名」的易错交互。
+   opts:{title,message,options:[{value,label,desc}|string],value}；返回选中 value，取消返回 null */
+function chooseModal(message, opts){
+  opts=opts||{};
+  return new Promise(function(resolve){
+    const mask=document.getElementById("chooseMask"), listEl=document.getElementById("chooseList");
+    if(!mask||!listEl){ resolve(window.prompt?window.prompt(message||""):null); return; }
+    document.getElementById("chooseTitle").textContent=opts.title||"请选择";
+    document.getElementById("chooseMsg").textContent=message||"";
+    const arr=(opts.options||[]).map(function(o){ return (typeof o==="string")?{value:o,label:o,desc:""}:o; });
+    listEl.innerHTML=arr.map(function(o){
+      return '<button type="button" class="choose-item" data-cv="'+esc(String(o.value))+'" aria-current="'+((opts.value===o.value)?"true":"false")+'">'+esc(o.label)+(o.desc?'<span class="hint" style="display:block;font-size:12px;">'+esc(o.desc)+'</span>':'')+'</button>';
+    }).join("");
+    let done=false;
+    function finish(v){ if(done) return; done=true; mask.classList.remove("show"); mask.onclick=null; document.removeEventListener("keydown", onKey); resolve(v); }
+    function onKey(e){ if(e.key==="Escape") finish(null); }
+    listEl.querySelectorAll(".choose-item").forEach(function(b){ b.onclick=function(){ finish(b.dataset.cv); }; });
+    document.getElementById("chooseCancel").onclick=function(){ finish(null); };
+    mask.onclick=function(e){ if(e.target.id==="chooseMask") finish(null); };
+    document.addEventListener("keydown", onKey);
+    mask.classList.add("show");
+    const first=listEl.querySelector(".choose-item"); if(first) setTimeout(function(){ try{ first.focus(); }catch(e){} },0);
+  });
+}
+
+/* 通用空状态（审查 T3：统一空状态文案与样式，避免散落硬编码）。
+   返回 .empty 块；icon 为 emoji/SVG，text 为主文案，sub 为次要说明，actionHtml 为可选操作按钮。 */
+function emptyState(icon, text, sub, actionHtml){
+  return '<div class="empty"><div class="empty-ic">'+esc(icon||"📭")+'</div><div>'+esc(text||"暂无数据")+
+    (sub?'<br><small style="color:var(--sub);font-weight:400;display:inline-block;margin-top:6px;">'+esc(sub)+'</small>':'')+
+    '</div>'+(actionHtml||'')+'</div>';
+}
+
+/* 弹窗无障碍：背景锁滚 + 焦点陷阱（审查 M4/M5，单一事实源）。
+   监听 .mask 的 show 增删：打开时锁 body 滚动 + 聚焦首个可聚焦元素（除非打开者已显式聚焦）；
+   关闭时归还焦点 + 还原滚动。全局 Tab 仅最上层弹窗响应，边界回环。 */
+(function(){
+  var SEL='.mask';
+  function topModal(){
+    var all=Array.prototype.slice.call(document.querySelectorAll(SEL+'.show'));
+    return all.length?all[all.length-1]:null;
+  }
+  function fmap(el){
+    return Array.prototype.slice.call(el.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'));
+  }
+  var obs=new MutationObserver(function(muts){
+    muts.forEach(function(m){
+      var el=m.target;
+      if(!(el instanceof Element)||!el.matches||!el.matches(SEL)||m.attributeName!=='class') return;
+      if(el.classList.contains('show')){
+        if(!el._a11yStored){ el._a11yStored=document.activeElement; }
+        var f=fmap(el);
+        if(f.length && !el.contains(document.activeElement)){ try{ f[0].focus(); }catch(e){} }
+      }else{
+        if(el._a11yStored && el._a11yStored.focus && document.contains(el._a11yStored)){ try{ el._a11yStored.focus(); }catch(e){} }
+        el._a11yStored=null;
+      }
+    });
+    document.body.style.overflow = topModal()?'hidden':'';
+  });
+  obs.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class']});
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Tab') return;
+    var root=topModal(); if(!root) return;
+    var f=fmap(root); if(!f.length) return;
+    var first=f[0], last=f[f.length-1];
+    if(e.shiftKey){ if(document.activeElement===first||!root.contains(document.activeElement)){ e.preventDefault(); last.focus(); } }
+    else { if(document.activeElement===last||!root.contains(document.activeElement)){ e.preventDefault(); first.focus(); } }
+  });
+})();
 /* <<< SHARED:END */
 /* ===== 数据 ===== */
 const KEY="wb_postcards_v1";
@@ -1745,7 +1912,7 @@ function openOpts(kind, selId){
 function renderOptsList(){
   const list = optsListOf(optsKind);
   const el=document.getElementById("optsList");
-  if(!list.length){ el.innerHTML=`<div class="hint" style="padding:8px 0;">暂无选项，下面添加一项吧。</div>`; return; }
+  if(!list.length){ el.innerHTML=emptyState("📋","暂无选项，下面添加一项吧。"); return; }
   el.innerHTML=list.map((o,i)=>`<div class="opt-row"><input class="opt-in" data-i="${i}" value="${esc(o)}"><button aria-label="删除" type="button" class="opt-del" data-i="${i}" title="删除">✕</button></div>`).join("");
   el.querySelectorAll(".opt-in").forEach(inp=>inp.oninput=()=>{ list[+inp.dataset.i]=inp.value; });
   el.querySelectorAll(".opt-del").forEach(b=>b.onclick=()=>{
@@ -1803,7 +1970,7 @@ function renderLinkBar(){
 }
 function renderLinkEditor(){
   const el=document.getElementById("linksList"); if(!el) return;
-  if(!linkList.length){ el.innerHTML=`<div class="hint" style="padding:8px 0;">暂无链接，下面添加一条吧。</div>`; return; }
+  if(!linkList.length){ el.innerHTML=emptyState("🔗","暂无链接，下面添加一条吧。"); return; }
   el.innerHTML=linkList.map((l,i)=>`<div class="lrow">
     <input class="l-emoji" data-li="${i}" data-lf="emoji" value="${esc(l.emoji||"")}" maxlength="4" title="图标（可留空）">
     <input class="l-name" data-li="${i}" data-lf="name" value="${esc(l.name||"")}" placeholder="名称">
@@ -2633,7 +2800,7 @@ function bindTableDelegation(){
 }
 function renderAddBtn(){ const b=document.getElementById("btnAdd"); if(!b) return; const map={ sent:["新建寄出",()=>openRecModal("sent")], received:["新建收到",()=>openRecModal("received")], proxy:["新建代寄",()=>openProxyModal()], activity:["新建活动",()=>openActivityModal()] }; const c=map[view]||map.sent; b.textContent=c[0]; b.onclick=c[1]; }
 function renderAllNow(){ renderTabs(); renderStats(); renderFilters(); renderTable(); renderAddBtn(); }
-/* P1-8 重渲染合并：同一事件内的多次 renderAll 合并为 1–2 次实际渲染，且不丢最新状态 */
+/*  重渲染合并：同一事件内的多次 renderAll 合并为 1–2 次实际渲染，且不丢最新状态 */
 let _raPending=false, _raDirty=false;
 function renderAll(){
   if(_raPending){ _raDirty=true; return; }
@@ -3334,7 +3501,7 @@ function actDirty(){ return actSnapshot!=null && formSnapshot(ACT_FORM_IDS)!==ac
    两页共用同一套 GitHub Gist 同步协议。以下函数属于跨页契约，实现必须保持一致：
      parseConfig()  · setCloudStatus()  · cloudUpload()  · cloudSave()  · cloudDownload()
      cloudPull()（明信片独立封装；任务台等价逻辑内联在 cloudDownload() 内）
-     withBusy()（防重入包装器，P0-1）
+     withBusy()（防重入包装器，）
    ⚠️ 修改上述任一函数时，必须同步修改 任务管理台.html 的同名实现，否则两页会静默分叉
       （曾出现 cloudDownload 相似度仅 15% 的分叉）。
    已知「有意差异」，请勿强行对齐：
@@ -3365,7 +3532,7 @@ function applyCloudSettings(obj){
   return true;
 }
 
-// P0-2：云同步此前裸 fetch 无超时，弱网会一直转圈；复用与任务台一致的带超时 fetch
+// ：云同步此前裸 fetch 无超时，弱网会一直转圈；复用与任务台一致的带超时 fetch
 
 // 读取云端 postcards.json 的 savedAt，用于上传冲突检测。
 // 返回 {savedAt}（读到）| {empty:true}（云端无文件，首次上传安全）| {err:true}（读失败，不可安全上传）
@@ -3593,7 +3760,7 @@ function cloudFlush(){
 
 /* ===== 工具 ===== */
 
-/* ==== 云同步防重入 withBusy（P0-1）====
+/* ==== 云同步防重入 withBusy（）====
    同一时刻只允许一个云同步请求在飞：请求期间禁用触发按钮 + 加 .is-busy 转圈 + aria-busy="true"，
    finally 中恢复。自动同步（cloudAutoUpload / cloudAutoDownload / cloudFlush）检测到忙则静默跳过，
    下次触发会补上，绝不并发。目的：避免重复点击触发并发请求，导致后发先至的旧数据覆盖新数据。
@@ -3611,62 +3778,6 @@ async function withBusy(btn, fn){
   }
 }
 
-function confirmDialog(message, opts){
-  opts=opts||{};
-  return new Promise(function(resolve){
-    const mask=document.getElementById("confirmMask");
-    document.getElementById("confirmTitle").textContent=opts.title||"确认";
-    document.getElementById("confirmMsg").textContent=message||"";
-    const okBtn=document.getElementById("confirmOk");
-    const cancelBtn=document.getElementById("confirmCancel");
-    okBtn.textContent=opts.ok||"确定";
-    cancelBtn.textContent=opts.cancel||"取消";
-    okBtn.className="btn "+(opts.danger?"btn-danger":"btn-pri");
-    let done=false;
-    function finish(v){ if(done) return; done=true; mask.classList.remove("show"); mask.onclick=null; document.removeEventListener("keydown", onKey); resolve(v); }
-    function onKey(e){ if(e.key==="Escape") finish(false); }
-    okBtn.onclick=function(){ finish(true); };
-    cancelBtn.onclick=function(){ finish(false); };
-    mask.onclick=function(e){ if(e.target.id==="confirmMask") finish(false); };
-    document.addEventListener("keydown", onKey); // M-14 修复：此前只 removeEventListener 从未 add，导致 Esc 无法关闭确认框
-    mask.classList.add("show");
-  });
-}
-/* ===== 弹窗无障碍：背景锁滚 + 焦点陷阱（审查 M4/M5，与任务台同源） ===== */
-(function(){
-  var SEL='.mask';
-  function topModal(){
-    var all=Array.prototype.slice.call(document.querySelectorAll(SEL+'.show'));
-    return all.length?all[all.length-1]:null;
-  }
-  function fmap(el){
-    return Array.prototype.slice.call(el.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'));
-  }
-  var obs=new MutationObserver(function(muts){
-    muts.forEach(function(m){
-      var el=m.target;
-      if(!(el instanceof Element)||!el.matches||!el.matches(SEL)||m.attributeName!=='class') return;
-      if(el.classList.contains('show')){
-        if(!el._a11yStored){ el._a11yStored=document.activeElement; }
-        var f=fmap(el);
-        if(f.length && !el.contains(document.activeElement)){ try{ f[0].focus(); }catch(e){} }
-      }else{
-        if(el._a11yStored && el._a11yStored.focus && document.contains(el._a11yStored)){ try{ el._a11yStored.focus(); }catch(e){} }
-        el._a11yStored=null;
-      }
-    });
-    document.body.style.overflow = topModal()?'hidden':'';
-  });
-  obs.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class']});
-  document.addEventListener('keydown',function(e){
-    if(e.key!=='Tab') return;
-    var root=topModal(); if(!root) return;
-    var f=fmap(root); if(!f.length) return;
-    var first=f[0], last=f[f.length-1];
-    if(e.shiftKey){ if(document.activeElement===first||!root.contains(document.activeElement)){ e.preventDefault(); last.focus(); } }
-    else { if(document.activeElement===last||!root.contains(document.activeElement)){ e.preventDefault(); first.focus(); } }
-  });
-})();
 
 function safeImg(url){
   if(!/^https?:\/\//i.test(url||"")) return "—";
@@ -4053,7 +4164,7 @@ document.addEventListener("keydown",async e=>{ if(e.key!=="Escape") return;
   closeRecModal("sent"); closeRecModal("received"); document.getElementById("cloudMask").classList.remove("show");
 } );
 
-// P1-5 / P2-14：键盘可达——带 role="button" 的非原生元素支持 Enter / Space 触发
+//  / ：键盘可达——带 role="button" 的非原生元素支持 Enter / Space 触发
 document.addEventListener("keydown", e=>{
   if(e.key!=="Enter" && e.key!==" ") return;
   const t=e.target;
@@ -4106,7 +4217,7 @@ setInterval(cloudAutoDownload, 15000);   // 15s（仅前台时真正发起）；
   bindTablistKeys();
 })();
 })();
-/* P2-14 焦点陷阱：弹窗(.mask/[role=dialog])打开时 Tab 焦点锁定在弹窗内，关闭后焦点回归触发元素 */
+/*  焦点陷阱：弹窗(.mask/[role=dialog])打开时 Tab 焦点锁定在弹窗内，关闭后焦点回归触发元素 */
 (function(){
   const F='a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
   function currentModal(){ return Array.from(document.querySelectorAll('.mask,[role="dialog"]')).find(e=>e.classList.contains('show')); }
