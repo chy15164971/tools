@@ -2930,6 +2930,43 @@ function clearInstanceProgress(t, date){
   if(Array.isArray(t.doneDates)){ const i=t.doneDates.indexOf(d); if(i>=0) t.doneDates.splice(i,1); }
   if(t.doneAt && t.doneAt[d]!==undefined) delete t.doneAt[d];
 }
+/* 把「某一次重复实例」留下的进度整体迁到新日期上（拖动 / 平移改期时用）。
+   与上面的 clearInstanceProgress 恰好相反：那边是「这次不做了 ⇒ 进度作废」，
+   这边是「挪到别的日子去做 ⇒ 进度必须跟着走」。否则换完日期会丢掉已勾子项，
+   更别扭的是旧日期还留着打卡记录（实例已经 skip 走了），新日期的实例却是空的。
+   - subDone：取并集 —— 目标日若已有该任务的另一个实例，两边的勾选合并而非互相覆盖
+   - doneDates：旧日换成新日（去重排序），「已完成」状态随之保留
+   - doneAt：目标日没有完成时刻时继承旧日的（避免翻出「完成于」空白）
+   - stats.history：同步改记到新日（复用 retargetHistoryDate）；若目标日原本就完成过，
+     改为删掉旧记录，免得同一天同一个任务在趋势图里被计两次。
+   ⚠️ 出发日与目标日相同 ⇒ 直接返回，防止自己吞掉自己。 */
+function moveInstanceProgress(t, fromKey, toKey){
+  if(!t || !fromKey || !toKey || fromKey===toKey) return false;
+  let moved=false;
+  if(t.subDone && t.subDone[fromKey]!==undefined){
+    const u=Array.from(new Set([].concat(t.subDone[toKey]||[], t.subDone[fromKey])));
+    if(u.length) t.subDone[toKey]=u;
+    else if(t.subDone[toKey]!==undefined) delete t.subDone[toKey];
+    delete t.subDone[fromKey];
+    moved=true;
+  }
+  const dd=Array.isArray(t.doneDates)?t.doneDates:[];
+  const hadTarget=dd.indexOf(toKey)>=0;
+  if(dd.indexOf(fromKey)>=0){
+    t.doneDates=Array.from(new Set(dd.filter(x=>x!==fromKey).concat([toKey]))).sort();
+    moved=true;
+  }
+  if(t.doneAt && t.doneAt[fromKey]!==undefined){
+    if(t.doneAt[toKey]===undefined) t.doneAt[toKey]=t.doneAt[fromKey];
+    delete t.doneAt[fromKey];
+    moved=true;
+  }
+  if(moved){
+    if(hadTarget) removeHistory(t, fromKey);
+    else retargetHistoryDate(t, fromKey, toKey);
+  }
+  return moved;
+}
 /* 把「表单里的绝对时间」落到指定发生日上，保留时刻与相对模板的日偏移。
    背景：编辑重复任务某一次时，表单里的起止日期回填的是【整组模板的起始日】
    （这是有意的——日期由重复规则决定，用户只改时刻）。若把该绝对日期直接写进
@@ -2949,6 +2986,8 @@ function rebaseIsoToDay(iso, dayYmd, refIso){
 function moveRecInstance(t, fromDate, deltaDays){
   const d = Math.round(deltaDays);
   if(!d) return;
+  snapshot();   // 平移会连带迁移该次的进度，先留快照供 Ctrl+Z 回退
+  const fromKey = ovKeyD(fromDate);
   const ov = getRecOverride(t, fromDate);
   const baseS = parseLocal(t.start), baseE = parseLocal(t.end);
   let s = ov && ov.start ? parseLocal(ov.start) : new Date(startOfDay(fromDate)); s.setHours(baseS.getHours(), baseS.getMinutes());
@@ -2956,7 +2995,7 @@ function moveRecInstance(t, fromDate, deltaDays){
   const ns = new Date(s.getTime() + d*DAY), ne = new Date(e.getTime() + d*DAY);
   // 原日：仅 skip（整组其它日期不受影响）
   t.overrides = t.overrides || {};
-  t.overrides[ymd(fromDate)] = {skip:true};
+  t.overrides[fromKey] = {skip:true};
   // 新日：写入该次的时间（迁移已有内容 override）
   const np = {start:toStr(ns), end:toStr(ne)};
   if(ov && ov.title) np.title = ov.title;
@@ -2964,7 +3003,9 @@ function moveRecInstance(t, fromDate, deltaDays){
   if(ov && ov.cat) np.cat = ov.cat;
   if(ov && ov.priority) np.priority = ov.priority;
   if(ov && ov.tags) np.tags = ov.tags;
-  t.overrides[ymd(ns)] = np;
+  const toKey = ymd(ns);
+  t.overrides[toKey] = np;
+  moveInstanceProgress(t, fromKey, toKey);   // 换了日子做 ⇒ 已勾子项 / 完成态 / 完成流水一并跟着走
   touchTask(t);
 }
 
