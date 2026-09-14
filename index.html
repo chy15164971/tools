@@ -3415,7 +3415,7 @@ function deletedIdsSave(){ try{ localStorage.setItem("wb_taskhub_deleted_v1", JS
    → 表现为「删了好几次都删不掉」（示例数据 三体（广播剧）即此因）。
    复用同一份 deletedIds（已被 payload.deleted 同步 / 导出 / 导入），但加**种类前缀**，
    避免与任务 id 相撞（媒体种子 id 是 b1/t1/a1，任务 id 以 t 或 s 开头，历史上存在同形风险）。 */
-const TOMB_NS={media:"media:",habit:"habit:",list:"list:"};
+const TOMB_NS={media:"media:",habit:"habit:",list:"list:",habitday:"habitday:"};
 function pushKindTomb(kind,id){
   const p=TOMB_NS[kind]; const s=String(id||"");
   if(!p||!s) return;
@@ -3439,6 +3439,17 @@ function dropTombed(kind, arr, cloudDeleted){
   if(!Array.isArray(arr)) return arr;
   const dead=kindTombSet(kind, cloudDeleted);
   return dead.size ? arr.filter(x=>!(x&&dead.has(String(x.id)))) : arr;
+}
+/* 习惯「取消打卡」的删除传播：days 是日期字符串数组、没有逐日时间戳，无法比新旧，
+   于是用 habitday:<习惯id>:<ymd> 的墓碑 —— 与媒体/清单同一套「墓碑胜出」策略。
+   否则打卡并集只增不减：在手机上取消的那天，电脑端下次拉取又把它并回来（表现为「取消不掉」）。 */
+function habitDayKey(hid, day){ return String(hid||"")+":"+String(day||""); }
+function clearHabitDayTombs(hid){
+  const k=String(hid||""); if(!k) return;
+  const pref=TOMB_NS.habitday+k+":";
+  const before=deletedIds.length;
+  deletedIds=deletedIds.filter(d=>String((d&&d.id)||d).indexOf(pref)!==0);
+  if(deletedIds.length!==before) deletedIdsSave();
 }
 /* ===== M1 回收站 =====
    墓碑 deletedIds 只存 id（用于跨设备传播删除，无内容、不可恢复）。这里额外把被删任务的**内容**
@@ -4014,7 +4025,7 @@ function renderToday(){
     const dk=ymd(i.date);
     const hasSub=!!(i.task.subtasks&&i.task.subtasks.length);
     const subOpen=hasSub&&subOpenIds.has(i.task.id);
-    const sub=hasSub?`<button type="button" class="s subtoggle" data-subopen="${i.task.id}" aria-expanded="${subOpen}" title="展开/收起子任务勾选">子任务 ${subBadge(i.task,dk).slice(1,-1)} ${subOpen?"▲":"▼"}</button>`:"";
+    const sub=hasSub?`<button type="button" class="s subtoggle" data-subopen="${i.task.id}" aria-expanded="${subOpen}" title="展开/收起子任务勾选">子任务 ${subBadge(i.task,dk).trim()} ${subOpen?"▲":"▼"}</button>`:"";
     const extra=[];
     if(i.task.gw && i.task.gw!=="next") extra.push(`<span class="badge gw">${gwLabel(i.task.gw)}</span>`);
     if(i.task.energy) extra.push(`<span class="badge sub">${i.task.energy==="high"?"精力↑":i.task.energy==="low"?"精力↓":"精力中"}</span>`);
@@ -4054,6 +4065,7 @@ function renderToday(){
     const s=(t.subtasks||[]).find(x=>x.id===b.dataset.sid); if(!s) return;
     const date=b.dataset.date;
     const beforeAll=t.subtasks.every(x=>subIsDone(t,x,date));   // 勾选前是否已全勾（用于判定回退）
+    snapshot();   // 子任务勾选会连带自动完成/回退整个任务，先留快照
     subToggle(t, s, date);
     syncDoneFromSubtasks(t, date, beforeAll);
     save();
@@ -4080,11 +4092,14 @@ function renderRing(done,total){
 function toggleDone(id, date){
   const t=state.tasks.find(x=>x.id===id); if(!t) return;
   const recurring = t.recurrence && t.recurrence.freq!=="none";
+  snapshot();   // 完成/撤销会连带改写子任务勾选，先留快照，误点可 Ctrl+Z 回退
   // 补打卡：在别的日期点上时，完成时刻记为「该日 + 当下时刻」，而不是今天（之后可在弹窗里改）
   const markIso = doneAtIsoFor(date);
+  let goingDone;
   if(!recurring){
     const nd = (t.status==="done")?"todo":"done";
-    if(nd==="done"){ pushHistory(t, date); setDoneAt(t, date, markIso); }
+    goingDone = nd==="done";
+    if(goingDone){ pushHistory(t, date); setDoneAt(t, date, markIso); }
     else { setDoneAt(t, date, null); }
     t.status = nd;
   } else{
@@ -4092,16 +4107,18 @@ function toggleDone(id, date){
     const k=date; const ix=t.doneDates.indexOf(k);
     if(ix>=0){ t.doneDates.splice(ix,1); setDoneAt(t, k, null); }
     else { t.doneDates.push(k); setDoneAt(t, k, markIso); pushHistory(t, date); }
+    goingDone = ix<0;
   }
+  const subChanged = setAllSubsDone(t, date, goingDone);   // 父任务完成 ⇄ 子任务全勾
   touchTask(t); save();
   // B1：列表类视图（收件箱 / 日周时间线）且为普通任务时走局部更新，避免整页重渲染造成的滚动跳变与闪烁；
   //     月视图、甘特图等密集格子视图，以及重复任务，仍走整页 renderAll（已含滚动保护）以保证跨视图一致。
   const localViews = ["inbox","day","week"];
   if(localViews.includes(state.view) && !recurring){ refreshDerived(); patchTaskDom(id); }
   else { renderAll(); }
-  const goingDone = recurring ? (t.doneDates||[]).includes(date) : t.status==="done";
   const backdate = goingDone && date && date!==ymd(startOfDay(new Date()));
-  toast(backdate ? ("已补记 "+date.slice(5).replace("-","/")+" 完成 · 点卡片可改完成时间") : "已更新完成状态");
+  toast((backdate ? ("已补记 "+date.slice(5).replace("-","/")+" 完成 · 点卡片可改完成时间") : "已更新完成状态")
+    +(subChanged ? ("，子任务已"+(goingDone?"一并勾选":"清空")+" "+subChanged+" 项") : ""));
 }
 // B1：刷新始终可见的派生面板（不触碰主视图 #view），用于局部更新后保持计数/今日栏正确
 function refreshDerived(){
@@ -4117,6 +4134,8 @@ function patchTaskDom(id){
       el.classList.toggle('done', done);
       const b=el.querySelector('[data-done]');
       if(b){ b.textContent = done?"撤销":"完成"; b.className="btn "+(done?'btn-ghost':'btn-pri')+" btn-sm"; }
+      const sb=el.querySelector('.sub-badge');   // 完成会联动子任务勾选 → 就地刷新 (n/m) 徽标
+      if(sb && t.subtasks && t.subtasks.length) sb.textContent="子任务 "+subBadge(t).trim();
       let da=el.querySelector('.done-at');
       if(done){
         const txt=doneAtMark(t, null, true);
@@ -4153,6 +4172,7 @@ function markDoneBtn(){
     return;
   }
   toggleDone(editingId, ctxDate);
+  syncFormSubsDone(t);   // 完成会联动勾上子任务：弹窗表单里的勾选态必须同步，否则随后「保存」会用旧值把子任务又抹回未勾
   if(rec){
     // 完成时间戳按「完成时间」框记录：用户可能已用前/后一天把实际完成日改到发生日之外（如晚补打卡），
     // 这里只覆盖时间戳、不改变「哪一天发生日被打卡」(保持 ctxDate=发生日)，兼顾两诉求：
@@ -4177,6 +4197,7 @@ function undoDoneBtn(){
   const rec=isRecTask(t);
   const wasDone = rec ? (t.doneDates||[]).includes(ctxDate) : t.status==="done";
   if(!wasDone){ toast("该任务尚未完成"); syncDoneBtn(); return; }
+  snapshot();   // 撤销完成同样会改写子任务勾选
   if(rec){
     t.doneDates=(t.doneDates||[]).filter(x=>x!==ctxDate);
     if(t.doneAt && t.doneAt[ctxDate]!==undefined) delete t.doneAt[ctxDate];
@@ -4186,9 +4207,11 @@ function undoDoneBtn(){
     if(t.doneAt && t.doneAt.self!==undefined) delete t.doneAt.self;
     removeHistory(t, null);
   }
+  const subChanged = setAllSubsDone(t, ctxDate, false);   // 撤销完成 ⇒ 该次实例的子任务勾选一并清空（成对语义）
+  syncFormSubsDone(t);
   touchTask(t); save();
   renderDoneAtField(); syncDoneBtn(); refreshDerived(); renderAll();
-  toast("已撤销完成，任务恢复为未完成");
+  toast("已撤销完成，任务恢复为未完成"+(subChanged?("，子任务已同步清空 "+subChanged+" 项"):""));
 }
 
 /* ===== 完成时间（补打卡 / 事后修正实际完成时刻）=====
@@ -4355,6 +4378,15 @@ function renderSubList(){
   box.querySelectorAll('.st').forEach(sp=>sp.onclick=()=>{ if(rec) return; const ix=+sp.dataset.ix; curSubtasks[ix].done=!curSubtasks[ix].done; renderSubList(); });
   box.querySelectorAll('.sx').forEach(x=>x.onclick=()=>{ curSubtasks.splice(+x.dataset.ix,1); renderSubList(); });
 }
+/* 弹窗表单里的子任务勾选态 ← 数据（按 id 对齐，保留用户还没保存的新增/改名/删除草稿）
+   「标记完成 / 撤销完成」会批量改写子任务勾选，若不回写表单，随后的「保存」会用表单里的旧值覆盖回去。 */
+function syncFormSubsDone(t){
+  if(!t || !curSubtasks.length) return;
+  const m=new Map((t.subtasks||[]).map(s=>[s.id,!!s.done]));
+  let hit=false;
+  curSubtasks.forEach(c=>{ if(m.has(c.id) && c.done!==m.get(c.id)){ c.done=m.get(c.id); hit=true; } });
+  if(hit) renderSubList();
+}
 function addSub(){
   const inp=document.getElementById("subInput"); const v=inp.value.trim(); if(!v) return;
   curSubtasks.push({id:"s"+Date.now().toString(36)+Math.random().toString(36).slice(2,4), title:v, done:false});
@@ -4403,6 +4435,33 @@ function subToggle(t, s, date){
   }else{
     s.done=!s.done;
   }
+}
+/* 父任务完成 ⇄ 子任务全勾（用户诉求：点「完成」时，未勾的子任务一并勾上）
+   把父任务的勾选框当作「整组开关」：完成 ⇒ 该次实例的子任务全部勾上；撤销 ⇒ 该次实例的勾选全部清空。
+   必须成对，否则会落回「任务未完成、子任务却全勾」的自相矛盾态 —— 该状态与下方
+   syncDoneFromSubtasks 的正向规则（全勾 ⇒ 自动完成）互相打架，一碰子任务就来回翻转。
+   重复任务按实例日记录（subDone[date]），非重复任务写 s.done，与 subIsDone 口径完全一致。
+   返回「实际发生变化的子任务数」，供调用方决定是否提示。 */
+function setAllSubsDone(t, date, done){
+  if(!t || !t.subtasks || !t.subtasks.length) return 0;
+  const all=t.subtasks.map(s=>s.id);
+  let n=0;
+  if(isRecTask(t)){
+    const d=date||subTodayKey();
+    if(!t.subDone) t.subDone={};
+    const cur=t.subDone[d]||[];
+    if(done){
+      n=all.filter(id=>cur.indexOf(id)<0).length;
+      t.subDone[d]=all.slice();          // 顺带丢掉已删子任务留下的陈旧 id
+    }else{
+      n=cur.filter(id=>all.indexOf(id)>=0).length;
+      if(n) delete t.subDone[d];
+    }
+  }else{
+    n=t.subtasks.filter(s=>(!!s.done)!==!!done).length;
+    if(n) t.subtasks.forEach(s=>{ s.done=!!done; });
+  }
+  return n;
 }
 // 子任务勾选变化 → 联动整任务完成态（用户诉求：子任务全部完成后不必再手动点「完成」）。
 // 规则：① 所有子任务勾完且任务尚未完成 ⇒ 自动标记完成；② 从「全勾」变为「有未勾」且任务正处于完成态 ⇒ 自动撤销完成。
@@ -5048,7 +5107,7 @@ function renderInbox(){
   for(const t of shown){
     const done=t.status==="done";
     const pc=priColor(t.priority), cc=catColor(t.cat);
-    const sub=(t.subtasks&&t.subtasks.length)?`<span>子任务 ${subBadge(t).slice(1,-1)}</span>`:"";
+    const sub=(t.subtasks&&t.subtasks.length)?`<span class="sub-badge">子任务 ${subBadge(t).trim()}</span>`:"";
     html+=`<div class="inbox-item ${done?'done':''} ${(selMode&&selIds.has(t.id))?'sel-checked':''}" data-id="${t.id}">
       ${selMode?selCheckHTML(t.id):""}
       <div class="ibar" style="background:${pc}"></div>
@@ -5086,8 +5145,8 @@ function renderInbox(){
 function batchInboxDone(){
   const ids=Array.from(selIds); if(!ids.length){ toast("请先勾选任务"); return; }
   snapshot();
-  for(const id of ids){ const t=state.tasks.find(x=>x.id===id); if(t && t.status!=="done"){ pushHistory(t); t.status="done"; setDoneAt(t, null, toStr(new Date())); touchTask(t); } }
-  save(); selClear(); renderAll(); toast("已批量完成 "+ids.length+" 项");
+  for(const id of ids){ const t=state.tasks.find(x=>x.id===id); if(t && t.status!=="done"){ pushHistory(t); t.status="done"; setDoneAt(t, null, toStr(new Date())); setAllSubsDone(t, null, true); touchTask(t); } }
+  save(); selClear(); renderAll(); toast("已批量完成 "+ids.length+" 项（子任务一并勾选）");
 }
 async function batchInboxDelete(){
   const ids=Array.from(selIds); if(!ids.length){ toast("请先勾选任务"); return; }
@@ -6798,13 +6857,14 @@ function saveTask(){
   let _subBeforeAll=false;   // 保存前子任务是否已全勾（供 syncDoneFromSubtasks 判定回退）
   if(editingId){
     t=state.tasks.find(x=>x.id===editingId);
-    _subBeforeAll=(t.subtasks||[]).every(s=>!!s.done);
+    _subBeforeAll=(t.subtasks||[]).every(s=>subIsDone(t, s, editingDate));   // 与 syncDoneFromSubtasks 同口径：重复任务看发生日的 subDone，而非遗留的 s.done
     Object.assign(t, data);
     if(rec.freq==="none"){
       // ：转非重复时保留最近一次打卡历史，而非清空（避免数据丢失 / 状态自相矛盾）
       t.doneDates=t.doneDates||[];
       if(t.doneDates.length){
         t.status="done";
+        setAllSubsDone(t, editingDate, true);   // 落到完成态 ⇒ 子任务一并勾上，避免「已完成却还挂着未勾子项」
         const last=t.doneDates[t.doneDates.length-1];
         t.doneAt=t.doneAt||{};
         if(!t.doneAt.self) t.doneAt.self = t.doneAt[last] || (last+"T00:00");
@@ -7697,7 +7757,7 @@ const RECOVER_DEFS=[
     name:x=>(x&&x.name!=null)?String(x.name):"(无名称)",
     meta:x=>{ const f={daily:"每天",weekly:"每周"+(x.freqN||3)+"次",custom:"自定义",someday:"灵活"}[x.freq]||""; return [f, x.archived?"已归档":"", x.paused?"已暂停":""].filter(Boolean).join(" · "); },
     score:(a,b)=>(a.updated||0)-(b.updated||0),
-    restore:x=>{ habits.push(Object.assign({paused:false,archived:false,days:[]},x)); clearKindTomb("habit",x.id); habitSave(); }},
+    restore:x=>{ habits.push(Object.assign({paused:false,archived:false,days:[]},x)); clearKindTomb("habit",x.id); clearHabitDayTombs(x.id); habitSave(); }},
   {key:"lists",label:"清单",icon:"≡",
     collect:o=>Array.isArray(o.lists)?o.lists:[],
     local:()=>lists,
@@ -9165,10 +9225,15 @@ async function habitQuick(id){
   if(act===null) return;
   h.days=h.days||[];
   if(act==="1"){
-    const tg=habitWeekTargetDays(h); tg.forEach(d=>{ if(!h.days.includes(d)) h.days.push(d); });
+    const tg=habitWeekTargetDays(h);
+    tg.forEach(d=>{ if(!h.days.includes(d)){ h.days.push(d); clearKindTomb("habitday", habitDayKey(h.id,d)); } });
     toast("已标记本周目标日完成");
   } else if(act==="2"){
-    const wk=habitWeekDays().map(ymd); h.days=h.days.filter(d=>!wk.includes(d)); toast("已清空本周");
+    const wk=habitWeekDays().map(ymd);
+    const removed=h.days.filter(d=>wk.includes(d));
+    h.days=h.days.filter(d=>!wk.includes(d));
+    removed.forEach(d=>pushKindTomb("habitday", habitDayKey(h.id,d)));   // 批量取消同样要传播
+    toast("已清空本周");
   } else return;
   habitSave(); renderAll();
 }
@@ -9357,7 +9422,13 @@ function toggleHabitDay(id, day){
   if(h.paused){ toast("已暂停，请先恢复后再打卡"); return; }
   h.days=h.days||[]; const ix=h.days.indexOf(day);
   const willDone = ix<0;
-  if(ix>=0) h.days.splice(ix,1); else h.days.push(day);
+  if(ix>=0){
+    h.days.splice(ix,1);
+    pushKindTomb("habitday", habitDayKey(id, day));   // 取消打卡也要能跨设备传播，否则会被别的设备并回来
+  }else{
+    h.days.push(day);
+    clearKindTomb("habitday", habitDayKey(id, day));  // 重新打卡 ⇒ 撤掉墓碑，否则下轮合并又把这天抹掉
+  }
   habitSave();
   // 局部更新被点格子：只切换该格 .done，避免整面板重建导致所有已打卡格重播 hpop 弹跳动画
   patchHabitCell(id, day, willDone);
@@ -9790,18 +9861,25 @@ function mergeTasksIntoLocal(obj){
 // 本地数据轻量签名：用于启动拉取时判断本地与云端是否真有内容分歧（避免单纯时间戳差异也弹窗）
 function mergeHabits(loc, cloud, cloudDeleted){
   loc=(loc||[]); cloud=(cloud||[]);
+  const deadDays=kindTombSet("habitday", cloudDeleted);   // 已取消打卡的天（habitId:ymd），两端墓碑取并集
+  const fdays=(h, days)=>{
+    const hid=String((h&&h.id)||"");
+    if(!hid || !deadDays.size) return days||[];
+    return (days||[]).filter(d=>!deadDays.has(hid+":"+d));
+  };
   const m=new Map();
-  loc.forEach(h=>{ if(h) m.set(h.id, JSON.parse(JSON.stringify(h))); });
+  // 本地一侧也要过墓碑：否则「云端只带墓碑、不带该习惯」时本地那份会被原样保留（墓碑失效）
+  loc.forEach(h=>{ if(h){ const cp=JSON.parse(JSON.stringify(h)); cp.days=fdays(cp, cp.days); m.set(h.id, cp); } });
   cloud.forEach(h=>{
     if(!h) return;
     const cur=m.get(h.id);
-    if(!cur){ m.set(h.id, JSON.parse(JSON.stringify(h))); return; }
+    if(!cur){ const nh=JSON.parse(JSON.stringify(h)); nh.days=fdays(nh, nh.days); m.set(h.id, nh); return; }
     const ds=new Set((cur.days||[]).concat(h.days||[]));
     const lu=+(cur.updated||0), cu=+(h.updated||0);
     if(cu>lu){ const {days, archived, paused, ...rest}=h; Object.assign(cur, rest); }  // 归档/暂停不同步：避免云端旧状态把本端活动习惯藏进归档
-    cur.days=Array.from(ds).sort();
+    cur.days=fdays(cur, Array.from(ds).sort());
   });
-  // 删除传播：并集只增不减，本地删掉的习惯若云端/其他设备仍持有会被并回 → 墓碑胜出
+  // 删除传播：并集只增不减，本地删掉的习惯/取消的打卡若云端或其他设备仍持有会被并回 → 墓碑胜出
   return dropTombed("habit", Array.from(m.values()), cloudDeleted);
 }
 // 媒体看板签名：dataSig 此前完全不含媒体 → 「本地与云端仅媒体有差异」会被判为情形 3「已是最新」而整段跳过合并，
