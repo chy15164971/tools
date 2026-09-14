@@ -3632,6 +3632,42 @@ function confirmDialog(message, opts){
     mask.classList.add("show");
   });
 }
+/* ===== 弹窗无障碍：背景锁滚 + 焦点陷阱（审查 M4/M5，与任务台同源） ===== */
+(function(){
+  var SEL='.mask';
+  function topModal(){
+    var all=Array.prototype.slice.call(document.querySelectorAll(SEL+'.show'));
+    return all.length?all[all.length-1]:null;
+  }
+  function fmap(el){
+    return Array.prototype.slice.call(el.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'));
+  }
+  var obs=new MutationObserver(function(muts){
+    muts.forEach(function(m){
+      var el=m.target;
+      if(!(el instanceof Element)||!el.matches||!el.matches(SEL)||m.attributeName!=='class') return;
+      if(el.classList.contains('show')){
+        if(!el._a11yStored){ el._a11yStored=document.activeElement; }
+        var f=fmap(el);
+        if(f.length && !el.contains(document.activeElement)){ try{ f[0].focus(); }catch(e){} }
+      }else{
+        if(el._a11yStored && el._a11yStored.focus && document.contains(el._a11yStored)){ try{ el._a11yStored.focus(); }catch(e){} }
+        el._a11yStored=null;
+      }
+    });
+    document.body.style.overflow = topModal()?'hidden':'';
+  });
+  obs.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class']});
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Tab') return;
+    var root=topModal(); if(!root) return;
+    var f=fmap(root); if(!f.length) return;
+    var first=f[0], last=f[f.length-1];
+    if(e.shiftKey){ if(document.activeElement===first||!root.contains(document.activeElement)){ e.preventDefault(); last.focus(); } }
+    else { if(document.activeElement===last||!root.contains(document.activeElement)){ e.preventDefault(); first.focus(); } }
+  });
+})();
+
 function safeImg(url){
   if(!/^https?:\/\//i.test(url||"")) return "—";
   return '<img class="thumb" src="'+esc(url)+'" alt="明信片图片" loading="lazy" title="点击放大（若显示失败提示，原图链接可能已失效）" onerror="this.classList.add(\'imgerr\');this.alt=\'图片加载失败\'" tabindex="0" role="button">';
