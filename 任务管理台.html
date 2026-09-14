@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-page-node-id="AGEH9tu7vuFAoDnR9fOA7d">
-<head data-page-node-id="lkjkl11hKaKgHnAWvTeSSE">
+<html lang="zh-CN">
+<head>
 <script>try{var _t=localStorage.getItem("wb_theme_v1")||localStorage.getItem("wb_taskhub_theme_v1");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
-<meta charset="UTF-8" data-page-node-id="HlOA4FYDvxIUjUB1AqjDsm">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" data-page-node-id="b8lxTLGoKs3pwIOWeuqnMh">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>任务管理台 · 增强版</title>
-<meta name="theme-color" content="#4F7CFF" data-page-node-id="S2VX7wmNCsg4Cry986tBKK">
-<link rel="manifest" href="manifest.json" data-page-node-id="S2VX7wmNCsg4Cry986tBKK">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" data-page-node-id="n_icon_192">
-<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" data-page-node-id="n_apple_180">
-<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png" data-page-node-id="n_apple_152">
-<link rel="apple-touch-icon" sizes="167x167" href="icons/icon-167.png" data-page-node-id="n_apple_167">
+<meta name="theme-color" content="#4F7CFF">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icons/icon-167.png">
 <!-- 本工作台通过 WorkBuddy 资料库能力（library skill）规范搭建；运行时采用本地 localStorage 离线存储兜底，数据多设备可导出导入同步 -->
 <style>
   /* ===== 断点契约（跨页统一，修改前请先读）=====
@@ -1425,7 +1425,7 @@
 .anniv-acts{display:flex;gap:6px;}
 </style>
 </head>
-<body data-page-node-id="CV4rbwQAy9hVefvRdCnBAQ">
+<body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
 <symbol id="ic-star" viewBox="0 0 24 24"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.8 5.9 21.4 7.3 14.6 2.2 9.9l6.9-.8z"/></symbol>
 <symbol id="ic-warn" viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2zm0 6 1 7h-2l1-7zm0 9a1.4 1.4 0 110 2.8 1.4 1.4 0 010-2.8z"/></symbol>
@@ -1459,88 +1459,88 @@
 <!-- 跳至主内容：键盘/读屏用户可跳过顶栏直达视图区（） -->
 <a class="skip-link" href="#view">跳到主内容</a>
 <!-- 全局搜索 / 命令面板 -->
-<div class="mask cmd-mask" id="cmdMask" data-page-node-id="OdwL2WIcUEiroYHKrCmrEV">
-  <div class="cmd-panel" data-page-node-id="9LJUMBApeCMNwS68G4aZlB">
-    <div class="cmd-input-wrap" data-page-node-id="Df74NpzUQMF04KlRs3iOAQ">
-      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="z9AIKct1c6DkbIX3SmngLl"><circle cx="11" cy="11" r="7" data-page-node-id="27a7L0haPybSDxxgBByB39"/><path d="m21 21-4.3-4.3" data-page-node-id="JOZUdAl20GloRdkNaQwyFK"/></svg>
-      <input id="cmdInput" placeholder="搜索任务 / 媒体 / 习惯 / 清单，或输入命令…" autocomplete="off" data-page-node-id="A2ADIMy1oSL5R2osDXIzIv">
-      <kbd class="cmd-kbd" data-page-node-id="F9qKi5mz8pPzpkaROo6jkA">Esc</kbd>
+<div class="mask cmd-mask" id="cmdMask">
+  <div class="cmd-panel">
+    <div class="cmd-input-wrap">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="cmdInput" placeholder="搜索任务 / 媒体 / 习惯 / 清单，或输入命令…" autocomplete="off">
+      <kbd class="cmd-kbd">Esc</kbd>
     </div>
-    <div class="cmd-results" id="cmdResults" data-page-node-id="5gtoctcPMU9Y6KHwkuSZEE"></div>
-    <div class="cmd-foot" data-page-node-id="jfAlu6cgGINeit5w0XLmDf">↑↓ 选择 · Enter 打开 · Esc 关闭</div>
+    <div class="cmd-results" id="cmdResults"></div>
+    <div class="cmd-foot">↑↓ 选择 · Enter 打开 · Esc 关闭</div>
   </div>
 </div>
 <button id="fabNew" aria-label="新建任务" title="新建任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
-<div class="wrap" data-page-node-id="MKhXD9RufCQoXslo0ACZBm">
-  <div class="topbar" data-page-node-id="9gZMfMhouYw7n4WbSHvREw">
-    <div class="brand" data-page-node-id="37zA5MAmn2xWc2MTBe4IKj">
-      <span class="logo" data-page-node-id="zBgN9uLfONJG44DlN5sLFg"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="vIk0RrpsrB2m2zENx3RosE"><path d="M9 11l3 3L22 4" data-page-node-id="bewFzLPuHn0aEYfSUPwqHB"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" data-page-node-id="yYZQTyV2wIFLHBwdBq3HFc"/></svg></span>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">
+      <span class="logo"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
       任务管理台
     </div>
-    <div class="spacer" data-page-node-id="8JtGx2WmRJMwUOzPYllTlv"></div>
-    <div class="top-actions" data-page-node-id="AnnH0P9SdKpjPW21lUDn5c">
+    <div class="spacer"></div>
+    <div class="top-actions">
       <!-- 组1 · 核心创建：新建任务（主按钮突出） + 搜索 -->
-      <button class="btn btn-pri" id="btnNew" data-page-node-id="9jHJD0mk4FD10RiegvOrEN">
-        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" data-page-node-id="zcz0hqmW0K1uFog7wB1DkQ"><path d="M12 5v14M5 12h14" data-page-node-id="fXAHrG5ytKdQboIRx2UB3G"/></svg>新建任务
+      <button class="btn btn-pri" id="btnNew">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>新建任务
       </button>
       <button class="btn btn-ghost btn-sm" id="btnTpl" title="从模板新建任务" aria-label="从模板新建">📋 模板</button>
       <div id="tplMenu" style="display:none;position:absolute;top:46px;left:8px;z-index:60;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:6px;min-width:220px;max-height:340px;overflow:auto;"></div>
-      <button class="btn btn-ghost btn-sm" id="btnSearch" title="全局搜索 / 命令面板（Ctrl+K）" aria-label="全局搜索与命令面板" data-page-node-id="Low7AmBfXEHyuYv1LqNLKa">
-        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="ZSWOkHP35v8H0gPFtRDWZz"><circle cx="11" cy="11" r="7" data-page-node-id="hRudXUbXdfzIcUJDa5t5hy"/><path d="m21 21-4.3-4.3" data-page-node-id="N4aDhUhWbDnj62IMZAFMla"/></svg>搜索
+      <button class="btn btn-ghost btn-sm" id="btnSearch" title="全局搜索 / 命令面板（Ctrl+K）" aria-label="全局搜索与命令面板">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>搜索
       </button>
-      <span class="sep" data-page-node-id="835Y5jRPnjcqCElJZnn7Mo"></span>
+      <span class="sep"></span>
       <!-- 组2 · 导航捷径：收件箱 / 清单（带角标，任何视图常驻） -->
-      <button class="btn btn-ghost btn-sm inbox-pill" id="btnInboxTop" title="打开收件箱" aria-label="打开收件箱" data-page-node-id="RAb4OG5cL8DyNEDOsKavmG">
-        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="5FEHDo9a2Q9xc3y41j1j93"><path d="M22 12h-6l-2 3h-4l-2-3H2" data-page-node-id="vpAZnJpxo1Fyn1iaEMim7O"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" data-page-node-id="sZZdl2MPW5cHHRvwVAcowB"/></svg>收件箱<span class="segcount" id="inboxCountTop" data-page-node-id="DWmTe0yKwtelsdTI1r4a05"></span>
+      <button class="btn btn-ghost btn-sm inbox-pill" id="btnInboxTop" title="打开收件箱" aria-label="打开收件箱">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>收件箱<span class="segcount" id="inboxCountTop"></span>
       </button>
-      <button class="btn btn-ghost btn-sm inbox-pill" id="btnListsTop" title="打开待办清单" aria-label="打开待办清单" data-page-node-id="EG8UD6EwbXysyjnEz4HwOV">
-        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="3Kd7nnLerlyDR5PfvEFOM7"><path d="M9 11l3 3L22 4" data-page-node-id="wQvr6DHfXQWTdUJlx2U9Lz"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" data-page-node-id="Z1FLPOHYLrlgfbQfxiegBk"/></svg>清单<span class="segcount blue" id="listsCountTop" data-page-node-id="HnTn4GM5otOBkLDWqvr6of"></span>
+      <button class="btn btn-ghost btn-sm inbox-pill" id="btnListsTop" title="打开待办清单" aria-label="打开待办清单">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>清单<span class="segcount blue" id="listsCountTop"></span>
       </button>
-      <span class="sep" data-page-node-id="98UlNl31Nnl49lZm2uFm6d"></span>
+      <span class="sep"></span>
       <!-- 组3 · 系统：更多菜单（低频/设置/危险操作统一收纳并分组） + 云状态 -->
-      <div class="menu-wrap" data-page-node-id="KgJzxXPywmdQNXL5pveX3x">
-        <button class="btn btn-ghost btn-sm" id="btnMenu" title="更多操作" aria-label="更多操作" aria-haspopup="true" aria-expanded="false" data-page-node-id="JpkKoNpHsCcplhkFRAay7z">⋯</button>
-        <div class="menu" id="topMenu" role="menu" aria-labelledby="btnMenu" data-page-node-id="iIAJX1guHU1NedywQ3pPaA">
+      <div class="menu-wrap">
+        <button class="btn btn-ghost btn-sm" id="btnMenu" title="更多操作" aria-label="更多操作" aria-haspopup="true" aria-expanded="false">⋯</button>
+        <div class="menu" id="topMenu" role="menu" aria-labelledby="btnMenu">
           <!-- 移动端底部 Sheet：顶部抓手 + 标题栏（桌面端隐藏） -->
           <div class="menu-handle" id="menuHandle" aria-hidden="true"><span></span></div>
           <div class="menu-header">
             <span class="menu-title">更多</span>
-            <button class="menu-close" id="menuClose" type="button" aria-label="关闭更多菜单" data-page-node-id="menuCloseBtn">✕</button>
+            <button class="menu-close" id="menuClose" type="button" aria-label="关闭更多菜单">✕</button>
           </div>
           <div class="menu-body">
           <div class="mgroup">提醒</div>
-          <button class="mitem" id="btnRemind" title="开启 / 关闭浏览器任务提醒（iOS 后台提醒可能受限）" aria-pressed="false" data-page-node-id="ADTV1iER7qxYoHmYqGKXbk"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="ik7hP41EAp1BA5aguPOi7X"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" data-page-node-id="0500o7rpIHo5COb9lDcVyd"/><path d="M13.73 21a2 2 0 0 1-3.46 0" data-page-node-id="QVdSmAMQbZ8TypPHCAgV3X"/></svg>提醒 关</button>
-          <div class="mrow"><span class="mlabel">提前提醒</span><select id="fLead" class="leadsel" title="提前提醒分钟数（iOS 后台提醒可能受限）" aria-label="提前提醒分钟数" data-page-node-id="uBe2tohmQXWX68fzQgCAgD">
-            <option value="5" data-page-node-id="lbClw9lAukDSM0nlHYS9wj">5 分钟</option>
-            <option value="10" selected data-page-node-id="uxhKaBd8JH1ubdeDYQ5sia">10 分钟</option>
-            <option value="30" data-page-node-id="OwYwMK2GLL2aX2gmAuPfhS">30 分钟</option>
-            <option value="60" data-page-node-id="8AU94OVaKkGOCBnaYhVVE6">1 小时</option>
+          <button class="mitem" id="btnRemind" title="开启 / 关闭浏览器任务提醒（iOS 后台提醒可能受限）" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>提醒 关</button>
+          <div class="mrow"><span class="mlabel">提前提醒</span><select id="fLead" class="leadsel" title="提前提醒分钟数（iOS 后台提醒可能受限）" aria-label="提前提醒分钟数">
+            <option value="5">5 分钟</option>
+            <option value="10" selected>10 分钟</option>
+            <option value="30">30 分钟</option>
+            <option value="60">1 小时</option>
           </select></div>
           <div class="msep"></div>
           <div class="mgroup">跳转</div>
-          <a class="mitem is-link" href="明信片追踪.html" target="_blank" rel="noopener" title="打开明信片追踪" data-page-node-id="f2a3PMWajccEfSoKKivK2C">
-            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="qbLo7lHc50lbVGpIBPoXDN"><path d="M3 7l9 6 9-6" data-page-node-id="3UY28OXZEPDFXqDHZO1G25"/><rect x="3" y="5" width="18" height="14" rx="2" data-page-node-id="pfwQ90H0a4Qk0XB9dkxRnj"/></svg>明信片追踪
+          <a class="mitem is-link" href="明信片追踪.html" target="_blank" rel="noopener" title="打开明信片追踪">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>明信片追踪
           </a>
           <div class="msep"></div>
           <div class="mgroup">管理</div>
-          <button class="mitem" id="btnOpts" data-page-node-id="uTwCt6nswbvPGENShdM1aG"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="6BRwqzFBK8ppSryllFhnml"><circle cx="12" cy="12" r="3" data-page-node-id="CWPuB1PNApRGqEpe2DVfMb"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" data-page-node-id="2PuX9Ux7YoOePsJyZyOIox"/></svg>分类 / 优先级</button>
-          <button class="mitem" id="btnMenuTags" data-page-node-id="voq3fGmCcptjI87YUSiYlH"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="0K4H4VHombmRGv7dTGV8pQ"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" data-page-node-id="klGzkxNqkTGzcHPFswlar8"/><line x1="7" y1="7" x2="7.01" y2="7" data-page-node-id="k898wS1M3vJXLmqsLRyzRd"/></svg>标签管理</button>
-          <button class="mitem" id="btnTheme" data-page-node-id="DYbOvNMHkk96WQfkHdkcjW"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="0BsBBu2fkCAFucHqjdckPd"><circle cx="12" cy="12" r="9" data-page-node-id="Bxb91Reym7tmDiAg3CcGv1"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none" data-page-node-id="0qSeIEYIHlUDXb2d4zNvhT"/></svg>切换主题</button>
-          <button class="mitem" id="btnHelp" data-page-node-id="hw9oHxtAkhbV83WwK2k7s7"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="7KWOzaa9ENBjMo78JGG0h6"><rect x="2" y="6" width="20" height="12" rx="2" data-page-node-id="zlqP3Jm7N0Z2Hmj2jITG9m"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10" data-page-node-id="hHMDEgShFvNZnBpWMNUhJv"/></svg>快捷键</button>
-          <button class="mitem" id="btnMenuUndo" data-page-node-id="2DDyz80Z6B1pn9XQfCPpXT"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="nRBCXTa6lff3OCZ94FWwlJ"><path d="M3 7v6h6" data-page-node-id="CaWS10wKqKLZDXBx7Fqf5u"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" data-page-node-id="lYGzlpQlV9eQ5iaw3lXiVy"/></svg>撤销</button>
-          <button class="mitem" id="btnMenuHistory" data-page-node-id="R4histBtn"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>历史与恢复</button>
+          <button class="mitem" id="btnOpts"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>分类 / 优先级</button>
+          <button class="mitem" id="btnMenuTags"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>标签管理</button>
+          <button class="mitem" id="btnTheme"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg>切换主题</button>
+          <button class="mitem" id="btnHelp"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>快捷键</button>
+          <button class="mitem" id="btnMenuUndo"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>撤销</button>
+          <button class="mitem" id="btnMenuHistory"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>历史与恢复</button>
           <div class="msep"></div>
           <div class="mgroup danger">危险区</div>
-          <button class="mitem danger" id="btnMenuClear" data-page-node-id="DDXwqVI2Hy2aRxJvOMiuiC"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="9qQ4Rj9WCvcRqFEoFkNFAo"><path d="M3 6h18" data-page-node-id="sdozDKA0l9lRoKpWZh7ygn"/><path d="M8 6V4h8v2" data-page-node-id="HRJgGPmF3zE0qC9EelDEzC"/><path d="M19 6l-1 14H6L5 6" data-page-node-id="HaZgH6wmg2S67N46cDxt1B"/><path d="M10 11v6M14 11v6" data-page-node-id="N0wENraJMEHjsW7inRyKdc"/></svg>清空任务</button>
+          <button class="mitem danger" id="btnMenuClear"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>清空任务</button>
           </div>
         </div>
       </div>
-      <span class="cloudpill" id="cloudPill" role="button" tabindex="0" title="云同步状态：未配置时数据仅存本机；点击打开数据管理（云同步 / 本地备份）" data-page-node-id="h25RhKGWp3H5oAopNByd5G"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="3hQS1iMkhHA68LA2zMEDAd"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" data-page-node-id="7Y9XjoV4o8PEJ4OFz3iRWF"/></svg>仅本地</span>
+      <span class="cloudpill" id="cloudPill" role="button" tabindex="0" title="云同步状态：未配置时数据仅存本机；点击打开数据管理（云同步 / 本地备份）"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>仅本地</span>
     </div>
   </div>
 
   <!-- 顶部双 panel 并排（今天要处理 / 习惯打卡），下方主视图跨两列整行 -->
-  <div class="layout" id="layout" data-page-node-id="5e5fGkjEi7Rh1pNTJTn66S">
+  <div class="layout" id="layout">
 
   <!-- 顶部概览条：默认收起三栏（今天要处理/习惯打卡/待办清单），点开才展开；解决顶部偏长 + 视觉统一 -->
   <div class="overview-bar" id="overviewBar" role="button" tabindex="0" aria-expanded="false" title="展开 / 收起 顶部三栏">
@@ -1555,91 +1555,91 @@
   </div>
 
   <!-- widget 行：今天要处理 / 习惯打卡 / 待办清单 + 自定义卡，可拖拽重排/隐藏 -->
-  <div class="widget-row" id="widgetRow" data-page-node-id="NaWFpyHBWFQDx97lpAYVVS">
+  <div class="widget-row" id="widgetRow">
   <!-- 今天要处理（左半） -->
-  <div class="panel toppanel collapsible" data-wid="today" data-page-node-id="XeLyOG1ZDUrjUznta146Wt">
-    <h3 data-page-node-id="CCdI2LHyOitIYRzwLxzI9w">
-      <svg viewBox="0 0 24 24" fill="none" stroke="var(--pri)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" data-page-node-id="EbOD32TxGBGsAGuePngEsA"><circle cx="12" cy="12" r="9" data-page-node-id="KR73AtvlQc0FQgqx1wjEmB"/><path d="M12 7v5l3 2" data-page-node-id="YJ73k4ZtMjtBw0frV3zTfo"/></svg>
+  <div class="panel toppanel collapsible" data-wid="today">
+    <h3>
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--pri)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
       今天要处理
-      <span class="spacer" style="flex:1" data-page-node-id="g2RBg1b8EVbl1v9G6WbTID"></span>
-      <svg class="ring" id="ring" viewBox="0 0 36 36" data-page-node-id="7Sb3mzjD0T3rLaFOjhyBwA"></svg>
-      <button class="ptoggle" title="收起 / 展开" aria-label="收起或展开" data-page-node-id="vE6FDTYXA2kEPamQtu2ogT"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="4EbuRUPX5qTpc3wClMQoGB"><path d="M6 9l6 6 6-6" data-page-node-id="ee0jiWCCS4HBBw5B6olPtW"/></svg></button>
+      <span class="spacer" style="flex:1"></span>
+      <svg class="ring" id="ring" viewBox="0 0 36 36"></svg>
+      <button class="ptoggle" title="收起 / 展开" aria-label="收起或展开"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
     </h3>
-    <div class="today-list" id="todayList" data-page-node-id="3fJzis3GomPnx7JbahAvJO"></div>
+    <div class="today-list" id="todayList"></div>
   </div>
 
   <!-- 习惯打卡（右半，与今天要处理并排） -->
-  <div class="panel habitpanel overflow-x collapsible" data-wid="habit" data-page-node-id="gJJKeWQDEDYJvUJnysDBKN">
-    <h3 data-page-node-id="97DI9iVULsLRF4KOGA03uO"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="bliDffSpvRyptIdPPkEoHC"><path d="M11 20A7 7 0 0 1 4 13c0-4.5 3.5-8 10-9 1.2 6.5-1 12-10 14z" data-page-node-id="SO7u3yr5g68lAXLRU8dzlw"/><path d="M11 20c.5-4.5 2.5-8.5 8-9.5" data-page-node-id="2YDI7X72v7QRvKd9NTWAOW"/></svg>习惯打卡
-      <span class="spacer" style="flex:1" data-page-node-id="9jWRC8CWrkMcGj1PRXGUyh"></span>
+  <div class="panel habitpanel overflow-x collapsible" data-wid="habit">
+    <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 4 13c0-4.5 3.5-8 10-9 1.2 6.5-1 12-10 14z"/><path d="M11 20c.5-4.5 2.5-8.5 8-9.5"/></svg>习惯打卡
+      <span class="spacer" style="flex:1"></span>
       <button class="btn btn-ghost btn-sm goto-full" id="habitGoFull" style="display:none" title="打开习惯打卡完整视图（含补打/取消、打卡样式）">完整视图 →</button>
-      <button class="btn btn-ghost btn-sm" id="habitAddSide" data-page-node-id="ngFaxYB4K5QnVgGDSA9pUw">+ 添加</button>
-      <button class="ptoggle" title="收起 / 展开" aria-label="收起或展开" data-page-node-id="Yy9nkJWnDzJGxZCEoGnnqF"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="wfl2OvVTYkTNm7tWlM6AAT"><path d="M6 9l6 6 6-6" data-page-node-id="d4Wj5GEfwnKxae2vnqvSFd"/></svg></button>
+      <button class="btn btn-ghost btn-sm" id="habitAddSide">+ 添加</button>
+      <button class="ptoggle" title="收起 / 展开" aria-label="收起或展开"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
     </h3>
-    <div class="habit-grid" id="habitPanel" data-page-node-id="cqbOKxGmvnq8JEr37h4hpX"></div>
+    <div class="habit-grid" id="habitPanel"></div>
   </div>
 
   <!-- 待办清单（第三栏，与今天要处理/习惯打卡并排） -->
-  <div class="panel listpanel collapsible" data-wid="list" data-page-node-id="kymqu9EGZjzTDAZELSjLHV">
-    <h3 data-page-node-id="H4XryBsTFohADDIOQTgd5k"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="xhke14TR6xsHd0H66tDWx5"><path d="M9 11l3 3L22 4" data-page-node-id="PRIGP025Qiheq3SFYMKLVs"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" data-page-node-id="q09Kg78VnUKig9jcv63BVJ"/></svg>清单速览
-      <span class="spacer" style="flex:1" data-page-node-id="7LCBEOHZxbkopXGi0Fx5Lw"></span>
+  <div class="panel listpanel collapsible" data-wid="list">
+    <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>清单速览
+      <span class="spacer" style="flex:1"></span>
       <button class="btn btn-ghost btn-sm goto-full" id="listGoFull" style="display:none" title="打开清单完整视图（全部清单管理）">完整视图 →</button>
-      <button class="btn btn-ghost btn-sm" id="listOpenAll" title="展开/收起全部清单" data-page-node-id="wrRoBihJdqwu9McB4gurzR">展开</button>
-      <button class="ptoggle" title="收起 / 展开" aria-label="收起或展开" data-page-node-id="Pwi4Ve31MzidjCcYvIaPe7"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="REAyBeztz29Ykl45XLVJ0c"><path d="M6 9l6 6 6-6" data-page-node-id="c9G6pnyI9w3WID8Q3j4Q3N"/></svg></button>
+      <button class="btn btn-ghost btn-sm" id="listOpenAll" title="展开/收起全部清单">展开</button>
+      <button class="ptoggle" title="收起 / 展开" aria-label="收起或展开"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
     </h3>
-    <div class="lp-body" id="listsPanelBody" data-page-node-id="mEXgeGr4PlsQ3dWFBsdZWB"></div>
+    <div class="lp-body" id="listsPanelBody"></div>
   </div>
   </div><!-- /widget-row -->
 
-  <div class="widget-bar" data-page-node-id="3QTGD8pacnBSrsVJu0zL4q">
-    <button class="btn btn-ghost" id="btnAddWidget" data-page-node-id="vkHawlc5DQAjCnF9f5os8A">+ 添加卡片</button>
-    <button class="btn btn-ghost" id="btnShowHidden" style="display:none" data-page-node-id="WPxjHJBjeoNzhlyzydt1Qc">显示已隐藏</button>
+  <div class="widget-bar">
+    <button class="btn btn-ghost" id="btnAddWidget">+ 添加卡片</button>
+    <button class="btn btn-ghost" id="btnShowHidden" style="display:none">显示已隐藏</button>
   </div>
 
-  <main class="main" data-page-node-id="rGH0Ts2Vef77WRCOlXzXbz">
+  <main class="main">
 
   <!-- 视图切换 -->
-  <div class="viewbar" data-page-node-id="w2X4T3ipma6yFQdDBwoUDS">
+  <div class="viewbar">
     <div class="seg" id="seg" role="tablist" aria-label="视图切换">
       <div class="seg-group" role="group" aria-label="任务视图">
-        <button data-v="inbox" role="tab" aria-selected="false" title="无日期任务收集箱" aria-label="收件箱视图" data-page-node-id="h5t5cd1I00Q1KL4rl12J7T"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="aHjEGOy8HwbJzOA0qyxWTp"><path d="M22 12h-6l-2 3h-4l-2-3H2" data-page-node-id="UALOyBKi6i2nBsxAuAy9Ah"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" data-page-node-id="LEOs1esi5A5OpoWkaynadz"/></svg>收件箱<span class="segcount" id="inboxCount" data-page-node-id="3zHxtmd3tC9bH7Ri9o4V1p"></span></button>
-        <button data-v="month" role="tab" aria-selected="true" class="on" aria-label="月视图" data-page-node-id="7dCZiCoGLweFUiYznY9c0R">月</button>
-        <button data-v="week" role="tab" aria-selected="false" aria-label="周视图" data-page-node-id="JFrFWwY5SlsqSp7HvKVZD9">周</button>
-        <button data-v="day" role="tab" aria-selected="false" aria-label="日视图" data-page-node-id="ynW54jPcjZTELSqRAzZm2P">日</button>
-        <button data-v="gantt" role="tab" aria-selected="false" aria-label="甘特图视图" data-page-node-id="vIOF9QCRx8PmDL1LXodcnv">甘特</button>
+        <button data-v="inbox" role="tab" aria-selected="false" title="无日期任务收集箱" aria-label="收件箱视图"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>收件箱<span class="segcount" id="inboxCount"></span></button>
+        <button data-v="month" role="tab" aria-selected="true" class="on" aria-label="月视图">月</button>
+        <button data-v="week" role="tab" aria-selected="false" aria-label="周视图">周</button>
+        <button data-v="day" role="tab" aria-selected="false" aria-label="日视图">日</button>
+        <button data-v="gantt" role="tab" aria-selected="false" aria-label="甘特图视图">甘特</button>
       </div>
       <div class="seg-group" role="group" aria-label="管理视图">
-        <button data-v="lists" role="tab" aria-selected="false" title="待办清单 / 库存" aria-label="待办清单视图" data-page-node-id="fGuRNTgPjHAsBeDA4JCvlZ">清单</button>
-        <button data-v="projects" role="tab" aria-selected="false" title="项目聚合（归集多步任务）" aria-label="项目视图" data-page-node-id="E9fkByLRIoXzaoTNGAHZRB">项目</button>
-        <button data-v="okr" role="tab" aria-selected="false" title="目标与关键结果 OKR" aria-label="目标 OKR 视图" data-page-node-id="yODRBCFHxpvp4v7ya6y14O">目标</button>
+        <button data-v="lists" role="tab" aria-selected="false" title="待办清单 / 库存" aria-label="待办清单视图">清单</button>
+        <button data-v="projects" role="tab" aria-selected="false" title="项目聚合（归集多步任务）" aria-label="项目视图">项目</button>
+        <button data-v="okr" role="tab" aria-selected="false" title="目标与关键结果 OKR" aria-label="目标 OKR 视图">目标</button>
       </div>
       <div class="seg-group" role="group" aria-label="成长视图">
-        <button data-v="media" role="tab" aria-selected="false" aria-label="进度看板视图" data-page-node-id="fyx2EGW0r6EmCc61UY954c">进度</button>
-        <button data-v="habit" role="tab" aria-selected="false" aria-label="习惯打卡视图" data-page-node-id="0adBED8TvhheP0MbbQBCep">习惯</button>
-        <button data-v="stats" role="tab" aria-selected="false" aria-label="统计视图" data-page-node-id="3aIKIMya3U1AAlpMJqTHXS">统计</button>
-        <button data-v="review" role="tab" aria-selected="false" title="周/日回顾体检" aria-label="定期回顾视图" data-page-node-id="7L5GSW0ixl7UNB2xo54n22">回顾</button>
-      <button data-v="anniv" role="tab" aria-selected="false" title="纪念日记录与倒计时" aria-label="纪念日视图" data-page-node-id="annivTabBtn">📅 纪念日</button>
+        <button data-v="media" role="tab" aria-selected="false" aria-label="进度看板视图">进度</button>
+        <button data-v="habit" role="tab" aria-selected="false" aria-label="习惯打卡视图">习惯</button>
+        <button data-v="stats" role="tab" aria-selected="false" aria-label="统计视图">统计</button>
+        <button data-v="review" role="tab" aria-selected="false" title="周/日回顾体检" aria-label="定期回顾视图">回顾</button>
+      <button data-v="anniv" role="tab" aria-selected="false" title="纪念日记录与倒计时" aria-label="纪念日视图">📅 纪念日</button>
       </div>
     </div>
-    <div class="nav" data-page-node-id="BZXxHMKdbITOK5VDD7FTo0">
-      <button id="prev" title="上一周期" aria-label="上一周期" data-page-node-id="DiN11SB5rmoP2FuPd2cngT"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-page-node-id="boA2Gn4mDHZzh2TuzRQfL6"><path d="M15 18l-6-6 6-6" data-page-node-id="SFxmzcMvzXQZ5yBCAaEfuv"/></svg></button>
-      <span class="curdate" id="curdate" data-page-node-id="qbwBnqPOp1fXJBAk9j12UD"></span>
-      <button id="next" title="下一周期" aria-label="下一周期" data-page-node-id="McWHEMJvESuXKxgDqvhZHv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-page-node-id="cw1vXdx6Y8F3dQHKxpYmOd"><path d="M9 18l6-6-6-6" data-page-node-id="7alDDkaVBcGabTA5bhciLL"/></svg></button>
-      <button class="btn btn-ghost btn-sm" id="todayBtn" style="margin-left:4px;" data-page-node-id="NxZtWMmVJ6zEIHhF9oExwr">今天</button>
+    <div class="nav">
+      <button id="prev" title="上一周期" aria-label="上一周期"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <span class="curdate" id="curdate"></span>
+      <button id="next" title="下一周期" aria-label="下一周期"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg></button>
+      <button class="btn btn-ghost btn-sm" id="todayBtn" style="margin-left:4px;">今天</button>
       </div>
   </div>
 
-  <div class="viewtitle" id="viewtitle" data-page-node-id="TfbYbX2hFgo1LP0HfJkC0J">月视图</div>
+  <div class="viewtitle" id="viewtitle">月视图</div>
 
-  <div class="filterbar" id="filterbar" data-page-node-id="UpwQUii2TrFi4FZSXfvf7w">
-    <input id="fSearch" class="fsearch" placeholder="过滤当前视图（⌘K 全局搜索）" title="在此输入只过滤当前视图显示的任务；要找任何视图/媒体/习惯/清单，请按 ⌘K 或点右上搜索图标" autocomplete="off" data-page-node-id="Ef4WftSTFq8ht05NphtCaH">
-    <select id="fCat" class="fsel" data-page-node-id="sSlWhlJXPgCmUUnzkV7U44"><option value="" data-page-node-id="hrMmJCY9GhrDw04gMQeYiz">全部分类</option><option data-page-node-id="5GUQ5FTZBDzChuYZyW4y2W">工作</option><option data-page-node-id="kaLlaZ4B3wU3gu4LAjLq8K">学习</option><option data-page-node-id="RY9W6i7NouU5Tc3ZXFTmrI">生活</option><option data-page-node-id="Rq63LLLi0k0YBoFENyfoGZ">健康</option><option data-page-node-id="dKUJMoO2yNNGAoyzfCZ7fE">其他</option></select>
-    <select id="fPri" class="fsel" data-page-node-id="UC5G6lBmgMi5R5Rra0sdY5"><option value="" data-page-node-id="tNU75QTU5DLODRzSV9pBC4">全部优先级</option><option data-page-node-id="HWNu8sbqzIl3drbvtAVOth">P0</option><option data-page-node-id="nsxA3ELqfFypTQXP25465v">P1</option><option data-page-node-id="6ssI79kE27iycsaDEWoKgf">P2</option></select>
-    <select id="fTag" class="fsel" data-page-node-id="IDOQXw9NROtLN8TpOGaOoM"><option value="" data-page-node-id="8ykb6a6MZ8MXXwapfWG6u0">全部标签</option></select>
-    <button class="btn btn-ghost btn-sm" id="fClear" style="display:none;" data-page-node-id="CKnl2cggEXOH1N78F4sSpm">清除</button>
+  <div class="filterbar" id="filterbar">
+    <input id="fSearch" class="fsearch" placeholder="过滤当前视图（⌘K 全局搜索）" title="在此输入只过滤当前视图显示的任务；要找任何视图/媒体/习惯/清单，请按 ⌘K 或点右上搜索图标" autocomplete="off">
+    <select id="fCat" class="fsel"><option value="">全部分类</option><option>工作</option><option>学习</option><option>生活</option><option>健康</option><option>其他</option></select>
+    <select id="fPri" class="fsel"><option value="">全部优先级</option><option>P0</option><option>P1</option><option>P2</option></select>
+    <select id="fTag" class="fsel"><option value="">全部标签</option></select>
+    <button class="btn btn-ghost btn-sm" id="fClear" style="display:none;">清除</button>
   </div>
 
-  <div class="panel" id="view" tabindex="-1" data-page-node-id="IIB8ArrRycSwXAicx4q50E"></div>
+  <div class="panel" id="view" tabindex="-1"></div>
 
   </main><!-- /.main -->
   </div><!-- /.layout -->
@@ -1667,8 +1667,8 @@
     <div class="dtab-panel" data-dtab="local">
       <p class="hint" style="margin-top:0;">导出为 JSON 文件保存到本机；换设备或清理缓存前先导出，之后导入即可完整恢复。</p>
       <div class="row2" style="margin-top:12px;">
-        <button class="btn btn-ghost" id="btnExport" data-page-node-id="oKKh6YIpQe7Vt3xnC0qrPc">导出 JSON</button>
-        <button class="btn btn-ghost" id="btnImport" data-page-node-id="tJbMJIgHOVX7OSTg9urosY">导入恢复</button>
+        <button class="btn btn-ghost" id="btnExport">导出 JSON</button>
+        <button class="btn btn-ghost" id="btnImport">导入恢复</button>
       </div>
       <div class="cloud-section" style="margin-top:16px;">
         <div class="cloud-section-title">导出中心</div>
@@ -1753,168 +1753,168 @@
       <div class="row2" style="margin-top:12px;"><button class="btn btn-ghost" id="trashClear" type="button">清空回收站</button></div>
     </div>
     </div>
-    <input type="file" id="fileIn" class="fileIn" accept="application/json" data-page-node-id="i0m3eR53ukSMCzAOImFUoX">
+    <input type="file" id="fileIn" class="fileIn" accept="application/json">
   </div>
 </div>
 
 <!-- 任务弹窗 -->
-<div class="mask" id="mask" data-page-node-id="VcFeYmaDnttTiqfg83JEZM">
-  <div class="modal" data-page-node-id="Ok6yPi7L927gAKEuC5AB28">
-    <h2 id="modalTitle" data-page-node-id="bHPaZmNtpLXZ7lI5nDWVYD">新建任务</h2>
-    <div class="mode-toggle" id="modeToggle" data-page-node-id="hiE7PvRgEwILFF3iiihI2m">
-      <button type="button" class="mt-btn active" data-mode="quick" data-page-node-id="qV4KaoZyDuPRlKXZePhmew"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="nHNgSJnHGx5kIInpgRNePF"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" data-page-node-id="lDcmZnLvzi6HODGE960sbG"/></svg>快速</button>
-      <button type="button" class="mt-btn" data-mode="full" data-page-node-id="wCYwdaMeOv8oFusnnyLHZM"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="ykoy0u8jUHYVhBqn2lg4bc"><rect x="3" y="4" width="18" height="18" rx="2" data-page-node-id="pRf3d1ESDfBfXD5eSxcLV6"/><path d="M8 2v4M16 2v4M3 10h18" data-page-node-id="L2t1a1LCTiguygZHFhBCOQ"/></svg>完整</button>
-      <span class="mt-hint" id="mtHint" data-page-node-id="Wt1IqCHdt03rQlGYLJv2cc">标题 + 分类 + 日期，其余走默认值</span>
+<div class="mask" id="mask">
+  <div class="modal">
+    <h2 id="modalTitle">新建任务</h2>
+    <div class="mode-toggle" id="modeToggle">
+      <button type="button" class="mt-btn active" data-mode="quick"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>快速</button>
+      <button type="button" class="mt-btn" data-mode="full"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>完整</button>
+      <span class="mt-hint" id="mtHint">标题 + 分类 + 日期，其余走默认值</span>
     </div>
     <!-- ：快速模式只留「标题 / 分类 + 优先级 / 单个日期」，其余全部归入完整模式 -->
-    <div class="field" data-page-node-id="BxxCp3DMQ95WIKpDHDCd94">
-      <label data-page-node-id="DkYxqNfBjjfjFVuOvGFNni">标题</label>
-      <input id="f_title" placeholder="例如：交付设计评审稿" maxlength="60" data-page-node-id="B7PFtaDQNVjrMaAqZZGyNj">
+    <div class="field">
+      <label>标题</label>
+      <input id="f_title" placeholder="例如：交付设计评审稿" maxlength="60">
     </div>
-    <div class="row2" data-page-node-id="McIoUslI6uTodm7hbHUzkH">
-      <div class="field" data-page-node-id="52AJ9MIrupoYRhfSAxJZby">
-        <label data-page-node-id="1xMWvrBEd93sLO5J77GahD">分类　<span class="hint" style="font-size:11px;" data-page-node-id="psGRwhjsTGuvXX7UQkrMC7">（可在顶栏「⋯」菜单里新增 / 改名 / 删除）</span></label>
-        <select id="f_cat" data-page-node-id="DtEy4ae0Fx44RPkusPZ0Mn"></select>
+    <div class="row2">
+      <div class="field">
+        <label>分类　<span class="hint" style="font-size:11px;">（可在顶栏「⋯」菜单里新增 / 改名 / 删除）</span></label>
+        <select id="f_cat"></select>
       </div>
-      <div class="field" data-page-node-id="Alz0fVQJNejLJZEQpHHZ9b">
-        <label data-page-node-id="qVD1ZJnidqD4mx51JSi3oP">优先级</label>
-        <select id="f_priority" data-page-node-id="VNa6lJtdXPebsPENiNyIii"></select>
+      <div class="field">
+        <label>优先级</label>
+        <select id="f_priority"></select>
       </div>
     </div>
-    <div class="full-only row2" data-page-node-id="9udjH8DnrvqCuSQ3En9bFe">
-      <div class="field" data-page-node-id="UdJYlGFsTHnmChPXy0GyMf">
-        <label data-page-node-id="SKFKrGxMDQCjmxdC6wj87H">所属项目</label>
-        <select id="f_project" data-page-node-id="ETdoMOzCPEDikNvBEFhaTQ"><option value="" data-page-node-id="DJ452Xkkr02lDpWJbv23mu">（无）</option></select>
+    <div class="full-only row2">
+      <div class="field">
+        <label>所属项目</label>
+        <select id="f_project"><option value="">（无）</option></select>
       </div>
-      <div class="field" data-page-node-id="LbHX9R4HlYuTT6jSACR3w0">
-        <label data-page-node-id="O4bgdu4eBt51gmrAHIIN6h">GTD 状态</label>
-        <select id="f_gw" data-page-node-id="IwgUzk7wO53cPnZy34ec50">
-          <option value="next" data-page-node-id="AZ2w6z0pns1B5k0YKJztZC">下一步行动</option>
-          <option value="waiting" data-page-node-id="ChUEQrrjcFr9cfYEcqpxgL">等待中</option>
-          <option value="someday" data-page-node-id="O7cJtWWHFTDpwXOBA2oehM">将来/也许</option>
+      <div class="field">
+        <label>GTD 状态</label>
+        <select id="f_gw">
+          <option value="next">下一步行动</option>
+          <option value="waiting">等待中</option>
+          <option value="someday">将来/也许</option>
         </select>
       </div>
     </div>
-    <div class="full-only row2" data-page-node-id="GXQfcUTEDFFcSdj493C3Nw">
-      <div class="field" data-page-node-id="RmlxnkzwMNsXZbiuevQsKp">
-        <label data-page-node-id="Eg44CjN9aeXAVfUGTAxax4">情境（Context）</label>
-        <select id="f_ctx" data-page-node-id="LjxoTEG4IJJXdahAWPDjaq">
-          <option value="" data-page-node-id="gNxCXBfWkgZrrFQzVzDGYY">（无）</option>
-          <option value="电脑" data-page-node-id="4MGGoCsegW0Tp2Lc71azvh">电脑</option>
-          <option value="手机" data-page-node-id="8kkSazwGsYXFu3iHIVxR5d">手机</option>
-          <option value="外出" data-page-node-id="F1PHrdckcBH0a3Qkrv9wC6">外出</option>
-          <option value="在家" data-page-node-id="CzalDfJ9OEE0K49kzUIZ39">在家</option>
-          <option value="通勤" data-page-node-id="sWR7iT2AExgAAsuCYlX9PG">通勤</option>
+    <div class="full-only row2">
+      <div class="field">
+        <label>情境（Context）</label>
+        <select id="f_ctx">
+          <option value="">（无）</option>
+          <option value="电脑">电脑</option>
+          <option value="手机">手机</option>
+          <option value="外出">外出</option>
+          <option value="在家">在家</option>
+          <option value="通勤">通勤</option>
         </select>
       </div>
-      <div class="field" data-page-node-id="fBboc1azkgFfgrGYXWu24a">
-        <label data-page-node-id="Fp5ms784MNd896k5pEklXs">精力要求</label>
-        <select id="f_energy" data-page-node-id="bDBYl1w9FmGZW7E3i2yzSO">
-          <option value="" data-page-node-id="A0Ceoj9qOg0It4ZlRjk5bR">（无）</option>
-          <option value="high" data-page-node-id="R8rZMSj8xUNqN3UanIaBUl">高</option>
-          <option value="mid" data-page-node-id="FWD2fZTNN7rPEH1FaZKGTi">中</option>
-          <option value="low" data-page-node-id="lBmuLFUFscD1cSwPboNnKC">低</option>
+      <div class="field">
+        <label>精力要求</label>
+        <select id="f_energy">
+          <option value="">（无）</option>
+          <option value="high">高</option>
+          <option value="mid">中</option>
+          <option value="low">低</option>
         </select>
       </div>
     </div>
-    <div class="full-only row2" data-page-node-id="ZcdFEj7STnC8vO9nox2Vkj">
-      <div class="field" data-page-node-id="4JCsXV9F2oDcTn6i4RvLLK">
-        <label data-page-node-id="c4hax7S7fqzUNBM6VuAd7N">预计耗时（分钟）</label>
-        <input id="f_est" type="number" min="0" placeholder="如 30" data-page-node-id="zCDDPHGOLfC2imw71AH4qd">
+    <div class="full-only row2">
+      <div class="field">
+        <label>预计耗时（分钟）</label>
+        <input id="f_est" type="number" min="0" placeholder="如 30">
       </div>
-      <div class="field" data-page-node-id="PwtEQbaLKYhsystikgJ6xT">
-        <label data-page-node-id="V1Pjuv4fpCRRH06b07eoAq">关联目标 KR</label>
-        <select id="f_kr" data-page-node-id="195DX2C9G6e8EOcsmfLAGg"><option value="" data-page-node-id="o6bcV18KpAyqLH3VdVCLpI">（无）</option></select>
+      <div class="field">
+        <label>关联目标 KR</label>
+        <select id="f_kr"><option value="">（无）</option></select>
       </div>
     </div>
-    <div class="full-only field" data-page-node-id="aY37j95FpQptUD2e7A91mR">
-      <label data-page-node-id="x67jVi3vidTQng127mQP3L">标签（逗号或空格分隔，便于跨分类检索）</label>
-      <input id="f_tags" placeholder="例如：求职, 设计, 周报" data-page-node-id="Kt1EWEedAiecASyY4mrxWD">
-      <div class="tagpick" id="tagPick" data-page-node-id="Rv3XCkSDrrQrmOGsFCThyZ"></div>
+    <div class="full-only field">
+      <label>标签（逗号或空格分隔，便于跨分类检索）</label>
+      <input id="f_tags" placeholder="例如：求职, 设计, 周报">
+      <div class="tagpick" id="tagPick"></div>
     </div>
-    <div class="full-only field" data-page-node-id="FRkYIa0yPJJQuuLfdJHEfK">
-      <label data-page-node-id="RxnsSRFCQUhP2FphurHCVa">描述</label>
+    <div class="full-only field">
+      <label>描述</label>
       <textarea id="f_desc" placeholder="可选备注"></textarea>
     </div>
-    <label class="full-only chkline" for="f_nodate" data-page-node-id="H80rzJ2fJUtbmFQ0EfHO1u">
-      <input type="checkbox" id="f_nodate" data-page-node-id="y6GWlbektehwbLHuTwthpH">
-      <span data-page-node-id="J7K2hZbyOkaqUrlh8bWp4o">不指定日期时间 · 直接放入收件箱 📥<br data-page-node-id="fgLvvfcOQGxE41OzAQWblM"><small data-page-node-id="w9XtN8vtMqFBRsJP2QFoDE">适合「有空再做」的想法：不占用日历，之后随时安排</small></span>
+    <label class="full-only chkline" for="f_nodate">
+      <input type="checkbox" id="f_nodate">
+      <span>不指定日期时间 · 直接放入收件箱 📥<br><small>适合「有空再做」的想法：不占用日历，之后随时安排</small></span>
     </label>
-    <div id="dateFields" data-page-node-id="TbFHS6D2vQUohAYRv56cKJ">
-    <div class="row2" data-page-node-id="4hDQSv3HO7eFqRvR1umM2O">
-      <div class="field" data-page-node-id="0skfUXQpG7h7zxVFZB6mKi">
-        <label data-page-node-id="fFym0uIceAbvDD7t2ofU0O">开始日期</label>
-        <input id="f_sdate" type="date" data-page-node-id="iGryFbemvwQ3MiVjq36GI5">
+    <div id="dateFields">
+    <div class="row2">
+      <div class="field">
+        <label>开始日期</label>
+        <input id="f_sdate" type="date">
       </div>
-      <div class="field" data-page-node-id="inDSa4p42HguhEXtTf6log">
-        <label data-page-node-id="DQ66iRj0v2PHhnm9SSI7hz">开始时间</label>
-        <input id="f_stime" type="time" value="09:00" data-page-node-id="RBcX5aIa5Mvqm344qSzoNU">
-      </div>
-    </div>
-    <div class="full-only row2" data-page-node-id="igzBEwneC8QZCC0H1Zf1ht">
-      <div class="field" data-page-node-id="uBhkvkssKOgWZ2Zj0hlDrC">
-        <label data-page-node-id="5dPVHPpicPmBhh14S3w2oi">结束日期</label>
-        <input id="f_edate" type="date" data-page-node-id="99aSLCQn6ynbomk0AJ1AGD">
-      </div>
-      <div class="field" data-page-node-id="ouO7iBbU7RCHWfG9SHeO5l">
-        <label data-page-node-id="dmHuzfLvCn57Xzu1H9wCvH">结束时间</label>
-        <input id="f_etime" type="time" value="10:00" data-page-node-id="Dkz8Wxm8dDTxyNjlbZLkwo">
+      <div class="field">
+        <label>开始时间</label>
+        <input id="f_stime" type="time" value="09:00">
       </div>
     </div>
-    <div class="full-only field" data-page-node-id="kKfAFwQukJzdUOwugxY3Aj">
-      <label data-page-node-id="ByLuBnX6wqsyyrHbTZSkBz">重复</label>
-      <select id="f_rec" data-page-node-id="QTvF04PDcQoRJkKOEtshx6">
-        <option value="none" data-page-node-id="QGtTk5dSbSMhviRZlJObdU">不重复</option>
-        <option value="daily" data-page-node-id="zwWcp3GoNHHCH4hmHJFOku">每天</option>
-        <option value="weekly" data-page-node-id="rHZUvEtuH4dHv8UuW4adJI">每周</option>
-        <option value="monthly" data-page-node-id="ngbUk5Ojq9tb8T8wtDuHxM">每月</option>
+    <div class="full-only row2">
+      <div class="field">
+        <label>结束日期</label>
+        <input id="f_edate" type="date">
+      </div>
+      <div class="field">
+        <label>结束时间</label>
+        <input id="f_etime" type="time" value="10:00">
+      </div>
+    </div>
+    <div class="full-only field">
+      <label>重复</label>
+      <select id="f_rec">
+        <option value="none">不重复</option>
+        <option value="daily">每天</option>
+        <option value="weekly">每周</option>
+        <option value="monthly">每月</option>
       </select>
     </div>
     <label class="hs-inline full-only" id="skipMissedWrap" style="display:none;margin-top:2px;"><input type="checkbox" id="f_skipMissed"> 错过不补（没做的往期不进「逾期待补做」，适合游戏日常 / 每日签到）</label>
-    <div class="full-only row2" id="recOpts" style="display:none;" data-page-node-id="E9Tal5JXeEF36u65nO2cWr">
-      <div class="field" data-page-node-id="SHI1GicHIMiZ9Q9yr9WLkV">
-        <label data-page-node-id="LS9gaORhxqtSodSG0jNpyR">间隔（每 N 个周期）</label>
-        <input id="f_interval" type="number" min="1" value="1" data-page-node-id="IwZbDEObEPT5S1UdFhB8DQ">
+    <div class="full-only row2" id="recOpts" style="display:none;">
+      <div class="field">
+        <label>间隔（每 N 个周期）</label>
+        <input id="f_interval" type="number" min="1" value="1">
       </div>
-      <div class="field" data-page-node-id="R4jUsbkWBP0f3AKdiLrdLf">
-        <label data-page-node-id="k7z70SeQYzNWAATYJtKupY">结束于（可选）</label>
-        <input id="f_runtil" type="date" data-page-node-id="2CV1ziw1FC7XVeQw0CO4FM">
+      <div class="field">
+        <label>结束于（可选）</label>
+        <input id="f_runtil" type="date">
       </div>
     </div>
-    <div class="full-only field" id="weekOpts" style="display:none;" data-page-node-id="x4ZltkHHMcqUOFypKCOTmm">
-      <label data-page-node-id="ZzSbjBCnLAvMUP9Epf4jiN">每周重复于</label>
-      <div class="checks" id="weekDays" data-page-node-id="8AlD7V2wyVXcqeAwrjvGZO">
-        <label data-page-node-id="uhIgrrqZmrYuFhwZoqFXgU"><input type="checkbox" value="1" data-page-node-id="F4Ar29J0DBz0P9Rz7NEDiB">一</label>
-        <label data-page-node-id="Evv9ICQolgYuyLKdtC6f2x"><input type="checkbox" value="2" data-page-node-id="ELhuDjRHyAmxE6uFFSXeU7">二</label>
-        <label data-page-node-id="hKTaYZvumIcc7aKIkXkUc4"><input type="checkbox" value="3" data-page-node-id="4r7Id4P8D351hrlJDlJu88">三</label>
-        <label data-page-node-id="s5oxhAsMwGfZCBMzSjTxyJ"><input type="checkbox" value="4" data-page-node-id="IR92ydFh8gvk4jxXVIxdwX">四</label>
-        <label data-page-node-id="Of92y7pyo2LG0AMuyPXL9k"><input type="checkbox" value="5" data-page-node-id="5LgZM8YqaDwtUwnpLaFqX0">五</label>
-        <label data-page-node-id="6PQAYP23KsBcGnSIHiiDLC"><input type="checkbox" value="6" data-page-node-id="snbw7UUuTyJDhxtTuXTRNo">六</label>
-        <label data-page-node-id="Z8DPuAUjXmNxgNUyRsGJuI"><input type="checkbox" value="0" data-page-node-id="FvyX34F4K13wavtEqssCPj">日</label>
+    <div class="full-only field" id="weekOpts" style="display:none;">
+      <label>每周重复于</label>
+      <div class="checks" id="weekDays">
+        <label><input type="checkbox" value="1">一</label>
+        <label><input type="checkbox" value="2">二</label>
+        <label><input type="checkbox" value="3">三</label>
+        <label><input type="checkbox" value="4">四</label>
+        <label><input type="checkbox" value="5">五</label>
+        <label><input type="checkbox" value="6">六</label>
+        <label><input type="checkbox" value="0">日</label>
       </div>
     </div>
     </div><!-- /#dateFields -->
-    <div class="full-only field" id="scopeField" style="display:none;background:var(--pri-soft);border:1px dashed var(--pri);border-radius:10px;padding:10px 12px;margin-top:4px;" data-page-node-id="DYQMDl0EiYVmFThAP9WIf2">
-      <label style="display:block;margin-bottom:6px;font-weight:600;" data-page-node-id="zGnr89wCHGYkV6qUAnVa6C">编辑范围 · 这是重复任务的一次</label>
+    <div class="full-only field" id="scopeField" style="display:none;background:var(--pri-soft);border:1px dashed var(--pri);border-radius:10px;padding:10px 12px;margin-top:4px;">
+      <label style="display:block;margin-bottom:6px;font-weight:600;">编辑范围 · 这是重复任务的一次</label>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
         <span style="font-size:13px;color:var(--sub);">编辑哪一次：</span>
         <input type="date" id="f_editdate" style="font-size:13px;padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);">
         <span class="hint" id="editDateNote" style="font-size:12px;"></span>
       </div>
-      <div style="display:flex;gap:8px;" id="scopeSeg" data-page-node-id="6iqwG5X7Q9i21GwDKda9ID">
-        <button type="button" class="seg-btn" data-scope="once" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:13px;color:var(--sub);background:transparent;" data-page-node-id="C4LPyr8gfYRCRKqJHQAxI7">仅此一次 <b id="scopeDate" style="font-weight:700" data-page-node-id="PqHVTjHrk44PjJ6ShO73Gy"></b></button>
-        <button type="button" class="seg-btn" data-scope="series" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:13px;color:var(--sub);background:transparent;" data-page-node-id="o8ulPEnBr0RZj6RMKaESX0">整组重复</button>
+      <div style="display:flex;gap:8px;" id="scopeSeg">
+        <button type="button" class="seg-btn" data-scope="once" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:13px;color:var(--sub);background:transparent;">仅此一次 <b id="scopeDate" style="font-weight:700"></b></button>
+        <button type="button" class="seg-btn" data-scope="series" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:13px;color:var(--sub);background:transparent;">整组重复</button>
       </div>
-      <div id="scopeTools" style="display:flex;flex-direction:column;gap:8px;align-items:stretch;margin-top:8px;" data-page-node-id="8QN44aIFH5QEZRE8m42IpD">
-        <label class="chkline" style="margin:0;" data-page-node-id="EvOrvwgUSsHhc2FDsXFHlC"><input type="checkbox" id="f_skip" data-page-node-id="lhbTXg61bPT2AFPxMnMWn5"> <span data-page-node-id="81AXQh4ck0xeEoVgdJ1SY2">跳过此日期（不生成这次任务）</span></label>
-        <button type="button" class="btn btn-ghost btn-sm" id="btnClearOv" data-page-node-id="mkmO0yBKK9kE7MP2B0b7Zm">清除此日期单独设置</button>
+      <div id="scopeTools" style="display:flex;flex-direction:column;gap:8px;align-items:stretch;margin-top:8px;">
+        <label class="chkline" style="margin:0;"><input type="checkbox" id="f_skip"> <span>跳过此日期（不生成这次任务）</span></label>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnClearOv">清除此日期单独设置</button>
       </div>
-      <small class="hint" style="display:block;margin-top:6px;" data-page-node-id="NbqbXOXygCwtT9iz1MO2EJ">选「仅此一次」只改这一天（时间/标题等独立）；想改整组请切到「整组重复」。</small>
+      <small class="hint" style="display:block;margin-top:6px;">选「仅此一次」只改这一天（时间/标题等独立）；想改整组请切到「整组重复」。</small>
     </div>
-    <div class="full-only field subtasks" id="subField" data-page-node-id="PS9MeDBMT0DDUoHQr9svwr">
-      <label data-page-node-id="u084cwMIMO1FEf0wHkScl4">子任务清单（勾选完成、点 ✕ 删除；完成后任务显示进度 n/m）</label>
-      <div class="sublist" id="subList" data-page-node-id="IMS50SqCrBe9WBwvoeKwj7"></div>
-      <div class="subadd" data-page-node-id="OtQDyaS5HqthD0uN8vK0xt"><input id="subInput" placeholder="添加子任务，回车确认" data-page-node-id="d2aahdfAjm9C9taidCY1Bq"><button class="btn btn-ghost btn-sm" id="subAddBtn" type="button" data-page-node-id="xCJTtLf6P6P6K5kcIY9OpC">添加</button><button class="btn btn-ghost btn-sm" id="subBulkBtn" type="button">批量</button></div>
+    <div class="full-only field subtasks" id="subField">
+      <label>子任务清单（勾选完成、点 ✕ 删除；完成后任务显示进度 n/m）</label>
+      <div class="sublist" id="subList"></div>
+      <div class="subadd"><input id="subInput" placeholder="添加子任务，回车确认"><button class="btn btn-ghost btn-sm" id="subAddBtn" type="button">添加</button><button class="btn btn-ghost btn-sm" id="subBulkBtn" type="button">批量</button></div>
       <div id="subBulkWrap" style="display:none;margin-top:8px;">
         <textarea id="subBulk" rows="5" placeholder="一行一个，批量添加（适合一次录入游戏日常清单）" style="width:100%;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:var(--radius);"></textarea>
         <div style="display:flex;gap:8px;margin-top:6px;"><button class="btn btn-pri btn-sm" id="subBulkOk" type="button">批量添加</button><button class="btn btn-ghost btn-sm" id="subBulkCancel" type="button">取消</button></div>
@@ -1936,39 +1936,39 @@
       <small class="hint" id="doneAtHint" style="display:block;margin-top:6px;"></small>
       <div id="doneLogField" class="done-log" style="display:none;margin-top:8px;padding:8px 10px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;"></div>
     </div>
-    <div class="modal-actions" data-page-node-id="UyIkajQdeycBntUiKmIrcd">
+    <div class="modal-actions">
       <!-- ：主次分明——「取消」收窄为自适应宽度靠左，只有「保存」占满剩余空间且为主色 -->
-      <button class="btn btn-ghost" id="btnCancel" style="flex:none;width:auto;" data-page-node-id="FqPi09t2n8GVVKuu6k0tvF">取消</button>
-      <button class="btn btn-ghost" id="btnDefer" style="display:none;flex:none;width:auto;" data-page-node-id="VnWmjANaddZ0NCzSt3vLQY">⏰ 推迟/延期</button>
+      <button class="btn btn-ghost" id="btnCancel" style="flex:none;width:auto;">取消</button>
+      <button class="btn btn-ghost" id="btnDefer" style="display:none;flex:none;width:auto;">⏰ 推迟/延期</button>
       <button class="btn btn-ghost" id="btnDup" style="display:none;flex:none;width:auto;" title="复制当前任务（保留所有字段，生成新任务）">📋 复制</button>
       <button class="btn btn-ghost" id="btnSaveTpl" style="display:none;flex:none;width:auto;" title="把当前任务存为模板，之后可从顶栏「📋 模板」一键新建">存为模板</button>
-      <button class="btn btn-pri" id="btnSave" data-page-node-id="TWxizBEJyxw2bXxjRydQSu">保存</button>
-      <button class="btn btn-success" id="btnDone" style="display:none;flex:none;width:auto;" data-page-node-id="KZ2DnikirJUbIUMYzzspVy">标记完成</button>
+      <button class="btn btn-pri" id="btnSave">保存</button>
+      <button class="btn btn-success" id="btnDone" style="display:none;flex:none;width:auto;">标记完成</button>
       <!-- 撤销走独立入口：主按钮永远只做「标记完成」，避免改完完成时间后误点主按钮把打卡取消掉 -->
-      <button class="btn btn-ghost" id="btnUndoDone" style="display:none;flex:none;width:auto;" title="取消这次的打卡，任务恢复为未完成" data-page-node-id="Wq3dNz9aCk8sKf2vLb1EtR">↩ 撤销完成</button>
-      <button class="btn btn-danger" id="btnDelete" style="display:none;flex:none;width:auto;" data-page-node-id="zuSsvOZF3pYAAmvOzESHOb">删除</button>
+      <button class="btn btn-ghost" id="btnUndoDone" style="display:none;flex:none;width:auto;" title="取消这次的打卡，任务恢复为未完成">↩ 撤销完成</button>
+      <button class="btn btn-danger" id="btnDelete" style="display:none;flex:none;width:auto;">删除</button>
     </div>
-    <div class="defer-pop" id="deferPop" style="display:none;" data-page-node-id="C1JkSzhvr9CRFZ98JeknVJ">
-      <div class="dp-grp" data-page-node-id="2w9YOd8rJAJ06mmXV68XSB">
-        <div class="dp-title" data-page-node-id="iIGHAhw2m8o80HHeJhM0EN">推迟 <span class="dp-note" data-page-node-id="rfqn1nvRE1jsGAE69Gdnxg">开始+截止一起往后挪（还没动手做）</span></div>
-        <div class="dp-line" data-page-node-id="oH5wdBBZ445QFrxP6MTvyx">
-          <button class="dp-chip" data-mode="both" data-abs="0" data-page-node-id="OUopTxLSqyWByjwHdDzOLf">今天</button>
-          <button class="dp-chip" data-mode="both" data-abs="1" data-page-node-id="xEnn3c5HnXLbU78rMTddWL">明天</button>
-          <button class="dp-chip" data-mode="both" data-d="3" data-page-node-id="Chc2LqgI9DOToYjY2iikoJ">+3天</button>
-          <button class="dp-chip" data-mode="both" data-d="7" data-page-node-id="XTuQxbt5IaV9nKhUFbiuev">+1周</button>
-          <label class="dp-custom" data-page-node-id="rIhNZG1vJMBlSfd2Bskbab">自定义 <input type="date" id="deferCustom" data-page-node-id="hkbZaEaZYHf8raluoqefvt"></label>
-          <button class="dp-go" id="deferCustomGo" data-page-node-id="1sU9VvH4NatjHmk39usLzQ">应用</button>
+    <div class="defer-pop" id="deferPop" style="display:none;">
+      <div class="dp-grp">
+        <div class="dp-title">推迟 <span class="dp-note">开始+截止一起往后挪（还没动手做）</span></div>
+        <div class="dp-line">
+          <button class="dp-chip" data-mode="both" data-abs="0">今天</button>
+          <button class="dp-chip" data-mode="both" data-abs="1">明天</button>
+          <button class="dp-chip" data-mode="both" data-d="3">+3天</button>
+          <button class="dp-chip" data-mode="both" data-d="7">+1周</button>
+          <label class="dp-custom">自定义 <input type="date" id="deferCustom"></label>
+          <button class="dp-go" id="deferCustomGo">应用</button>
         </div>
       </div>
-      <div class="dp-grp" data-page-node-id="QCRhb8WtAbQUBSby9502Qh">
-        <div class="dp-title" data-page-node-id="O2H4AdULvJ0dTjAsSPNSKu">延期 <span class="dp-note" data-page-node-id="LwgMK1MNKBcb2F4yRmmnVV">只推截止日，开始日不动（做不完要宽限）</span></div>
-        <div class="dp-line" data-page-node-id="OEk1rHAvAFH2o4Ac2eLmiu">
-          <button class="dp-chip" data-mode="end" data-d="1" data-page-node-id="Ebrp1nO4m9Sj0gWdCvM5sh">+1天</button>
-          <button class="dp-chip" data-mode="end" data-d="3" data-page-node-id="QTIWGthFk4zz947H0NluaA">+3天</button>
-          <button class="dp-chip" data-mode="end" data-d="7" data-page-node-id="oE16GA6I4EgM1bErRF0t4E">+1周</button>
-          <button class="dp-chip" data-mode="end" data-d="14" data-page-node-id="0b8hK4zI0uHEqN65DSXmlU">+2周</button>
-          <label class="dp-custom" data-page-node-id="WvmbGFusG7dfE3gAA2anJj">自定义 <input type="date" id="extCustom" data-page-node-id="jVFeyO7owzGsY0SSPpoYGZ"></label>
-          <button class="dp-go" id="extCustomGo" data-page-node-id="eXQcGSa8AAqFBpqjrmHv2O">应用</button>
+      <div class="dp-grp">
+        <div class="dp-title">延期 <span class="dp-note">只推截止日，开始日不动（做不完要宽限）</span></div>
+        <div class="dp-line">
+          <button class="dp-chip" data-mode="end" data-d="1">+1天</button>
+          <button class="dp-chip" data-mode="end" data-d="3">+3天</button>
+          <button class="dp-chip" data-mode="end" data-d="7">+1周</button>
+          <button class="dp-chip" data-mode="end" data-d="14">+2周</button>
+          <label class="dp-custom">自定义 <input type="date" id="extCustom"></label>
+          <button class="dp-go" id="extCustomGo">应用</button>
         </div>
       </div>
     </div>
@@ -1976,126 +1976,126 @@
 </div>
 
 <!-- 项目编辑器 -->
-<div class="mask" id="projMask" data-page-node-id="mHr0Vl0Jv5E7XT9XwgQLml">
-  <div class="modal" data-page-node-id="27EwGe6X0eNDofl20a8gCG">
-    <h2 id="pjTitle" data-page-node-id="KAkF84BBBTQN55uCswWVFZ">新建项目</h2>
-    <input id="pj_id" type="hidden" data-page-node-id="utfhaq8RDG4RFUSe0R7iXL">
-    <div class="field" data-page-node-id="qC4SyvtArjTePZrSm0ZsFj"><label data-page-node-id="5knNAzZj4l7zsV0DRmVpm7">项目名称</label><input id="pj_name" maxlength="40" placeholder="如：求职冲刺" data-page-node-id="tsrZRvBvGHR1XcFKBFx0LB"></div>
-    <div class="field" data-page-node-id="86SOXcuYGgmxkNy7vnLDEh"><label data-page-node-id="goHGdcwA7Tsvn9l31CuPkj">描述（可选）</label><textarea id="pj_desc" placeholder="项目目标 / 范围"></textarea></div>
-    <div class="row2" data-page-node-id="IQSTlDWK5p5hAAeGMw3nat">
-      <div class="field" data-page-node-id="FV70H1TVV3tAoUpVAOZjeG"><label data-page-node-id="xZMexLzYaKk4jugvaYvtGF">主题色</label><input id="pj_color" type="color" value="#ff7a59" data-page-node-id="PuMX8ov3mOaPQUNYGAGxAG"></div>
-      <div class="field" data-page-node-id="WGQyQEsjPI10cmh0lk1Kez"><label data-page-node-id="rVolnX41XyrzTBGqVnL7Ki">状态</label><select id="pj_status" data-page-node-id="FSzVpbYgtjPUCvgHoUyB70"><option value="active" data-page-node-id="iRjKx8f0rgwmNyYj1I7mPs">进行中</option><option value="done" data-page-node-id="VNB3Fm0PApnQCO21VHt8Cg">已完成</option></select></div>
+<div class="mask" id="projMask">
+  <div class="modal">
+    <h2 id="pjTitle">新建项目</h2>
+    <input id="pj_id" type="hidden">
+    <div class="field"><label>项目名称</label><input id="pj_name" maxlength="40" placeholder="如：求职冲刺"></div>
+    <div class="field"><label>描述（可选）</label><textarea id="pj_desc" placeholder="项目目标 / 范围"></textarea></div>
+    <div class="row2">
+      <div class="field"><label>主题色</label><input id="pj_color" type="color" value="#ff7a59"></div>
+      <div class="field"><label>状态</label><select id="pj_status"><option value="active">进行中</option><option value="done">已完成</option></select></div>
     </div>
-    <div class="field" data-page-node-id="zqFoG4xmfcmP6uiQRCDRTe"><label data-page-node-id="pFT5VMAvOuHTr4A1FmiEPx">关联目标 KR（可多选，将显示在项目卡）</label><div id="pj_kr_list" class="kr-checklist" data-page-node-id="AL16kFGayAYFlA849jYecK"></div></div>
-    <div class="row2" data-page-node-id="PIv4DAjTW2oTZF00Q4hm0t">
-      <div class="field" data-page-node-id="g11JEHgFq3EfQuu30tqeQm"><label data-page-node-id="ouAso3JOELFo4L31XG8SV1">开始日期</label><input id="pj_start" type="date" data-page-node-id="eUlgC3knIJizlC9oQ0Kc51"></div>
-      <div class="field" data-page-node-id="vTGRVjxaFesA1SFF2Z7Qm6"><label data-page-node-id="JgpgfF6YFMscc3WOdGCCgG">结束日期</label><input id="pj_end" type="date" data-page-node-id="UW3YpbYV19Id6vtBY2pTz3"></div>
+    <div class="field"><label>关联目标 KR（可多选，将显示在项目卡）</label><div id="pj_kr_list" class="kr-checklist"></div></div>
+    <div class="row2">
+      <div class="field"><label>开始日期</label><input id="pj_start" type="date"></div>
+      <div class="field"><label>结束日期</label><input id="pj_end" type="date"></div>
     </div>
-    <div class="field" data-page-node-id="OVvq7uK4CVL3Vb5IzirmGj"><label data-page-node-id="uPQZMkls5AKoGR86sqe93C">里程碑（每行一个：YYYY-MM-DD 描述）</label><textarea id="pj_ms" placeholder="2026-09-01 交付初稿&#10;2026-09-15 评审通过"></textarea></div>
-    <div class="defer-pop" id="pjDeferPop" style="display:none;" data-page-node-id="j6I9dnmkSD90bbr2KErtgp">
-      <div class="dp-title" data-page-node-id="wCUALSQiOni3rhCxxgcCgt">项目延期（只推截止日）</div>
-      <button class="dp-chip" data-pjd="1" data-page-node-id="GKp68zFCc14e8JRe7JClG8">+1天</button>
-      <button class="dp-chip" data-pjd="3" data-page-node-id="eluXDCCMiQYZDAvq6CNOXj">+3天</button>
-      <button class="dp-chip" data-pjd="7" data-page-node-id="l4p0bFY4boA0coouUE1qhR">+1周</button>
-      <button class="dp-chip" data-pjd="14" data-page-node-id="lfpoHzzlhx55yKDCGSbGyx">+2周</button>
-      <label class="dp-custom" data-page-node-id="gYM5Tn5JzMx0wrX0Ce0vCo">自定义截止日 <input type="date" id="pjDeferCustom" data-page-node-id="vLPdfnWGEndhdxyAvqDTur"></label>
-      <button class="dp-go" id="pjDeferCustomGo" data-page-node-id="nt4yJUDPlGL5UW4GYFwOXt">应用</button>
+    <div class="field"><label>里程碑（每行一个：YYYY-MM-DD 描述）</label><textarea id="pj_ms" placeholder="2026-09-01 交付初稿&#10;2026-09-15 评审通过"></textarea></div>
+    <div class="defer-pop" id="pjDeferPop" style="display:none;">
+      <div class="dp-title">项目延期（只推截止日）</div>
+      <button class="dp-chip" data-pjd="1">+1天</button>
+      <button class="dp-chip" data-pjd="3">+3天</button>
+      <button class="dp-chip" data-pjd="7">+1周</button>
+      <button class="dp-chip" data-pjd="14">+2周</button>
+      <label class="dp-custom">自定义截止日 <input type="date" id="pjDeferCustom"></label>
+      <button class="dp-go" id="pjDeferCustomGo">应用</button>
     </div>
-    <div class="modal-actions" data-page-node-id="ZYQ14BCpKhggTL7PKTeOkk">
-      <button class="btn btn-ghost" data-close="projMask" data-page-node-id="nyw7XVWbvYosxvjD4wClvu">取消</button>
-      <button class="btn btn-ghost" id="pjDefer" style="flex:none;width:auto;" data-page-node-id="yQ3QCNeW0T0nl8hz5sZ5AV">⏰ 延期</button>
-      <button class="btn btn-danger" id="pjDelete" style="display:none;" data-page-node-id="b7efy95fzEKbDsKugz1Tpi">删除</button>
-      <button class="btn btn-pri" id="pjSave" data-page-node-id="lxFJMkxogljsdQBF0Olerv">保存</button>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close="projMask">取消</button>
+      <button class="btn btn-ghost" id="pjDefer" style="flex:none;width:auto;">⏰ 延期</button>
+      <button class="btn btn-danger" id="pjDelete" style="display:none;">删除</button>
+      <button class="btn btn-pri" id="pjSave">保存</button>
     </div>
   </div>
 </div>
 
 <!-- 求职项目模板弹窗（P2：不独立建页，用任务台试水） -->
 <!-- 通用合并弹窗（目标 / 项目） -->
-<div class="mask" id="mergeMask" data-page-node-id="ubWXGU7wBleExn9b8pzTBx">
-  <div class="modal" style="max-width:600px" data-page-node-id="nNroHyT4ACdLbOsZsxWXmA">
-    <h2 data-page-node-id="7GeKGxu1XnHBNPDma4PQIH">🔀 合并重复项</h2>
-    <div class="hint" style="margin:-4px 0 10px;line-height:1.6;" data-page-node-id="QDh7c2LKsrNdWi5EqeraKo">把重复的目标(OKR)、项目或标签合并为一处：指标 / 子标签会迁移并自动去重，关联任务、子目标、项目引用都会跟着改挂，不会丢数据。合并前自动存快照，随时可 Ctrl+Z 撤销。</div>
-    <div class="mg-tabs" data-page-node-id="Tw081eYE1gqnW4yz7v0Hgt">
-      <button type="button" class="mg-tab active" data-mgkind="okr" data-page-node-id="s23fZgBupNEYXpCWgiwssl">目标 OKR</button>
-      <button type="button" class="mg-tab" data-mgkind="proj" data-page-node-id="2KmYWbEKlLiG2AZJyL1QfF">项目</button>
+<div class="mask" id="mergeMask">
+  <div class="modal" style="max-width:600px">
+    <h2>🔀 合并重复项</h2>
+    <div class="hint" style="margin:-4px 0 10px;line-height:1.6;">把重复的目标(OKR)、项目或标签合并为一处：指标 / 子标签会迁移并自动去重，关联任务、子目标、项目引用都会跟着改挂，不会丢数据。合并前自动存快照，随时可 Ctrl+Z 撤销。</div>
+    <div class="mg-tabs">
+      <button type="button" class="mg-tab active" data-mgkind="okr">目标 OKR</button>
+      <button type="button" class="mg-tab" data-mgkind="proj">项目</button>
       <button type="button" class="mg-tab" data-mgkind="tag">标签</button>
     </div>
-    <div class="row2" data-page-node-id="DSBKFGUfk7h0dHsTGjjupK">
-      <div class="field" data-page-node-id="qGITAdlDm0NTSQqGOZQ6Un"><label data-page-node-id="NuYEFvE1CFFK3BCFdbtqZX">保留（主项）</label><select id="mgKeep" data-page-node-id="y4YWgMD8NXiqmFoVNDkU3I"></select></div>
-      <div class="field" data-page-node-id="9zfvzNL21JccIqF6CbzRxo"><label data-page-node-id="Ui6yObHpzL3UJaTDB2q5Yj">并入后移除</label><select id="mgDrop" data-page-node-id="FolteANKG2XyfdnBU14fRp"></select></div>
+    <div class="row2">
+      <div class="field"><label>保留（主项）</label><select id="mgKeep"></select></div>
+      <div class="field"><label>并入后移除</label><select id="mgDrop"></select></div>
     </div>
-    <div class="mg-swap" data-page-node-id="0J0sWXv0W8WwKuAn4tNfaU"><button class="btn btn-ghost btn-sm" id="mgSwap" type="button" data-page-node-id="94hFxtXLLzkaMuPCzkfmXF">⇅ 交换主次</button></div>
-    <div id="mgBody" style="max-height:44vh;overflow:auto;margin-top:8px;" data-page-node-id="EQlcuUYMkTkpEFVbidiO3a"></div>
-    <div class="modal-actions" data-page-node-id="fWSb7hGNBIzXM2iYygQrSh">
-      <button class="btn btn-ghost" data-close="mergeMask" data-page-node-id="TGVGeWogD8bBFOBh5mPAOZ">取消</button>
-      <button class="btn btn-pri" id="mgGo" data-page-node-id="ptX7P74FrlLOUmEmktFAnL">执行合并</button>
+    <div class="mg-swap"><button class="btn btn-ghost btn-sm" id="mgSwap" type="button">⇅ 交换主次</button></div>
+    <div id="mgBody" style="max-height:44vh;overflow:auto;margin-top:8px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close="mergeMask">取消</button>
+      <button class="btn btn-pri" id="mgGo">执行合并</button>
     </div>
   </div>
 </div>
 
 <!-- OKR 编辑弹窗 -->
-<div class="mask" id="okrMask" data-page-node-id="WV474MaKAXAHy2nqxNX6F1">
-  <div class="modal" data-page-node-id="zfFFjkgWPVkyeJiHLNPa9I">
-    <h2 id="okrTitle" data-page-node-id="VKsaJ4WHbFKQdjVpiCVFvL">编辑目标</h2>
-    <input id="okr_mode" type="hidden" data-page-node-id="Ni6dvZIZozFSeZ9HOD4RBZ">
-    <input id="okr_objId" type="hidden" data-page-node-id="QhXilSJf26QOY4NLalPl3q">
-    <input id="okr_krId" type="hidden" data-page-node-id="gDbgQfD4ofrmRHHvGpOqGm">
-    <div id="okrObjGroup" data-page-node-id="sEQuy2g4k2BplNR768ZEDE">
-      <div class="field" data-page-node-id="wFST4pNZBkGlgSBylAONoN"><label data-page-node-id="qs8qg3CZPI4ndClVwCmEo1">目标名称（Objective）</label><input id="okr_o_title" maxlength="60" placeholder="如：2026 Q3 · 拿到心仪 offer" data-page-node-id="5wT3sU0fIbWiPMV1g5giA9"></div>
-      <div class="field" data-page-node-id="WLtsqhiEVzEjFauRIUFEYN"><label data-page-node-id="24AB4AiEx9hEOksD99Hbuu">周期（如 2026-Q3，可留空）</label><input id="okr_o_period" placeholder="2026-Q3" data-page-node-id="YrEAs68BXrE1XRUFgTFKWj"></div>
-      <div class="row2" data-page-node-id="MQxqTk4vqsFaacQREvxhol">
-        <div class="field" data-page-node-id="2pCBCrhkLsXJZ96tlPCHSI"><label data-page-node-id="jVaQ9qlTPZztRwODAJYC0z">层级</label><select id="okr_o_level" data-page-node-id="C9iTcDDP2vwrrHo6puWvxB"><option value="normal" data-page-node-id="IHQvS2u9ovVMzXvLLctUzo">普通</option><option value="year" data-page-node-id="zxrNT9i7cknRuJpIEwsmu3">年度</option><option value="quarter" data-page-node-id="ZmoQwot1RGElvAj4UtERzR">季度</option><option value="month" data-page-node-id="xEicKRy5ox5GPRUSiMCqrs">月度</option></select></div>
-        <div class="field" data-page-node-id="nzFc7lhXdgaEUfmrM51A5H"><label data-page-node-id="OgjjsKduEFsAS34d83V1bG">父目标（可选）</label><select id="okr_o_parent" data-page-node-id="zTDnJDqh3wQ3lcDi9kdmeZ"></select></div>
+<div class="mask" id="okrMask">
+  <div class="modal">
+    <h2 id="okrTitle">编辑目标</h2>
+    <input id="okr_mode" type="hidden">
+    <input id="okr_objId" type="hidden">
+    <input id="okr_krId" type="hidden">
+    <div id="okrObjGroup">
+      <div class="field"><label>目标名称（Objective）</label><input id="okr_o_title" maxlength="60" placeholder="如：2026 Q3 · 拿到心仪 offer"></div>
+      <div class="field"><label>周期（如 2026-Q3，可留空）</label><input id="okr_o_period" placeholder="2026-Q3"></div>
+      <div class="row2">
+        <div class="field"><label>层级</label><select id="okr_o_level"><option value="normal">普通</option><option value="year">年度</option><option value="quarter">季度</option><option value="month">月度</option></select></div>
+        <div class="field"><label>父目标（可选）</label><select id="okr_o_parent"></select></div>
       </div>
     </div>
-    <div id="okrKrGroup" data-page-node-id="DVJbC9le3Dx4SO4NSVwNDL">
-      <div class="field" data-page-node-id="zhNDAnVqdmKdJrgSkly94p"><label data-page-node-id="AiOaplzj6WLvtSpeHB24kI">关键结果 KR 名称</label><input id="okr_k_title" maxlength="60" placeholder="如：完成 30 次有效投递" data-page-node-id="FbUjFZF4kUuiWrJDTqeevh"></div>
-      <div class="row2" data-page-node-id="pVFBV4nR1nsA9DKuNzZfQ7">
-        <div class="field" data-page-node-id="IytYz0lDRAnGTO92BOInoG"><label data-page-node-id="xSv3xWzvKf9mnBELxYEBnk">目标值（数字）</label><input id="okr_k_target" type="number" min="0" value="0" data-page-node-id="cjNniRkmatcSnoZRPDk1Eb"></div>
-        <div class="field" data-page-node-id="4GmnHkGePJ4zHeG01kpLEm"><label data-page-node-id="hkB8CN38UbdgUebmpRwR9h">单位（如 次 / % / 篇）</label><input id="okr_k_unit" placeholder="次" maxlength="10" data-page-node-id="CLYDNkFKlzQPDEfQX3rOjP"></div>
+    <div id="okrKrGroup">
+      <div class="field"><label>关键结果 KR 名称</label><input id="okr_k_title" maxlength="60" placeholder="如：完成 30 次有效投递"></div>
+      <div class="row2">
+        <div class="field"><label>目标值（数字）</label><input id="okr_k_target" type="number" min="0" value="0"></div>
+        <div class="field"><label>单位（如 次 / % / 篇）</label><input id="okr_k_unit" placeholder="次" maxlength="10"></div>
       </div>
-      <div class="row2" data-page-node-id="n5634J7m7AzFKnpocXGBPO">
-        <div class="field" data-page-node-id="BqW9Howw9FqEtedhhLu1nx"><label data-page-node-id="YPJZbt7aSFBbS4T2KzePCf">权重（KR 在目标内的重要性，默认 1）</label><input id="okr_k_weight" type="number" min="0.1" step="0.1" value="1" data-page-node-id="0vu597ZlLcq3RmOvw4pAy5"></div>
-        <div class="field" data-page-node-id="lFcg6gTr6VzAYzYQYEbUXL"></div>
+      <div class="row2">
+        <div class="field"><label>权重（KR 在目标内的重要性，默认 1）</label><input id="okr_k_weight" type="number" min="0.1" step="0.1" value="1"></div>
+        <div class="field"></div>
       </div>
-      <div class="row2" data-page-node-id="NKoTvtHi9AlWgbEpF7dROU">
-        <div class="field" data-page-node-id="ceb6kuoXjftTNzW9l61Nx9"><label data-page-node-id="5qbOyDPdjH7FtO3xVRdDXu">开始日期</label><input id="okr_k_start" type="date" data-page-node-id="s1iH2DS3G1y3mswoSATiwK"></div>
-        <div class="field" data-page-node-id="y2z2Frg1pEa43ndMbxoeMz"><label data-page-node-id="9nlqP0Hs2BFmW1P3L6o8TF">结束日期</label><input id="okr_k_end" type="date" data-page-node-id="XYFUkJ51Wj6PP4KCKzoDZP"></div>
+      <div class="row2">
+        <div class="field"><label>开始日期</label><input id="okr_k_start" type="date"></div>
+        <div class="field"><label>结束日期</label><input id="okr_k_end" type="date"></div>
       </div>
-      <label class="kr-auto-row" data-page-node-id="Zp45INEDpOcCychZEGEH9D"><input type="checkbox" id="okr_k_auto" data-page-node-id="wWgZLxwxDS1l3Bro6QwNqT"> 自动汇总关联任务进度（由「关联此 KR 的任务」完成数自动计算，无需手动填值）</label>
+      <label class="kr-auto-row"><input type="checkbox" id="okr_k_auto"> 自动汇总关联任务进度（由「关联此 KR 的任务」完成数自动计算，无需手动填值）</label>
     </div>
-    <div class="modal-actions" data-page-node-id="N68CpCYlOocYzavSlV8LWf">
-      <button class="btn btn-ghost" data-close="okrMask" data-page-node-id="XevPAlMMcbZXMrPoBDMniv">取消</button>
-      <button class="btn btn-danger" id="okrDelete" style="display:none;" data-page-node-id="HpFyO0AhH1JQLstFqZPyO4">删除</button>
-      <button class="btn btn-pri" id="okrSave" data-page-node-id="MafycE7BovVLRTSLq8Uils">保存</button>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close="okrMask">取消</button>
+      <button class="btn btn-danger" id="okrDelete" style="display:none;">删除</button>
+      <button class="btn btn-pri" id="okrSave">保存</button>
     </div>
   </div>
 </div>
 
 <!-- 媒体进度弹窗 -->
-<div class="mask" id="mediaMask" data-page-node-id="T2xC6HhDfpIyxGn5kRirIp">
-  <div class="modal" data-page-node-id="rvwMmlNDA8YjQIjUi8AxDk">
-    <h2 id="mediaTitle" data-page-node-id="nfnROVjfv3xPy7rKyBCgKc">添加媒体进度</h2>
-    <div class="field" data-page-node-id="sVe5tNNc0XcZsaxXLWdAlY">
-      <label data-page-node-id="6Z1getpLSlhm2SDxH9QJ9R">类型</label>
-      <select id="m_type" data-page-node-id="pvVj3wEAYKDahr66WMZ67n"><option value="book" data-page-node-id="WIgTuTLGh59a0AcP2Pazyj">书籍</option><option value="tv" data-page-node-id="GHHByWprH37Ggyw8mevmIO">剧集 / 真人秀</option><option value="aud">有声剧 / 播客</option></select>
+<div class="mask" id="mediaMask">
+  <div class="modal">
+    <h2 id="mediaTitle">添加媒体进度</h2>
+    <div class="field">
+      <label>类型</label>
+      <select id="m_type"><option value="book">书籍</option><option value="tv">剧集 / 真人秀</option><option value="aud">有声剧 / 播客</option></select>
     </div>
-    <div class="field" data-page-node-id="z1YUXoXtvtwxkzuacjOXfD">
-      <label data-page-node-id="2BmirLNthT0LoeRj9XGJ79">名称</label>
-      <input id="m_title" maxlength="60" placeholder="书名或剧名" data-page-node-id="nwBaSBpLDSlvtzDcMlftpT">
+    <div class="field">
+      <label>名称</label>
+      <input id="m_title" maxlength="60" placeholder="书名或剧名">
     </div>
-    <div class="row2" data-page-node-id="ciO2Lh6s611xwD03CLhTcj">
-      <div class="field" data-page-node-id="uIPvyDPRRVdObiIoJKYSQf"><label data-page-node-id="Wy7Rmw1vMEGhRXo4PQONeA">当前进度</label><input id="m_current" type="number" min="0" value="0" data-page-node-id="5fsyIdOG03DIXKmW7XQEAi"></div>
-      <div class="field" data-page-node-id="jhfuDRYezcmAWmEkWsx18S"><label data-page-node-id="WEmn2AoKNWgQFSqepIAOln">总量</label><input id="m_total" type="number" min="1" value="1" data-page-node-id="1ifvXh5MLdL7f58FQzSFiO"></div>
+    <div class="row2">
+      <div class="field"><label>当前进度</label><input id="m_current" type="number" min="0" value="0"></div>
+      <div class="field"><label>总量</label><input id="m_total" type="number" min="1" value="1"></div>
     </div>
-    <div class="field" data-page-node-id="mUnitField"><label data-page-node-id="mUnitLabel">单位（如 章 / 集 / 页 / 课；百分比模式下可选留空）</label><input id="m_unit" maxlength="8" placeholder="章" data-page-node-id="mUnitInput"></div>
-    <label class="chk" style="display:flex;align-items:center;gap:6px;min-height:34px;cursor:pointer;margin:2px 0 6px;"><input type="checkbox" id="m_percent" data-page-node-id="mPercentChk"> 以百分比记录（当前进度直接填 0–100，如 45 表示 45%）</label>
-    <div class="field" data-page-node-id="0kNLnUOWz90yuxHJDNILQd"><label data-page-node-id="j4uA53cmc0CPZSZwy9arSL">平台（可选）</label><input id="m_platform" placeholder="微信读书 / B站 / 腾讯视频 ..." data-page-node-id="jmdAsrRf3ZZTWy7YWThm4r"></div>
-    <div class="modal-actions" data-page-node-id="JDjhWL2uuMJDgaCGBBGfbV">
-      <button class="btn btn-ghost" id="mCancel" data-page-node-id="f15oA1JNDPYqXP2b5Hluto">取消</button>
-      <button class="btn btn-pri" id="mSave" data-page-node-id="hbmzCaqu73chsT9i4h5Jw4">保存</button>
-      <button class="btn btn-danger" id="mDelete" style="display:none;flex:none;width:auto;" data-page-node-id="OQHkU0NC00hH7b8DQuydgb">删除</button>
+    <div class="field"><label>单位（如 章 / 集 / 页 / 课；百分比模式下可选留空）</label><input id="m_unit" maxlength="8" placeholder="章"></div>
+    <label class="chk" style="display:flex;align-items:center;gap:6px;min-height:34px;cursor:pointer;margin:2px 0 6px;"><input type="checkbox" id="m_percent"> 以百分比记录（当前进度直接填 0–100，如 45 表示 45%）</label>
+    <div class="field"><label>平台（可选）</label><input id="m_platform" placeholder="微信读书 / B站 / 腾讯视频 ..."></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="mCancel">取消</button>
+      <button class="btn btn-pri" id="mSave">保存</button>
+      <button class="btn btn-danger" id="mDelete" style="display:none;flex:none;width:auto;">删除</button>
     </div>
   </div>
 </div>
@@ -2115,70 +2115,70 @@
 </div>
 
 <!-- 习惯打卡弹窗 -->
-<div class="mask" id="habitMask" data-page-node-id="p38GBLqttvO4Kt98jEKAn5">
-  <div class="modal" data-page-node-id="ohrvMqs0Ambfh7c7qaXPEF">
-    <h2 id="habitTitle" data-page-node-id="qvpRNee079F1i6htNi9GiI">添加习惯</h2>
-    <div class="field" data-page-node-id="QQSFFa8XytFDopnuP1L54G">
-      <label data-page-node-id="unSb2IbTFwqe1nkillpgvW">名称</label>
-      <input id="habitName" maxlength="20" placeholder="如：喝水 2L / 阅读 30 分钟 / 冥想" data-page-node-id="RoBVlAkz67X5pWulGpY6jd">
+<div class="mask" id="habitMask">
+  <div class="modal">
+    <h2 id="habitTitle">添加习惯</h2>
+    <div class="field">
+      <label>名称</label>
+      <input id="habitName" maxlength="20" placeholder="如：喝水 2L / 阅读 30 分钟 / 冥想">
     </div>
-    <div class="row2" data-page-node-id="Nc74sOVU9S7N5GSAPQByb7">
-      <div class="field" data-page-node-id="k30dXH1DBzafTz6hdfDHWM">
-        <label data-page-node-id="tqJsANwnCNmh0abtowxXG7">图标</label>
-        <input id="habitEmoji" maxlength="4" placeholder="🌟" data-page-node-id="kAwwDJTtaBTBbIJ0P18RGr">
+    <div class="row2">
+      <div class="field">
+        <label>图标</label>
+        <input id="habitEmoji" maxlength="4" placeholder="🌟">
       </div>
-      <div class="field" data-page-node-id="ghLG26QijPwTmvjw8QKUOv">
-        <label data-page-node-id="eo55isKhwHB5NGQptlwH9f">频率</label>
-        <select id="habitFreq" data-page-node-id="bAkOh1G6kFO3MzfIZYUeCe">
-          <option value="daily" data-page-node-id="QTwLCwkz2anuVnpYA6W0KV">每天</option>
-          <option value="weekly" data-page-node-id="otkLDBu38mEjUJIAkTwtuD">每周 N 次</option>
-          <option value="custom" data-page-node-id="XwMZJBrdXDktmMtdUPEktN">自定义星期</option>
-          <option value="someday" data-page-node-id="JHev9P44rUUMF1M7jEJXEc">偶尔/灵活</option>
+      <div class="field">
+        <label>频率</label>
+        <select id="habitFreq">
+          <option value="daily">每天</option>
+          <option value="weekly">每周 N 次</option>
+          <option value="custom">自定义星期</option>
+          <option value="someday">偶尔/灵活</option>
         </select>
       </div>
-      <div class="row2" id="freqExtra" data-page-node-id="8lPVsWvDm4ZyIRGE3udstF">
-        <div class="field" id="freqNWrap" style="display:none" data-page-node-id="ZMj0RUcnZxDKg8HgRxp2ej"><label data-page-node-id="DcolmhhA4uiUkgoD1ENsbL">每周次数</label><input id="habitFreqN" type="number" min="1" max="7" value="3" data-page-node-id="rA57JeU1OeeaKBx69f2Fqf"></div>
-        <div class="field" id="freqDowsWrap" style="display:none" data-page-node-id="qkVXC1TgfbLV9bElCKcMYN"><label data-page-node-id="sAbLVbnCyp7QdGTAUSPYMy">目标星期（可多选）</label><div id="habitDows" style="display:flex;gap:4px;flex-wrap:wrap" data-page-node-id="LaJidoP1bDEJqvZJpH6kvX">
-          <label data-page-node-id="YkzcQpGtxgTG0ovH0tTDMl"><input type="checkbox" value="1" data-page-node-id="f4TePRk9o4vfBVwsGZKbxu">一</label><label data-page-node-id="zhHNaD1stIC7R08ur5RDeJ"><input type="checkbox" value="2" data-page-node-id="9XjXaIyoZmm5lj5qT4hKCt">二</label><label data-page-node-id="MyqC8bzK6Q6MFBw7Pz9LXB"><input type="checkbox" value="3" data-page-node-id="IkDnzqbGhr01Nx13K4Fdiy">三</label><label data-page-node-id="1qEEgCQjVyDtR0PoAVGjEL"><input type="checkbox" value="4" data-page-node-id="HF71P7EZIq8vmEeiy17kdp">四</label><label data-page-node-id="5EeNcA1ZKOK9EXkTEAFGsX"><input type="checkbox" value="5" data-page-node-id="Yj9AAjx1T35DgCHeWBQVuG">五</label><label data-page-node-id="8Vz7vgaKZ9Su9hvWOpA85n"><input type="checkbox" value="6" data-page-node-id="eMFqNLsklFDgH0gyn4Az4S">六</label><label data-page-node-id="lzfRsE0toGUJG2O54yHARy"><input type="checkbox" value="0" data-page-node-id="vMYZuplecrVkbVti9PGnV3">日</label>
+      <div class="row2" id="freqExtra">
+        <div class="field" id="freqNWrap" style="display:none"><label>每周次数</label><input id="habitFreqN" type="number" min="1" max="7" value="3"></div>
+        <div class="field" id="freqDowsWrap" style="display:none"><label>目标星期（可多选）</label><div id="habitDows" style="display:flex;gap:4px;flex-wrap:wrap">
+          <label><input type="checkbox" value="1">一</label><label><input type="checkbox" value="2">二</label><label><input type="checkbox" value="3">三</label><label><input type="checkbox" value="4">四</label><label><input type="checkbox" value="5">五</label><label><input type="checkbox" value="6">六</label><label><input type="checkbox" value="0">日</label>
         </div></div>
       </div>
-      <div class="field" data-page-node-id="9owAm6Ezts9RWutRdUSzDz">
-        <label data-page-node-id="gW2FUNhwTWTNvb0lTuuMKL">提醒时间（可选）</label>
-        <input id="habitTime" type="time" data-page-node-id="XaTHD1THxqkYpNEsHDxArT">
-        <span class="hint" style="margin-top:2px;" data-page-node-id="Gvdx2EkXZb22qgckEmKxKl">设置时间后，打开顶栏「提醒」开关即可在每天该时间收到浏览器通知（当天未打卡时提醒）。</span>
+      <div class="field">
+        <label>提醒时间（可选）</label>
+        <input id="habitTime" type="time">
+        <span class="hint" style="margin-top:2px;">设置时间后，打开顶栏「提醒」开关即可在每天该时间收到浏览器通知（当天未打卡时提醒）。</span>
       </div>
     </div>
-    <div class="modal-actions" data-page-node-id="hc1w9cA9PlG6g3wA7Twlt9">
-      <button class="btn btn-ghost" id="habitCancel" data-page-node-id="0TCSPfwnQGNTTuiBG6V1qg">取消</button>
-      <button class="btn btn-pri" id="habitSave" data-page-node-id="ZyNHGHDyx70RT6DDoydrJo">保存</button>
-      <button class="btn btn-danger" id="habitDelete" style="display:none;flex:none;width:auto;" data-page-node-id="uVKwOgy2NSVmxBA8mfgxrd">删除</button>
-      <button class="btn btn-ghost" id="habitPause" style="display:none;flex:none;width:auto;" data-page-node-id="FX45aKZM22XMDOi8N6EdvO">暂停</button>
-      <button class="btn btn-ghost" id="habitArchive" style="display:none;flex:none;width:auto;" data-page-node-id="Gg9hOzspdeOcQNPvqqRqLO">归档</button>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="habitCancel">取消</button>
+      <button class="btn btn-pri" id="habitSave">保存</button>
+      <button class="btn btn-danger" id="habitDelete" style="display:none;flex:none;width:auto;">删除</button>
+      <button class="btn btn-ghost" id="habitPause" style="display:none;flex:none;width:auto;">暂停</button>
+      <button class="btn btn-ghost" id="habitArchive" style="display:none;flex:none;width:auto;">归档</button>
     </div>
   </div>
 </div>
 
 <!-- 打卡样式 自定义弹窗 -->
-<div class="mask" id="hbStyleMask" data-page-node-id="9w2tIauoDUOf943aiEBud6">
-  <div class="modal" data-page-node-id="lnauq0o0kwJlJlcE9qJqMs">
-    <h2 data-page-node-id="ebkCVjZiIWcOE78tMLGMrD">🎨 打卡格子样式</h2>
-    <div class="hs-row" data-page-node-id="5vxeUTD59FKxnAh9G56LoL"><label class="hs-lbl" data-page-node-id="uzYLSBpr0rBIyHNQcpTHRC">已打卡底色</label><div class="hs-ctrl" data-page-node-id="7Fm4hnC1sMQp4HlHPb8p9e"><input type="color" id="hsDone" class="hs-color" data-page-node-id="M81rBwHXMCN0K70khLQ8F5"><span class="hint" style="margin:0" data-page-node-id="isg8YxKHKM22911IsuhHbr">未打卡的格子保持浅灰底</span></div></div>
-    <div class="hs-row" data-page-node-id="nG6TCi933eNrsvLpkSCwpd"><label class="hs-lbl" data-page-node-id="Bt9TB3cqmtXDcl7H1HL8pL">今日高亮</label><div class="hs-ctrl" data-page-node-id="fgtzERypTz5RdF0S7ZJWAk"><label class="hs-inline" data-page-node-id="AdYrIjcq5PdOSVF55lxXNg"><input type="checkbox" id="hsTodayRing" data-page-node-id="oTvfsSLzP8bsMIc7Mhn9WS"> 显示外框</label><label class="hs-inline" data-page-node-id="kj51KTqBYQBxAvhewWBnOT">颜色 <input type="color" id="hsTodayColor" class="hs-color" data-page-node-id="ud39NB9XB7OCeLDszyLGS8"></label></div></div>
-    <div class="hs-row" data-page-node-id="HMQ5tuB5XcDqY0nr4ObdnH"><label class="hs-lbl" data-page-node-id="XWyAIozQ71GdfIreGKQVAL">目标日高亮</label><div class="hs-ctrl" data-page-node-id="9Inj3MP4Zogv4Zf7BsXJBL"><label class="hs-inline" data-page-node-id="fPbLrVw31AzYBfOAoMHXRt"><input type="checkbox" id="hsTargetOn" data-page-node-id="BTHezm5ucH1YAJHrCckvRN"> 启用</label><label class="hs-inline" data-page-node-id="beEJMdJieAkz8IMNptC9ii">颜色 <input type="color" id="hsTargetColor" class="hs-color" data-page-node-id="PMm5L3rgY7LzcEUgNcvtvy"></label><span class="hint" style="margin:0" data-page-node-id="xLdtHf6SC1isNriempGgRP">每周/自定义频率下，目标日底色</span></div></div>
-    <div class="row2" data-page-node-id="R8aNZdXBGelzAgU4IjBcEu">
-      <div class="field" data-page-node-id="azv0GdZA16DMKGvwKSHMuv"><label data-page-node-id="W2f3GM4vMbfJE2QU342CFD">格子字体大小（px）</label><input type="number" id="hsFont" min="10" max="20" value="13" data-page-node-id="QtMZdjNSeJTXmCwS4GGrOb"></div>
-      <div class="field" data-page-node-id="lV5zIccmUvOKiAYZVF7XUu"><label data-page-node-id="bT3nEVjBYAarXdHjpGw49K">格子圆角（px）</label><input type="number" id="hsRadius" min="0" max="20" value="8" data-page-node-id="AuvgDKYNIeCKP899zFGVOy"></div>
+<div class="mask" id="hbStyleMask">
+  <div class="modal">
+    <h2>🎨 打卡格子样式</h2>
+    <div class="hs-row"><label class="hs-lbl">已打卡底色</label><div class="hs-ctrl"><input type="color" id="hsDone" class="hs-color"><span class="hint" style="margin:0">未打卡的格子保持浅灰底</span></div></div>
+    <div class="hs-row"><label class="hs-lbl">今日高亮</label><div class="hs-ctrl"><label class="hs-inline"><input type="checkbox" id="hsTodayRing"> 显示外框</label><label class="hs-inline">颜色 <input type="color" id="hsTodayColor" class="hs-color"></label></div></div>
+    <div class="hs-row"><label class="hs-lbl">目标日高亮</label><div class="hs-ctrl"><label class="hs-inline"><input type="checkbox" id="hsTargetOn"> 启用</label><label class="hs-inline">颜色 <input type="color" id="hsTargetColor" class="hs-color"></label><span class="hint" style="margin:0">每周/自定义频率下，目标日底色</span></div></div>
+    <div class="row2">
+      <div class="field"><label>格子字体大小（px）</label><input type="number" id="hsFont" min="10" max="20" value="13"></div>
+      <div class="field"><label>格子圆角（px）</label><input type="number" id="hsRadius" min="0" max="20" value="8"></div>
     </div>
-    <div class="modal-actions" data-page-node-id="M5D3KUiIxNlWcxhC3l4fuN">
-      <button class="btn btn-ghost" id="hsReset" data-page-node-id="O7Eu9yOCY4g6iVSZ7KyVT2">恢复默认</button>
-      <button class="btn btn-ghost" id="hsCancel" data-page-node-id="D9DHlrO5WSLbKqwGxc50f6">取消</button>
-      <button class="btn btn-pri" id="hsSave" data-page-node-id="80MaMzbFXZzfNcOB2nvS8k">保存</button>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="hsReset">恢复默认</button>
+      <button class="btn btn-ghost" id="hsCancel">取消</button>
+      <button class="btn btn-pri" id="hsSave">保存</button>
     </div>
   </div>
 </div>
 
 <!-- 补打 / 取消 多天卡 弹窗 -->
-<div class="mask" id="habitBackfillMask" data-page-node-id="qBfHabitBackfill">
+<div class="mask" id="habitBackfillMask">
   <div class="modal">
     <h2>📅 补打 / 取消多天卡</h2>
     <div class="seg" id="bfMode" style="display:flex;gap:8px;margin:2px 0 12px">
@@ -2203,28 +2203,28 @@
 </div>
 
 <!-- 分类 / 优先级 管理弹窗 -->
-<div class="mask" id="optMask" data-page-node-id="NnggH0v6zN7RHFC1oFCmZG">
-  <div class="modal" data-page-node-id="51B0lQblPDCZMRmKk6DA0l">
-    <h2 data-page-node-id="Rh4jPEs1G47xdFx0WdSIrE"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="ETTpVvPN5B6Kqo96cS1Zwz"><circle cx="12" cy="12" r="3" data-page-node-id="8A0zKIlaDcrGxDilEXS1ou"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" data-page-node-id="ZDwOBjq5nBSrxUZregFOUb"/></svg>分类与优先级</h2>
-    <p class="hint" style="margin-top:0;" data-page-node-id="SlQBEP3XEx6ASV7aWaLoKG">改名会自动同步已有任务；删除时若仍有任务在用，会让你选择迁移目标。每组至少保留 1 项。若改名后仍有任务留着旧名称，它们会作为「遗留值」出现在下方，可一键合并到现行名称。</p>
-    <div class="field" data-page-node-id="RnrORPsf1u9xYrvDQbN5Fq">
-      <label data-page-node-id="UFnYvJHe2z1x4jcEJrtWJ5">任务分类（颜色决定日历色块）</label>
-      <div class="optlist" id="catList" data-page-node-id="lbZCrDvO3NfEzD7TCjXQzW"></div>
-      <div class="optadd" data-page-node-id="AWe3cLnn32bZl2F0HrYNls">
-        <input type="color" id="catNewColor" value="#4F7CFF" title="颜色" data-page-node-id="t3oPgk75xyiy1QFV26Ua2r">
-        <input type="text" id="catNewColorHex" class="oc-hex" value="#4F7CFF" placeholder="#RRGGBB" title="颜色色号" data-page-node-id="YvqnlFuoCZ1WLKV8odBrVS">
-        <input type="text" id="catNew" placeholder="新分类名称，如：副业 / 家庭" maxlength="12" data-page-node-id="ow2dBFcRsDFCDfrQEvO6Ms">
-        <button class="btn btn-ghost btn-sm" id="catAdd" type="button" data-page-node-id="YcC2TuNFVnrKIj9wNhhRQH">+ 添加</button>
+<div class="mask" id="optMask">
+  <div class="modal">
+    <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>分类与优先级</h2>
+    <p class="hint" style="margin-top:0;">改名会自动同步已有任务；删除时若仍有任务在用，会让你选择迁移目标。每组至少保留 1 项。若改名后仍有任务留着旧名称，它们会作为「遗留值」出现在下方，可一键合并到现行名称。</p>
+    <div class="field">
+      <label>任务分类（颜色决定日历色块）</label>
+      <div class="optlist" id="catList"></div>
+      <div class="optadd">
+        <input type="color" id="catNewColor" value="#4F7CFF" title="颜色">
+        <input type="text" id="catNewColorHex" class="oc-hex" value="#4F7CFF" placeholder="#RRGGBB" title="颜色色号">
+        <input type="text" id="catNew" placeholder="新分类名称，如：副业 / 家庭" maxlength="12">
+        <button class="btn btn-ghost btn-sm" id="catAdd" type="button">+ 添加</button>
       </div>
     </div>
-    <div class="field" style="margin-top:16px;" data-page-node-id="Qvd4zfiLErAdDJqYjkDCxp">
-      <label data-page-node-id="cjkye2iaLsdcn1Y7TcBrjC">优先级（列表自上而下 = 由高到低）</label>
-      <div class="optlist" id="priList" data-page-node-id="6K3Wa3uNnzdiRHc9y0VuYZ"></div>
-      <div class="optadd" data-page-node-id="oUSWLGvDbGdkHmwuPgUWcy">
-        <input type="color" id="priNewColor" value="#ff5c5c" title="颜色" data-page-node-id="pOsBcECQqoNcR5IjkTSVFU">
-        <input type="text" id="priNewColorHex" class="oc-hex" value="#FF5C5C" placeholder="#RRGGBB" title="颜色色号" data-page-node-id="JPV1HPBlodBtXlp8TYcswq">
-        <input type="text" id="priNew" placeholder="新优先级名称，如：P3 / 待定" maxlength="12" data-page-node-id="BEJXmh4URBvDsHcUzv9nYv">
-        <button class="btn btn-ghost btn-sm" id="priAdd" type="button" data-page-node-id="ucls2V6QSvQnrVVVgiDtTs">+ 添加</button>
+    <div class="field" style="margin-top:16px;">
+      <label>优先级（列表自上而下 = 由高到低）</label>
+      <div class="optlist" id="priList"></div>
+      <div class="optadd">
+        <input type="color" id="priNewColor" value="#ff5c5c" title="颜色">
+        <input type="text" id="priNewColorHex" class="oc-hex" value="#FF5C5C" placeholder="#RRGGBB" title="颜色色号">
+        <input type="text" id="priNew" placeholder="新优先级名称，如：P3 / 待定" maxlength="12">
+        <button class="btn btn-ghost btn-sm" id="priAdd" type="button">+ 添加</button>
       </div>
     </div>
     <div class="field" id="staleField" style="margin-top:16px;display:none;">
@@ -2233,50 +2233,50 @@
       <div class="optlist" id="staleList"></div>
       <button class="btn btn-ghost btn-sm" id="staleAuto" type="button">⚡ 按名称一键匹配并合并</button>
     </div>
-    <div class="modal-actions" data-page-node-id="nSy52VDGsqLvzqDwpFBNmn">
-      <button class="btn btn-ghost" id="optReset" style="flex:none;width:auto;" data-page-node-id="OIUn2yIYjwYUiDZWMPPmJK">恢复默认</button>
-      <button class="btn btn-pri" id="optClose" data-page-node-id="cQCfHANFAA1yal0hMCU4qf">完成</button>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="optReset" style="flex:none;width:auto;">恢复默认</button>
+      <button class="btn btn-pri" id="optClose">完成</button>
     </div>
   </div>
 </div>
 
 <!-- 标签管理弹窗 -->
-<div class="mask" id="tagMask" data-page-node-id="N1bmwUakLadgAF6lXPFCFs">
-  <div class="modal" data-page-node-id="Ao7Im1R1bBAAS0A3pAfu2Q">
-    <h2 data-page-node-id="TNEBoj57p0lpn9h5ghSiDj"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="3nawNbFX2uycFfB3VwfJp8"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" data-page-node-id="c84wyMB3vV4PuhoqBCdXos"/><line x1="7" y1="7" x2="7.01" y2="7" data-page-node-id="gQOUByk1wLhYSXozN2GCb0"/></svg>标签管理</h2>
-    <p class="hint" style="margin-top:0;" data-page-node-id="UjmwCLxf3alzC6WlclChmx">标签支持「父标签 / 子标签」两级。打开本页会自动汇总任务中已使用的标签（无需逐个手动添加），数字为该标签被多少任务使用。删除父标签时，相关任务的该标签会被移除（子标签一并移除）。若要把两个标签统一成一个，点行内的 <b>⇄</b> 合并，相关任务的标签会自动改成目标标签。</p>
-    <div class="optlist" id="tagList" data-page-node-id="g06dXUwdqrEOwBwyC9pVCf"></div>
-    <div class="optadd" data-page-node-id="e0nF2KrgXk2WHLNRL3RBHh">
-      <input type="text" id="tagNew" placeholder="新标签名，如：求职 / 项目" maxlength="12" data-page-node-id="8g1bJqcHXD6uNiRD1PoRTE">
-      <button class="btn btn-ghost btn-sm" id="tagAdd" type="button" data-page-node-id="A8PYnmokfBkRCps6cqs12i">+ 添加标签</button>
+<div class="mask" id="tagMask">
+  <div class="modal">
+    <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>标签管理</h2>
+    <p class="hint" style="margin-top:0;">标签支持「父标签 / 子标签」两级。打开本页会自动汇总任务中已使用的标签（无需逐个手动添加），数字为该标签被多少任务使用。删除父标签时，相关任务的该标签会被移除（子标签一并移除）。若要把两个标签统一成一个，点行内的 <b>⇄</b> 合并，相关任务的标签会自动改成目标标签。</p>
+    <div class="optlist" id="tagList"></div>
+    <div class="optadd">
+      <input type="text" id="tagNew" placeholder="新标签名，如：求职 / 项目" maxlength="12">
+      <button class="btn btn-ghost btn-sm" id="tagAdd" type="button">+ 添加标签</button>
     </div>
-    <div class="modal-actions" data-page-node-id="vnBr6H69pHvLC8lXt3HH67">
-      <button class="btn btn-pri" id="tagClose" data-page-node-id="iE4zHGMXSOw6g6yNBLs0Id">完成</button>
+    <div class="modal-actions">
+      <button class="btn btn-pri" id="tagClose">完成</button>
     </div>
   </div>
 </div>
 
 <!-- 快捷键帮助弹窗 -->
-<div class="mask" id="helpMask" data-page-node-id="EaktNaxeaNnaL27u1F2Hxa">
-  <div class="modal" data-page-node-id="3hcWGti3uFaksVbAcqvW1c">
-    <h2 data-page-node-id="05RHG7VqeHGBzrKnjvRJsJ"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="AcbF84Pvxn25pNovR1kK2T"><rect x="2" y="6" width="20" height="12" rx="2" data-page-node-id="eA45VTvqpryPygUVVoxeGl"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10" data-page-node-id="RaGX5fwHkEogaPCrnMOx2b"/></svg>键盘快捷键</h2>
-    <div class="shortcuts" data-page-node-id="gbJpsawNBbLNBc5dAFtzcI">
-      <div class="row" data-page-node-id="sUbsqpvgpRr1HGYE5XBbDH"><span data-page-node-id="bCYjUlTAeyucYBwStAGaXd">新建任务</span><b data-page-node-id="wLmlx54rWqTeL2CH9nEEdh"><span class="kbd" data-page-node-id="f8OdHJ1UzzoFQAyPItp9M8">N</span></b></div>
-      <div class="row" data-page-node-id="opkk8ZFTGYWfsEs4Nxidn2"><span data-page-node-id="Zp4MicCwAZtVtOdWuoATYY">聚焦搜索</span><b data-page-node-id="gEx48fxYRFmso7kPvTfWT1"><span class="kbd" data-page-node-id="eI5YBP1CkKqlctCT3BgYmW">/</span></b></div>
-      <div class="row" data-page-node-id="cXnHYTKrQoZdZ6461XkV27"><span data-page-node-id="BeO1P4YJXFnxim4k8XqL2X">全局搜索 / 命令面板</span><b data-page-node-id="sJ4IoYkXFNnzE29xtBzQ7s"><span class="kbd" data-page-node-id="kEqa9mEwGRa87lfFVymEDE">Ctrl</span>+<span class="kbd" data-page-node-id="7rfTqviHw2QN0t0wDmhMdE">K</span></b></div>
-      <div class="row" data-page-node-id="Nr1vJDHjnZwKUxkyTkXoIu"><span data-page-node-id="O7cp8CwjjlpLoWUJHpGghA">回到今天</span><b data-page-node-id="hTtL3m9DFekYGSpscjPf5f"><span class="kbd" data-page-node-id="ouqwvWuMvLrkwgyMxVOT52">T</span></b></div>
-      <div class="row" data-page-node-id="W4aiCiM2D3LqkN5TQ8SnEY"><span data-page-node-id="UcwXiI2mI4D6aBNMkE01Gt">撤销操作</span><b data-page-node-id="YF5U7cGDE2TfVu1fmVk4CT"><span class="kbd" data-page-node-id="cD1NWPcgDwdA2PDGPmFFwQ">U</span> / <span class="kbd" data-page-node-id="0sKbgjEtxqNJUEn4eaEnfc">Ctrl</span>+<span class="kbd" data-page-node-id="n4UosoB6NFkQ9hBLKChuIA">Z</span></b></div>
-      <div class="row" data-page-node-id="YEYCWz2LM4N9PaYnuLJBtq"><span data-page-node-id="ijc5iJn9FQlr3Ta0a0zjQy">切换视图</span><b data-page-node-id="Cw3mvYh7zENPigxhp0Y4f2"><span class="kbd" data-page-node-id="7MWQxo6KI02Bp1VZfDuI8T">1</span>~<span class="kbd" data-page-node-id="qDCpkcQ5IMyQcGUVVeqEJ0">9</span></b></div>
-      <div class="row" data-page-node-id="DqzWHdo4PPgsdkpEo5F0o4"><span data-page-node-id="A9Tlmi2wRVyLS1qYfHiRmx">分类/优先级管理</span><b data-page-node-id="bYz2ETdg0CbeMAxA6FBa3B"><span class="kbd" data-page-node-id="6uOwwkzAVONhEWeWmm0Gf1">G</span></b></div>
-      <div class="row" data-page-node-id="A3XUXM0tVAtWlX2bBraH3o"><span data-page-node-id="mEcsFW8oKtAOyfBXr4xq6Q">上一 / 下一周期</span><b data-page-node-id="HRWlqmjzBTTVLcj91VIXdF"><span class="kbd" data-page-node-id="ajPPSlsDQx4e9l6bXFAmai">←</span> <span class="kbd" data-page-node-id="oLDyACi3DpuvJpWJr4oOEU">→</span></b></div>
-      <div class="row" data-page-node-id="VHLXsWyW0dZyDZDoqz7Vt1"><span data-page-node-id="sKtlj2SJKNEQIDQVNKlHot">本帮助</span><b data-page-node-id="RuZ3hIVjHpnUL1mrTcoko7"><span class="kbd" data-page-node-id="9EctU34ZEb2XqHUmGWQB1n">?</span></b></div>
-      <div class="row" data-page-node-id="A2oCpryYQrDC1e0CIMAW2P"><span data-page-node-id="UmUsGqRHRvGrQLWrA9S51L">关闭弹窗</span><b data-page-node-id="ZdEk5coXRg2wfY4w5pekh6"><span class="kbd" data-page-node-id="596TsgWS5A1yBnfIYPJL0V">Esc</span></b></div>
+<div class="mask" id="helpMask">
+  <div class="modal">
+    <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>键盘快捷键</h2>
+    <div class="shortcuts">
+      <div class="row"><span>新建任务</span><b><span class="kbd">N</span></b></div>
+      <div class="row"><span>聚焦搜索</span><b><span class="kbd">/</span></b></div>
+      <div class="row"><span>全局搜索 / 命令面板</span><b><span class="kbd">Ctrl</span>+<span class="kbd">K</span></b></div>
+      <div class="row"><span>回到今天</span><b><span class="kbd">T</span></b></div>
+      <div class="row"><span>撤销操作</span><b><span class="kbd">U</span> / <span class="kbd">Ctrl</span>+<span class="kbd">Z</span></b></div>
+      <div class="row"><span>切换视图</span><b><span class="kbd">1</span>~<span class="kbd">9</span></b></div>
+      <div class="row"><span>分类/优先级管理</span><b><span class="kbd">G</span></b></div>
+      <div class="row"><span>上一 / 下一周期</span><b><span class="kbd">←</span> <span class="kbd">→</span></b></div>
+      <div class="row"><span>本帮助</span><b><span class="kbd">?</span></b></div>
+      <div class="row"><span>关闭弹窗</span><b><span class="kbd">Esc</span></b></div>
     </div>
-    <p class="hint" style="margin-top:14px;" data-page-node-id="EhDIAf0y25uCEtVvNS9bAf">视图序号：<b data-page-node-id="FXCp6iMS939GL1gDbiUvRi">1</b> 收件箱 · <b data-page-node-id="Hs1qJXmcGtfkkMAfgk2Pde">2</b> 月 · <b data-page-node-id="jZbAXanZWwc9EAvp8hvbnT">3</b> 周 · <b data-page-node-id="GehuvL816E1RxeMEpGu8RW">4</b> 日 · <b data-page-node-id="TtBTbfH2JGNFuv6bDnKUE1">5</b> 甘特 · <b data-page-node-id="u6YlqB5bNE8vC4D6EeXsBK">6</b> 进度 · <b data-page-node-id="9SoJn12081NTJM9r38tD2U">7</b> 习惯 · <b data-page-node-id="a4S4Am1ZcUDABGbWnZuCQQ">8</b> 清单 · <b data-page-node-id="O6wcYy9N3r5Az2eXrD7EuK">9</b> 统计</p>
+    <p class="hint" style="margin-top:14px;">视图序号：<b>1</b> 收件箱 · <b>2</b> 月 · <b>3</b> 周 · <b>4</b> 日 · <b>5</b> 甘特 · <b>6</b> 进度 · <b>7</b> 习惯 · <b>8</b> 清单 · <b>9</b> 统计</p>
   </div>
 </div>
 
-<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true" data-page-node-id="9N6iITJiJzaAlXMCSOt0SS"></div>
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 <div id="srAnnounce" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <!-- 自定义确认弹窗（替代原生 confirm，体验/风格统一） -->
@@ -2317,14 +2317,14 @@
   </div>
 </div>
 
-<div class="mask" id="confirmMask" data-page-node-id="Ftku3SRbeSOH7F85JGXKBD">
-  <div class="modal" style="max-width:400px;" data-page-node-id="KshzYFS76Tc8ENanmtDa3b">
-    <h3 id="confirmTitle" data-page-node-id="Soh3RkxNkHlzTnDT63jJTE">确认</h3>
-    <p class="hint" id="confirmMsg" style="margin-top:0;font-size:14px;color:var(--ink);white-space:pre-wrap;" data-page-node-id="9POpsA0nJFhAYD245GGCr6"></p>
-    <div class="modal-act" data-page-node-id="qRHQDdfVEPE1nQHr1wB7hS">
+<div class="mask" id="confirmMask">
+  <div class="modal" style="max-width:400px;">
+    <h3 id="confirmTitle">确认</h3>
+    <p class="hint" id="confirmMsg" style="margin-top:0;font-size:14px;color:var(--ink);white-space:pre-wrap;"></p>
+    <div class="modal-act">
       <button class="btn btn-ghost" id="confirmExtra" style="display:none;"></button>
-      <button class="btn btn-ghost" id="confirmCancel" data-page-node-id="DquP4NMwefAN8RdI6QjRFr">取消</button>
-      <button class="btn btn-pri" id="confirmOk" data-page-node-id="8MTALu2FNR3Z7LUwygs3r3">确定</button>
+      <button class="btn btn-ghost" id="confirmCancel">取消</button>
+      <button class="btn btn-pri" id="confirmOk">确定</button>
     </div>
   </div>
 </div>
@@ -2355,25 +2355,25 @@
 </div>
 
 <!-- 顶部 widget 编辑弹窗 -->
-<div class="mask" id="widgetMask" data-page-node-id="EqSNi29y2DZLrxKbEHIqz7">
-  <div class="w-modal" data-page-node-id="GKUxQESRctq5ngveRcEZVb">
-    <h3 id="wModalTitle" data-page-node-id="qFLO36amIuXG1EBpbTrAHA">添加卡片</h3>
-    <div class="w-row"><label data-page-node-id="AU8SZT6vxbeYT2kYHnofid">类型</label><select id="wType" data-page-node-id="czuvlcQyBYLMRw6woWC9iG">
-      <option value="text" data-page-node-id="rK9uxX5origEcun4cEAqgE">便签（标题 + 文字）</option>
-      <option value="link" data-page-node-id="PxHm5wE9SVNg3mRxgJwnqE">快捷链接（点开新标签）</option>
-      <option value="num" data-page-node-id="oUlDeAPgtCArzWOdnDDFhQ">手动数字（标题 + 数字）</option>
+<div class="mask" id="widgetMask">
+  <div class="w-modal">
+    <h3 id="wModalTitle">添加卡片</h3>
+    <div class="w-row"><label>类型</label><select id="wType">
+      <option value="text">便签（标题 + 文字）</option>
+      <option value="link">快捷链接（点开新标签）</option>
+      <option value="num">手动数字（标题 + 数字）</option>
     </select></div>
-    <div id="wRowTitle" class="w-row" data-page-node-id="KIfE9EO78z8MvKeZLcrKMn"><label data-page-node-id="CQZqUIvSyJ5hQz9F2kFuHo">标题</label><input id="wTitle" placeholder="例如：本月目标" data-page-node-id="qYiAFWI410Cnsqu8GCHiwN"></div>
-    <div id="wRowText" class="w-row" data-page-node-id="cdYe4gFJZkAPj1gnNVkWGM"><label data-page-node-id="TUsajyGamqXcdg1SZIOzwB">内容</label><textarea id="wText" rows="3" placeholder="支持多行文字"></textarea></div>
-    <div id="wRowLink" class="w-row" style="display:none" data-page-node-id="rJEmwP6d7pocXPT7hAwIon"><label data-page-node-id="lINb7sDI6xNmOd7bWMUgD6">链接 URL</label><input id="wUrl" placeholder="https://…" data-page-node-id="UV1NWIcAv5eq6llv4AbpD2"></div>
-    <div id="wRowNum" class="w-row" style="display:none" data-page-node-id="3LZL24cIHo1sRxF5xTzQOS"><label data-page-node-id="JhoBY0rXK2n5CxFgunKNC0">数字</label><input id="wNum" placeholder="例如 8/10" data-page-node-id="3wVy4Ka20AdpU07xaVtCIt"></div>
-    <div style="margin-top:16px;border-top:1px dashed var(--line);padding-top:14px" data-page-node-id="gMJ5FcQhPFc7t1VfzqyhpH">
-      <label style="display:block;font-size:12.5px;color:var(--sub);margin-bottom:8px" data-page-node-id="wmXsr8Q8gixj5twNaYgASU">或添加功能卡（自动统计，无需手填）</label>
-      <div id="wPresets" class="w-presets" data-page-node-id="q6syLFqXCse85Sh7Y10uVG"></div>
+    <div id="wRowTitle" class="w-row"><label>标题</label><input id="wTitle" placeholder="例如：本月目标"></div>
+    <div id="wRowText" class="w-row"><label>内容</label><textarea id="wText" rows="3" placeholder="支持多行文字"></textarea></div>
+    <div id="wRowLink" class="w-row" style="display:none"><label>链接 URL</label><input id="wUrl" placeholder="https://…"></div>
+    <div id="wRowNum" class="w-row" style="display:none"><label>数字</label><input id="wNum" placeholder="例如 8/10"></div>
+    <div style="margin-top:16px;border-top:1px dashed var(--line);padding-top:14px">
+      <label style="display:block;font-size:12.5px;color:var(--sub);margin-bottom:8px">或添加功能卡（自动统计，无需手填）</label>
+      <div id="wPresets" class="w-presets"></div>
     </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px" data-page-node-id="FfMLz7oDlCSYkSUy5Dli3D">
-      <button class="btn btn-ghost" id="wCancel" data-page-node-id="5viZM7cuk6soQO2ILbs7TQ">取消</button>
-      <button class="btn btn-pri" id="wSave" data-page-node-id="T6grBDkLzMnxgPx9gBOTk1">保存</button>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-ghost" id="wCancel">取消</button>
+      <button class="btn btn-pri" id="wSave">保存</button>
     </div>
   </div>
 </div>
@@ -2919,6 +2919,17 @@ function setRecOverride(t, date, patch){
   touchTask(t);
 }
 function delRecOverride(t, date){ if(t.overrides) delete t.overrides[ovKeyD(date)]; }
+/* 清掉「某一次重复实例」留下的进度：subDone[该日] / doneDates 里的这天 / doneAt[该日]。
+   「跳过本次」只写 overrides[date]={skip:true} 是不够的：那天的勾选会原地残留，
+   日后再取消跳过，实例带着一堆已勾子项重新出现 —— 「任务未完成、子项却全勾」的自相矛盾态，
+   而且与既有的「子任务全勾 ⇒ 自动完成」规则互相打架。 */
+function clearInstanceProgress(t, date){
+  if(!t || !date) return;
+  const d=ovKeyD(date);
+  if(t.subDone && t.subDone[d]!==undefined) delete t.subDone[d];
+  if(Array.isArray(t.doneDates)){ const i=t.doneDates.indexOf(d); if(i>=0) t.doneDates.splice(i,1); }
+  if(t.doneAt && t.doneAt[d]!==undefined) delete t.doneAt[d];
+}
 /* 把「表单里的绝对时间」落到指定发生日上，保留时刻与相对模板的日偏移。
    背景：编辑重复任务某一次时，表单里的起止日期回填的是【整组模板的起始日】
    （这是有意的——日期由重复规则决定，用户只改时刻）。若把该绝对日期直接写进
@@ -3389,11 +3400,41 @@ async function restoreFullBackup(idx){
   try{ if(typeof okrsSave==="function") okrsSave(); }catch(e){}
   renderAll(); renderFullBackup(); toast("已恢复自动备份 ✓");
 }
+/* ===== 任务内「按日期累积」字段的修剪（配额防护，2026-09-14）=====
+   doneDates / doneAt / subDone / overrides 都是按日期一条条累积、只增不减的：
+   每日任务一年就是 300+ 条，几年下来会顶到 localStorage 配额（5MB），并把每次落盘的
+   全量环形快照与云端上传 payload 一起拖大。这里在每次落盘前裁剪：
+   只保留近 TASK_HIST_KEEP_DAYS 天，doneDates 每任务另设条数上限。
+   影响面（如实说明）：任务弹窗「完成履历」超出窗口的旧记录会被清掉；
+   统计页趋势图走的是 stats.history（另有 HISTORY_MAX 上限），不受此处影响。 */
+const TASK_HIST_KEEP_DAYS=730;
+const TASK_HIST_KEEP_MAX=500;
+function pruneTaskHistory(){
+  try{
+    const cut=ymd(addDays(startOfDay(new Date()), -TASK_HIST_KEEP_DAYS));   // 早于此日期的记录丢弃
+    let n=0;
+    for(const t of (state.tasks||[])){
+      if(!t) continue;
+      if(Array.isArray(t.doneDates) && t.doneDates.length){
+        const before=t.doneDates.length;
+        let keep=t.doneDates.filter(x=>String(x).slice(0,10)>=cut);
+        keep=keep.sort();                                  // ISO 日期串排序即时间序
+        const seen=new Set(); keep=keep.filter(x=>{ const k=String(x); if(seen.has(k)) return false; seen.add(k); return true; });
+        if(keep.length>TASK_HIST_KEEP_MAX) keep=keep.slice(-TASK_HIST_KEEP_MAX);
+        if(keep.length!==before){ t.doneDates=keep; n+=before-keep.length; }
+      }
+      const cutKeys=o=>{ if(!o) return; for(const k of Object.keys(o)){ if(k==="self") continue; if(String(k).slice(0,10)<cut){ delete o[k]; n++; } } };
+      cutKeys(t.doneAt); cutKeys(t.subDone); cutKeys(t.overrides);
+    }
+    return n;
+  }catch(e){ return 0; }
+}
 function save(){
   // 节流：连续多次保存合并为一次 localStorage 写入，降低大库主线程开销（B2）
   if(_saveTimer) clearTimeout(_saveTimer);
   _saveTimer=setTimeout(()=>{
     _saveTimer=null;
+    pruneTaskHistory();
     storageSetSafe(KEY, JSON.stringify(state.tasks));
     markLocalSave(); maybeBackupHint();
     fullRingPush();   // M3：每次落盘顺手留一份全量快照
@@ -3458,11 +3499,13 @@ const TRASH_KEY="wb_taskhub_trash_v1";
 const TRASH_MAX=50;
 function trashLoad(){ try{ const a=JSON.parse(localStorage.getItem(TRASH_KEY)||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
 function trashSave(a){ try{ localStorage.setItem(TRASH_KEY, JSON.stringify(a)); }catch(e){} }
-function pushTrash(t){
+function pushTrash(t, extra){
   if(!t||t.id==null) return;
   try{
     let a=trashLoad().filter(x=>x && String((x.task&&x.task.id)||"")!==String(t.id));
-    a.push({task:JSON.parse(JSON.stringify(t)), at:Date.now()});
+    const rec={task:JSON.parse(JSON.stringify(t)), at:Date.now()};
+    if(extra) Object.assign(rec, extra);          // 例：{hist:[...]} 一并存被清掉的完成流水
+    a.push(rec);
     while(a.length>TRASH_MAX) a.shift();
     trashSave(a);
   }catch(e){}
@@ -3471,6 +3514,7 @@ function restoreTrash(idx){
   const a=trashLoad(); const it=a[idx]; if(!it||!it.task) return;
   if(state.tasks.some(x=>String(x.id)===String(it.task.id))){ toast("该任务已在列表中，无需恢复"); return; }
   state.tasks.push(it.task);
+  restoreHistory(it.hist);   // 删除时一并清掉的完成流水，恢复任务时还回来
   deletedIds=deletedIds.filter(d=>String(d.id||d)!==String(it.task.id)); deletedIdsSave();
   a.splice(idx,1); trashSave(a);
   save(); renderAll(); renderTrash(); toast("已恢复："+(it.task.title||"任务"));
@@ -3498,17 +3542,58 @@ function renderTrash(){
   box.querySelectorAll("[data-trres]").forEach(b=>b.onclick=()=>restoreTrash(+b.dataset.trres));
   box.querySelectorAll("[data-trdel]").forEach(b=>b.onclick=()=>dropTrash(+b.dataset.trdel));
 }
+/* ===== 删除任务：墓碑 + 回收站 + 完成流水一并收口（2026-09-14）=====
+   旧版删除只写墓碑（跨设备传播）与回收站（可找回），不动 stats.history →
+   图表会留下**幽灵记录**：任务已经不存在，那天却仍有完成计数。
+   被清掉的流水存进回收站记录、并挂到撤销栈顶快照，「回收站恢复 / Ctrl+Z」都能还回来。 */
+function dropHistoryOfIds(ids){
+  const set=new Set((ids||[]).map(x=>String(x)));
+  if(!set.size || !Array.isArray(stats.history) || !stats.history.length) return [];
+  const gone=[], keep=[];
+  for(const h of stats.history){ if(h && set.has(String(h.id))) gone.push(h); else keep.push(h); }
+  if(gone.length){ stats.history=keep; saveStats(); }
+  return gone;
+}
+function restoreHistory(entries){
+  if(!Array.isArray(entries) || !entries.length) return 0;
+  let n=0;
+  try{
+    const seen=new Set((stats.history||[]).map(h=>String(h.id)+"|"+String(h.d)+"|"+String(h.ts)));
+    entries.forEach(h=>{ if(!h) return; const k=String(h.id)+"|"+String(h.d)+"|"+String(h.ts); if(!seen.has(k)){ stats.history.push(h); seen.add(k); n++; } });
+    if(n){ stats.history.sort((a,b)=>(a.ts||0)-(b.ts||0)); saveStats(); }
+  }catch(e){}
+  return n;
+}
+function snapshotHistDrop(entries){   // 挂到撤销栈顶快照，Ctrl+Z 时把流水一并还回来
+  const top=undoStack[undoStack.length-1];
+  if(top && Array.isArray(entries) && entries.length) top.histDrop=(top.histDrop||[]).concat(entries);
+}
+/* 单条 / 批量 / 清空已完成 三个删除入口统一走这里 */
+function deleteTasksWithHistory(tasks){
+  const arr=(tasks||[]).filter(Boolean);
+  if(!arr.length) return 0;
+  const gone=dropHistoryOfIds(arr.map(t=>String(t.id)));
+  arr.forEach(t=>{
+    pushTomb(t.id);
+    pushTrash(t, gone.length ? {hist: gone.filter(h=>String(h.id)===String(t.id))} : null);
+  });
+  deletedIdsSave();
+  if(gone.length) snapshotHistDrop(gone);
+  const dead=new Set(arr.map(t=>String(t.id)));
+  state.tasks=state.tasks.filter(x=>!dead.has(String(x.id)));
+  return arr.length;
+}
 function trashRefresh(){
   const m=document.getElementById("dataMask");
   if(m&&m.classList.contains("show")) renderTrash();
   else { const c=document.getElementById("trashCount"); if(c){ const n=trashLoad().length; c.textContent=n?("("+n+")"):""; } }
 }
 // 轻量落盘：写 localStorage + 刷新 savedAt，但不触发 cloudAutoUpload（合并后保存用，避免「合并→保存→自动上传→再合并」死循环）
-function saveQuiet(){ try{ localStorage.setItem(KEY, JSON.stringify(state.tasks)); }catch(e){} markLocalSave(); }
+function saveQuiet(){ pruneTaskHistory(); try{ localStorage.setItem(KEY, JSON.stringify(state.tasks)); }catch(e){} markLocalSave(); }
 // 给任务打「最近修改」时间戳：合并时按此判断谁更新（墙钟；单用户顺次编辑足够，并发同任务编辑极少见）
 function touchTask(t, ts){ if(!t) return t; const v=ts||Date.now(); if(!t.updated || t.updated<v) t.updated=v; return t; }
 function flushSave(){ // 关闭/切后台前强制落盘，避免 400ms 内未写入丢失（B2）
-  if(_saveTimer){ clearTimeout(_saveTimer); _saveTimer=null; try{ localStorage.setItem(KEY, JSON.stringify(state.tasks)); }catch(e){} markLocalSave(); }
+  if(_saveTimer){ clearTimeout(_saveTimer); _saveTimer=null; pruneTaskHistory(); try{ localStorage.setItem(KEY, JSON.stringify(state.tasks)); }catch(e){} markLocalSave(); }
   // 关闭/切后台前，把待上传的云同步也立即触发（best-effort），避免 1.5s 防抖内未上传而丢数据（A）
   if(_upTimer){ clearTimeout(_upTimer); _upTimer=null; if(cloud.auto && cloud.token && cloud.gist && _bootSyncAllowed && !_cloudBusy) cloudUpload(true); }
 }
@@ -3909,17 +3994,17 @@ const FUNC_PRESETS=[
   {key:"trend7",   icon:"📈", title:"近 7 日完成", desc:"每天完成量的迷你柱状图"},
   {key:"catShare", icon:"🗂", title:"分类占比", desc:"各分类任务数分布"},
   {key:"overview", icon:"🧭", title:"任务概览", desc:"今日待办 / 逾期 / 进行中 一览"},
-  {key:"active",   icon:"🔥", title:"进行中", desc:"未完成的任务总数"},
+  {key:"active",   icon:"🔥", title:"进行中", desc:"当前未完成的任务数（重复任务按本轮周期判定）"},
 ];
 /* O14：功能卡原本每张各自全表扫描任务；改为每次刷新只算一次汇总，各卡共享 */
 function computeFuncSummary(){
   const tasks=state.tasks||[]; const today0=startOfDay(new Date()); const ws=addDays(today0,-7);
   const catMap={}; let active=0;
   const weekDone=tasks.filter(t=>isTaskDone(t)&&(t.doneDates||[]).some(d=>parseLocal(d)>=ws)).length;
-  const overdue=tasks.filter(t=>!noDate(t)&&!isTaskDone(t)&&parseLocal(t.end)<today0);
-  const dueToday=tasks.filter(t=>!isTaskDone(t)&&!noDate(t)&&(()=>{const e=parseLocal(t.end);return e>=today0&&e<addDays(today0,1);})());
+  const overdue=tasks.filter(t=>!noDate(t)&&!isTaskDoneNow(t)&&!t.skipMissed&&parseLocal(t.end)<today0);
+  const dueToday=tasks.filter(t=>!isTaskDoneNow(t)&&!noDate(t)&&(()=>{const e=parseLocal(t.end);return e>=today0&&e<addDays(today0,1);})());
   const trend=[]; for(let i=6;i>=0;i--){ const d=addDays(today0,-i); const k=ymd(d); const c=tasks.filter(t=>isTaskDone(t)&&(t.doneDates||[]).includes(k)).length; trend.push({d,c}); }
-  tasks.forEach(t=>{ if(!isTaskDone(t)) active++; const c=(t.cat&&t.cat.name)||t.cat||"未分类"; catMap[c]=(catMap[c]||0)+1; });
+  tasks.forEach(t=>{ if(!isTaskDoneNow(t)) active++; const c=(t.cat&&t.cat.name)||t.cat||"未分类"; catMap[c]=(catMap[c]||0)+1; });
   return {weekDone, overdue, dueToday, trend, catMap, active, total:tasks.length};
 }
 function funcBody(w, S){
@@ -4571,6 +4656,35 @@ function removeHistory(t, d){
   if(idx<0) return;
   stats.history.splice(idx,1); saveStats();
 }
+/* ===== 完成口径：累计 vs 当前周期（2026-09-14）=====
+   同一个「完成了吗」有两种口径，别混用：
+   · isTaskDone(t)    —— 累计口径「曾经完成过」：非重复看 status，重复任务看有没有任何打卡记录。
+                         用于**区间/累计统计**（stats.history 报表、完成总次数）。
+   · isTaskDoneNow(t) —— 当前周期口径「这一轮做了没」：重复任务按循环周期取桶，桶内打过卡才算完成，
+                         周期一过自动回到「未完成」。用于**当前态**（项目进度 / KR auto /
+                         看板与仪表盘的逾期·进行中·今日待办）。
+   旧版只有前者，于是「每日任务打过一次卡就永远算完成」：项目进度虚高、看板逾期/进行中漏项。
+   ⚠️ 重复任务已结束（until 早于今天）或未知频率时退回累计口径 —— 否则已结束的重复任务会永远算「未完成」。 */
+function recPeriodStart(t, ref){
+  const r=(t&&t.recurrence)||{}; const f=r.freq;
+  const iv=Math.max(1, Math.round(+r.interval||1));      // 每 N 个周期 → 桶向前扩 N-1 个周期
+  const d=startOfDay(ref||new Date());
+  if(f==="daily") return startOfDay(addDays(d, -(iv-1)));
+  if(f==="weekly") return startOfDay(addDays(d, -(((d.getDay()+6)%7) + 7*(iv-1))));   // 周一为一周之始
+  if(f==="monthly"){ const m=new Date(d.getFullYear(), d.getMonth()-(iv-1), 1); return startOfDay(m); }
+  return d;
+}
+function isTaskDoneNow(t, ref){
+  if(!t) return false;
+  if(!t.recurrence || t.recurrence.freq==="none") return t.status==="done";
+  const dd=t.doneDates||[];
+  const now=startOfDay(ref||new Date());
+  const u=t.recurrence.until;
+  if(u){ const ud=parseLocal(u); if(ud instanceof Date && !isNaN(ud) && startOfDay(ud)<now) return dd.length>0; }
+  const from=recPeriodStart(t, ref);
+  for(let i=dd.length-1;i>=0;i--){ const x=parseLocal(dd[i]); if(x instanceof Date && !isNaN(x) && startOfDay(x)>=from) return true; }
+  return false;
+}
 function isTaskDone(t){ if(!t.recurrence||t.recurrence.freq==="none") return t.status==="done"; return (t.doneDates||[]).length>0; }
 
 /* ===== 渲染：月视图 ===== */
@@ -5152,8 +5266,8 @@ async function batchInboxDelete(){
   const ids=Array.from(selIds); if(!ids.length){ toast("请先勾选任务"); return; }
   if(!(await confirmDialog("删除选中的 "+ids.length+" 项任务？",{danger:true}))) return;
   snapshot();
-  selIds.forEach(id=>{ pushTomb(id); pushTrash(state.tasks.find(x=>x.id===id)); }); deletedIdsSave(); trashRefresh();
-  state.tasks=state.tasks.filter(x=>!selIds.has(x.id));
+  deleteTasksWithHistory(Array.from(selIds).map(id=>state.tasks.find(x=>x.id===id)));
+  trashRefresh();
   save(); selClear(); renderAll(); toast("已删除 "+ids.length+" 项");
 }
 // M8：批量改属性（分类/优先级/标签/日期）。只修改被勾选的属性行；日期用于把任务移到某一天。
@@ -5212,8 +5326,8 @@ function batchInboxClearDone(){
   const done=state.tasks.filter(t=>t.status==="done" && noDate(t));
   if(!done.length){ toast("没有已完成的收件箱任务"); return; }
   snapshot();
-  done.forEach(t=>{ pushTomb(t.id); pushTrash(t); }); deletedIdsSave(); trashRefresh();
-  state.tasks=state.tasks.filter(t=>!(t.status==="done" && noDate(t)));
+  deleteTasksWithHistory(done);
+  trashRefresh();
   save(); renderAll(); toast("已清空 "+done.length+" 项已完成");
 }
 // 新建时默认勾选「不指定日期」
@@ -5340,7 +5454,7 @@ function renderStats(){
     const bn=document.getElementById("esNewTask"); if(bn) bn.onclick=()=>openModal(null,null);
     return;
   }
-  let done=0; for(const t of tasks) if(isTaskDone(t)) done++;
+  let done=0; for(const t of tasks) if(isTaskDoneNow(t)) done++;
   const rate=Math.round(done/total*100);
   const catOrder=catNames().slice(); tasks.forEach(t=>{ if(t.cat && !catOrder.includes(t.cat)) catOrder.push(t.cat); });
   const catCount={}; catOrder.forEach(c=>catCount[c]=0); tasks.forEach(t=>{ catCount[t.cat]=(catCount[t.cat]||0)+1; });
@@ -5382,9 +5496,9 @@ function renderStats(){
   html+=`<div class="stat-cards">
     <div class="stat-card ring-card">${ring}<div class="rt">总体完成率<b>${rate}%</b></div></div>
     <div class="stat-card"><div class="n">${total}</div><div class="l">总任务</div></div>
-    <div class="stat-card"><div class="n" style="color:var(--ok)">${done}</div><div class="l">已完成</div></div>
+    <div class="stat-card"><div class="n" style="color:var(--ok)">${done}</div><div class="l" title="重复任务按当前周期判定（如每日任务=今天是否已打卡）">已完成</div></div>
     <div class="stat-card"><div class="n" style="color:var(--pri)">${rangeDone}</div><div class="l">区间内完成</div></div>
-    <div class="stat-card"><div class="n" style="color:var(--warn)">${total-done}</div><div class="l">进行中</div></div>
+    <div class="stat-card"><div class="n" style="color:var(--warn)">${total-done}</div><div class="l" title="重复任务按当前周期判定（如每日任务=今天是否已打卡）">进行中</div></div>
   </div>`;
   /* ：分类分布与优先级分布并置双栏 */
   html+=`<div class="stat-grid2">`;
@@ -5465,7 +5579,7 @@ function exportICS(){
 function exportStatsReport(){
   try{
     const tasks=state.tasks; const total=tasks.length;
-    let done=0; for(const t of tasks) if(isTaskDone(t)) done++;
+    let done=0; for(const t of tasks) if(isTaskDoneNow(t)) done++;
     const rate=Math.round(done/total*100);
     const fit=habitFitRate(); const okrAvg=state.okrs.length?Math.round(state.okrs.reduce((s,o)=>s+okrOverall(o),0)/state.okrs.length):null;
     let md=`# 统计报告 · ${ymd(startOfDay(new Date()))}\n\n`;
@@ -5662,7 +5776,7 @@ function krSpark(krId){
 function projProgress(p){
   const ts=state.tasks.filter(t=>t.project===p.id);
   if(!ts.length) return {done:0,total:0,pct:0};
-  const done=ts.filter(isTaskDone).length;
+  const done=ts.filter(isTaskDoneNow).length;
   return {done,total:ts.length,pct:Math.round(done/ts.length*100)};
 }
 function krOf(id){ for(const o of state.okrs){ const k=o.krs.find(x=>x.id===id); if(k) return {o,k}; } return null; }
@@ -5670,7 +5784,7 @@ function krOf(id){ for(const o of state.okrs){ const k=o.krs.find(x=>x.id===id);
 function krEffective(k){
   if(k.auto){
     const ts=state.tasks.filter(t=>t.krId===k.id);
-    return {current:ts.filter(isTaskDone).length, target:Math.max(ts.length,1), auto:true};
+    return {current:ts.filter(isTaskDoneNow).length, target:Math.max(ts.length,1), auto:true};
   }
   return {current:k.current||0, target:k.target||0, auto:false};
 }
@@ -5912,7 +6026,7 @@ function renderProjects(){
       ${msHtml}
       <div class="pbar"><div class="pbar-fill" style="width:${pr.pct}%"></div><span>${pr.done}/${pr.total} · ${pr.pct}%</span></div>
       <div class="proj-tasks" style="${open?'':'display:none'}">
-        ${ts.length?ts.map(t=>{ const th=(!isTaskDone(t)&&t.end)?timeHealth(null,t.end):null; return `<div class="pt-item ${isTaskDone(t)?'done':''} ${th&&th.cls==='th-overdue'?'pt-overdue':''}" data-open="${t.id}"><span class="dot" style="background:${priColor(t.priority)}"></span>${esc(t.title)} <span class="gw-mini">${gwLabel(t.gw)}</span>${th?`<span class="badge ${th.cls}" style="margin-left:auto;font-size:11px;padding:1px 6px;">${th.label}</span>`:""}</div>`; }).join(""):`<div class="muted">暂无任务（在任务弹窗里「所属项目」选它即可归集）</div>`}
+        ${ts.length?ts.map(t=>{ const th=(!isTaskDoneNow(t)&&t.end)?timeHealth(null,t.end):null; return `<div class="pt-item ${isTaskDoneNow(t)?'done':''} ${th&&th.cls==='th-overdue'?'pt-overdue':''}" data-open="${t.id}"><span class="dot" style="background:${priColor(t.priority)}"></span>${esc(t.title)} <span class="gw-mini">${gwLabel(t.gw)}</span>${th?`<span class="badge ${th.cls}" style="margin-left:auto;font-size:11px;padding:1px 6px;">${th.label}</span>`:""}</div>`; }).join(""):`<div class="muted">暂无任务（在任务弹窗里「所属项目」选它即可归集）</div>`}
       </div>
     </div>`;
   }
@@ -5999,7 +6113,7 @@ function renderOkr(){
       const risk = (e.target>0 && e.current<e.target && th && (th.cls==="th-soon"||th.cls==="th-overdue"||th.cls==="th-over"));
       const notes=(k.notes||[]);
       const noteHtml = notes.length ? `<div class="kr-note">`+notes.slice(-3).map(n=>`<div class="checkpoint">📌 ${n.date} ${esc(n.text)}</div>`).join("")+`</div>` : "";
-      const tasksHtml = linked.length ? `<div class="kr-tasks" id="krt_${k.id}" style="display:none">`+linked.map(t=>`<div class="kr-task ${isTaskDone(t)?'done':''}" data-open="${t.id}"><span class="dot" style="background:${priColor(t.priority)}"></span><span class="kt-title">${esc(t.title)}</span><span class="kt-meta">${isTaskDone(t)?'已完成':(t.end?ymd(parseLocal(t.end)):'未排期')}</span></div>`).join("")+`</div>` : '';
+      const tasksHtml = linked.length ? `<div class="kr-tasks" id="krt_${k.id}" style="display:none">`+linked.map(t=>`<div class="kr-task ${isTaskDoneNow(t)?'done':''}" data-open="${t.id}"><span class="dot" style="background:${priColor(t.priority)}"></span><span class="kt-title">${esc(t.title)}</span><span class="kt-meta">${isTaskDoneNow(t)?'已完成':(t.end?ymd(parseLocal(t.end)):'未排期')}</span></div>`).join("")+`</div>` : '';
       const curHtml = e.auto
         ? `<span class="kr-auto">自动 · ${e.current}/${e.target}</span>`
         : `<label class="kr-cur">${e.current}<input type="number" min="0" value="${e.current}" data-kr="${k.id}" class="kr-in">/${e.target}${esc(k.unit||"")}</label>`;
@@ -6091,9 +6205,9 @@ function renderReview(){
     inboxTasks=[]; overdue=[]; waiting=[]; someday=[]; stalled=[]; doneWeek=snap.metrics.doneWeek;
   } else {
     inboxTasks=state.tasks.filter(t=>noDate(t) && !isTaskDone(t));
-    overdue=state.tasks.filter(t=>!noDate(t) && !isTaskDone(t) && parseLocal(t.end)<startOfDay(new Date()));
-    waiting=state.tasks.filter(t=>(t.gw||"next")==="waiting" && !isTaskDone(t));
-    someday=state.tasks.filter(t=>(t.gw||"next")==="someday" && !isTaskDone(t));
+    overdue=state.tasks.filter(t=>!noDate(t) && !isTaskDoneNow(t) && !t.skipMissed && parseLocal(t.end)<startOfDay(new Date()));
+    waiting=state.tasks.filter(t=>(t.gw||"next")==="waiting" && !isTaskDoneNow(t));
+    someday=state.tasks.filter(t=>(t.gw||"next")==="someday" && !isTaskDoneNow(t));
     stalled=state.tasks.filter(t=>{ if(isTaskDone(t)) return false; const age=(Date.now()-(t.createdAt||Date.now()))/86400000; return age>14 && (t.gw||"next")!=="waiting"; });
     const weekStart=addDays(startOfDay(new Date()),-7);
     doneWeek=state.tasks.filter(t=>isTaskDone(t) && (t.doneDates||[]).some(d=>parseLocal(d)>=weekStart)).length;
@@ -6183,9 +6297,9 @@ function exportReview(){
   try{
     const wk=weekKey(new Date());
     const inboxTasks=state.tasks.filter(t=>noDate(t) && !isTaskDone(t));
-    const overdue=state.tasks.filter(t=>!noDate(t) && !isTaskDone(t) && parseLocal(t.end)<startOfDay(new Date()));
-    const waiting=state.tasks.filter(t=>(t.gw||"next")==="waiting" && !isTaskDone(t));
-    const someday=state.tasks.filter(t=>(t.gw||"next")==="someday" && !isTaskDone(t));
+    const overdue=state.tasks.filter(t=>!noDate(t) && !isTaskDoneNow(t) && !t.skipMissed && parseLocal(t.end)<startOfDay(new Date()));
+    const waiting=state.tasks.filter(t=>(t.gw||"next")==="waiting" && !isTaskDoneNow(t));
+    const someday=state.tasks.filter(t=>(t.gw||"next")==="someday" && !isTaskDoneNow(t));
     const stalled=state.tasks.filter(t=>{ if(isTaskDone(t)) return false; const age=(Date.now()-(t.createdAt||Date.now()))/86400000; return age>14 && (t.gw||"next")!=="waiting"; });
     const weekStart=addDays(startOfDay(new Date()),-7);
     const doneWeek=state.tasks.filter(t=>isTaskDone(t) && (t.doneDates||[]).some(d=>parseLocal(d)>=weekStart)).length;
@@ -6835,10 +6949,13 @@ function saveTask(){
   if(editingId && editingDate && editingScope==="once" && recEditing){
     const skip=document.getElementById("f_skip").checked;
     const k=ovKeyD(editingDate);
+    const wasSkip=!!(et.overrides && et.overrides[k] && et.overrides[k].skip);   // 该次原本是否处于「已跳过」
     et.overrides = et.overrides || {};
     if(skip){
       et.overrides[k]={skip:true};
+      clearInstanceProgress(et, editingDate);
     } else {
+      if(wasSkip) clearInstanceProgress(et, editingDate);   // 取消跳过 ⇒ 清掉旧版本跳过时残留的勾选
       et.overrides[k]={
         // 表单里的日期回填的是整组模板的起始日，必须把「时刻」重新锚定到本次发生日 k，
         // 否则该次实例会被漂移到模板日（保存后当天任务消失）。
@@ -6959,12 +7076,13 @@ async function deleteTask(){
     snapshot();
     et.overrides = et.overrides || {};
     et.overrides[ovKeyD(editingDate)] = {skip:true};
+    clearInstanceProgress(et, editingDate);   // 该次实例的勾选一并作废，避免取消跳过时「复活」
     save(); closeModal(); renderAll(); toast("已跳过该日任务（整组保留）"); return;
   }
   if(!(await confirmDialog("确定删除该任务？",{danger:true}))) return;
   snapshot();
-  pushTomb(editingId); pushTrash(state.tasks.find(x=>x.id===editingId)); deletedIdsSave(); trashRefresh(); // tombstone + 回收站
-  state.tasks=state.tasks.filter(x=>x.id!==editingId);
+  deleteTasksWithHistory([state.tasks.find(x=>x.id===editingId)]);   // 墓碑 + 回收站 + 完成流水
+  trashRefresh();
   save(); closeModal(); renderAll(); toast("已删除（可 Ctrl+Z 撤销）");
 }
 
@@ -8653,6 +8771,7 @@ function applyUndo(s){
   habits = s.habits || [];
   lists = s.lists || [];
   if(Array.isArray(s.deleted)){ deletedIds = s.deleted.map(normTomb); deletedIdsSave(); }  // 旧快照无此字段 → 保持现状
+  if(Array.isArray(s.histDrop)) restoreHistory(s.histDrop);   // 删除连带清掉的完成流水一并还回
   if(Array.isArray(s.tagTree)){ tagTree=s.tagTree; saveTags(); refreshTagFilter(); }
   save(); mediaSave(); habitSave(); listsSave(); renderAll(); toast("已撤销");
 }
@@ -9854,7 +9973,11 @@ function mergeTasks(localArr, cloudArr, cloudDeleted){
   return Array.from(map.values());
 }
 function mergeTasksIntoLocal(obj){
+  const before=state.tasks.map(t=>String(t.id));
   state.tasks = mergeTasks(state.tasks, obj.tasks, obj.deleted);
+  const after=new Set(state.tasks.map(t=>String(t.id)));
+  const gone=before.filter(id=>!after.has(id));
+  if(gone.length) dropHistoryOfIds(gone);   // 云端墓碑删掉的任务：顺手清掉它的完成流水（幽灵记录）
   deletedIdsSave();
   saveQuiet();
 }
@@ -10189,7 +10312,7 @@ if(_ob){ _ob.addEventListener("click", toggleTopOverview); _ob.addEventListener(
     </div>
   </div>
 </div>
-<div class="mask" id="introMask" role="dialog" aria-modal="true" aria-labelledby="introTitle" data-page-node-id="introMask">
+<div class="mask" id="introMask" role="dialog" aria-modal="true" aria-labelledby="introTitle">
   <div class="modal">
     <h3 class="intro-hero" id="introTitle">👋 欢迎使用任务管理台</h3>
     <p class="intro-sub">一个页面管住任务、项目、OKR、清单、习惯、纪念日与媒体进度。挑常用的用就好，不用一次全开。</p>
