@@ -3409,6 +3409,37 @@ const TOMB_MAX=2000;   // 墓碑上限（对齐明信片，防长期无限增长
 function pushTomb(id){ const s=String(id||""); if(!s) return; const i=deletedIds.findIndex(d=>d&&(d.id||d)===s); const t={id:s, ts:Date.now()}; if(i>=0) deletedIds[i]=t; else deletedIds.push(t); if(deletedIds.length>TOMB_MAX) deletedIds=deletedIds.slice(-TOMB_MAX); }
 function deletedIdsLoad(){ try{ const r=localStorage.getItem("wb_taskhub_deleted_v1"); if(r){ const a=JSON.parse(r)||[]; deletedIds=a.map(normTomb); } }catch(e){ deletedIds=[]; } }
 function deletedIdsSave(){ try{ localStorage.setItem("wb_taskhub_deleted_v1", JSON.stringify(deletedIds)); }catch(e){} }
+/* ===== 次级集合的删除传播（媒体 / 习惯 / 清单）=====
+   任务有墓碑可传播删除，但这三类走的是「按 id 求并集」的合并（mediaMergeKeep / mergeHabits / union）：
+   并集只增不减，本地删掉的条目一旦云端或另一台设备仍持有，下次拉取就被并回本地
+   → 表现为「删了好几次都删不掉」（示例数据 三体（广播剧）即此因）。
+   复用同一份 deletedIds（已被 payload.deleted 同步 / 导出 / 导入），但加**种类前缀**，
+   避免与任务 id 相撞（媒体种子 id 是 b1/t1/a1，任务 id 以 t 或 s 开头，历史上存在同形风险）。 */
+const TOMB_NS={media:"media:",habit:"habit:",list:"list:"};
+function pushKindTomb(kind,id){
+  const p=TOMB_NS[kind]; const s=String(id||"");
+  if(!p||!s) return;
+  pushTomb(p+s); deletedIdsSave();
+}
+function clearKindTomb(kind,id){
+  const p=TOMB_NS[kind]; if(!p) return;
+  const k=p+String(id||"");
+  const before=deletedIds.length;
+  deletedIds=deletedIds.filter(d=>String((d&&d.id)||d)!==k);
+  if(deletedIds.length!==before) deletedIdsSave();
+}
+// 取某类的「已删除 id 集合」= 本地墓碑 ∪ 云端墓碑（两者都可能带对方设备的删除记录）
+function kindTombSet(kind, cloudDeleted){
+  const p=TOMB_NS[kind], s=new Set();
+  const add=o=>{ const t=normTomb(o); if(t.id&&t.id.indexOf(p)===0) s.add(t.id.slice(p.length)); };
+  (deletedIds||[]).forEach(add); (cloudDeleted||[]).forEach(add);
+  return s;
+}
+function dropTombed(kind, arr, cloudDeleted){
+  if(!Array.isArray(arr)) return arr;
+  const dead=kindTombSet(kind, cloudDeleted);
+  return dead.size ? arr.filter(x=>!(x&&dead.has(String(x.id)))) : arr;
+}
 /* ===== M1 回收站 =====
    墓碑 deletedIds 只存 id（用于跨设备传播删除，无内容、不可恢复）。这里额外把被删任务的**内容**
    留存一份，让用户能真正「找回误删」。上限 50 条，超出丢最旧。 */
@@ -7394,7 +7425,7 @@ function mediaNorm(){ if(!Array.isArray(media.books)) media.books=[]; if(!Array.
 // 云端整包采纳时的防洗白：按 id 与本地做「并集」——云端缺的本地条目保留，云端独有的加入。
 // 旧实现是整包替换（只保护 auds），会导致「某次同步拿到的云端快照少了某条剧集」时把该条整体覆盖掉。
 // 改为并集后与习惯/清单一致：单条目不会因某次快照不完整而丢失。（同 9/5 习惯打卡被覆盖教训）
-function mediaMergeKeep(incoming){
+function mediaMergeKeep(incoming, cloudDeleted){
   if(!incoming || typeof incoming!=="object") return media;
   const uid=(loc,cloud)=>{
     const m=new Map();
@@ -7402,20 +7433,23 @@ function mediaMergeKeep(incoming){
     (cloud||[]).forEach(x=>{ if(x&&x.id && !m.has(x.id)) m.set(x.id,x); });
     return Array.from(m.values());
   };
+  // 删除传播：已墓碑的条目不再并回（本地侧也要滤，否则另一台设备删掉的条目会被本端重新上传回云端）
   return {
-    books: uid(media.books, incoming.books),
-    tvs:   uid(media.tvs,   incoming.tvs),
-    auds:  uid(media.auds,  incoming.auds)
+    books: dropTombed("media", uid(media.books, incoming.books), cloudDeleted),
+    tvs:   dropTombed("media", uid(media.tvs,   incoming.tvs),   cloudDeleted),
+    auds:  dropTombed("media", uid(media.auds,  incoming.auds),  cloudDeleted)
   };
 }
 function mediaSave(){ storageSetSafe(MEDIA_KEY, JSON.stringify(media)); markLocalSave(); cloudAutoUpload(); }
 function mediaLoad(){ try{ const r=localStorage.getItem(MEDIA_KEY); if(r){ media=JSON.parse(r); mediaNorm(); return true; } }catch(e){} return false; }
 function mediaSeed(){
-  media = {
+  const seed={
     books:[{id:"b1",title:"麦肯锡教我的工作方法",type:"书籍",current:12,total:30,platform:"微信读书"}],
     tvs:[{id:"t1",title:"老大哥（美版）第二十八季",type:"真人秀",current:22,total:39,platform:"B站"}],
     auds:[{id:"a1",title:"三体（广播剧）",type:"有声剧",current:12,total:30,platform:"喜马拉雅"}]
   };
+  // 已被删除过的示例不再复活（墓碑优先）：新设备接入已有云端数据时，用户删掉的示例不该再冒出来
+  media={ books:dropTombed("media",seed.books), tvs:dropTombed("media",seed.tvs), auds:dropTombed("media",seed.auds) };
   mediaSave();
 }
 function mPct(c){ return c.total>0 ? Math.round(c.current/c.total*100) : 0; }
@@ -7633,6 +7667,7 @@ async function delMedia(id, kind){
   const arr = media[kind] || media.books;
   const ix=arr.findIndex(x=>x.id===id);
   if(ix>=0) arr.splice(ix,1);
+  pushKindTomb("media", id);   // 墓碑：防云端/其他设备仍持有的该条被并集并回（否则表现为「删不掉」）
   mediaSave(); renderAll(); toast("已删除（可 Ctrl+Z 撤销）");
 }
 function closeMedia(){ document.getElementById("mediaMask").classList.remove("show"); mediaEditId=null; mediaEditKind=null; }
@@ -7655,21 +7690,21 @@ const RECOVER_DEFS=[
     name:x=>(x&&x.title!=null)?String(x.title):"(无名称)",
     meta:x=>{ const k=M_KINDS[x.__kind]||M_KINDS.books; if(x.percent) return (x.current||0)+"%"+(x.platform?" · "+x.platform:""); return k.verb+" "+(x.current||0)+"/"+(x.total||0)+(x.platform?" · "+x.platform:""); },
     score:(a,b)=>(a.current||0)-(b.current||0),
-    restore:x=>{ const k=x.__kind||"books"; delete x.__kind; (media[k]||(media[k]=[])).push(x); mediaSave(); }},
+    restore:x=>{ const k=x.__kind||"books"; delete x.__kind; (media[k]||(media[k]=[])).push(x); clearKindTomb("media",x.id); mediaSave(); }},
   {key:"habits",label:"习惯",icon:"✓",
     collect:o=>Array.isArray(o.habits)?o.habits:[],
     local:()=>habits,
     name:x=>(x&&x.name!=null)?String(x.name):"(无名称)",
     meta:x=>{ const f={daily:"每天",weekly:"每周"+(x.freqN||3)+"次",custom:"自定义",someday:"灵活"}[x.freq]||""; return [f, x.archived?"已归档":"", x.paused?"已暂停":""].filter(Boolean).join(" · "); },
     score:(a,b)=>(a.updated||0)-(b.updated||0),
-    restore:x=>{ habits.push(Object.assign({paused:false,archived:false,days:[]},x)); habitSave(); }},
+    restore:x=>{ habits.push(Object.assign({paused:false,archived:false,days:[]},x)); clearKindTomb("habit",x.id); habitSave(); }},
   {key:"lists",label:"清单",icon:"≡",
     collect:o=>Array.isArray(o.lists)?o.lists:[],
     local:()=>lists,
     name:x=>(x&&x.name!=null)?String(x.name):"(无名称)",
     meta:x=>((x.items||[]).length)+" 项",
     score:(a,b)=>(a.updated||0)-(b.updated||0),
-    restore:x=>{ lists.push(x); listsSave(); }},
+    restore:x=>{ lists.push(x); clearKindTomb("list",x.id); listsSave(); }},
   {key:"projects",label:"项目",icon:"▣",
     collect:o=>Array.isArray(o.projects)?o.projects:[],
     local:()=>state.projects,
@@ -8084,6 +8119,7 @@ async function delList(lid){
   if(!(await confirmDialog("删除清单「"+l.name+"」及其全部条目？",{danger:true}))) return;
   snapshot();
   lists=lists.filter(x=>x.id!==lid);
+  pushKindTomb("list", lid);   // 墓碑：防云端/其他设备仍持有的该清单被并集并回
   if(state.selList===lid) state.selList = lists[0]?lists[0].id:null;
   listsSave(); renderAll(); toast("已删除清单（可 Ctrl+Z 撤销）");
 }
@@ -8522,8 +8558,9 @@ function snapshotObj(){
     media:JSON.parse(JSON.stringify(media||{books:[],tvs:[],auds:[]})),
     habits:JSON.parse(JSON.stringify(habits||[])),
     lists:JSON.parse(JSON.stringify(lists||[])),
-    tagTree:JSON.parse(JSON.stringify(tagTree||[]))}; }
-  catch(e){ return {t:Date.now(),tasks:[],media:{books:[],tvs:[],auds:[]},habits:[],lists:[],tagTree:[]}; }
+    tagTree:JSON.parse(JSON.stringify(tagTree||[])),
+    deleted:JSON.parse(JSON.stringify(deletedIds||[]))}; }   // 墓碑一并入快照：撤销「删除」必须同时撤掉墓碑，否则下轮合并又把该条抹掉
+  catch(e){ return {t:Date.now(),tasks:[],media:{books:[],tvs:[],auds:[]},habits:[],lists:[],tagTree:[],deleted:[]}; }
 }
 function undoPersist(){
   try{ localStorage.setItem(UNDO_KEY, JSON.stringify(undoStack.slice(-UNDO_MAX))); }
@@ -8555,6 +8592,7 @@ function applyUndo(s){
   media = s.media || {books:[],tvs:[],auds:[]};
   habits = s.habits || [];
   lists = s.lists || [];
+  if(Array.isArray(s.deleted)){ deletedIds = s.deleted.map(normTomb); deletedIdsSave(); }  // 旧快照无此字段 → 保持现状
   if(Array.isArray(s.tagTree)){ tagTree=s.tagTree; saveTags(); refreshTagFilter(); }
   save(); mediaSave(); habitSave(); listsSave(); renderAll(); toast("已撤销");
 }
@@ -9377,6 +9415,7 @@ async function delHabit(){
   if(!(await confirmDialog("确定删除该习惯？打卡记录将一并清除。",{danger:true}))) return;
   snapshot();
   habits=habits.filter(x=>x.id!==habitEditId);
+  pushKindTomb("habit", habitEditId);   // 墓碑：防云端/其他设备仍持有的该习惯被并集并回
   habitSave(); closeHabit(); renderAll(); toast("已删除习惯（可 Ctrl+Z 撤销）");
 }
 function closeHabit(){ document.getElementById("habitMask").classList.remove("show"); habitEditId=null; }
@@ -9520,7 +9559,7 @@ async function cloudUpload(silent){
     if(!r2.ok) throw new Error("HTTP "+r2.status);
     const d2=await r2.json();
     const ff=d2.files&&d2.files["taskhub.json"];
-    if(ff&&ff.content){ const o2=JSON.parse(ff.content); mergeTasksIntoLocal(o2); if(Array.isArray(o2.habits)) habits=mergeHabits(habits, o2.habits); }
+    if(ff&&ff.content){ const o2=JSON.parse(ff.content); mergeTasksIntoLocal(o2); if(Array.isArray(o2.habits)) habits=mergeHabits(habits, o2.habits, o2.deleted); if(o2.media) media=mediaMergeKeep(o2.media, o2.deleted); }
     phase="write";
     const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{
       method:"PATCH",
@@ -9573,9 +9612,9 @@ async function cloudDownload(){
     }
     if(!(await confirmDialog("将用云端数据覆盖本地任务 / 媒体进度 / 习惯，确认？"+warn,{danger:true}))){ setCloudStatus("已取消下载"); return; }
     if(Array.isArray(obj.tasks)){ state.tasks=obj.tasks; save(); }
-    if(obj.media){ media=mediaMergeKeep(obj.media); mediaSave(); }
-    if(Array.isArray(obj.habits)){ habits=mergeHabits(habits, obj.habits); habitSave(); }
-    if(Array.isArray(obj.lists)){ lists=obj.lists; listsSave(); }
+    if(obj.media){ media=mediaMergeKeep(obj.media, obj.deleted); mediaSave(); }
+    if(Array.isArray(obj.habits)){ habits=mergeHabits(habits, obj.habits, obj.deleted); habitSave(); }
+    if(Array.isArray(obj.lists)){ lists=dropTombed("list", obj.lists, obj.deleted); listsSave(); }
     if(Array.isArray(obj.cats)){ cats=obj.cats; catsSave(); }
     if(Array.isArray(obj.pris)){ pris=obj.pris; prisSave(); }
     if(Array.isArray(obj.tagTree)){ tagTree=obj.tagTree; saveTags(); }
@@ -9656,9 +9695,9 @@ function cloudAutoUpload(){
 // 把云端对象应用为本地数据（统一入口，供启动拉取复用）
 function applyCloudObj(obj){
   if(Array.isArray(obj.tasks)) state.tasks=obj.tasks;
-  if(obj.media) media=mediaMergeKeep(obj.media);
-  if(Array.isArray(obj.habits)) habits=mergeHabits(habits, obj.habits);
-  if(Array.isArray(obj.lists)) lists=obj.lists;
+  if(obj.media) media=mediaMergeKeep(obj.media, obj.deleted);
+  if(Array.isArray(obj.habits)) habits=mergeHabits(habits, obj.habits, obj.deleted);
+  if(Array.isArray(obj.lists)) lists=dropTombed("list", obj.lists, obj.deleted);
   if(Array.isArray(obj.cats)) cats=obj.cats;
   if(Array.isArray(obj.tagTree)) tagTree=obj.tagTree;
   if(Array.isArray(obj.pris)) pris=obj.pris;
@@ -9674,9 +9713,9 @@ function applyCloudObj(obj){
 }
 // 仅采用云端的「次级集合」(项目/目标/清单/习惯/媒体/分类/标签)，不动任务（任务已由 mergeTasksIntoLocal 逐条合并）
 function applyCloudSecondary(obj){
-  if(obj.media) media=mediaMergeKeep(obj.media);
-  if(Array.isArray(obj.habits)) habits=mergeHabits(habits, obj.habits);
-  if(Array.isArray(obj.lists)) lists=obj.lists;
+  if(obj.media) media=mediaMergeKeep(obj.media, obj.deleted);
+  if(Array.isArray(obj.habits)) habits=mergeHabits(habits, obj.habits, obj.deleted);
+  if(Array.isArray(obj.lists)) lists=dropTombed("list", obj.lists, obj.deleted);
   if(Array.isArray(obj.cats)) cats=obj.cats;
   if(Array.isArray(obj.tagTree)) tagTree=obj.tagTree;
   if(Array.isArray(obj.pris)) pris=obj.pris;
@@ -9698,9 +9737,9 @@ function mergeCloudSecondaryUnion(obj){
     cloud.forEach(x=>{ if(!x) return; const k=key(x); if(!m.has(k)) m.set(k, x); });
     return Array.from(m.values());
   };
-  if(obj.media) media=mediaMergeKeep(obj.media);
-  if(Array.isArray(obj.habits)) habits=mergeHabits(habits, obj.habits);
-  if(Array.isArray(obj.lists)) lists=union(lists,obj.lists,idk);
+  if(obj.media) media=mediaMergeKeep(obj.media, obj.deleted);
+  if(Array.isArray(obj.habits)) habits=mergeHabits(habits, obj.habits, obj.deleted);
+  if(Array.isArray(obj.lists)) lists=dropTombed("list", union(lists,obj.lists,idk), obj.deleted);
   if(Array.isArray(obj.cats)) cats=union(cats,obj.cats,namek);
   if(Array.isArray(obj.tagTree)) tagTree=union(tagTree,obj.tagTree,namek);
   if(Array.isArray(obj.pris)) pris=union(pris,obj.pris,namek);
@@ -9749,7 +9788,7 @@ function mergeTasksIntoLocal(obj){
   saveQuiet();
 }
 // 本地数据轻量签名：用于启动拉取时判断本地与云端是否真有内容分歧（避免单纯时间戳差异也弹窗）
-function mergeHabits(loc, cloud){
+function mergeHabits(loc, cloud, cloudDeleted){
   loc=(loc||[]); cloud=(cloud||[]);
   const m=new Map();
   loc.forEach(h=>{ if(h) m.set(h.id, JSON.parse(JSON.stringify(h))); });
@@ -9762,14 +9801,23 @@ function mergeHabits(loc, cloud){
     if(cu>lu){ const {days, archived, paused, ...rest}=h; Object.assign(cur, rest); }  // 归档/暂停不同步：避免云端旧状态把本端活动习惯藏进归档
     cur.days=Array.from(ds).sort();
   });
-  return Array.from(m.values());
+  // 删除传播：并集只增不减，本地删掉的习惯若云端/其他设备仍持有会被并回 → 墓碑胜出
+  return dropTombed("habit", Array.from(m.values()), cloudDeleted);
+}
+// 媒体看板签名：dataSig 此前完全不含媒体 → 「本地与云端仅媒体有差异」会被判为情形 3「已是最新」而整段跳过合并，
+// 于是另一台设备新增/删除的媒体条目永远落不到本端（删除传播也失效）。补进签名后此类差异会走正常合并分支。
+function mediaSig(m){
+  const one=a=>(a||[]).map(x=>[x.id,x.current,x.total,x.done?1:0]).sort((p,q)=>String(p[0]).localeCompare(String(q[0])));
+  const mm=m||{};
+  return one(mm.books).concat(one(mm.tvs),one(mm.auds));
 }
 function dataSig(){
   const s=x=>JSON.stringify(x||[]);
   return [
     state.tasks.length,(habits||[]).length,(lists||[]).length,(cats||[]).length,(pris||[]).length,(tagTree||[]).length,(state.projects||[]).length,(state.okrs||[]).length
   ].join(",")+"|"+s(state.tasks.map(t=>[t.id,t.done,t.updated||JSON.stringify(t.doneAt||null)||"",t.title||""]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))
-   +"|"+s((habits||[]).map(h=>[h.id,(h.days||[]).length]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
+   +"|"+s((habits||[]).map(h=>[h.id,(h.days||[]).length]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))
+   +"|"+s(mediaSig(media));
 }
 function dataSigOf(obj){
   const s=x=>JSON.stringify(x||[]);
@@ -9777,7 +9825,8 @@ function dataSigOf(obj){
   return [
     tasks.length,habits.length,lists.length,cats.length,pris.length,tagTree.length,projects.length,okrs.length
   ].join(",")+"|"+s(tasks.map(t=>[t.id,t.done,t.updated||JSON.stringify(t.doneAt||null)||"",t.title||""]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))
-   +"|"+s(habits.map(h=>[h.id,(h.days||[]).length]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
+   +"|"+s(habits.map(h=>[h.id,(h.days||[]).length]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))
+   +"|"+s(mediaSig(obj.media));
 }
 async function cloudStartupPull(silent){
   window.__pullOk=false;   // 供静默轮询判定本次拉取成败（本函数内部自行 catch，不向外抛错）
@@ -9945,7 +9994,9 @@ cloudLoad();
 deletedIdsLoad();
 document.getElementById("csToken").value=cloud.token||"";
 document.getElementById("csGist").value=cloud.gist||"";
-if(!mediaLoad() || (!media.books.length && !media.tvs.length && !media.auds.length)) mediaSeed();
+// 仅在「媒体键从未存在」（首次运行）时播种示例。原条件还带「三列全空也重新播种」的兜底，
+// 用户把示例清空后每次加载都会复活（三体（广播剧）等）——与任务侧 CLEARED_FLAG 防的是同一类问题。
+if(!mediaLoad()) mediaSeed();
 if(!listsLoad()) listsSeed();
 loadStats();
 loadRemind(); updateRemindBtn(); startReminderLoop();
