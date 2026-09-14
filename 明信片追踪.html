@@ -2101,8 +2101,14 @@ function renderStats(){
     const totalCards=proxies.reduce((a,p)=>a+cc(p),0);
     // 在途 = 该腿尚未全部完成（gotBack 未填）
     const inTransitCards=proxies.filter(p=>proxyStatusOf(p)!=="gotBack").reduce((a,p)=>a+cc(p),0);
-    // ★核心 KPI：对方寄给我、在途、我还没收到 = 对方腿(them) 且 对方已寄出(sent) 且 我还没收到(proxyRecv 未填)
-    const themTransitCards=proxies.filter(p=>p.direction==="them" && p.sent && !p.proxyRecv).reduce((a,p)=>a+cc(p),0);
+    // ★核心 KPI：对方寄给我、在途、我还没收到。口径 = 「对方已寄出、我未收」，两种来源合并：
+    //   ① 往返/互寄的对方腿（direction=them）：对方已寄出(sent)、我未收(proxyRecv 未填)
+    //   ② 单向代寄（对方找我代寄，proxyMode=oneway）：对方已寄出(envSent)、我未收(envRecv 未填)
+    //   单向代寄创建时强制 direction=me，故两分支天然互斥，不会重复计数
+    const themTransitCards=proxies.filter(p=>
+      (p.direction==="them" && p.sent && !p.proxyRecv) ||
+      (p.proxyMode==="oneway" && p.envSent && !p.envRecv)
+    ).reduce((a,p)=>a+cc(p),0);
     // 可能丢失（单腿丢失即计）
     const lostProxyCards=proxies.filter(p=>isLostProxy(p)).reduce((a,p)=>a+cc(p),0);
     // 状态细分：单腿 5 态，标签按方向翻转（双向语义透明：对方的算对方的、我的算我的）
