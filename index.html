@@ -3023,6 +3023,7 @@ function getInstances(rangeStart, rangeEnd){
     const hit=_instCache.get(ck);
     if(hit){ out.push.apply(out, hit); continue; }
     const sub=[];
+    const emittedKeys = new Set();
     const bs = parseLocal(t.start), be = parseLocal(t.end);
     if(!t.recurrence || t.recurrence.freq==="none"){
       if(be>=rangeStart && bs<=rangeEnd) sub.push({task:t, date:startOfDay(bs), start:bs, end:be, recurring:false});
@@ -3065,8 +3066,40 @@ function getInstances(rangeStart, rangeEnd){
             }
           }
           sub.push({task:taskRef, date:startOfDay(s), start:s, end:e, recurring:true, ovDate:k});
+          emittedKeys.add(k);
         }
         cur = addDays(cur,1);
+      }
+      // (c) 拖过 recurrence.until：被移动的那一天要突破 until 生成实例（仅该日，不延长整组排期）
+      // 主循环已生成的自然发生日都记进了 emittedKeys；这里补上「未被主循环生成、却写了非跳过 override」的日期
+      // —— 即被拖到 until 之后、或拖到非发生日的那一次实例。
+      if(t.overrides){
+        const rsy=ymd(startOfDay(rangeStart)), rey=ymd(startOfDay(rangeEnd));
+        for(const k of Object.keys(t.overrides)){
+          if(emittedKeys.has(k)) continue;          // 主循环已生成（自然发生日 / 范围内的内容 override）
+          if(k<rsy || k>rey) continue;              // 不在可见区间
+          const ov=t.overrides[k];
+          if(!ov || ov.skip) continue;              // 跳过态不产生实例
+          const cur=parseLocal(k+"T00:00");
+          if(cur<startOfDay(bs)) continue;          // 早于任务起始日的不算
+          let s=new Date(cur); s.setHours(bs.getHours(),bs.getMinutes());
+          let e=new Date(cur); e.setHours(be.getHours(),be.getMinutes());
+          let taskRef=t;
+          if(ov.start){ const os=parseLocal(ov.start); s=new Date(cur); s.setHours(os.getHours(),os.getMinutes()); }
+          if(ov.end){
+            const oe=parseLocal(ov.end); e=new Date(cur); e.setHours(oe.getHours(),oe.getMinutes());
+            if(ov.start){ const os=parseLocal(ov.start); const off=Math.round((startOfDay(oe)-startOfDay(os))/DAY); if(off>0) e=addDays(e,off); }
+          }
+          if(ov.title||ov.desc!=null||ov.cat||ov.priority||(ov.tags&&ov.tags.length)){
+            taskRef=Object.assign({},t);
+            if(ov.title) taskRef.title=ov.title;
+            if(ov.desc!=null) taskRef.desc=ov.desc;
+            if(ov.cat) taskRef.cat=ov.cat;
+            if(ov.priority) taskRef.priority=ov.priority;
+            if(ov.tags) taskRef.tags=ov.tags;
+          }
+          sub.push({task:taskRef, date:startOfDay(s), start:s, end:e, recurring:true, ovDate:k});
+        }
       }
     }
     out.push.apply(out, sub);
