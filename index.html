@@ -273,6 +273,11 @@
   .today-item.overdue{border-color:#ffd2d2;background:#fff6f6;}
   .today-item.done{opacity:.55;}
   .today-item.dropped{opacity:.5;background:var(--bg);}
+  .today-item.dropped .t{text-decoration:line-through;}
+  .badge.drop{background:var(--line);color:var(--muted);border:1px solid var(--line);}
+  .btn-quiet{background:transparent;border:1px solid var(--line);color:var(--muted);font-size:12px;padding:3px 9px;border-radius:6px;cursor:pointer;}
+  .btn-quiet:hover{background:var(--bg2);color:var(--text);}
+  .inbox-item.dropped .ibt{text-decoration:line-through;}
   .today-item .bar{width:4px;align-self:stretch;border-radius:3px;background:var(--c5);}
   .today-item .bar.p0{background:var(--danger);} .today-item .bar.p1{background:var(--warn);} .today-item .bar.p2{background:var(--c5);}
   .today-item .meta{min-width:0;overflow:hidden;}
@@ -1948,7 +1953,7 @@
       <!-- 撤销走独立入口：主按钮永远只做「标记完成」，避免改完完成时间后误点主按钮把打卡取消掉 -->
       <button class="btn btn-ghost" id="btnUndoDone" style="display:none;flex:none;width:auto;" title="取消这次的打卡，任务恢复为未完成">↩ 撤销完成</button>
       <button class="btn btn-danger" id="btnDelete" style="display:none;flex:none;width:auto;">删除</button>
-      <button class="btn btn-ghost" id="btnDrop" style="display:none;flex:none;width:auto;">标记已放弃</button>
+      <button class="btn btn-ghost" id="btnDrop" style="display:none;flex:none;width:auto;">标记不补做</button>
     </div>
     <div class="defer-pop" id="deferPop" style="display:none;">
       <div class="dp-grp">
@@ -4077,7 +4082,7 @@ function computeFuncSummary(){
   const tasks=state.tasks||[]; const today0=startOfDay(new Date()); const ws=addDays(today0,-7);
   const catMap={}; let active=0;
   const weekDone=tasks.filter(t=>isTaskDone(t)&&(t.doneDates||[]).some(d=>parseLocal(d)>=ws)).length;
-  const overdue=tasks.filter(t=>!noDate(t)&&!isTaskDoneNow(t)&&!t.skipMissed&&!isDropped(t)&&parseLocal(t.end)<today0);
+  const overdue=tasks.filter(t=>!noDate(t)&&!isTaskDoneNow(t)&&!t.skipMissed&&parseLocal(t.end)<today0);
   const dueToday=tasks.filter(t=>!isTaskDoneNow(t)&&!noDate(t)&&(()=>{const e=parseLocal(t.end);return e>=today0&&e<addDays(today0,1);})());
   const trend=[]; for(let i=6;i>=0;i--){ const d=addDays(today0,-i); const k=ymd(d); const c=tasks.filter(t=>isTaskDone(t)&&(t.doneDates||[]).includes(k)).length; trend.push({d,c}); }
   tasks.forEach(t=>{ if(!isTaskDoneNow(t) && !t.dropped) active++; const c=(t.cat&&t.cat.name)||t.cat||"未分类"; catMap[c]=(catMap[c]||0)+1; });
@@ -4149,10 +4154,9 @@ function renderToday(){
   const backlogStart=addDays(d0,-14);
   // 一次展开 近14天→今天，替代原来 3 次 getInstances，减少重复计算（逾期项按时间先后展示）
   const insts=filterInsts(getInstances(backlogStart, endOfDay(d0)));
-  const overdue=[], due=[], droppedList=[];
+  const overdue=[], due=[];
   for(const i of insts){
     if(isDone(i)) continue;
-    if(isDropped(i.task,i.date)){ droppedList.push(i); continue; }  // 已放弃：保留灰显，无论逾期还是今天到期都不计入活跃（优先于 skipMissed）
     if(i.end < d0){
       if(i.task.skipMissed) continue;   // 「错过不补」的日常（游戏日常/签到）：往期作废，不进逾期待补做
       if(!overdue.find(o=>o.task.id===i.task.id && sameDay(o.date,i.date))) overdue.push(i);
@@ -4162,17 +4166,19 @@ function renderToday(){
   }
   due.sort((a,b)=> (gwRank(a.task)-gwRank(b.task)) || (priRank(a.task.priority)-priRank(b.task.priority)) );
   overdue.sort((a,b)=> parseLocal(b.end)-parseLocal(a.end) );
-  window.__todayStats={pending:overdue.length+due.length, overdue:overdue.length};
+  const urgent=overdue.concat(due);
+  const urgentDrop=urgent.filter(i=>isDropped(i.task,i.date)).length;
+  // 已标记「不补做」的任务仍留在原列表（灰显 + 「不补做」徽标），但不计入「待处理 / 逾期」动态数
+  window.__todayStats={pending:urgent.length-urgentDrop, overdue:overdue.length};
 
   const list=document.getElementById("todayList");
   const krHtml=renderTodayKrHtml();
   const todayAll=insts.filter(i=>sameDay(i.date,d0));
   const done=todayAll.filter(isDone).length, total=todayAll.length;
-  if(!overdue.length && !due.length && !done){ list.innerHTML='<div class="empty"><div class="empty-ic">🎉</div><div>今天没有待处理任务<br>把收件箱里的想法安排进来，或点上方「新建任务」添加一个</div></div>'+krHtml; renderRing(0,0); bindKrToday(); return; }
+  if(!urgent.length && !done){ list.innerHTML='<div class="empty"><div class="empty-ic">🎉</div><div>今天没有待处理任务<br>把收件箱里的想法安排进来，或点上方「新建任务」添加一个</div></div>'+krHtml; renderRing(0,0); bindKrToday(); return; }
   let html="";
   const doneItems = todayAll.filter(isDone); // 已完成项也保留在清单里，按收件箱方式灰显 + 显示完成时间
-  const urgent = overdue.concat(due);    // 紧急项（逾期 + 今天到期）始终优先，不做折叠
-  const allItems = urgent.concat(droppedList).concat(doneItems);
+  const allItems = urgent.concat(doneItems);
   const totalAll = allItems.length;
   // 紧急项超过上限时直接全部展示（靠 max-height 滚动），不显示「展开」按钮，避免误导；
   // 否则默认只显示前 TODAY_LIMIT 条（含已完成项），多出来的折叠进「展开全部」按钮。
@@ -4180,11 +4186,11 @@ function renderToday(){
   const visible = showAll ? allItems : allItems.slice(0, TODAY_LIMIT);
   for(const i of visible){
     const p=i.task.priority, c=catColor(i.task.cat);
-    const ov = overdue.includes(i);
+    const isDrop = isDropped(i.task,i.date);
+    const ov = overdue.includes(i) && !isDrop;   // 已标记不补做的逾期项不标红，改为灰显
     const itDone = isDone(i);
-    const isDrop = droppedList.includes(i);
     const daysLate = ov ? Math.max(1, Math.round((now - i.end)/86400000)) : 0;
-    const when = isDrop ? ("已跳过 · "+fmtRange(i.start,i.end)) : (ov ? ("逾期 "+ (daysLate<=1?"昨天":daysLate+" 天") +" · "+fmtRange(i.start,i.end)) : ("今天 "+fmtRange(i.start,i.end)));
+    const when = isDrop ? ("不补做 · "+fmtRange(i.start,i.end)) : (ov ? ("逾期 "+ (daysLate<=1?"昨天":daysLate+" 天") +" · "+fmtRange(i.start,i.end)) : ("今天 "+fmtRange(i.start,i.date)));
     const dk=ymd(i.date);
     const hasSub=!!(i.task.subtasks&&i.task.subtasks.length);
     const subOpen=hasSub&&subOpenIds.has(i.task.id);
@@ -4193,13 +4199,14 @@ function renderToday(){
     if(i.task.gw && i.task.gw!=="next") extra.push(`<span class="badge gw">${gwLabel(i.task.gw)}</span>`);
     if(i.task.energy) extra.push(`<span class="badge sub">${i.task.energy==="high"?"精力↑":i.task.energy==="low"?"精力↓":"精力中"}</span>`);
     if(i.task.est) extra.push(`<span class="badge sub">${i.task.est}′</span>`);
-    html+=`<div class="today-item ${ov?'overdue':''} ${itDone?'done':''} ${isDrop?'dropped':''}">
+    html+=`<div class="today-item ${ov?'overdue':''} ${itDone?'done':''} ${isDrop?'dropped no-count':''}">
       <div class="bar" style="background:${priColor(p)}"></div>
       <div class="meta">
         <div class="t">${esc(i.task.title)}</div>
         ${i.task.desc?`<div class="ibd">${esc(i.task.desc)}</div>`:""}
         <div class="ibs">
           <span class="s ${ov?'over':''}">${when}${ov?' · 待补做':''}</span>
+          ${isDrop?`<span class="badge drop">不补做</span>`:""}
           <span class="badge" style="background:${hexA(priColor(p),.16)};color:${priColor(p)}">${esc(p)}</span>
           <span class="badge" style="background:${hexA(c,.16)};color:${c}">${esc(i.task.cat||"")}</span>
           ${sub}${tagsHtml(i.task)}${extra.join("")}${itDone?`<span class="badge done-at" style="${DONE_AT_CSS}">${doneAtMark(i.task, i.date, true)}</span>`:""}
@@ -4210,7 +4217,7 @@ function renderToday(){
         ? `<button class="btn btn-ghost btn-sm" data-restore="${i.task.id}" data-date="${ymd(i.date)}">恢复</button>`
         : (itDone
             ? `<button class="btn btn-ghost btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">撤销</button>`
-            : `<button class="btn btn-pri btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">完成</button><button class="btn btn-ghost btn-sm" data-skip="${i.task.id}" data-date="${ymd(i.date)}">跳过</button>`)
+            : `<button class="btn btn-pri btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">完成</button><button class="btn btn-quiet btn-sm" data-skip="${i.task.id}" data-date="${ymd(i.date)}">不补做</button>`)
       }
     </div>`;
   }
@@ -4772,11 +4779,11 @@ function isTaskDoneNow(t, ref){
 }
 function isTaskDone(t){ if(!t.recurrence||t.recurrence.freq==="none") return t.status==="done"; return (t.doneDates||[]).length>0; }
 
-/* 已放弃/已跳过：软态，保留数据、可恢复，不计入逾期/进行中/今日待办。
-   重复任务跳过整组某日 → 落在 overrides[date].skip；普通任务 → t.dropped。 */
+/* 已标记不补做：软态，保留数据、可恢复、仍在列表中（灰显 + 「不补做」徽标），不计入进行中/活跃，但逾期清单仍如实展示（带标注）。
+   重复任务标记某日不补做 → 落在 overrides[date].skip；普通任务 → t.dropped。 */
 function isDropped(t, date){
   // 注意：整组层面的查询（computeFuncSummary / renderStats 的逾期过滤）只传了 t、没传日期。
-  // 重复任务的「已放弃」是按单次（date）记录的，没有日期时拿不到具体某次，
+  // 重复任务的「不补做」是按单次（date）记录的，没有日期时拿不到具体某次，
   // 必须判空返回 false，否则 getRecOverride(t,undefined)→ovKeyD(undefined)→ymd(undefined) 抛错，
   // 导致只要数据里存在任意重复任务，每一次渲染都会崩（界面刷新出错）。
   if(!t) return false;
@@ -4789,8 +4796,8 @@ function skipTask(id, date){
   if(isRecTask(t)){
     t.overrides=t.overrides||{}; t.overrides[ovKeyD(date)]={skip:true};
     clearInstanceProgress(t, date);
-    save(); renderAll(); toast("已跳过该日任务（整组保留，可恢复）");
-  } else { t.dropped=true; touchTask(t); save(); renderAll(); toast("已标记为「已放弃」（保留在列表，可恢复）"); }
+    save(); renderAll(); toast("已标记该日不补做（整组保留，可恢复）");
+  } else { t.dropped=true; touchTask(t); save(); renderAll(); toast("已标记为不补做（保留在列表，可恢复）"); }
 }
 function restoreTask(id, date){
   const t=state.tasks.find(x=>x.id===id); if(!t) return;
@@ -5342,7 +5349,7 @@ function renderInbox(){
         ${t.desc?`<div class="ibd">${esc(t.desc)}</div>`:""}
         <div class="ibs">
           <span class="badge" style="background:${hexA(pc,.16)};color:${pc}">${esc(t.priority||"")}</span>
-          <span class="badge" style="background:${hexA(cc,.16)};color:${cc}">${esc(t.cat||"")}</span>
+          <span class="badge" style="background:${hexA(cc,.16)};color:${cc}">${esc(t.cat||"")}</span>${t.dropped?`<span class="badge drop">不补做</span>`:""}
           ${sub}${tagsHtml(t)}${done?`<span class="badge done-at" style="${DONE_AT_CSS}">${doneAtMark(t, null, true)}</span>`:""}
         </div>
       </div>
@@ -5354,7 +5361,7 @@ function renderInbox(){
   }
   html+='</div>';
   if(!selMode) html+=pgBar(list.length,"inbox",()=>renderInbox());
-  html+=selMode?selBarHTML([{label:"完成",cls:"btn-pri",fn:()=>{ batchInboxDone(); }},{label:"改属性",cls:"btn-ghost",fn:()=>{ batchInboxProps(); }},{label:"跳过",cls:"btn-ghost",fn:()=>{ batchInboxSkip(); }},{label:"删除",cls:"btn-danger",fn:()=>{ batchInboxDelete(); }},{label:"清空已完成",cls:"btn-ghost",fn:()=>{ batchInboxClearDone(); }}]) : "";
+  html+=selMode?selBarHTML([{label:"完成",cls:"btn-pri",fn:()=>{ batchInboxDone(); }},{label:"改属性",cls:"btn-ghost",fn:()=>{ batchInboxProps(); }},{label:"标记不补做",cls:"btn-ghost",fn:()=>{ batchInboxSkip(); }},{label:"删除",cls:"btn-danger",fn:()=>{ batchInboxDelete(); }},{label:"清空已完成",cls:"btn-ghost",fn:()=>{ batchInboxClearDone(); }}]) : "";
   v.innerHTML=html;
   pgBind();
   const a=v.querySelector("#inboxAdd"); if(a) a.onclick=()=>openInboxNew();
@@ -5367,7 +5374,7 @@ function renderInbox(){
     row.querySelector("[data-plan]").onclick=()=>planInbox(id);
     const rb=row.querySelector("[data-restore]"); if(rb) rb.onclick=()=>{ restoreTask(rb.dataset.restore); };
   });
-  if(selMode) selBind([{label:"完成",cls:"btn-pri",fn:batchInboxDone},{label:"改属性",cls:"btn-ghost",fn:batchInboxProps},{label:"跳过",cls:"btn-ghost",fn:batchInboxSkip},{label:"删除",cls:"btn-danger",fn:batchInboxDelete},{label:"清空已完成",cls:"btn-ghost",fn:batchInboxClearDone}]);
+  if(selMode) selBind([{label:"完成",cls:"btn-pri",fn:batchInboxDone},{label:"改属性",cls:"btn-ghost",fn:batchInboxProps},{label:"标记不补做",cls:"btn-ghost",fn:batchInboxSkip},{label:"删除",cls:"btn-danger",fn:batchInboxDelete},{label:"清空已完成",cls:"btn-ghost",fn:batchInboxClearDone}]);
 }
 function batchInboxDone(){
   const ids=Array.from(selIds); if(!ids.length){ toast("请先勾选任务"); return; }
@@ -5443,7 +5450,7 @@ function batchInboxClearDone(){
   trashRefresh();
   save(); renderAll(); toast("已清空 "+done.length+" 项已完成");
 }
-// 批量标记「已放弃」：普通任务 dropped=true（从收件箱未完成计数与逾期排除）；重复任务需逐日跳过，批量无意义，跳过并提示。
+// 批量标记不补做：普通任务 dropped=true（不计入收件箱未完成计数与进行中；逾期清单仍展示）；重复任务需逐日跳过，批量不适用。
 async function batchInboxSkip(){
   const ids=Array.from(selIds); if(!ids.length){ toast("请先勾选任务"); return; }
   const rec=[];
@@ -5455,7 +5462,7 @@ async function batchInboxSkip(){
     t.dropped=true; touchTask(t); n++;
   }
   save(); selClear(); renderAll();
-  toast(rec.length ? (`已跳过 ${n} 项普通任务；${rec.length} 个重复任务请到「任务」面板逐日跳过`) : (`已批量跳过 ${n} 项（可 Ctrl+Z 撤销）`));
+  toast(rec.length ? (`已标记 ${n} 项普通任务不补做；${rec.length} 个重复任务请到「任务」面板逐日标记`) : (`已批量标记 ${n} 项不补做（可 Ctrl+Z 撤销）`));
 }
 // 新建时默认勾选「不指定日期」
 function openInboxNew(){
@@ -5626,7 +5633,7 @@ function renderStats(){
     <div class="stat-card"><div class="n">${total}</div><div class="l">总任务</div></div>
     <div class="stat-card"><div class="n" style="color:var(--ok)">${done}</div><div class="l" title="重复任务按当前周期判定（如每日任务=今天是否已打卡）">已完成</div></div>
     <div class="stat-card"><div class="n" style="color:var(--pri)">${rangeDone}</div><div class="l">区间内完成</div></div>
-    <div class="stat-card"><div class="n" style="color:var(--warn)">${total-done-droppedCount}</div><div class="l" title="重复任务按当前周期判定（如每日任务=今天是否已打卡）；已放弃的任务不计入">进行中</div></div>
+    <div class="stat-card"><div class="n" style="color:var(--warn)">${total-done-droppedCount}</div><div class="l" title="重复任务按当前周期判定（如每日任务=今天是否已打卡）；已标记不补做的任务不计入">进行中</div></div>
   </div>`;
   /* ：分类分布与优先级分布并置双栏 */
   html+=`<div class="stat-grid2">`;
@@ -5712,7 +5719,7 @@ function exportStatsReport(){
     const fit=habitFitRate(); const okrAvg=state.okrs.length?Math.round(state.okrs.reduce((s,o)=>s+okrOverall(o),0)/state.okrs.length):null;
     let md=`# 统计报告 · ${ymd(startOfDay(new Date()))}\n\n`;
     let droppedCount=0; for(const t of tasks) if(!isRecTask(t)&&t.dropped) droppedCount++;
-    md+=`- 时间范围：${statsRange===0?('全部（自 '+ymd(statsEarliestDay())+' 起）'):(statsRange+' 天')}\n- 总任务：${total} · 已完成：${done} · 进行中：${total-done-droppedCount}（已放弃 ${droppedCount} 项不计入） · 总体完成率：${rate}%\n`;
+    md+=`- 时间范围：${statsRange===0?('全部（自 '+ymd(statsEarliestDay())+' 起）'):(statsRange+' 天')}\n- 总任务：${total} · 已完成：${done} · 进行中：${total-done-droppedCount}（已标记不补做 ${droppedCount} 项不计入） · 总体完成率：${rate}%\n`;
     md+=`- 习惯契合度：${fit===null?'—':fit+'%'}\n- OKR 平均进度：${okrAvg===null?'—':okrAvg+'%'}\n\n`;
     const catOrder=catNames().slice(); tasks.forEach(t=>{ if(t.cat && !catOrder.includes(t.cat)) catOrder.push(t.cat); });
     md+=`## 分类分布\n`; catOrder.forEach(c=>{ const n=tasks.filter(t=>t.cat===c).length; if(n) md+=`- ${c}：${n}（${Math.round(n/total*100)}%）\n`; });
@@ -6334,7 +6341,7 @@ function renderReview(){
     inboxTasks=[]; overdue=[]; waiting=[]; someday=[]; stalled=[]; doneWeek=snap.metrics.doneWeek;
   } else {
     inboxTasks=state.tasks.filter(t=>noDate(t) && !isTaskDone(t));
-    overdue=state.tasks.filter(t=>!noDate(t) && !isTaskDoneNow(t) && !t.skipMissed && !isDropped(t) && parseLocal(t.end)<startOfDay(new Date()));
+    overdue=state.tasks.filter(t=>!noDate(t) && !isTaskDoneNow(t) && !t.skipMissed && parseLocal(t.end)<startOfDay(new Date()));
     waiting=state.tasks.filter(t=>(t.gw||"next")==="waiting" && !isTaskDoneNow(t));
     someday=state.tasks.filter(t=>(t.gw||"next")==="someday" && !isTaskDoneNow(t));
     stalled=state.tasks.filter(t=>{ if(isTaskDone(t)) return false; const age=(Date.now()-(t.createdAt||Date.now()))/86400000; return age>14 && (t.gw||"next")!=="waiting"; });
@@ -6426,7 +6433,7 @@ function exportReview(){
   try{
     const wk=weekKey(new Date());
     const inboxTasks=state.tasks.filter(t=>noDate(t) && !isTaskDone(t));
-    const overdue=state.tasks.filter(t=>!noDate(t) && !isTaskDoneNow(t) && !t.skipMissed && !isDropped(t) && parseLocal(t.end)<startOfDay(new Date()));
+    const overdue=state.tasks.filter(t=>!noDate(t) && !isTaskDoneNow(t) && !t.skipMissed && parseLocal(t.end)<startOfDay(new Date()));
     const waiting=state.tasks.filter(t=>(t.gw||"next")==="waiting" && !isTaskDoneNow(t));
     const someday=state.tasks.filter(t=>(t.gw||"next")==="someday" && !isTaskDoneNow(t));
     const stalled=state.tasks.filter(t=>{ if(isTaskDone(t)) return false; const age=(Date.now()-(t.createdAt||Date.now()))/86400000; return age>14 && (t.gw||"next")!=="waiting"; });
@@ -6816,15 +6823,15 @@ function openModal(id, date, scope){
   const deferBtn=document.getElementById("btnDefer"); if(deferBtn) deferBtn.style.display = id? "inline-flex":"none";
   const dupBtn=document.getElementById("btnDup"); if(dupBtn) dupBtn.style.display = id? "inline-flex":"none";       // M7
   const tplBtn=document.getElementById("btnSaveTpl"); if(tplBtn) tplBtn.style.display = id? "inline-flex":"none";   // M7
-  // 「标记已放弃 / 跳过该日」按钮：编辑普通任务或重复任务单次时显示，整组编辑/新建时隐藏
+  // 「标记不补做 / 标记该日不补做」按钮：编辑普通任务或重复任务单次时显示，整组编辑/新建时隐藏
   const dropBtn=document.getElementById("btnDrop");
   if(dropBtn){
     if(!id){ dropBtn.style.display="none"; }
     else {
       const _dt=state.tasks.find(x=>x.id===id);
       if(!_dt){ dropBtn.style.display="none"; }
-      else if(isRecTask(_dt)){ dropBtn.style.display="inline-flex"; dropBtn.textContent="跳过该日"; }
-      else { dropBtn.style.display="inline-flex"; dropBtn.textContent="标记已放弃"; }
+      else if(isRecTask(_dt)){ dropBtn.style.display="inline-flex"; dropBtn.textContent="标记该日不补做"; }
+      else { dropBtn.style.display="inline-flex"; dropBtn.textContent="标记不补做"; }
     }
   }
   const deferPop=document.getElementById("deferPop"); if(deferPop) deferPop.style.display="none";
@@ -7089,7 +7096,7 @@ function saveTask(){
   if(editingId && editingDate && editingScope==="once" && recEditing){
     const skip=document.getElementById("f_skip").checked;
     const k=ovKeyD(editingDate);
-    const wasSkip=!!(et.overrides && et.overrides[k] && et.overrides[k].skip);   // 该次原本是否处于「已跳过」
+    const wasSkip=!!(et.overrides && et.overrides[k] && et.overrides[k].skip);   // 该次原本是否处于「已标记不补做」
     et.overrides = et.overrides || {};
     if(skip){
       et.overrides[k]={skip:true};
@@ -7212,12 +7219,12 @@ async function deleteTask(){
   const recEditing = !!(et && et.recurrence && et.recurrence.freq!=="none");
   const onceMode = !!(editingDate && editingScope==="once" && recEditing);
   if(onceMode){
-    if(!(await confirmDialog("确定跳过该日（"+editingDate+"）的这次任务？整组重复保留。",{danger:true}))) return;
+    if(!(await confirmDialog("确定将该日任务标记为不补做？整组重复保留。",{danger:true}))) return;
     snapshot();
     et.overrides = et.overrides || {};
     et.overrides[ovKeyD(editingDate)] = {skip:true};
     clearInstanceProgress(et, editingDate);   // 该次实例的勾选一并作废，避免取消跳过时「复活」
-    save(); closeModal(); renderAll(); toast("已跳过该日任务（整组保留）"); return;
+    save(); closeModal(); renderAll(); toast("已标记该日不补做（整组保留）"); return;
   }
   if(!(await confirmDialog("确定删除该任务？",{danger:true}))) return;
   snapshot();
