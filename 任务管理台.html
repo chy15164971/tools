@@ -275,12 +275,15 @@
   .today-item.dropped{opacity:.5;background:var(--bg);}
   .today-item.dropped .t{text-decoration:line-through;}
   .badge.drop{background:var(--line);color:var(--muted);border:1px solid var(--line);}
-  .btn-quiet{background:transparent;border:1px solid var(--line);color:var(--muted);font-size:12px;padding:3px 9px;border-radius:6px;cursor:pointer;}
+  .btn-quiet{background:var(--card);border:1px solid var(--line);color:var(--muted);font-size:12px;padding:3px 9px;border-radius:6px;cursor:pointer;}
   .btn-quiet:hover{background:var(--bg2);color:var(--text);}
   .inbox-item.dropped .ibt{text-decoration:line-through;}
   .today-item .bar{width:4px;align-self:stretch;border-radius:3px;background:var(--c5);}
   .today-item .bar.p0{background:var(--danger);} .today-item .bar.p1{background:var(--warn);} .today-item .bar.p2{background:var(--c5);}
   .today-item .meta{min-width:0;overflow:hidden;}
+  /* 卡片右侧动作区：必须包成「单个 grid 项」，否则第二个裸按钮会被 3 列网格换行掉进 4px 第一列（2026-09-16 实锤） */
+  .today-acts{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;align-items:center;}
+  .today-acts .btn{flex:none;white-space:nowrap;}
   .today-item .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .today-item .ibd{font-size:12.5px;color:var(--sub);margin-top:3px;line-height:1.5;word-break:break-word;text-align:left;}
   .today-item .ibs{font-size:12px;color:var(--sub);margin-top:4px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;min-width:0;}
@@ -4213,12 +4216,12 @@ function renderToday(){
         ${hasSub&&subOpen?subChecklistHtml(i.task,dk):""}
         </div>
       </div>
-      ${isDrop
+      <div class="today-acts">${isDrop
         ? `<button class="btn btn-ghost btn-sm" data-restore="${i.task.id}" data-date="${ymd(i.date)}">恢复</button>`
         : (itDone
             ? `<button class="btn btn-ghost btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">撤销</button>`
             : `<button class="btn btn-pri btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">完成</button><button class="btn btn-quiet btn-sm" data-skip="${i.task.id}" data-date="${ymd(i.date)}">不补做</button>`)
-      }
+      }</div>
     </div>`;
   }
   // 仅当「总条数 > 上限 且 紧急项未超限」时，才显示「展开全部 / 收起」开关
