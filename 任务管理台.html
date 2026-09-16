@@ -375,6 +375,8 @@
   .more{font-size:11px;color:var(--sub);padding-left:3px;margin-top:1px;}
   /* 超期任务块：过去日期里未完成 → 红色左边框 + 红点，月历上一眼可辨积压 */
   .chip.overdue{box-shadow:inset 3px 0 0 var(--danger);outline:1px solid rgba(239,68,68,.45);}
+  .chip.dropped{filter:grayscale(.85);text-decoration:line-through;}
+  .ev.dropped{filter:grayscale(.85);text-decoration:line-through;}
   .chip.okr{background:var(--accent);}
   .chip.okr .ct{font-size:11px;}
   .chip.overdue::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--danger);flex:none;margin-left:2px;}
@@ -3003,9 +3005,9 @@ function moveRecInstance(t, fromDate, deltaDays){
   let s = ov && ov.start ? parseLocal(ov.start) : new Date(startOfDay(fromDate)); s.setHours(baseS.getHours(), baseS.getMinutes());
   let e = ov && ov.end ? parseLocal(ov.end) : new Date(startOfDay(fromDate)); e.setHours(baseE.getHours(), baseE.getMinutes());
   const ns = new Date(s.getTime() + d*DAY), ne = new Date(e.getTime() + d*DAY);
-  // 原日：仅 skip（整组其它日期不受影响）
+  // 原日：硬跳过（hard:true）——这次被挪到别处，原日不应再出现，且要与「不补做」软态区分开
   t.overrides = t.overrides || {};
-  t.overrides[fromKey] = {skip:true};
+  t.overrides[fromKey] = {skip:true, hard:true};
   // 新日：写入该次的时间（迁移已有内容 override）
   const np = {start:toStr(ns), end:toStr(ne)};
   if(ov && ov.title) np.title = ov.title;
@@ -3048,7 +3050,11 @@ function getInstances(rangeStart, rangeEnd){
         {
           const k = ymd(cur);
           const ov = getRecOverride(t, cur);
-          if(ov && ov.skip){ cur=addDays(cur,1); continue; }   // 当天跳过
+          /* ov.skip 有两种含义，必须区分：
+             · {skip:true, hard:true} = 硬跳过（拖动把这次挪走了 / 表单勾「不生成这次任务」）→ 不产实例；
+             · {skip:true} = 「标记不补做」软态 → 照常产实例并打 dropped 标记，由各视图灰显。
+             旧版对两者一律 continue → 症状：重复任务标记不补做后整条「消失」。 */
+          if(ov && ov.skip && ov.hard){ cur=addDays(cur,1); continue; }
           let s=new Date(cur); s.setHours(bs.getHours(),bs.getMinutes());
           let e=new Date(cur); e.setHours(be.getHours(),be.getMinutes());
           let taskRef = t;
@@ -3075,7 +3081,7 @@ function getInstances(rangeStart, rangeEnd){
               if(ov.tags) taskRef.tags = ov.tags;
             }
           }
-          sub.push({task:taskRef, date:startOfDay(s), start:s, end:e, recurring:true, ovDate:k});
+          sub.push({task:taskRef, date:startOfDay(s), start:s, end:e, recurring:true, ovDate:k, dropped:!!(ov && ov.skip && !ov.hard)});
           emittedKeys.add(k);
         }
         cur = addDays(cur,1);
@@ -3089,7 +3095,7 @@ function getInstances(rangeStart, rangeEnd){
           if(emittedKeys.has(k)) continue;          // 主循环已生成（自然发生日 / 范围内的内容 override）
           if(k<rsy || k>rey) continue;              // 不在可见区间
           const ov=t.overrides[k];
-          if(!ov || ov.skip) continue;              // 跳过态不产生实例
+          if(!ov || (ov.skip && ov.hard)) continue; // 硬跳过不产实例；「不补做」软态照常产（灰显）
           const cur=parseLocal(k+"T00:00");
           if(cur<startOfDay(bs)) continue;          // 早于任务起始日的不算
           let s=new Date(cur); s.setHours(bs.getHours(),bs.getMinutes());
@@ -3108,7 +3114,7 @@ function getInstances(rangeStart, rangeEnd){
             if(ov.priority) taskRef.priority=ov.priority;
             if(ov.tags) taskRef.tags=ov.tags;
           }
-          sub.push({task:taskRef, date:startOfDay(s), start:s, end:e, recurring:true, ovDate:k});
+          sub.push({task:taskRef, date:startOfDay(s), start:s, end:e, recurring:true, ovDate:k, dropped:!!(ov.skip && !ov.hard)});
         }
       }
     }
@@ -4088,7 +4094,7 @@ function computeFuncSummary(){
   const overdue=tasks.filter(t=>!noDate(t)&&!isTaskDoneNow(t)&&!t.skipMissed&&parseLocal(t.end)<today0);
   const dueToday=tasks.filter(t=>!isTaskDoneNow(t)&&!noDate(t)&&(()=>{const e=parseLocal(t.end);return e>=today0&&e<addDays(today0,1);})());
   const trend=[]; for(let i=6;i>=0;i--){ const d=addDays(today0,-i); const k=ymd(d); const c=tasks.filter(t=>isTaskDone(t)&&(t.doneDates||[]).includes(k)).length; trend.push({d,c}); }
-  tasks.forEach(t=>{ if(!isTaskDoneNow(t) && !t.dropped) active++; const c=(t.cat&&t.cat.name)||t.cat||"未分类"; catMap[c]=(catMap[c]||0)+1; });
+  tasks.forEach(t=>{ if(!isTaskDoneNow(t) && !t.dropped && !isDropped(t, ymd(today0))) active++; const c=(t.cat&&t.cat.name)||t.cat||"未分类"; catMap[c]=(catMap[c]||0)+1; });
   return {weekDone, overdue, dueToday, trend, catMap, active, total:tasks.length};
 }
 function funcBody(w, S){
@@ -4172,11 +4178,13 @@ function renderToday(){
   const urgent=overdue.concat(due);
   const urgentDrop=urgent.filter(i=>isDropped(i.task,i.date)).length;
   // 已标记「不补做」的任务仍留在原列表（灰显 + 「不补做」徽标），但不计入「待处理 / 逾期」动态数
-  window.__todayStats={pending:urgent.length-urgentDrop, overdue:overdue.length};
+  // 「不补做」只标注、不计入动态数（列表照常展示，见下方渲染）
+  const overdueDrop=overdue.filter(i=>isDropped(i.task,i.date)).length;
+  window.__todayStats={pending:urgent.length-urgentDrop, overdue:overdue.length-overdueDrop};
 
   const list=document.getElementById("todayList");
   const krHtml=renderTodayKrHtml();
-  const todayAll=insts.filter(i=>sameDay(i.date,d0));
+  const todayAll=insts.filter(i=>sameDay(i.date,d0) && !i.dropped);   // 「不补做」不进完成率分母
   const done=todayAll.filter(isDone).length, total=todayAll.length;
   if(!urgent.length && !done){ list.innerHTML='<div class="empty"><div class="empty-ic">🎉</div><div>今天没有待处理任务<br>把收件箱里的想法安排进来，或点上方「新建任务」添加一个</div></div>'+krHtml; renderRing(0,0); bindKrToday(); return; }
   let html="";
@@ -4790,14 +4798,17 @@ function isDropped(t, date){
   // 必须判空返回 false，否则 getRecOverride(t,undefined)→ovKeyD(undefined)→ymd(undefined) 抛错，
   // 导致只要数据里存在任意重复任务，每一次渲染都会崩（界面刷新出错）。
   if(!t) return false;
-  if(isRecTask(t)){ const o = date ? getRecOverride(t, date) : null; return !!(o && o.skip); }
+  if(isRecTask(t)){ const o = date ? getRecOverride(t, date) : null; return !!(o && o.skip && !o.hard); }
   return !!t.dropped;
 }
 function skipTask(id, date){
   const t=state.tasks.find(x=>x.id===id); if(!t) return;
   snapshot();
   if(isRecTask(t)){
-    t.overrides=t.overrides||{}; t.overrides[ovKeyD(date)]={skip:true};
+    t.overrides=t.overrides||{};
+    const _sk=ovKeyD(date);
+    // 只叠加软标记，别把该日已有的内容 override（改过时刻/标题等）整块覆盖掉
+    t.overrides[_sk]=Object.assign({}, t.overrides[_sk]||{}, {skip:true});
     clearInstanceProgress(t, date);
     save(); renderAll(); toast("已标记该日不补做（整组保留，可恢复）");
   } else { t.dropped=true; touchTask(t); save(); renderAll(); toast("已标记为不补做（保留在列表，可恢复）"); }
@@ -4842,14 +4853,16 @@ function renderMonth(){
           continue;
         }
         const col=catColor(i.task.cat);
-        const done=isDone(i)?"opacity:.55":'';
+        const isDrop=!!i.dropped;                          // 已标记不补做：保留在格子内、灰显 + 🚫
+        const done=isDrop?"opacity:.4":(isDone(i)?"opacity:.55":'');
         const ttl=esc(i.task.title);
-        /* 超期：日期早于今天 且 未完成 → 标记 overdue（红色左边框/红点） */
-        const overdue = !isDone(i) && d < startOfDay(today);
+        /* 超期：日期早于今天 且 未完成 → 标记 overdue（红色左边框/红点）；已标不补做的项不标红 */
+        const overdue = !isDone(i) && !isDrop && d < startOfDay(today);
         const ovCls = overdue ? ' overdue' : '';
         const ovMark = overdue ? '⚠ ' : '';
+        const dpMark = isDrop ? '🚫 ' : '';
         const daMark = isDone(i) ? ' · '+doneAtMark(i.task, i.date, false) : '';
-        chips+=`<div class="chip${ovCls}" data-id="${i.task.id}" data-date="${k}" style="background:${col};${done}" title="${ovMark}${ttl}（${fmtRange(i.start,i.end)}）${daMark}"><span class="ct">${fmtTime(i.start)}</span><span class="cb">${ovMark}${ttl}${subBadge(i.task,k)}${daMark}</span></div>`;
+        chips+=`<div class="chip${ovCls}${isDrop?' dropped':''}" data-id="${i.task.id}" data-date="${k}" style="background:${col};${done}" title="${dpMark}${ovMark}${ttl}（${fmtRange(i.start,i.end)}）${isDrop?' · 不补做':''}${daMark}"><span class="ct">${fmtTime(i.start)}</span><span class="cb">${dpMark}${ovMark}${ttl}${subBadge(i.task,k)}${daMark}</span></div>`;
       }
       const more=(byDay[k]||[]).length-arr.length;
       if(more>0) chips+=`<div class="more" data-more="${k}" title="查看当日全部任务">+${more} 项</div>`;
@@ -4939,11 +4952,12 @@ function renderTimeline(days){
       const h=(i.end-i.start)/3600000*44; const hh=Math.max(h,20);
       const col=catColor(i.task.cat);
       const done = isDone(i);
+      const isDrop = !!i.dropped;                        // 已标记不补做：保留块、灰显 + 🚫
       const mark = done ? doneAtMark(i.task,i.date,false) : '';
       // 跨天时间显示优化：日/周视图里结束为次日时标注「次日」，避免「09:00-03:00」的歧义
       let rangeTxt = fmtRange(i.start,i.end);
       if(!sameDay(i.start,i.end)) rangeTxt = fmtTime(i.start)+'–次日'+fmtTime(i.end);
-      let etHtml = esc(i.task.title);
+      let etHtml = (isDrop ? '🚫 ' : '') + esc(i.task.title);
       let edHtml = '';
       let justify = 'flex-start';
       if(hh>=46){
@@ -4959,7 +4973,7 @@ function renderTimeline(days){
         etHtml += ` <span style="opacity:.85;font-size:11px;">${shortMark}</span>`;
       }
       const edStyle = edHtml ? '' : 'display:none;';
-      body+=`<div class="ev" style="${posStyle}top:${top}px;height:${hh}px;background:${col};${done?'opacity:.55':''};justify-content:${justify};" data-id="${i.task.id}" data-date="${ymd(i.date)}">
+      body+=`<div class="ev${isDrop?' dropped':''}" style="${posStyle}top:${top}px;height:${hh}px;background:${col};${isDrop?'opacity:.4':(done?'opacity:.55':'')};justify-content:${justify};" data-id="${i.task.id}" data-date="${ymd(i.date)}">
         <div class="et">${etHtml}</div><div class="ed" style="${edStyle}">${edHtml}</div></div>`;
     });
     const hrs=Array.from({length:24},()=>`<div class="hrline"></div>`).join("");
@@ -5697,13 +5711,14 @@ function exportICS(){
         if(isTaskDone(t)) return;
         const s=parseLocal(t.start), e=parseLocal(t.end);
         if(e<now) return;
+        if(t.dropped) return;                                 // 已标记不补做 → 不导日历（与列表「可继续看」区分）
         const dsc=[t.cat,t.priority,t.project].filter(Boolean).join(" · ");
         push(s,e,t.title,uidFor(t.id,"once"),dsc||(t.desc||""));
       }
     });
     // 重复任务：未来 180 天实例（未打卡的）
     getInstances(now,horizon).forEach(i=>{
-      if(!i.recurring || isDone(i)) return;
+      if(!i.recurring || isDone(i) || i.dropped) return;   // 「不补做」不导日历
       const dsc=[i.task.cat,i.task.priority].filter(Boolean).join(" · ");
       push(i.start,i.end,i.task.title,uidFor(i.task.id,ymd(i.date)),dsc||"");
     });
@@ -7102,7 +7117,8 @@ function saveTask(){
     const wasSkip=!!(et.overrides && et.overrides[k] && et.overrides[k].skip);   // 该次原本是否处于「已标记不补做」
     et.overrides = et.overrides || {};
     if(skip){
-      et.overrides[k]={skip:true};
+      // 表单这个勾选框的语义是「不生成这次任务」→ 硬跳过（与「标记不补做」软态不是一回事）
+      et.overrides[k]={skip:true, hard:true};
       clearInstanceProgress(et, editingDate);
     } else {
       if(wasSkip) clearInstanceProgress(et, editingDate);   // 取消跳过 ⇒ 清掉旧版本跳过时残留的勾选
@@ -8967,7 +8983,7 @@ function pushRemindPlan(){
     if(typeof caches==="undefined") return;                 // 非 https / 不支持的环境静默跳过
     const now=new Date(), end=new Date(now.getTime()+12*3600*1000);
     const items=getInstances(now,end)
-      .filter(i=>!isDone(i) && i.start>now)
+      .filter(i=>!isDone(i) && !i.dropped && i.start>now)   // 「不补做」不进提醒计划
       .map(i=>({key:i.task.id+"|"+ymd(i.date), title:i.task.title, at:i.start.getTime(),
                 body:fmtRange(i.start,i.end)+" · "+(i.task.cat||"")}));
     caches.open("wb-remind-plan").then(function(c){
@@ -8981,7 +8997,7 @@ function checkReminders(){
   const now=new Date(), end=new Date(now.getTime()+remind.lead*60000);
   const insts=getInstances(now, end);
   for(const i of insts){
-    if(isDone(i)) continue;
+    if(isDone(i) || i.dropped) continue;   // 「不补做」不发通知
     const diff=i.start-now;
     if(diff>=0 && diff<=remind.lead*60000){
       const key=i.task.id+"|"+ymd(i.date);
@@ -9069,7 +9085,8 @@ document.getElementById("btnDelete").onclick=deleteTask;
 document.getElementById("btnDrop").onclick=()=>{
   const t=state.tasks.find(x=>x.id===editingId); if(!t) return;
   if(isRecTask(t) && editingScope==="once"){
-    const sk = getRecOverride(t, editingDate) && getRecOverride(t, editingDate).skip;
+    const _o = getRecOverride(t, editingDate);
+    const sk = !!(_o && _o.skip && !_o.hard);   // 只有「不补做」软态可在此切换；硬跳过不在本按钮语义内
     if(sk) restoreTask(editingId, editingDate); else skipTask(editingId, editingDate);
   } else if(!isRecTask(t)){
     if(t.dropped) restoreTask(editingId); else skipTask(editingId);
