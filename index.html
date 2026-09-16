@@ -2932,18 +2932,20 @@ function setRecOverride(t, date, patch){
 }
 function delRecOverride(t, date){ if(t.overrides) delete t.overrides[ovKeyD(date)]; }
 /* 清掉「某一次重复实例」留下的进度：subDone[该日] / doneDates 里的这天 / doneAt[该日]。
-   「跳过本次」只写 overrides[date]={skip:true} 是不够的：那天的勾选会原地残留，
-   日后再取消跳过，实例带着一堆已勾子项重新出现 —— 「任务未完成、子项却全勾」的自相矛盾态，
-   而且与既有的「子任务全勾 ⇒ 自动完成」规则互相打架。 */
-function clearInstanceProgress(t, date){
+   主要用于【硬跳过】——「这次不生成」：实例根本不会再出现，残留的勾选日后会莫名其妙「复活」，
+   与既有的「子任务全勾 ⇒ 自动完成」规则互相打架。
+   ⚠️ 软态「标记不补做」不走全清：那个实例是照常生成、只在原位灰显的（见 skipTask）。
+   opts.keepSubs=true ⇒ 保留子任务勾选，只卸掉完成态（doneDates / doneAt）。 */
+function clearInstanceProgress(t, date, opts){
   if(!t || !date) return;
+  const keepSubs = !!(opts && opts.keepSubs);
   const d=ovKeyD(date);
-  if(t.subDone && t.subDone[d]!==undefined) delete t.subDone[d];
+  if(!keepSubs && t.subDone && t.subDone[d]!==undefined) delete t.subDone[d];
   if(Array.isArray(t.doneDates)){ const i=t.doneDates.indexOf(d); if(i>=0) t.doneDates.splice(i,1); }
   if(t.doneAt && t.doneAt[d]!==undefined) delete t.doneAt[d];
 }
 /* 把「某一次重复实例」留下的进度整体迁到新日期上（拖动 / 平移改期时用）。
-   与上面的 clearInstanceProgress 恰好相反：那边是「这次不做了 ⇒ 进度作废」，
+   与上面的 clearInstanceProgress 方向相反：那边是「这次不做了 ⇒ 进度作废」（硬跳过；软态只卸完成态），
    这边是「挪到别的日子去做 ⇒ 进度必须跟着走」。否则换完日期会丢掉已勾子项，
    更别扭的是旧日期还留着打卡记录（实例已经 skip 走了），新日期的实例却是空的。
    - subDone：取并集 —— 目标日若已有该任务的另一个实例，两边的勾选合并而非互相覆盖
@@ -4809,14 +4811,26 @@ function skipTask(id, date){
     const _sk=ovKeyD(date);
     // 只叠加软标记，别把该日已有的内容 override（改过时刻/标题等）整块覆盖掉
     t.overrides[_sk]=Object.assign({}, t.overrides[_sk]||{}, {skip:true});
-    clearInstanceProgress(t, date);
+    // 「不补做」是标注、不是撤回：该次实例照常生成、原位灰显，所以已经勾过的子任务必须原样留着
+    // （keepSubs）。只卸掉完成态 —— 标了不补做就不该再计入「已完成」统计。
+    // 恢复时勾选仍在（见 restoreTask 的保留式摘标记）。
+    clearInstanceProgress(t, date, {keepSubs:true});
     save(); renderAll(); toast("已标记该日不补做（整组保留，可恢复）");
   } else { t.dropped=true; touchTask(t); save(); renderAll(); toast("已标记为不补做（保留在列表，可恢复）"); }
 }
 function restoreTask(id, date){
   const t=state.tasks.find(x=>x.id===id); if(!t) return;
   snapshot();
-  if(isRecTask(t)){ delRecOverride(t, date); save(); renderAll(); toast("已恢复该日任务"); }
+  if(isRecTask(t)){
+    // 只摘掉跳过标记，别整条删 override —— 该日可能还叠加过内容修改（时刻/标题等），
+    // 整条删等于「顺手撤回了用户之前的编辑」；同时保证软态「不补做」期间保留的子任务勾选原样找回。
+    const k=ovKeyD(date), o=(t.overrides||{})[k];
+    if(o){
+      const c=Object.assign({}, o); delete c.skip; delete c.hard;
+      if(Object.keys(c).length) t.overrides[k]=c; else delete t.overrides[k];
+    }
+    save(); renderAll(); toast("已恢复该日任务");
+  }
   else { t.dropped=false; touchTask(t); save(); renderAll(); toast("已恢复（重新计入逾期/进行中）"); }
 }
 
@@ -7121,7 +7135,9 @@ function saveTask(){
       et.overrides[k]={skip:true, hard:true};
       clearInstanceProgress(et, editingDate);
     } else {
-      if(wasSkip) clearInstanceProgress(et, editingDate);   // 取消跳过 ⇒ 清掉旧版本跳过时残留的勾选
+      // 取消跳过：只有原本是「硬跳过」（这次不生成、进度早已作废）才需要清；
+      // 软态「不补做」期间是保留着子任务勾选的，恢复时必须原样留着，否则「勾了又没了」。
+      if(wasSkip && et.overrides[k] && et.overrides[k].hard) clearInstanceProgress(et, editingDate);
       et.overrides[k]={
         // 表单里的日期回填的是整组模板的起始日，必须把「时刻」重新锚定到本次发生日 k，
         // 否则该次实例会被漂移到模板日（保存后当天任务消失）。
@@ -7241,8 +7257,10 @@ async function deleteTask(){
     if(!(await confirmDialog("确定将该日任务标记为不补做？整组重复保留。",{danger:true}))) return;
     snapshot();
     et.overrides = et.overrides || {};
-    et.overrides[ovKeyD(editingDate)] = {skip:true};
-    clearInstanceProgress(et, editingDate);   // 该次实例的勾选一并作废，避免取消跳过时「复活」
+    // 叠加而非整条覆盖（与 skipTask 同口径：别把该日的内容 override 冲掉），并保留子任务勾选
+    const _dk=ovKeyD(editingDate);
+    et.overrides[_dk] = Object.assign({}, et.overrides[_dk]||{}, {skip:true});
+    clearInstanceProgress(et, editingDate, {keepSubs:true});
     save(); closeModal(); renderAll(); toast("已标记该日不补做（整组保留）"); return;
   }
   if(!(await confirmDialog("确定删除该任务？",{danger:true}))) return;
