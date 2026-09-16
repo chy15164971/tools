@@ -272,6 +272,7 @@
   .today-item{display:grid;grid-template-columns:4px minmax(0,1fr) auto;gap:10px;align-items:start;padding:9px 11px;border:1px solid var(--line);border-radius:var(--radius);background:var(--card);}
   .today-item.overdue{border-color:#ffd2d2;background:#fff6f6;}
   .today-item.done{opacity:.55;}
+  .today-item.dropped{opacity:.5;background:var(--bg);}
   .today-item .bar{width:4px;align-self:stretch;border-radius:3px;background:var(--c5);}
   .today-item .bar.p0{background:var(--danger);} .today-item .bar.p1{background:var(--warn);} .today-item .bar.p2{background:var(--c5);}
   .today-item .meta{min-width:0;overflow:hidden;}
@@ -1947,6 +1948,7 @@
       <!-- 撤销走独立入口：主按钮永远只做「标记完成」，避免改完完成时间后误点主按钮把打卡取消掉 -->
       <button class="btn btn-ghost" id="btnUndoDone" style="display:none;flex:none;width:auto;" title="取消这次的打卡，任务恢复为未完成">↩ 撤销完成</button>
       <button class="btn btn-danger" id="btnDelete" style="display:none;flex:none;width:auto;">删除</button>
+      <button class="btn btn-ghost" id="btnDrop" style="display:none;flex:none;width:auto;">标记已放弃</button>
     </div>
     <div class="defer-pop" id="deferPop" style="display:none;">
       <div class="dp-grp">
@@ -4075,10 +4077,10 @@ function computeFuncSummary(){
   const tasks=state.tasks||[]; const today0=startOfDay(new Date()); const ws=addDays(today0,-7);
   const catMap={}; let active=0;
   const weekDone=tasks.filter(t=>isTaskDone(t)&&(t.doneDates||[]).some(d=>parseLocal(d)>=ws)).length;
-  const overdue=tasks.filter(t=>!noDate(t)&&!isTaskDoneNow(t)&&!t.skipMissed&&parseLocal(t.end)<today0);
+  const overdue=tasks.filter(t=>!noDate(t)&&!isTaskDoneNow(t)&&!t.skipMissed&&!isDropped(t)&&parseLocal(t.end)<today0);
   const dueToday=tasks.filter(t=>!isTaskDoneNow(t)&&!noDate(t)&&(()=>{const e=parseLocal(t.end);return e>=today0&&e<addDays(today0,1);})());
   const trend=[]; for(let i=6;i>=0;i--){ const d=addDays(today0,-i); const k=ymd(d); const c=tasks.filter(t=>isTaskDone(t)&&(t.doneDates||[]).includes(k)).length; trend.push({d,c}); }
-  tasks.forEach(t=>{ if(!isTaskDoneNow(t)) active++; const c=(t.cat&&t.cat.name)||t.cat||"未分类"; catMap[c]=(catMap[c]||0)+1; });
+  tasks.forEach(t=>{ if(!isTaskDoneNow(t) && !t.dropped) active++; const c=(t.cat&&t.cat.name)||t.cat||"未分类"; catMap[c]=(catMap[c]||0)+1; });
   return {weekDone, overdue, dueToday, trend, catMap, active, total:tasks.length};
 }
 function funcBody(w, S){
@@ -4147,11 +4149,12 @@ function renderToday(){
   const backlogStart=addDays(d0,-14);
   // 一次展开 近14天→今天，替代原来 3 次 getInstances，减少重复计算（逾期项按时间先后展示）
   const insts=filterInsts(getInstances(backlogStart, endOfDay(d0)));
-  const overdue=[], due=[];
+  const overdue=[], due=[], droppedList=[];
   for(const i of insts){
     if(isDone(i)) continue;
     if(i.end < d0){
       if(i.task.skipMissed) continue;   // 「错过不补」的日常（游戏日常/签到）：往期作废，不进逾期待补做
+      if(isDropped(i.task,i.date)){ droppedList.push(i); continue; }  // 已放弃：保留灰显，不计入逾期
       if(!overdue.find(o=>o.task.id===i.task.id && sameDay(o.date,i.date))) overdue.push(i);
     } else if(sameDay(i.date,d0)) {
       due.push(i);
@@ -4169,7 +4172,7 @@ function renderToday(){
   let html="";
   const doneItems = todayAll.filter(isDone); // 已完成项也保留在清单里，按收件箱方式灰显 + 显示完成时间
   const urgent = overdue.concat(due);    // 紧急项（逾期 + 今天到期）始终优先，不做折叠
-  const allItems = urgent.concat(doneItems);
+  const allItems = urgent.concat(droppedList).concat(doneItems);
   const totalAll = allItems.length;
   // 紧急项超过上限时直接全部展示（靠 max-height 滚动），不显示「展开」按钮，避免误导；
   // 否则默认只显示前 TODAY_LIMIT 条（含已完成项），多出来的折叠进「展开全部」按钮。
@@ -4179,8 +4182,9 @@ function renderToday(){
     const p=i.task.priority, c=catColor(i.task.cat);
     const ov = overdue.includes(i);
     const itDone = isDone(i);
+    const isDrop = droppedList.includes(i);
     const daysLate = ov ? Math.max(1, Math.round((now - i.end)/86400000)) : 0;
-    const when = ov ? ("逾期 "+ (daysLate<=1?"昨天":daysLate+" 天") +" · "+fmtRange(i.start,i.end)) : ("今天 "+fmtRange(i.start,i.end));
+    const when = isDrop ? ("已跳过 · "+fmtRange(i.start,i.end)) : (ov ? ("逾期 "+ (daysLate<=1?"昨天":daysLate+" 天") +" · "+fmtRange(i.start,i.end)) : ("今天 "+fmtRange(i.start,i.end)));
     const dk=ymd(i.date);
     const hasSub=!!(i.task.subtasks&&i.task.subtasks.length);
     const subOpen=hasSub&&subOpenIds.has(i.task.id);
@@ -4189,7 +4193,7 @@ function renderToday(){
     if(i.task.gw && i.task.gw!=="next") extra.push(`<span class="badge gw">${gwLabel(i.task.gw)}</span>`);
     if(i.task.energy) extra.push(`<span class="badge sub">${i.task.energy==="high"?"精力↑":i.task.energy==="low"?"精力↓":"精力中"}</span>`);
     if(i.task.est) extra.push(`<span class="badge sub">${i.task.est}′</span>`);
-    html+=`<div class="today-item ${ov?'overdue':''} ${itDone?'done':''}">
+    html+=`<div class="today-item ${ov?'overdue':''} ${itDone?'done':''} ${isDrop?'dropped':''}">
       <div class="bar" style="background:${priColor(p)}"></div>
       <div class="meta">
         <div class="t">${esc(i.task.title)}</div>
@@ -4202,7 +4206,7 @@ function renderToday(){
         ${hasSub&&subOpen?subChecklistHtml(i.task,dk):""}
         </div>
       </div>
-      <button class="btn ${itDone?'btn-ghost':'btn-pri'} btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">${itDone?"撤销":"完成"}</button>
+      ${isDrop?`<button class="btn btn-ghost btn-sm" data-restore="${i.task.id}" data-date="${ymd(i.date)}">恢复</button>`:`<button class="btn ${itDone?'btn-ghost':'btn-pri'} btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">${itDone?"撤销":"完成"}</button>`}
     </div>`;
   }
   // 仅当「总条数 > 上限 且 紧急项未超限」时，才显示「展开全部 / 收起」开关
@@ -4214,6 +4218,7 @@ function renderToday(){
   const moreBtnEl=list.querySelector("#todayMore");
   if(moreBtnEl) moreBtnEl.onclick=()=>{ todayExpanded=!todayExpanded; renderToday(); };
   list.querySelectorAll("[data-done]").forEach(b=>b.onclick=()=>{ toggleDone(b.dataset.done, b.dataset.date); });
+  list.querySelectorAll("[data-restore]").forEach(b=>b.onclick=()=>{ restoreTask(b.dataset.restore, b.dataset.date); });
   list.querySelectorAll("[data-subopen]").forEach(b=>b.onclick=()=>{
     const id=b.dataset.subopen;
     if(subOpenIds.has(id)) subOpenIds.delete(id); else subOpenIds.add(id);
@@ -4761,6 +4766,29 @@ function isTaskDoneNow(t, ref){
 }
 function isTaskDone(t){ if(!t.recurrence||t.recurrence.freq==="none") return t.status==="done"; return (t.doneDates||[]).length>0; }
 
+/* 已放弃/已跳过：软态，保留数据、可恢复，不计入逾期/进行中/今日待办。
+   重复任务跳过整组某日 → 落在 overrides[date].skip；普通任务 → t.dropped。 */
+function isDropped(t, date){
+  if(!t) return false;
+  if(isRecTask(t)){ const o=getRecOverride(t, date); return !!(o && o.skip); }
+  return !!t.dropped;
+}
+function skipTask(id, date){
+  const t=state.tasks.find(x=>x.id===id); if(!t) return;
+  snapshot();
+  if(isRecTask(t)){
+    t.overrides=t.overrides||{}; t.overrides[ovKeyD(date)]={skip:true};
+    clearInstanceProgress(t, date);
+    save(); renderAll(); toast("已跳过该日任务（整组保留，可恢复）");
+  } else { t.dropped=true; touchTask(t); save(); renderAll(); toast("已标记为「已放弃」（保留在列表，可恢复）"); }
+}
+function restoreTask(id, date){
+  const t=state.tasks.find(x=>x.id===id); if(!t) return;
+  snapshot();
+  if(isRecTask(t)){ delRecOverride(t, date); save(); renderAll(); toast("已恢复该日任务"); }
+  else { t.dropped=false; touchTask(t); save(); renderAll(); toast("已恢复（重新计入逾期/进行中）"); }
+}
+
 /* ===== 渲染：月视图 ===== */
 function renderMonth(){
   const cur=startOfDay(state.cur);
@@ -5257,7 +5285,7 @@ function inboxTasks(){
   });
 }
 function renderInboxCount(){
-  const n=state.tasks.filter(t=>noDate(t) && t.status!=="done").length;
+  const n=state.tasks.filter(t=>noDate(t) && t.status!=="done" && !t.dropped).length;
   const el=document.getElementById("inboxCount"); if(el) el.textContent = n>0 ? String(n) : "";
   const el2=document.getElementById("inboxCountTop"); if(el2) el2.textContent = n>0 ? String(n) : "";
 }
@@ -5296,7 +5324,7 @@ function renderInbox(){
     const done=t.status==="done";
     const pc=priColor(t.priority), cc=catColor(t.cat);
     const sub=(t.subtasks&&t.subtasks.length)?`<span class="sub-badge">子任务 ${subBadge(t).trim()}</span>`:"";
-    html+=`<div class="inbox-item ${done?'done':''} ${(selMode&&selIds.has(t.id))?'sel-checked':''}" data-id="${t.id}">
+    html+=`<div class="inbox-item ${done?'done':''} ${t.dropped?'dropped':''} ${(selMode&&selIds.has(t.id))?'sel-checked':''}" data-id="${t.id}">
       ${selMode?selCheckHTML(t.id):""}
       <div class="ibar" style="background:${pc}"></div>
       <div class="ibm">
@@ -5310,13 +5338,13 @@ function renderInbox(){
       </div>
       <div class="ibactions">
         <button class="btn btn-ghost btn-sm" data-plan title="安排进日程（时间可在弹窗里改）"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>安排</button>
-        <button class="btn ${done?'btn-ghost':'btn-pri'} btn-sm" data-done>${done?"撤销":"完成"}</button>
+        ${t.dropped?`<button class="btn btn-ghost btn-sm" data-restore="${t.id}">恢复</button>`:""}<button class="btn ${done?'btn-ghost':'btn-pri'} btn-sm" data-done>${done?"撤销":"完成"}</button>
       </div>
     </div>`;
   }
   html+='</div>';
   if(!selMode) html+=pgBar(list.length,"inbox",()=>renderInbox());
-  html+=selMode?selBarHTML([{label:"完成",cls:"btn-pri",fn:()=>{ batchInboxDone(); }},{label:"改属性",cls:"btn-ghost",fn:()=>{ batchInboxProps(); }},{label:"删除",cls:"btn-danger",fn:()=>{ batchInboxDelete(); }},{label:"清空已完成",cls:"btn-ghost",fn:()=>{ batchInboxClearDone(); }}]) : "";
+  html+=selMode?selBarHTML([{label:"完成",cls:"btn-pri",fn:()=>{ batchInboxDone(); }},{label:"改属性",cls:"btn-ghost",fn:()=>{ batchInboxProps(); }},{label:"跳过",cls:"btn-ghost",fn:()=>{ batchInboxSkip(); }},{label:"删除",cls:"btn-danger",fn:()=>{ batchInboxDelete(); }},{label:"清空已完成",cls:"btn-ghost",fn:()=>{ batchInboxClearDone(); }}]) : "";
   v.innerHTML=html;
   pgBind();
   const a=v.querySelector("#inboxAdd"); if(a) a.onclick=()=>openInboxNew();
@@ -5327,8 +5355,9 @@ function renderInbox(){
     row.querySelector("[data-edit]").onclick=()=>openModal(id,null);
     row.querySelector("[data-done]").onclick=()=>{ toggleDone(id, ymd(startOfDay(new Date()))); };
     row.querySelector("[data-plan]").onclick=()=>planInbox(id);
+    const rb=row.querySelector("[data-restore]"); if(rb) rb.onclick=()=>{ restoreTask(rb.dataset.restore); };
   });
-  if(selMode) selBind([{label:"完成",cls:"btn-pri",fn:batchInboxDone},{label:"改属性",cls:"btn-ghost",fn:batchInboxProps},{label:"删除",cls:"btn-danger",fn:batchInboxDelete},{label:"清空已完成",cls:"btn-ghost",fn:batchInboxClearDone}]);
+  if(selMode) selBind([{label:"完成",cls:"btn-pri",fn:batchInboxDone},{label:"改属性",cls:"btn-ghost",fn:batchInboxProps},{label:"跳过",cls:"btn-ghost",fn:batchInboxSkip},{label:"删除",cls:"btn-danger",fn:batchInboxDelete},{label:"清空已完成",cls:"btn-ghost",fn:batchInboxClearDone}]);
 }
 function batchInboxDone(){
   const ids=Array.from(selIds); if(!ids.length){ toast("请先勾选任务"); return; }
@@ -5403,6 +5432,20 @@ function batchInboxClearDone(){
   deleteTasksWithHistory(done);
   trashRefresh();
   save(); renderAll(); toast("已清空 "+done.length+" 项已完成");
+}
+// 批量标记「已放弃」：普通任务 dropped=true（从收件箱未完成计数与逾期排除）；重复任务需逐日跳过，批量无意义，跳过并提示。
+async function batchInboxSkip(){
+  const ids=Array.from(selIds); if(!ids.length){ toast("请先勾选任务"); return; }
+  const rec=[];
+  snapshot();
+  let n=0;
+  for(const id of ids){
+    const t=state.tasks.find(x=>x.id===id); if(!t) continue;
+    if(isRecTask(t)){ rec.push(t.title||"未命名"); continue; }   // 重复任务跳过需指定日期，批量不适用
+    t.dropped=true; touchTask(t); n++;
+  }
+  save(); selClear(); renderAll();
+  toast(rec.length ? (`已跳过 ${n} 项普通任务；${rec.length} 个重复任务请到「任务」面板逐日跳过`) : (`已批量跳过 ${n} 项（可 Ctrl+Z 撤销）`));
 }
 // 新建时默认勾选「不指定日期」
 function openInboxNew(){
@@ -5565,6 +5608,7 @@ function renderStats(){
   const okrAvg = state.okrs.length ? Math.round(state.okrs.reduce((s,o)=>s+okrOverall(o),0)/state.okrs.length) : null;
   let html=`<div class="stats-wrap">`;
   html+=noSearchNote("统计");
+  const droppedCount=tasks.filter(t=>!isRecTask(t)&&t.dropped).length;
   html+=`<div class="stats-ranges">${rangeBtns}<span style="flex:1"></span><button class="btn btn-ghost btn-sm" id="btnExportStats">📤 导出统计报告</button></div>`;
   /* ：完成率环形图并入指标行（原来独占一整行），指标卡改为自适应列数 */
   html+=`<div class="stat-cards">
@@ -5572,7 +5616,7 @@ function renderStats(){
     <div class="stat-card"><div class="n">${total}</div><div class="l">总任务</div></div>
     <div class="stat-card"><div class="n" style="color:var(--ok)">${done}</div><div class="l" title="重复任务按当前周期判定（如每日任务=今天是否已打卡）">已完成</div></div>
     <div class="stat-card"><div class="n" style="color:var(--pri)">${rangeDone}</div><div class="l">区间内完成</div></div>
-    <div class="stat-card"><div class="n" style="color:var(--warn)">${total-done}</div><div class="l" title="重复任务按当前周期判定（如每日任务=今天是否已打卡）">进行中</div></div>
+    <div class="stat-card"><div class="n" style="color:var(--warn)">${total-done-droppedCount}</div><div class="l" title="重复任务按当前周期判定（如每日任务=今天是否已打卡）；已放弃的任务不计入">进行中</div></div>
   </div>`;
   /* ：分类分布与优先级分布并置双栏 */
   html+=`<div class="stat-grid2">`;
@@ -5657,7 +5701,8 @@ function exportStatsReport(){
     const rate=Math.round(done/total*100);
     const fit=habitFitRate(); const okrAvg=state.okrs.length?Math.round(state.okrs.reduce((s,o)=>s+okrOverall(o),0)/state.okrs.length):null;
     let md=`# 统计报告 · ${ymd(startOfDay(new Date()))}\n\n`;
-    md+=`- 时间范围：${statsRange===0?('全部（自 '+ymd(statsEarliestDay())+' 起）'):(statsRange+' 天')}\n- 总任务：${total} · 已完成：${done} · 进行中：${total-done} · 总体完成率：${rate}%\n`;
+    let droppedCount=0; for(const t of tasks) if(!isRecTask(t)&&t.dropped) droppedCount++;
+    md+=`- 时间范围：${statsRange===0?('全部（自 '+ymd(statsEarliestDay())+' 起）'):(statsRange+' 天')}\n- 总任务：${total} · 已完成：${done} · 进行中：${total-done-droppedCount}（已放弃 ${droppedCount} 项不计入） · 总体完成率：${rate}%\n`;
     md+=`- 习惯契合度：${fit===null?'—':fit+'%'}\n- OKR 平均进度：${okrAvg===null?'—':okrAvg+'%'}\n\n`;
     const catOrder=catNames().slice(); tasks.forEach(t=>{ if(t.cat && !catOrder.includes(t.cat)) catOrder.push(t.cat); });
     md+=`## 分类分布\n`; catOrder.forEach(c=>{ const n=tasks.filter(t=>t.cat===c).length; if(n) md+=`- ${c}：${n}（${Math.round(n/total*100)}%）\n`; });
@@ -6279,7 +6324,7 @@ function renderReview(){
     inboxTasks=[]; overdue=[]; waiting=[]; someday=[]; stalled=[]; doneWeek=snap.metrics.doneWeek;
   } else {
     inboxTasks=state.tasks.filter(t=>noDate(t) && !isTaskDone(t));
-    overdue=state.tasks.filter(t=>!noDate(t) && !isTaskDoneNow(t) && !t.skipMissed && parseLocal(t.end)<startOfDay(new Date()));
+    overdue=state.tasks.filter(t=>!noDate(t) && !isTaskDoneNow(t) && !t.skipMissed && !isDropped(t) && parseLocal(t.end)<startOfDay(new Date()));
     waiting=state.tasks.filter(t=>(t.gw||"next")==="waiting" && !isTaskDoneNow(t));
     someday=state.tasks.filter(t=>(t.gw||"next")==="someday" && !isTaskDoneNow(t));
     stalled=state.tasks.filter(t=>{ if(isTaskDone(t)) return false; const age=(Date.now()-(t.createdAt||Date.now()))/86400000; return age>14 && (t.gw||"next")!=="waiting"; });
@@ -6371,7 +6416,7 @@ function exportReview(){
   try{
     const wk=weekKey(new Date());
     const inboxTasks=state.tasks.filter(t=>noDate(t) && !isTaskDone(t));
-    const overdue=state.tasks.filter(t=>!noDate(t) && !isTaskDoneNow(t) && !t.skipMissed && parseLocal(t.end)<startOfDay(new Date()));
+    const overdue=state.tasks.filter(t=>!noDate(t) && !isTaskDoneNow(t) && !t.skipMissed && !isDropped(t) && parseLocal(t.end)<startOfDay(new Date()));
     const waiting=state.tasks.filter(t=>(t.gw||"next")==="waiting" && !isTaskDoneNow(t));
     const someday=state.tasks.filter(t=>(t.gw||"next")==="someday" && !isTaskDoneNow(t));
     const stalled=state.tasks.filter(t=>{ if(isTaskDone(t)) return false; const age=(Date.now()-(t.createdAt||Date.now()))/86400000; return age>14 && (t.gw||"next")!=="waiting"; });
@@ -6761,6 +6806,17 @@ function openModal(id, date, scope){
   const deferBtn=document.getElementById("btnDefer"); if(deferBtn) deferBtn.style.display = id? "inline-flex":"none";
   const dupBtn=document.getElementById("btnDup"); if(dupBtn) dupBtn.style.display = id? "inline-flex":"none";       // M7
   const tplBtn=document.getElementById("btnSaveTpl"); if(tplBtn) tplBtn.style.display = id? "inline-flex":"none";   // M7
+  // 「标记已放弃 / 跳过该日」按钮：编辑普通任务或重复任务单次时显示，整组编辑/新建时隐藏
+  const dropBtn=document.getElementById("btnDrop");
+  if(dropBtn){
+    if(!id){ dropBtn.style.display="none"; }
+    else {
+      const _dt=state.tasks.find(x=>x.id===id);
+      if(!_dt){ dropBtn.style.display="none"; }
+      else if(isRecTask(_dt)){ dropBtn.style.display="inline-flex"; dropBtn.textContent="跳过该日"; }
+      else { dropBtn.style.display="inline-flex"; dropBtn.textContent="标记已放弃"; }
+    }
+  }
   const deferPop=document.getElementById("deferPop"); if(deferPop) deferPop.style.display="none";
   // 新建默认「快速」模式降低门槛；编辑时强制「完整」模式（需看到所有字段）
   setModalMode(id? "full":"quick");
@@ -8990,6 +9046,16 @@ document.getElementById("btnClearOv").onclick=()=>{
 document.getElementById("btnDone").onclick=markDoneBtn;
 const undoDoneEl=document.getElementById("btnUndoDone"); if(undoDoneEl) undoDoneEl.onclick=undoDoneBtn;
 document.getElementById("btnDelete").onclick=deleteTask;
+document.getElementById("btnDrop").onclick=()=>{
+  const t=state.tasks.find(x=>x.id===editingId); if(!t) return;
+  if(isRecTask(t) && editingScope==="once"){
+    const sk = getRecOverride(t, editingDate) && getRecOverride(t, editingDate).skip;
+    if(sk) restoreTask(editingId, editingDate); else skipTask(editingId, editingDate);
+  } else if(!isRecTask(t)){
+    if(t.dropped) restoreTask(editingId); else skipTask(editingId);
+  }
+  closeModal();   // 软操作完成后关弹窗，回到列表看灰显效果
+};
 // 任务「推迟 / 延期」：按钮展开菜单；芯片分两组（both=整体推迟 / end=仅延期）；自定义日期按差值平移
 const deferBtn=document.getElementById("btnDefer"), deferPop=document.getElementById("deferPop");
 if(deferBtn&&deferPop){
@@ -9807,7 +9873,7 @@ const _INST_CACHE_MAX=600;                             // O9：缓存条数上�
 const INST_HARD_MAX=1500;                              // O11-4：单任务单次实例生成硬上限（防病态数据拉满循环）
 const TASK_ALLOW=new Set([                             // O11-1：导入字段白名单（其余字段一律丢弃，防脏数据/原型污染）
   "id","title","desc","status","start","end","doneDates","recurrence","tags","cat","priority",
-  "project","krId","updated","doneAt","overrides","subtasks","subDone","skipMissed",
+  "project","krId","updated","doneAt","overrides","subtasks","subDone","skipMissed","dropped",
   "est","energy","seed","archived","done"
 ]);
 async function cloudUpload(silent){
