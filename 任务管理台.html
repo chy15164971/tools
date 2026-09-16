@@ -4152,9 +4152,9 @@ function renderToday(){
   const overdue=[], due=[], droppedList=[];
   for(const i of insts){
     if(isDone(i)) continue;
+    if(isDropped(i.task,i.date)){ droppedList.push(i); continue; }  // 已放弃：保留灰显，无论逾期还是今天到期都不计入活跃（优先于 skipMissed）
     if(i.end < d0){
       if(i.task.skipMissed) continue;   // 「错过不补」的日常（游戏日常/签到）：往期作废，不进逾期待补做
-      if(isDropped(i.task,i.date)){ droppedList.push(i); continue; }  // 已放弃：保留灰显，不计入逾期
       if(!overdue.find(o=>o.task.id===i.task.id && sameDay(o.date,i.date))) overdue.push(i);
     } else if(sameDay(i.date,d0)) {
       due.push(i);
@@ -4206,7 +4206,12 @@ function renderToday(){
         ${hasSub&&subOpen?subChecklistHtml(i.task,dk):""}
         </div>
       </div>
-      ${isDrop?`<button class="btn btn-ghost btn-sm" data-restore="${i.task.id}" data-date="${ymd(i.date)}">恢复</button>`:`<button class="btn ${itDone?'btn-ghost':'btn-pri'} btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">${itDone?"撤销":"完成"}</button>`}
+      ${isDrop
+        ? `<button class="btn btn-ghost btn-sm" data-restore="${i.task.id}" data-date="${ymd(i.date)}">恢复</button>`
+        : (itDone
+            ? `<button class="btn btn-ghost btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">撤销</button>`
+            : `<button class="btn btn-pri btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">完成</button><button class="btn btn-ghost btn-sm" data-skip="${i.task.id}" data-date="${ymd(i.date)}">跳过</button>`)
+      }
     </div>`;
   }
   // 仅当「总条数 > 上限 且 紧急项未超限」时，才显示「展开全部 / 收起」开关
@@ -4219,6 +4224,7 @@ function renderToday(){
   if(moreBtnEl) moreBtnEl.onclick=()=>{ todayExpanded=!todayExpanded; renderToday(); };
   list.querySelectorAll("[data-done]").forEach(b=>b.onclick=()=>{ toggleDone(b.dataset.done, b.dataset.date); });
   list.querySelectorAll("[data-restore]").forEach(b=>b.onclick=()=>{ restoreTask(b.dataset.restore, b.dataset.date); });
+  list.querySelectorAll("[data-skip]").forEach(b=>b.onclick=()=>{ skipTask(b.dataset.skip, b.dataset.date); });
   list.querySelectorAll("[data-subopen]").forEach(b=>b.onclick=()=>{
     const id=b.dataset.subopen;
     if(subOpenIds.has(id)) subOpenIds.delete(id); else subOpenIds.add(id);
@@ -4769,8 +4775,12 @@ function isTaskDone(t){ if(!t.recurrence||t.recurrence.freq==="none") return t.s
 /* 已放弃/已跳过：软态，保留数据、可恢复，不计入逾期/进行中/今日待办。
    重复任务跳过整组某日 → 落在 overrides[date].skip；普通任务 → t.dropped。 */
 function isDropped(t, date){
+  // 注意：整组层面的查询（computeFuncSummary / renderStats 的逾期过滤）只传了 t、没传日期。
+  // 重复任务的「已放弃」是按单次（date）记录的，没有日期时拿不到具体某次，
+  // 必须判空返回 false，否则 getRecOverride(t,undefined)→ovKeyD(undefined)→ymd(undefined) 抛错，
+  // 导致只要数据里存在任意重复任务，每一次渲染都会崩（界面刷新出错）。
   if(!t) return false;
-  if(isRecTask(t)){ const o=getRecOverride(t, date); return !!(o && o.skip); }
+  if(isRecTask(t)){ const o = date ? getRecOverride(t, date) : null; return !!(o && o.skip); }
   return !!t.dropped;
 }
 function skipTask(id, date){
