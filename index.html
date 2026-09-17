@@ -2750,6 +2750,13 @@ function emptyState(icon, text, sub, actionHtml){
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function escIcon(s){ return iconify(esc(s)); }
 /* <<< SHARED:END */
+/* 视图名常量枚举：单一事实源，避免散落字符串拼写错误静默失效（审计 B1）*/
+const VIEWS = {
+  TODAY:"today", MONTH:"month", WEEK:"week", DAY:"day", GANTT:"gantt",
+  LISTS:"lists", INBOX:"inbox", PROJECTS:"projects", OKR:"okr", MEDIA:"media",
+  HABIT:"habit", STATS:"stats", REVIEW:"review", ANNIV:"anniv"
+};
+
 
 /* ============================================================================
  * 任务管理台 · 函数分区索引（vanilla JS 单文件 · 全局检索函数名即可定位）
@@ -4894,7 +4901,7 @@ function renderMonth(){
   });
   // 点日期数字 → 跳到该日视图（保留原导航入口）
   document.getElementById("view").querySelectorAll(".dnum").forEach(d=>d.onclick=e=>{
-    e.stopPropagation(); state.cur=parseLocal(d.closest(".dcell").dataset.day+"T00:00"); state.view="day"; syncSeg(); renderAll();
+    e.stopPropagation(); state.cur=parseLocal(d.closest(".dcell").dataset.day+"T00:00"); state.view=VIEWS.DAY; syncSeg(); renderAll();
   });
   // 月视图任务块可直接点开（非当天任务也能标记完成）；拖到其它日期格则改期
   document.getElementById("view").querySelectorAll(".chip[data-id]").forEach(ch=>{
@@ -4906,7 +4913,7 @@ function renderMonth(){
   });
   // 月视图「+N 项」→ 跳到当日日视图
   document.getElementById("view").querySelectorAll("[data-more]").forEach(m=>m.onclick=e=>{
-    e.stopPropagation(); state.cur=parseLocal(m.dataset.more+"T00:00"); state.view="day"; syncSeg(); renderAll();
+    e.stopPropagation(); state.cur=parseLocal(m.dataset.more+"T00:00"); state.view=VIEWS.DAY; syncSeg(); renderAll();
   });
 }
 
@@ -5000,7 +5007,7 @@ function renderTimeline(days){
   v.querySelectorAll(".tcol").forEach(col=>{
     col.querySelectorAll(".ev").forEach(ev=>{
       ev.onclick=e=>{ if(ev._suppressClick){ ev._suppressClick=false; e.stopPropagation(); return; } e.stopPropagation(); if(ev.dataset.kr) okrOpenKR(ev.dataset.kr); else openModal(ev.dataset.id, ev.dataset.date); };
-      if(!ev.dataset.kr) attachEvDrag(ev, state.view==="week");
+      if(!ev.dataset.kr) attachEvDrag(ev, state.view===VIEWS.WEEK);
     });
     col.querySelector(".tbody").onclick=()=>{ const dt=parseLocal(col.dataset.day+"T09:00"); openModal(null, ymd(dt)); };
   });
@@ -5232,7 +5239,7 @@ function renderGantt(){
   const gfw=v.querySelector("#gFocusWide"); if(gfw) gfw.onclick=()=>{ ganttRange="3m"; renderGantt(); };
   const gfc=v.querySelector("#gFocusClear"); if(gfc) gfc.onclick=()=>{ ganttFocus=""; renderGantt(); };
   const gn=v.querySelector("#gNew"); if(gn) gn.onclick=()=>openModal(null,null);
-  const gi=v.querySelector("#gInbox"); if(gi) gi.onclick=()=>{ state.view="inbox"; syncSeg(); renderAll(); };
+  const gi=v.querySelector("#gInbox"); if(gi) gi.onclick=()=>{ state.view=VIEWS.INBOX; syncSeg(); renderAll(); };
   v.querySelectorAll(".gbar").forEach(b=>attachGanttDrag(b, +(b.dataset.colw||30)));
   if(_vel) _vel.scrollTop=_vst;
   const _gel2=_vel?_vel.querySelector(".gantt"):null; if(_gel2) _gel2.scrollLeft=_gsl;
@@ -5263,7 +5270,7 @@ function focusProjectGantt(pid){
   ganttRange = "month";
   ganttFocus=pid;
   ganttGroupCollapsed.delete(pid);
-  state.view="gantt"; syncSeg(); renderAll();
+  state.view=VIEWS.GANTT; syncSeg(); renderAll();
   const name=p?p.name:"该项目";
   toast(ts.length
     ? ("已切到甘特图 · 只看「"+name+"」的 "+ts.length+" 项任务")
@@ -5295,17 +5302,17 @@ function attachGanttDrag(bar, colW){
 function renderCur(){
   const d=state.cur;
   let s="";
-  if(state.view==="month") s=d.getFullYear()+"年"+(d.getMonth()+1)+"月";
-  else if(state.view==="week"){ const dw=(startOfDay(d).getDay()+6)%7; const mon=addDays(startOfDay(d),-dw); s=ymd(mon).slice(5)+" ~ "+ymd(addDays(mon,6)).slice(5); }
-  else if(state.view==="day") s=ymd(d)+" "+WK[d.getDay()];
-  else if(state.view==="media") s="媒体进度";
-  else if(state.view==="habit") s="习惯打卡";
-  else if(state.view==="lists") s="待办清单";
-  else if(state.view==="inbox") s="📥 收件箱";
-  else if(state.view==="projects") s="项目";
-  else if(state.view==="okr") s="目标 OKR";
-  else if(state.view==="review") s="定期回顾";
-  else if(state.view==="anniv") s="纪念日";
+  if(state.view===VIEWS.MONTH) s=d.getFullYear()+"年"+(d.getMonth()+1)+"月";
+  else if(state.view===VIEWS.WEEK){ const dw=(startOfDay(d).getDay()+6)%7; const mon=addDays(startOfDay(d),-dw); s=ymd(mon).slice(5)+" ~ "+ymd(addDays(mon,6)).slice(5); }
+  else if(state.view===VIEWS.DAY) s=ymd(d)+" "+WK[d.getDay()];
+  else if(state.view===VIEWS.MEDIA) s="媒体进度";
+  else if(state.view===VIEWS.HABIT) s="习惯打卡";
+  else if(state.view===VIEWS.LISTS) s="待办清单";
+  else if(state.view===VIEWS.INBOX) s="📥 收件箱";
+  else if(state.view===VIEWS.PROJECTS) s="项目";
+  else if(state.view===VIEWS.OKR) s="目标 OKR";
+  else if(state.view===VIEWS.REVIEW) s="定期回顾";
+  else if(state.view===VIEWS.ANNIV) s="纪念日";
   else { s=d.getFullYear()+"年"+(d.getMonth()+1)+"月 · 甘特"; }
   document.getElementById("curdate").textContent=s;
 }
@@ -6446,7 +6453,7 @@ function renderReview(){
   }
   h+=`</div></div>`;
   v.innerHTML=h;
-  v.querySelectorAll(".diag-open").forEach(b=>b.onclick=()=>{ const id=b.dataset.open; if(id==="inbox"){state.view="inbox";syncSeg();renderAll();} else openModal(id,null); });
+  v.querySelectorAll(".diag-open").forEach(b=>b.onclick=()=>{ const id=b.dataset.open; if(id===VIEWS.INBOX){state.view=VIEWS.INBOX;syncSeg();renderAll();} else openModal(id,null); });
   bindNoSearchNote(v);
   v.querySelectorAll("[data-jump]").forEach(b=>b.onclick=()=>{ state.view=b.dataset.jump; syncSeg(); renderAll(); });
   v.querySelectorAll("[data-step]").forEach(c=>c.onchange=()=>{ const ck={}; try{ck=JSON.parse(localStorage.getItem("wb_taskhub_review_"+wk)||"{}");}catch(e){} ck[c.dataset.step]=c.checked; localStorage.setItem("wb_taskhub_review_"+wk,JSON.stringify(ck)); });
@@ -6678,9 +6685,9 @@ function renderAllNow(){
   const _hsEls = _view ? _view.querySelectorAll(".timeline,.tcols") : [];
   const _hs = Array.from(_hsEls).map(e=>e.scrollLeft);
   renderCur();
-  const isMedia = state.view==="media";
-  const isFullPage = isMedia||state.view==="stats"||state.view==="habit"||state.view==="lists"||state.view==="projects"||state.view==="okr"||state.view==="review"||state.view==="anniv"; // 整页视图
-  const isInbox = state.view==="inbox";
+  const isMedia = state.view===VIEWS.MEDIA;
+  const isFullPage = isMedia||state.view===VIEWS.STATS||state.view===VIEWS.HABIT||state.view===VIEWS.LISTS||state.view===VIEWS.PROJECTS||state.view===VIEWS.OKR||state.view===VIEWS.REVIEW||state.view===VIEWS.ANNIV; // 整页视图
+  const isInbox = state.view===VIEWS.INBOX;
   // 非日历/收件箱视图：日期导航用 display:none 彻底移出布局，避免右侧留下空白占位带（）
   document.querySelector(".nav").style.display = (isFullPage||isInbox)?"none":"";
   // 筛选栏：日历/收件箱显示完整四项；整页视图只留搜索框（ 给整页视图上下文搜索能力）
@@ -6698,18 +6705,18 @@ function renderAllNow(){
   const lay=document.getElementById("layout");
   lay.classList.remove("full","hide-side-panels");
   const uBtn=document.getElementById("btnMenuUndo"); if(uBtn) uBtn.disabled = undoStack.length===0;
-  if(state.view==="month") renderMonth();
-  else if(state.view==="week") renderWeek();
-  else if(state.view==="day") renderDay();
-  else if(state.view==="media") renderMedia();
-  else if(state.view==="stats") renderStats();
-  else if(state.view==="habit") renderHabit();
-  else if(state.view==="inbox") renderInbox();
-  else if(state.view==="lists") renderLists();
-  else if(state.view==="projects") renderProjects();
-  else if(state.view==="okr") renderOkr();
-  else if(state.view==="review") renderReview();
-  else if(state.view==="anniv") renderAnniv();
+  if(state.view===VIEWS.MONTH) renderMonth();
+  else if(state.view===VIEWS.WEEK) renderWeek();
+  else if(state.view===VIEWS.DAY) renderDay();
+  else if(state.view===VIEWS.MEDIA) renderMedia();
+  else if(state.view===VIEWS.STATS) renderStats();
+  else if(state.view===VIEWS.HABIT) renderHabit();
+  else if(state.view===VIEWS.INBOX) renderInbox();
+  else if(state.view===VIEWS.LISTS) renderLists();
+  else if(state.view===VIEWS.PROJECTS) renderProjects();
+  else if(state.view===VIEWS.OKR) renderOkr();
+  else if(state.view===VIEWS.REVIEW) renderReview();
+  else if(state.view===VIEWS.ANNIV) renderAnniv();
   else renderGantt();
   renderToday();
   renderHabitPanel();
@@ -8693,14 +8700,14 @@ function setupListsEvents(){
   const v=document.getElementById("view"); if(!v) return;
   /* ：删除条目是 div[role=button]，补键盘可达（Enter / 空格触发 click） */
   v.addEventListener("keydown", e=>{
-    if(state.view!=="lists") return;
+    if(state.view!==VIEWS.LISTS) return;
     if(e.key!=="Enter" && e.key!==" ") return;
     const del=e.target.closest && e.target.closest(".lx[data-del]");
     if(!del) return;
     e.preventDefault(); del.click();
   });
   v.addEventListener("click", e=>{
-    if(state.view!=="lists") return;
+    if(state.view!==VIEWS.LISTS) return;
     const t=e.target;
     if(t.closest("#listAdd")){ newList(); return; }
     if(t.closest("#listSel")){ selToggle("lists"); return; }
@@ -8726,7 +8733,7 @@ function setupListsEvents(){
     }
   });
   v.addEventListener("change", e=>{
-    if(state.view!=="lists") return;
+    if(state.view!==VIEWS.LISTS) return;
     const t=e.target;
     if(t.id==="listSort"){ if(t.value){ sortLists(t.value); t.value=""; } return; }
     if(t.id==="itemSort"){ const s=t.value; t.value=""; if(s){ sortItems(state.selList, s); } return; }
@@ -8734,22 +8741,22 @@ function setupListsEvents(){
     if(row && t.matches("input[data-toggle]")) toggleItem(row.dataset.lid||state.selList, row.dataset.iid);
   });
   v.addEventListener("keydown", e=>{
-    if(state.view!=="lists") return;
+    if(state.view!==VIEWS.LISTS) return;
     if(e.target && e.target.matches("input[data-new]") && e.key==="Enter"){ e.preventDefault(); addItem(state.selList, e.target.value); }
   });
   const R=".litem[data-iid],.ltree-item[data-lid]";
-  v.addEventListener("dragstart", e=>{ if(state.view!=="lists") return; const el=e.target.closest(R); if(!el){ e.preventDefault(); return; } e.dataTransfer.setData("text/plain", el.dataset.iid||el.dataset.lid); el.classList.add("dragging"); e.dataTransfer.effectAllowed="move"; });
+  v.addEventListener("dragstart", e=>{ if(state.view!==VIEWS.LISTS) return; const el=e.target.closest(R); if(!el){ e.preventDefault(); return; } e.dataTransfer.setData("text/plain", el.dataset.iid||el.dataset.lid); el.classList.add("dragging"); e.dataTransfer.effectAllowed="move"; });
   v.addEventListener("dragend", e=>{ const el=e.target.closest(R); if(el) el.classList.remove("dragging"); });
-  v.addEventListener("dragover", e=>{ if(state.view!=="lists") return; const el=e.target.closest(R); if(el){ e.preventDefault(); e.dataTransfer.dropEffect="move"; el.classList.add("dragover"); } });
+  v.addEventListener("dragover", e=>{ if(state.view!==VIEWS.LISTS) return; const el=e.target.closest(R); if(el){ e.preventDefault(); e.dataTransfer.dropEffect="move"; el.classList.add("dragover"); } });
   v.addEventListener("dragleave", e=>{ const el=e.target.closest(R); if(el) el.classList.remove("dragover"); });
-  v.addEventListener("drop", e=>{ if(state.view!=="lists") return; const el=e.target.closest(R); if(!el) return; e.preventDefault(); el.classList.remove("dragover"); const fromId=e.dataTransfer.getData("text/plain"); if(!fromId) return; if(el.dataset.iid){ const L=lists.find(x=>x.id===state.selList); if(L && L.items.some(x=>x.id===fromId) && fromId!==el.dataset.iid) reorderItem(state.selList, fromId, el.dataset.iid); } else if(fromId!==el.dataset.lid && lists.some(x=>x.id===fromId)){ reorderList(fromId, el.dataset.lid); } });
+  v.addEventListener("drop", e=>{ if(state.view!==VIEWS.LISTS) return; const el=e.target.closest(R); if(!el) return; e.preventDefault(); el.classList.remove("dragover"); const fromId=e.dataTransfer.getData("text/plain"); if(!fromId) return; if(el.dataset.iid){ const L=lists.find(x=>x.id===state.selList); if(L && L.items.some(x=>x.id===fromId) && fromId!==el.dataset.iid) reorderItem(state.selList, fromId, el.dataset.iid); } else if(fromId!==el.dataset.lid && lists.some(x=>x.id===fromId)){ reorderList(fromId, el.dataset.lid); } });
 }
 function setupListsPanelEvents(){
   const el=document.getElementById("listsPanelBody"); if(!el) return;
   el.addEventListener("click", e=>{
     const t=e.target;
     const emo=t.closest(".lp-emoji"); if(emo){ editListEmoji(emo.dataset.lid); return; }
-    if(t.closest(".lp-go")){ state.view="lists"; syncSeg(); renderAll(); return; }
+    if(t.closest(".lp-go")){ state.view=VIEWS.LISTS; syncSeg(); renderAll(); return; }
     const head=t.closest(".lp-head"); if(head){ openLists[head.dataset.lid]=!openLists[head.dataset.lid]; renderListsPanel(); return; }
     if(t.closest("[data-newadd]")){ const box=t.closest(".lp-list"); const inp=box?box.querySelector("[data-new]"):null; addItem(box?box.dataset.lid:"", inp?inp.value:""); return; }
     const row=t.closest(".lp-item[data-iid]"); if(!row) return;
@@ -8837,18 +8844,18 @@ const CmdPalette = (() => {
   };
   function open(){ mask.classList.add("show"); input.value=(state&&state.filter&&state.filter.q)||""; build(input.value); input.focus(); }   // R2：承接当前视图筛选词，两处搜索可衔接
   function close(){ mask.classList.remove("show"); }
-  function go(view){ close(); switch(view){ case "inbox":document.getElementById("btnInboxTop").click();break; case "lists":document.getElementById("btnListsTop").click();break; default: state.view=view; syncSeg&&syncSeg(); renderAll(); } }
+  function go(view){ close(); switch(view){ case VIEWS.INBOX:document.getElementById("btnInboxTop").click();break; case VIEWS.LISTS:document.getElementById("btnListsTop").click();break; default: state.view=view; syncSeg&&syncSeg(); renderAll(); } }
   function build(q){
     q=(q||"").trim().toLowerCase(); active=-1; items=[];
     const cmds=[
       {type:"cmd",title:"新建任务",sub:"打开新建任务弹窗",act:()=>openModal(null,null)},
-      {type:"cmd",title:"月视图",sub:"日历总览",act:()=>go("month")},
-      {type:"cmd",title:"周视图",sub:"本周安排",act:()=>go("week")},
-      {type:"cmd",title:"日视图",sub:"当日时间轴",act:()=>go("day")},
-      {type:"cmd",title:"甘特图",sub:"项目时间线",act:()=>go("gantt")},
-      {type:"cmd",title:"进度看板",sub:"书籍 / 剧集进度",act:()=>go("media")},
-      {type:"cmd",title:"习惯打卡",sub:"每日习惯",act:()=>go("habit")},
-      {type:"cmd",title:"统计",sub:"完成率与分布",act:()=>go("stats")},
+      {type:"cmd",title:"月视图",sub:"日历总览",act:()=>go(VIEWS.MONTH)},
+      {type:"cmd",title:"周视图",sub:"本周安排",act:()=>go(VIEWS.WEEK)},
+      {type:"cmd",title:"日视图",sub:"当日时间轴",act:()=>go(VIEWS.DAY)},
+      {type:"cmd",title:"甘特图",sub:"项目时间线",act:()=>go(VIEWS.GANTT)},
+      {type:"cmd",title:"进度看板",sub:"书籍 / 剧集进度",act:()=>go(VIEWS.MEDIA)},
+      {type:"cmd",title:"习惯打卡",sub:"每日习惯",act:()=>go(VIEWS.HABIT)},
+      {type:"cmd",title:"统计",sub:"完成率与分布",act:()=>go(VIEWS.STATS)},
     ];
     const match=(t,s)=> !q || t.toLowerCase().includes(q) || (s||"").toLowerCase().includes(q);
     // 命令
@@ -8858,17 +8865,17 @@ const CmdPalette = (() => {
       const proj=(state.projects||[]).find(p=>p.id===t.project);
       const kr=(state.okrs||[]).flatMap(o=>o.krs||[]).find(k=>k.id===t.krId);
       const hay=[t.title,t.desc,(t.tags||[]).join(" "),(proj&&proj.name)||"",(kr&&kr.title)||""].join(" ");
-      if(match(hay,"")) items.push({type:"task",title:t.title,sub:(t.cat||"")+(t.priority?(" · "+t.priority):"")+(noDate(t)?" · 收件箱":"")+(proj?" · "+proj.name:"")+(kr?" · KR:"+kr.title:""),act:()=>{ if(noDate(t)) go("inbox"); else { state.view="month"; syncSeg&&syncSeg(); renderAll(); } openModal(t.id,null); }});
+      if(match(hay,"")) items.push({type:"task",title:t.title,sub:(t.cat||"")+(t.priority?(" · "+t.priority):"")+(noDate(t)?" · 收件箱":"")+(proj?" · "+proj.name:"")+(kr?" · KR:"+kr.title:""),act:()=>{ if(noDate(t)) go(VIEWS.INBOX); else { state.view=VIEWS.MONTH; syncSeg&&syncSeg(); renderAll(); } openModal(t.id,null); }});
     });
     // 媒体
-    Object.values(media||{}).flat().forEach(m=>{ if(m&&match(m.title)) items.push({type:"media",title:m.title,sub:(m.type||"")+(m.total?(" · "+m.current+"/"+m.total):""),act:()=>{ go("media"); }}); });
+    Object.values(media||{}).flat().forEach(m=>{ if(m&&match(m.title)) items.push({type:"media",title:m.title,sub:(m.type||"")+(m.total?(" · "+m.current+"/"+m.total):""),act:()=>{ go(VIEWS.MEDIA); }}); });
     // 习惯
-    (habits||[]).forEach(h=>{ if(match(h.name)) items.push({type:"habit",title:h.name,sub:(h.emoji||"")+" 习惯打卡",act:()=>go("habit")}); });
+    (habits||[]).forEach(h=>{ if(match(h.name)) items.push({type:"habit",title:h.name,sub:(h.emoji||"")+" 习惯打卡",act:()=>go(VIEWS.HABIT)}); });
     // 清单
-    (lists||[]).forEach(l=>{ if(match(l.name)) items.push({type:"list",title:l.name,sub:"清单 · "+(l.items||[]).filter(i=>!i.done).length+" 项待办",act:()=>go("lists")}); });
+    (lists||[]).forEach(l=>{ if(match(l.name)) items.push({type:"list",title:l.name,sub:"清单 · "+(l.items||[]).filter(i=>!i.done).length+" 项待办",act:()=>go(VIEWS.LISTS)}); });
     // 清单条目 + KR（O10：命令面板也能搜到清单里的待办项与关键结果）
-    (lists||[]).forEach(l=>{ (l.items||[]).forEach(it=>{ if(it && match(it.text||"","")) items.push({type:"list",title:it.text||"(空)",sub:"清单「"+(l.name||"")+"」条目",act:()=>go("lists")}); }); });
-    (state.okrs||[]).forEach(o=>{ (o.krs||[]).forEach(k=>{ if(match(k.title,"")) items.push({type:"cmd",title:k.title,sub:"KR · "+(o.title||""),act:()=>go("okr")}); }); });
+    (lists||[]).forEach(l=>{ (l.items||[]).forEach(it=>{ if(it && match(it.text||"","")) items.push({type:"list",title:it.text||"(空)",sub:"清单「"+(l.name||"")+"」条目",act:()=>go(VIEWS.LISTS)}); }); });
+    (state.okrs||[]).forEach(o=>{ (o.krs||[]).forEach(k=>{ if(match(k.title,"")) items.push({type:"cmd",title:k.title,sub:"KR · "+(o.title||""),act:()=>go(VIEWS.OKR)}); }); });
     const total=items.length;
     if(items.length>50) items=items.slice(0,50);   // O6：结果过多时只渲染前 50 条，避免上千 DOM 卡顿
     render(total, q);
@@ -9080,8 +9087,8 @@ function nav(dir){
 document.getElementById("btnNew").onclick=()=>openModal(null,null);
   const _fab=document.getElementById("fabNew"); if(_fab) _fab.onclick=()=>{ openModal(null,null); };   // ：移动端底部快捷新建
 bindDoneAtField();   // 完成时间（补打卡）字段：静态 DOM，只需绑一次
-document.getElementById("btnInboxTop").onclick=()=>{ state.view="inbox"; syncSeg(); renderAll(); };
-document.getElementById("btnListsTop").onclick=()=>{ state.view="lists"; syncSeg(); renderAll(); };
+document.getElementById("btnInboxTop").onclick=()=>{ state.view=VIEWS.INBOX; syncSeg(); renderAll(); };
+document.getElementById("btnListsTop").onclick=()=>{ state.view=VIEWS.LISTS; syncSeg(); renderAll(); };
 document.getElementById("btnCancel").onclick=closeModal;
 document.getElementById("btnSave").onclick=saveTask;
 document.querySelectorAll("#scopeSeg .seg-btn").forEach(b=>b.addEventListener("click",()=>{
@@ -9218,8 +9225,8 @@ document.getElementById("btnExportICS").onclick=exportICS;            // M14：i
 document.getElementById("btnDup").onclick=()=>{ if(editingId) duplicateTask(editingId); };      // M7：复制任务
 document.getElementById("btnSaveTpl").onclick=saveTemplateFromModal;                            // M7：存为模板
 document.getElementById("btnTpl").onclick=toggleTplMenu;                                        // M7：模板菜单
-document.getElementById("habitGoFull").onclick=()=>{ state.view="habit"; syncSeg&&syncSeg(); renderAll(); };   // R10
-document.getElementById("listGoFull").onclick=()=>{ state.view="lists"; syncSeg&&syncSeg(); renderAll(); };      // R10
+document.getElementById("habitGoFull").onclick=()=>{ state.view=VIEWS.HABIT; syncSeg&&syncSeg(); renderAll(); };   // R10
+document.getElementById("listGoFull").onclick=()=>{ state.view=VIEWS.LISTS; syncSeg&&syncSeg(); renderAll(); };      // R10
 document.getElementById("fileIn").onchange=e=>{ if(e.target.files[0]) importJSON(e.target.files[0]); };
 document.getElementById("btnBackfillSkip").onclick=async()=>{
   const targets=(state.tasks||[]).filter(t=>t && t.recurrence && t.recurrence.freq && t.recurrence.freq!=="none" && !t.skipMissed);
@@ -9365,15 +9372,15 @@ document.addEventListener("keydown",e=>{
   else if(k==="t"){ state.cur=new Date(); renderAll(); }
   else if(k==="u"){ undo(); }
   else if(k==="?"){ document.getElementById("helpMask").classList.toggle("show"); }
-  else if(e.key==="1"){ state.view="inbox"; syncSeg(); renderAll(); }
-  else if(e.key==="2"){ state.view="month"; syncSeg(); renderAll(); }
-  else if(e.key==="3"){ state.view="week"; syncSeg(); renderAll(); }
-  else if(e.key==="4"){ state.view="day"; syncSeg(); renderAll(); }
-  else if(e.key==="5"){ state.view="gantt"; syncSeg(); renderAll(); }
-  else if(e.key==="6"){ state.view="media"; syncSeg(); renderAll(); }
-  else if(e.key==="7"){ state.view="habit"; syncSeg(); renderAll(); }
-  else if(e.key==="8"){ state.view="lists"; syncSeg(); renderAll(); }
-  else if(e.key==="9"){ state.view="stats"; syncSeg(); renderAll(); }
+  else if(e.key==="1"){ state.view=VIEWS.INBOX; syncSeg(); renderAll(); }
+  else if(e.key==="2"){ state.view=VIEWS.MONTH; syncSeg(); renderAll(); }
+  else if(e.key==="3"){ state.view=VIEWS.WEEK; syncSeg(); renderAll(); }
+  else if(e.key==="4"){ state.view=VIEWS.DAY; syncSeg(); renderAll(); }
+  else if(e.key==="5"){ state.view=VIEWS.GANTT; syncSeg(); renderAll(); }
+  else if(e.key==="6"){ state.view=VIEWS.MEDIA; syncSeg(); renderAll(); }
+  else if(e.key==="7"){ state.view=VIEWS.HABIT; syncSeg(); renderAll(); }
+  else if(e.key==="8"){ state.view=VIEWS.LISTS; syncSeg(); renderAll(); }
+  else if(e.key==="9"){ state.view=VIEWS.STATS; syncSeg(); renderAll(); }
   else if(k==="g"){ openOpts(); }
   else if(e.key==="ArrowLeft"){ nav(-1); }
   else if(e.key==="ArrowRight"){ nav(1); }
@@ -9746,7 +9753,7 @@ function toggleHabitDay(id, day){
   patchHabitCell(id, day, willDone);
   refreshHabitProgress(id);
   refreshDerived();
-  if(state.view==="habit"){ const v=document.getElementById("view"); const side=v&&v.querySelector(".habit-side"); if(side) side.innerHTML=habitHeatmapHtml(); }
+  if(state.view===VIEWS.HABIT){ const v=document.getElementById("view"); const side=v&&v.querySelector(".habit-side"); if(side) side.innerHTML=habitHeatmapHtml(); }
   toast(willDone?"已打卡 ✓":"已取消打卡");
 }
 let habitEditId=null;
@@ -10423,7 +10430,7 @@ if(_ob){ _ob.addEventListener("click", toggleTopOverview); _ob.addEventListener(
 (function(){
   let _t=null;
   window.addEventListener("resize", function(){
-    if(state && state.view!=="stats") return;
+    if(state && state.view!==VIEWS.STATS) return;
     clearTimeout(_t);
     _t=setTimeout(function(){ fitBarLabels(document.getElementById("view")); }, 160);
   });
