@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<script>var DEBUG=(location.search||"").indexOf("debug=1")>=0;try{var _t=localStorage.getItem("wb_theme_v1")||localStorage.getItem("wb_taskhub_theme_v1");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
+<script>var DEBUG=(location.search||"").indexOf("debug=1")>=0;try{var _t=localStorage.getItem("wb_theme_v1")||localStorage.getItem("wb_taskhub_theme_v1");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}/* M-1 软键盘感知：visualViewport 与布局视口的高度差即键盘高度，写入 --kb 供固定元素避让 */(function(){var vv=window.visualViewport;if(!vv)return;var root=document.documentElement,last=-1;function upd(){var h=Math.round(Math.max(0,window.innerHeight-vv.height-vv.offsetTop));if(h===last)return;last=h;root.style.setProperty('--kb',h+'px');root.classList.toggle('kb-open',h>0);}vv.addEventListener('resize',upd);vv.addEventListener('scroll',upd);window.addEventListener('orientationchange',function(){setTimeout(upd,250);});/* 聚焦输入控件时滚到可视区中部，避免被键盘吃掉 */document.addEventListener('focusin',function(e){var el=e.target;if(!el||!/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))return;setTimeout(function(){if(root.classList.contains('kb-open')){try{el.scrollIntoView({block:'center',behavior:'smooth'});}catch(_){el.scrollIntoView(false);}}},300);});upd();})();</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>任务管理台 · 增强版</title>
@@ -57,11 +57,13 @@
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
     background:var(--bg); color:var(--ink); line-height:1.5; font-size:15px;
     padding-top:env(safe-area-inset-top,0px);  /* P3-5：全屏/PWA 场景刘海安全区 */
-    padding-bottom:calc(20px + env(safe-area-inset-bottom));
+    padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));
+    padding-left:env(safe-area-inset-left,0px);    /* M-4：横屏刘海左右安全区 */
+    padding-right:env(safe-area-inset-right,0px);
   }
   #fabNew{display:none;}
   @media(max-width:860px){
-    #fabNew{display:flex;position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:40;
+    #fabNew{display:flex;position:fixed;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px) + var(--kb,0px));z-index:40;
       width:56px;height:56px;border-radius:50%;border:none;background:var(--pri);color:var(--white);
       align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer;}
     #fabNew svg{width:26px;height:26px;}
@@ -167,7 +169,7 @@
   /* 菜单内「标签 + 控件」行（如提前提醒分钟数） */
   .menu .mrow{display:flex;align-items:center;gap:8px;padding:8px 11px;font-size:13.5px;color:var(--ink);}
   .menu .mrow .mlabel{flex:1;min-width:0;font-size:13.5px;}
-  .menu .mrow .leadsel{height:32px;min-height:32px;padding:0 6px;font-size:12.5px;border-radius:8px;}
+  .menu .mrow .leadsel{height:40px;min-height:40px;padding:0 6px;font-size:12.5px;border-radius:8px;} /* M-8：32→40px */
   .menu .mitem.is-link{text-decoration:none;color:var(--ink);}
   /* ===== 「更多」菜单：移动端改为底部 Action Sheet（窄屏下拉会右侧截断，iOS 心智更自然） ===== */
   .menu-backdrop{display:none;}
@@ -180,7 +182,8 @@
       opacity:0;visibility:hidden;transition:opacity .22s ease,visibility .22s ease;}
     .menu-backdrop.show{opacity:1;visibility:visible;}
     .menu{position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;max-width:none;min-width:0;
-      max-height:calc(86vh - env(safe-area-inset-bottom));
+      max-height:calc(86vh - env(safe-area-inset-bottom,0px) - var(--kb,0px));
+      max-height:calc(86dvh - env(safe-area-inset-bottom,0px) - var(--kb,0px)); /* M-17：dvh 跟随地址栏伸缩 */
       border:none;border-radius:18px 18px 0 0;padding:0;
       box-shadow:0 -10px 34px rgba(20,30,60,.22);z-index:60;
       display:flex;flex-direction:column;
@@ -196,7 +199,7 @@
       display:inline-flex;align-items:center;justify-content:center;font-family:inherit;}
     .menu-close:hover{background:var(--hover);color:var(--ink);}
     .menu-body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
-      overscroll-behavior:contain;padding:0 12px calc(8px + env(safe-area-inset-bottom));}
+      overscroll-behavior:contain;padding:0 12px calc(8px + env(safe-area-inset-bottom,0px));}
     .menu .mgroup{padding:12px 12px 4px;font-size:12px;}   /* 移动端最小 12px，避免 iOS 缩放后难读 */
     .menu .mitem{min-height:52px;padding:13px 14px;font-size:15px;border-radius:12px;}
     .menu .mitem svg{width:17px;height:17px;}
@@ -236,7 +239,7 @@
     .today-item .t{font-size:13.5px;}
     .today-item .ibd{font-size:12px;}
     .today-item .ibs{gap:5px;font-size:11.5px;}
-    .today-item .btn-sm{padding:6px 9px;min-height:34px;font-size:12.5px;}
+    .today-item .btn-sm{padding:6px 9px;min-height:44px;font-size:12.5px;} /* M-8：主操作提至 44px（iOS HIG） */
     /* 面板标题右侧图标按钮适度缩小 */
     .toppanel h3 .ring{width:42px;height:42px;}
     .panel.collapsible .ptoggle{min-width:36px;min-height:36px;width:36px;height:36px;}
@@ -445,7 +448,7 @@
   /* 弹窗 */
   .mask{position:fixed;inset:0;background:rgba(20,24,33,.42);display:none;align-items:flex-end;justify-content:center;z-index:50;padding:0;}
   .mask.show{display:flex;}
-  .modal{background:var(--card);width:100%;max-width:520px;border-radius:var(--radius-lg) var(--radius-lg) 0 0;max-height:92vh;overflow:auto;padding:18px 18px calc(18px + env(safe-area-inset-bottom));}
+  .modal{background:var(--card);width:100%;max-width:520px;border-radius:var(--radius-lg) var(--radius-lg) 0 0;max-height:calc(92vh - var(--kb,0px));max-height:calc(92dvh - var(--kb,0px));overflow:auto;padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));}
   @media(min-width:861px){.mask{align-items:center;padding:20px;} .modal{border-radius:var(--radius-lg);}}
   /* 完整模式下字段更多更挤，把弹窗加宽到 620px 让 row2 双列字段与 chkline 都能完整显示（V-4） */
   body.modal-full .modal{max-width:620px;}
@@ -513,7 +516,7 @@
   .hint{font-size:11px;color:var(--sub);margin-top:4px;}
 
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0;}
-  .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(16px);background:var(--ink-strong);color:var(--white);padding:10px 16px;border-radius:11px;font-size:13px;opacity:0;transition:opacity .25s, transform .25s;pointer-events:none;z-index:80;}
+  .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px) + var(--kb,0px));transform:translateX(-50%) translateY(16px);background:var(--ink-strong);color:var(--white);padding:10px 16px;border-radius:11px;font-size:13px;opacity:0;transition:opacity .25s, transform .25s;pointer-events:none;z-index:80;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   .toast.success{background:var(--ok);color:var(--white);} .toast.danger{background:var(--danger);color:var(--white);} .toast.warn{background:var(--warn);color:var(--ink-strong);}
   /*  云同步防重入：请求飞行期间的忙态指示（spinner 用纯 CSS border 实现，零依赖、离线可用） */
@@ -1373,7 +1376,7 @@
   .mcard .micon,.lcard .micon,.mcard .mstep button{width:auto;height:auto;min-width:40px;min-height:40px;padding:0 8px;}
   .w-ctrl .we,.w-ctrl .grip{min-width:40px;min-height:40px;}
   .ptoggle,.lmenu,.lx,.drag-h{min-width:40px;min-height:40px;}
-  .tp-chip{min-height:36px;padding:8px 14px;}
+  .tp-chip{min-height:44px;padding:8px 14px;} /* M-8：36→44px */
   .seg button{min-height:44px;}
   .nav button{width:44px;height:44px;}
   .filterbar .fsel,.filterbar .fsearch{min-height:40px;}
@@ -1384,11 +1387,13 @@
 /* ===== Batch 2 跨端体验补强（C-2 / C-4 / C-5 / C-1）===== */
 @media (max-width:860px){
   /* C-4 安全区：避免内容被 iPhone 底部手势条遮挡 */
-  body{padding-bottom:env(safe-area-inset-bottom);}
-  .wrap{padding-bottom:calc(16px + env(safe-area-inset-bottom));}
+  body{padding-bottom:env(safe-area-inset-bottom,0px);}
+  .wrap{padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));}
   /* C-5 输入字号 ≥16px：防止 iOS 聚焦时页面自动放大 */
   input,select,textarea{font-size:16px;}
   input[type=checkbox],input[type=radio]{font-size:inherit;width:18px;height:18px;}
+  /* M-6：以下四处特异性高于上面的全局 16px 兜底，会被 iOS 聚焦缩放击穿，此处统一拉回 */
+  .review-notes textarea,.review-history select,.ck-add input,#f_editdate{font-size:16px;}
 }
 @media (hover:none){
   /* C-1 触控端不残留 hover 态：覆盖写死的 :hover 背景/颜色 */
@@ -1396,6 +1401,11 @@
   .menu-item:hover,.gantt-row:hover,.lp-item .lp-x:hover,.subitem .sx:hover{background:initial;color:initial;filter:none;}
   /* C-2 HTML5 拖拽在触控端不可用：隐藏拖拽手柄，改用已放大的上移/下移按钮重排 */
   .w-ctrl .grip{display:none;}
+  /* M-2：触屏无 HTML5 拖拽，⠿ 手柄降级为「点击上移一位」的可用入口（见 moveItemUp） */
+  .drag-h{cursor:pointer;color:var(--pri);}
+  /* M-7：系统高亮已关闭，需自定义 :active 给出明确按下反馈 */
+  .btn:active,.btn-sm:active,.tagchip:active,.seg button:active,.menu .mitem:active,.pgbtn:active,
+  .nav button:active,.ptoggle:active,.tp-chip:active{transform:scale(.97);filter:brightness(.95);}
 }
 
 .ic-svg{width:1em;height:1em;vertical-align:-.15em;fill:currentColor;flex:none;}
@@ -1431,6 +1441,16 @@
 .anniv-count{font-weight:700;font-size:15px;color:var(--pri);white-space:nowrap;}
 .anniv-count.anniv-today{color:var(--c4);}
 .anniv-acts{display:flex;gap:6px;}
+/* ===== M-3 平板档（768–860px）：iPad 竖屏（768/820/834）此前直接落进手机堆叠布局，信息密度过低 =====
+   说明：只做「加性恢复」，不改动既有 860 断点，也不动 JS isMobile() 的 860 契约（见文件头注释）。
+   本块置于样式表末尾，确保能覆盖前面的 ≤860 手机规则。 */
+@media (min-width:768px) and (max-width:860px){
+  .wrap{max-width:100%;padding:14px 20px 0;}          /* 回收两侧留白 */
+  .stat-cards{grid-template-columns:repeat(3,1fr);}   /* 手机档 2 列 → 平板 3 列 */
+  .stat-grid2{grid-template-columns:1fr 1fr;}         /* 手机档单列 → 平板双列 */
+  .media-cols{grid-template-columns:repeat(2,1fr);}   /* 手机档单列 → 平板双列 */
+  .today-item .btn-sm{min-height:40px;}               /* 平板空间够，无需 44px 那么高 */
+}
 </style>
 </head>
 <body>
@@ -1906,7 +1926,7 @@
       <label style="display:block;margin-bottom:6px;font-weight:600;">编辑范围 · 这是重复任务的一次</label>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
         <span style="font-size:13px;color:var(--sub);">编辑哪一次：</span>
-        <input type="date" id="f_editdate" style="font-size:13px;padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);">
+        <input type="date" id="f_editdate" style="padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);">
         <span class="hint" id="editDateNote" style="font-size:12px;"></span>
       </div>
       <div style="display:flex;gap:8px;" id="scopeSeg">
@@ -8391,7 +8411,7 @@ function renderLists(){
       const late=it.due && isOverdueDate(it.due) && !it.done;
       return `<div class="litem ${it.done?'done':''} ${late?'late':''} ${(selMode&&selIds.has(it.id))?'sel-checked':''}" data-lid="${l.id}" data-iid="${it.id}" draggable="true">
         ${selMode?selCheckHTML(it.id):""}
-        <span class="drag-h" title="拖动排序" aria-hidden="true">⠿</span>
+        <span class="drag-h" title="拖动排序（触屏点此上移一位）" role="button" tabindex="0" aria-label="上移一位">⠿</span>
         <input type="checkbox" ${it.done?'checked':''} data-toggle aria-label="${esc(it.text)}">
         <div class="ltxt" data-edit data-lid="${l.id}" data-iid="${it.id}">${esc(it.text)}</div>
         ${it.due?`<span class="ldue ${late?'overdue':''}" data-dueedit data-lid="${l.id}" data-iid="${it.id}" title="截止日">⏰${esc(it.due)}</span>`:`<span class="lconvert" data-dueedit data-lid="${l.id}" data-iid="${it.id}" title="设置截止日">+截止</span>`}
@@ -8578,6 +8598,28 @@ function reorderItem(lid, fromId, toId){
   if(ti<0) l.items.push(m); else l.items.splice(ti,0,m);
   listsSave(); renderAll();
 }
+/* M-2 触屏排序降级：HTML5 DnD 在 iOS/Android 完全不触发，清单条目重排此前在手机/iPad 上
+   无任何可用入口（.lup 上移按钮只有 CSS、从未渲染）。这里把 ⠿ 手柄复用为「点击上移一位」，
+   桌面鼠标拖拽行为保持不变。 */
+function moveItemUp(lid, iid){
+  const l=lists.find(x=>x.id===lid); if(!l||!l.items) return;
+  const arr=l.items, i=arr.findIndex(x=>x.id===iid);
+  if(i<=0){ toast("已经是第一条了"); return; }
+  reorderItem(lid, iid, arr[i-1].id);   /* 插入到前一条之前 = 上移一位 */
+}
+document.addEventListener("click",function(e){
+  const h=e.target && e.target.closest ? e.target.closest(".drag-h") : null; if(!h) return;
+  const row=h.closest(".litem[data-iid],.lp-item[data-iid]"); if(!row) return;
+  e.preventDefault(); e.stopPropagation();
+  moveItemUp(row.dataset.lid, row.dataset.iid);
+});
+document.addEventListener("keydown",function(e){
+  if(e.key!=="Enter"&&e.key!==" ") return;
+  const h=document.activeElement;
+  if(!h||!h.classList||!h.classList.contains("drag-h")) return;
+  const row=h.closest(".litem[data-iid],.lp-item[data-iid]"); if(!row) return;
+  e.preventDefault(); moveItemUp(row.dataset.lid, row.dataset.iid);
+});
 /* 多个清单：拖拽重排（插入到 toId 之前） */
 function reorderList(fromId, toId){
   if(fromId===toId) return;
@@ -8668,7 +8710,7 @@ function renderListsPanel(){
     const items=l.items||[]; const p=listPending(l); const t=items.length;
     const rows = items.length ? items.map((it,idx)=>`
       <div class="lp-item ${it.done?'done':''}" data-lid="${l.id}" data-iid="${it.id}" draggable="true">
-        <span class="drag-h" title="拖动排序" aria-hidden="true">⠿</span>
+        <span class="drag-h" title="拖动排序（触屏点此上移一位）" role="button" tabindex="0" aria-label="上移一位">⠿</span>
         <input type="checkbox" ${it.done?'checked':''} data-toggle aria-label="${esc(it.text)}">
         <div class="lp-txt" data-edit>${esc(it.text)}</div>
         <button class="lp-x" data-del title="删除" aria-label="删除条目「${esc(it.text)}」">✕</button>
