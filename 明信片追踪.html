@@ -1870,7 +1870,8 @@ function isLostProxy(p){ if(!p||!p.sent) return false; if(firstUndone(p)===-1) r
 function actOverdue(a){ if(!a||!a.deadline) return false; if(a.status==="done"||a.status==="closed") return false; const t=new Date(a.deadline+"T00:00:00"); if(isNaN(t)) return false; const today0=new Date(); today0.setHours(0,0,0,0); return t<today0; }
 function actDueSoon(a){ if(!a||!a.deadline) return false; if(a.status==="done"||a.status==="closed") return false; const t=new Date(a.deadline+"T00:00:00"); if(isNaN(t)) return false; const today0=new Date(); today0.setHours(0,0,0,0); const diff=Math.round((t-today0)/86400000); return diff>=0 && diff<=3; }
 function lostBadge(view,p){ const lost = view==="sent"?isLostSent(p) : view==="proxy"?isLostProxy(p):false; return lost?`<span class="badge" style="background:rgba(239,68,68,.14);color:var(--danger);margin-right:6px;">⚠ 可能丢失</span>`:""; }
-function esc(s){ var _e=(s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); return iconify(_e); }
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function escIcon(s){ return iconify(esc(s)); }
 // 返回值用于 HTML 属性（href="..."），必须再过 esc，否则可用 " 提前闭合属性造成属性逃逸型 XSS
 
 

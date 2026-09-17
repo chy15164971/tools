@@ -836,11 +836,11 @@
   /* 完成态在暗色下同样退到背景层（此规则需在 .mcard 覆盖之后，特异性亦更高） */
   [data-theme="dark"] .mcard.done{ background:var(--soft); border-color:transparent; }
   [data-theme="dark"] .today-item.overdue{ background:#241a1a; border-color:#5a2a2a; }
-  [data-theme="dark"] .dcell.out{ background:#11162a; }
+  [data-theme="dark"] .dcell.out{ background:var(--bg2); }
   [data-theme="dark"] .dcell.weekend{ background:#141a2b; }
   [data-theme="dark"] .dcell.weekend.out{ background:#10151f; }
   [data-theme="dark"] .dcell.today{ background:#23304f; }
-  [data-theme="dark"] .dcell:hover{ background:#1c2236; }
+  [data-theme="dark"] .dcell:hover{ background:var(--hover); }
   [data-theme="dark"] .dcell.today:hover{ background:#26375c; }
   [data-theme="dark"] .tagchip:hover{ background:#2a3a5e; }
   [data-theme="dark"] .toast{ background:var(--line); color:var(--ink-strong); }
@@ -854,7 +854,7 @@
   [data-theme="dark"] .field select,
   [data-theme="dark"] .field textarea,
   [data-theme="dark"] .subadd input,
-  [data-theme="dark"] .hbtn{ background:#11162a; color:var(--ink); border-color:var(--line); }
+  [data-theme="dark"] .hbtn{ background:var(--bg2); color:var(--ink); border-color:var(--line); }
   [data-theme="dark"] .cal th,
   [data-theme="dark"] .tcol .dayhead,
   [data-theme="dark"] .gantt-row.head .gname,
@@ -869,7 +869,7 @@
   [data-theme="dark"] .filter-badge:hover{ background:#2a3a5e; }
   [data-theme="dark"] .badge.p0{ background:rgba(255,93,93,.16); }
   [data-theme="dark"] .badge.p1{ background:rgba(255,154,82,.16); }
-  [data-theme="dark"] .badge.p2{ background:#262d3f; color:#9aa3b2; }
+  [data-theme="dark"] .badge.p2{ background:var(--line); color:var(--sub); }
   [data-theme="dark"] .badge.gw{ background:rgba(255,154,82,.16); color:var(--warn); }
   [data-theme="dark"] .badge.ok{ background:rgba(45,212,160,.15); }
   [data-theme="dark"] .mcard.tv .mbadge{ background:rgba(255,122,166,.16); }
@@ -1432,7 +1432,7 @@
 .lunar-preview{font-size:12.5px;color:var(--pri);margin:-4px 2px 2px;min-height:18px;}
 .anniv-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none;}
 .anniv-count{font-weight:700;font-size:15px;color:var(--pri);white-space:nowrap;}
-.anniv-count.anniv-today{color:#ff5c8a;}
+.anniv-count.anniv-today{color:var(--c4);}
 .anniv-acts{display:flex;gap:6px;}
 </style>
 </head>
@@ -8771,7 +8771,8 @@ function setupListsPanelEvents(){
 }
 
 /* ===== 工具 ===== */
-function esc(s){var _e=(s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));return iconify(_e);}
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function escIcon(s){ return iconify(esc(s)); }
 function escNoIcon(s){return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}   // 仅转义 HTML，不转 SVG 图标：清单图标统一按原生 emoji 渲染，避免「命中 iconify 映射表的 emoji 变小灰图标、其余保持彩色」导致风格不一致
 
 /* ==== 云同步防重入 withBusy（）====
