@@ -4960,7 +4960,7 @@ function renderTimeline(days){
       if(i._kr){
         const top=(i.start.getHours()+i.start.getMinutes()/60)*44;
         const h=(i.end-i.start)/3600000*44; const hh=Math.max(h,20);
-        body+=`<div class="ev okr" style="${posStyle}top:${top}px;height:${hh}px;background:#7c5cff" data-kr="${i.kr.id}" data-date="${ymd(i.date)}">
+        body+=`<div class="ev okr" style="${posStyle}top:${top}px;height:${hh}px;background:var(--accent)" data-kr="${i.kr.id}" data-date="${ymd(i.date)}">
           <div class="et">🎯 ${esc(i.kr.title)}</div><div class="ed">${i.kr.start}${i.kr.end?' ~ '+i.kr.end:''}</div></div>`;
         return;
       }
@@ -5680,7 +5680,7 @@ function renderStats(){
   html+=`</div></div>`;
   html+=`<div class="stat-sec"><h4>健康度</h4>
     <div class="health-row"><span class="hl">习惯契合度<small>本周目标日达成</small></span>${fit===null?'<span class="muted">暂无进行中习惯</span>':`<div class="habit-fit-bar"><i class="bf" style="width:${fit}%;background:var(--ok)"></i><b>${fit}%</b></div>`}</div>
-    <div class="health-row"><span class="hl">OKR 平均进度<small>全部目标均值</small></span>${okrAvg===null?'<span class="muted">暂无目标</span>':`<div class="habit-fit-bar"><i class="bf" style="width:${okrAvg}%;background:#7c5cff"></i><b>${okrAvg}%</b></div>`}</div>
+    <div class="health-row"><span class="hl">OKR 平均进度<small>全部目标均值</small></span>${okrAvg===null?'<span class="muted">暂无目标</span>':`<div class="habit-fit-bar"><i class="bf" style="width:${okrAvg}%;background:var(--accent)"></i><b>${okrAvg}%</b></div>`}</div>
   </div>`;
   html+=`</div></div>`;
   /* M11：把已录入的估算时长 / 精力分布真正用起来 */
@@ -6176,7 +6176,7 @@ function renderProjects(){
     const msHtml=(p.milestones&&p.milestones.length)?`<div class="proj-milestone">`+p.milestones.map(m=>{ const over=m.date&&isOverdueDate(m.date); return `<span class="ms${over?' over':''}" title="${over?'已逾期':''}">📌 ${esc(m.date)}${m.label?(' '+esc(m.label)):''}</span>`; }).join("")+`</div>`:"";
     const open=projExpanded.has(p.id);
     const doneN=ts.filter(isTaskDone).length;
-    h+=`<div class="proj-card ${(selMode&&selIds.has(p.id))?'sel-checked':''}" style="border-left:4px solid ${p.color||'#9aa0ab'}">
+    h+=`<div class="proj-card ${(selMode&&selIds.has(p.id))?'sel-checked':''}" style="border-left:4px solid ${p.color||'var(--c5)'}">
       <div class="proj-top">${selMode?selCheckHTML(p.id):""}
         <button type="button" class="proj-name" data-fold="${p.id}" aria-expanded="${open?'true':'false'}" title="${open?'收起':'展开'}该项目下的任务">
           <span class="fold-ic" aria-hidden="true">${open?'▾':'▸'}</span>${esc(p.name)}<span class="proj-count">${doneN}/${ts.length}</span>
@@ -6184,7 +6184,7 @@ function renderProjects(){
         <div class="proj-acts"><button class="btn btn-ghost btn-sm" data-projgantt="${p.id}" title="在甘特图里查看该项目下的任务排期">📊 甘特图</button><button class="btn btn-ghost btn-sm" data-projedit="${p.id}">编辑</button><button class="btn btn-ghost btn-sm" data-projdel="${p.id}">删除</button></div></div>
       ${p.desc?`<div class="proj-desc">${esc(p.desc)}</div>`:""}
       <div class="proj-meta">
-        ${krList.length?krList.map(r=>`<span class="badge" style="background:${hexA('#7c5cff',.16)};color:#7c5cff;cursor:pointer" data-openkr="${r.k.id}">🎯 ${esc(r.o.title)} › ${esc(r.k.title)}</span>`).join(""):""}
+        ${krList.length?krList.map(r=>`<span class="badge" style="background:${hexA('#7c5cff',.16)};color:var(--accent);cursor:pointer" data-openkr="${r.k.id}">🎯 ${esc(r.o.title)} › ${esc(r.k.title)}</span>`).join(""):""}
         ${p.start?`<span class="badge sub">${p.start}${p.end?' ~ '+p.end:''}</span>`:""}
         ${th?`<span class="badge ${th.cls}">${th.label}</span>`:""}
         <span class="badge ${p.status==='done'?'ok':''}">${p.status==='done'?'已完成':'进行中'}</span>

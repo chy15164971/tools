@@ -100,7 +100,7 @@
   /* 数据管理弹窗双 Tab（与任务管理台对齐） */
   .dtabs{display:flex;gap:4px;background:var(--bg2,#eef1f6);border:1px solid var(--line,#e6e9f0);border-radius:12px;padding:4px;margin:0 0 14px;}
   .dtab{flex:1;border:none;background:transparent;border-radius:9px;padding:9px 12px;font-size:14px;font-weight:600;color:var(--sub,#6b7488);cursor:pointer;font-family:inherit;min-height:40px;transition:.15s;}
-  .dtab:hover{color:var(--ink,#1f2430);}
+  .dtab:hover{color:var(--ink,var(--text));}
   .dtab.active{background:var(--pri);color:var(--white);}
     /* ===== 键盘可见焦点（）：与「任务管理台.html」对齐 =====
      键盘 Tab 时显示清晰焦点环；用 :focus-visible 保证鼠标点击不触发，不影响鼠标用户观感。
@@ -2858,23 +2858,24 @@ function readForm(dir){
   o.status=document.getElementById(def.statusId).value || def.defaultStatus;
   return o;
 }
-/* 状态↔日期一致性：状态回退时清掉不再成立的日期（决策 D2：直接清掉，不留档）。
-   背景：原先只在目标状态日期为空时「补填」，从不反向清退，导致「状态=未写」却残留 arrived 日期，
-   污染排序 / 在途天数 / CSV 导出。寄出链等级：未写0 < 未寄1 < 在途2 < 已到3；
-   「退回」(4) 视同已寄出，保留 sent/arrived（退回说明确实寄出去过）。 */
+/* 状态↔日期一致性（D1，按审查建议改为「保留历史轨迹」）：
+   - 状态回退时【不再】清空已填日期；已到达→误改回在途，arrived 仍保留为历史轨迹。
+   - 仅「未写」(unwritten) 视为彻底重置，才清空 sent/arrived（修复原「状态=未写却残留 arrived」污染）。
+   - 正向补填保留：进入 transit 补 sent、进入 arrived 补 arrived、进入 received 补 received（为空才补）。
+   - 在途天数 transitDays 仅在 status==="arrived" 时取用 arrived，故保留历史日期不会污染在途/排序/CSV。
+   寄出链等级：未写0 < 未寄1 < 在途2 < 已到3；「退回」(4) 视同已寄出，保留 sent/arrived。 */
 const SENT_RANK={unwritten:0, unsent:1, transit:2, arrived:3, returned:4};
 function normalizeRecDates(rec, dir){
   if(!rec) return rec;
   const today=new Date().toISOString().slice(0,10);
   if(dir==="sent"){
-    const k=(SENT_RANK[rec.status]!=null) ? SENT_RANK[rec.status] : 0;
-    if(k < SENT_RANK.transit) rec.sent="";
-    if(k < SENT_RANK.arrived) rec.arrived="";
+    // D1（审查建议）：保留历史轨迹——状态回退不再清空已填日期；仅「未写」视为彻底重置才清零
+    if(rec.status==="unwritten"){ rec.sent=""; rec.arrived=""; }
     if(rec.status==="transit" && !rec.sent) rec.sent=today;
     if(rec.status==="arrived" && !rec.arrived) rec.arrived=today;
   }else{
-    if(rec.status!=="received") rec.received="";
-    else if(!rec.received) rec.received=today;
+    // 收到链：收到为终态；回退（如收到→在途）保留 received 作历史轨迹，仅终态补填
+    if(rec.status==="received" && !rec.received) rec.received=today;
   }
   return rec;
 }
