@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<script>try{var _t=localStorage.getItem("wb_theme_v1")||localStorage.getItem("wb_taskhub_theme_v1");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
+<script>var DEBUG=(location.search||"").indexOf("debug=1")>=0;try{var _t=localStorage.getItem("wb_theme_v1")||localStorage.getItem("wb_taskhub_theme_v1");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>任务管理台 · 增强版</title>
@@ -204,11 +204,11 @@
   }
   /* 断点 860 互补区间 B：≥861 恢复常驻菜单（与上方 max-width:860 成对，勿单独改一侧） */
   @media (min-width:861px){
-    .menu-backdrop{display:none!important;}
-    .menu-handle,.menu-header{display:none!important;}
+    .menu-backdrop{display:none!important; /* 移动端收起时强制隐藏，覆盖桌面 display 规则 */}
+    .menu-handle,.menu-header{display:none!important; /* 桌面隐藏汉堡把手/头部，移动端才显示 */}
   }
   @media (prefers-reduced-motion: reduce){
-    .menu,.menu-backdrop{transition:none!important;}
+    .menu,.menu-backdrop{transition:none!important; /* 移动端切换即时无动画，避免延迟感 */}
   }
   /* 顶栏控件收敛后：品牌与操作区同行，换行时左对齐（） */
   .topbar{flex-wrap:wrap;row-gap:8px;}
@@ -483,7 +483,7 @@
   .mode-toggle .mt-btn{font-size:13px;padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:var(--bg2);color:var(--sub);cursor:pointer;font-weight:600;transition:.15s;}
   .mode-toggle .mt-btn.active{background:var(--pri);color:var(--white);border-color:var(--pri);box-shadow:0 1px 4px rgba(79,124,255,.3);}
   .mode-toggle .mt-hint{font-size:12px;color:var(--muted);margin-left:4px;}
-  body:not(.modal-full) .full-only{display:none !important;}
+  body:not(.modal-full) .full-only{display:none !important; /* 非全屏弹窗下隐藏「仅全屏显示」元素 */}
   body.modal-full .mode-toggle .mt-btn[data-mode="full"]{background:var(--pri);color:var(--white);border-color:var(--pri);}
   .modal-actions .btn{flex:1;justify-content:center;}
   /* 首次引导（审查 F1：轻量一次性浮层，localStorage 门控，不干扰既有流程） */
@@ -544,7 +544,7 @@
   .fsel{border:1px solid var(--line);border-radius:11px;padding:9px 10px;font-size:14px;background:var(--card);color:var(--ink);}
   .leadsel{border:1px solid var(--line);border-radius:11px;padding:7px 8px;font-size:13px;background:var(--card);color:var(--ink);}
   .ev{touch-action:none;}
-  .dcell.drop{outline:2px solid var(--pri);outline-offset:-2px;background:var(--pri-soft) !important;}
+  .dcell.drop{outline:2px solid var(--pri);outline-offset:-2px;background:var(--pri-soft) !important; /* 拖放高亮必须压过行条纹/继承底色 */}
   .chip.dragging{z-index:20;box-shadow:0 4px 12px rgba(0,0,0,.18);}
   .btn.on-remind{background:var(--pri);color:var(--white);border-color:var(--pri);}
   /* 提醒关闭态：明确的"关闭"外观，避免与常规 ghost 按钮混淆，提示用户这是可切换开关 */
@@ -806,8 +806,8 @@
   .trend .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;height:100%;justify-content:flex-end;min-width:0;}
   /* 柱子收窄：7 列 + 10px gap 总占 7×30 + 6×10 = 270px，加 24px 内边距即 294px，常见面板宽度内不出框 */
   .trend .bar{width:50%;max-width:28px;border-radius:8px 8px 0 0;background:linear-gradient(180deg,#7aa0ff,var(--pri));transition:height .7s cubic-bezier(.22,1,.36,1);}
-  .trend .bar.zero{height:3px !important;background:var(--line);}
-  .trend .bar.norec{height:3px !important;background:repeating-linear-gradient(90deg,var(--line) 0 4px,transparent 4px 8px);}
+  .trend .bar.zero{height:3px !important;background:var(--line); /* 空数据强制最小高度占位 */}
+  .trend .bar.norec{height:3px !important;background:repeating-linear-gradient(90deg,var(--line) 0 4px,transparent 4px 8px); /* 无记录强制最小高度占位 */}
   .trend .num.rec{color:var(--line);font-weight:600;}
   .trend .lab{font-size:11px;color:var(--sub);white-space:nowrap;}
   .trend .num{font-size:12px;font-weight:700;color:var(--pri);line-height:1;}
@@ -916,7 +916,7 @@
   .widget-row .panel.drop-after,.widget-row .custom-card.drop-after{box-shadow:3px 0 0 0 var(--pri);}
   .custom-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:14px;}
   .widget-row>.panel.whidden,
-  .widget-row>.custom-card.whidden{display:none !important;}
+  .widget-row>.custom-card.whidden{display:none !important; /* 隐藏状态卡片，压过其它 display 规则 */}
   /* 顶部概览条：默认收起三栏，首屏仅一行（解决顶部偏长 + 视觉统一） */
   .overview-bar{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow);cursor:pointer;user-select:none;margin-bottom:14px;transition:background .15s,border-color .15s;}
   .overview-bar:hover{background:var(--hover);border-color:var(--pri);}
@@ -991,7 +991,7 @@
   .mg-note{font-size:12px;color:var(--sub);line-height:1.6;margin-top:8px;}
   .mg-li{display:flex;gap:6px;padding:3px 0;font-size:12.5px;color:var(--ink);}
   .mg-li .k{color:var(--sub);flex:none;}
-  .mg-warn{border-color:var(--danger)!important;background:rgba(239,68,68,.06);}
+  .mg-warn{border-color:var(--danger)!important;background:rgba(239,68,68,.06); /* 警告边框须压过主题边框色 */}
   .w-presets{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
   .w-presets button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer;font-family:inherit;text-align:left;font-size:13px;transition:.15s;}
   .w-presets button:hover{border-color:var(--pri);background:var(--pri-soft);}
@@ -1363,7 +1363,7 @@
 
 /* ===== 动效降级：尊重用户「减少动效」偏好 ===== */
 @media (prefers-reduced-motion: reduce){
-  *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important;}
+  *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important; /* 降低动效：强制近乎瞬时，覆盖一切动画/过渡 */}
 }
 
 /* ===== 移动端触控目标统一 ≥40px（ / WCAG 2.5.5）=====
@@ -3410,7 +3410,7 @@ function storageSetSafe(k,v){
         ? "本地存储空间已满，本次修改没能写入。请先删除部分大文件记录（如媒体/清单里的图片）或导出备份后清理旧数据。"
         : "本地存储写入失败，本次修改可能不会被保留。";
       try{ toast(msg,"danger"); }catch(_){ try{ alert(msg); }catch(__){} }
-      console.error("[storage] setItem failed:", k, e);
+      if(DEBUG)console.error("[storage] setItem failed:", k, e);
     }
     return false;
   }
@@ -5746,7 +5746,7 @@ function exportICS(){
     const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
     a.download="任务管理台日历_"+ymd(now)+".ics"; document.body.appendChild(a); a.click(); a.remove();
     toast("已导出 "+(lines.filter(x=>x==="BEGIN:VEVENT").length)+" 条日历事件");
-  }catch(e){ console.error(e); toast("导出日历失败："+(e&&e.message?e.message:e),"danger"); }
+  }catch(e){ if(DEBUG)console.error(e); toast("导出日历失败："+(e&&e.message?e.message:e),"danger"); }
 }
 function exportStatsReport(){
   try{
@@ -6748,7 +6748,7 @@ function renderAll(){
   try{
     renderAllNow();
   }catch(e){
-    console.error("[renderAll] 渲染异常，已释放刷新锁；界面可能未完全更新：", e);
+    if(DEBUG)console.error("[renderAll] 渲染异常，已释放刷新锁；界面可能未完全更新：", e);
     const now=Date.now();
     if(now-_raErrAt>30000){ // 同类告警 30s 内只提示一次，避免高频渲染刷屏
       _raErrAt=now;
@@ -8296,9 +8296,9 @@ const MIGRATIONS={
 function migrateAll(){
   try{
     let v=schemaVersionNow();
-    while(v<SCHEMA_VERSION){ const fn=MIGRATIONS[v+1]; if(typeof fn==="function"){ try{ fn(); }catch(e){ console.error("[migrate] v"+(v+1)+" failed", e); } } v++; }
+    while(v<SCHEMA_VERSION){ const fn=MIGRATIONS[v+1]; if(typeof fn==="function"){ try{ fn(); }catch(e){ if(DEBUG)console.error("[migrate] v"+(v+1)+" failed", e); } } v++; }
     try{ localStorage.setItem(SCHEMA_KEY, String(SCHEMA_VERSION)); }catch(e){}
-  }catch(e){ console.error("[migrate] migrateAll error", e); }
+  }catch(e){ if(DEBUG)console.error("[migrate] migrateAll error", e); }
 }
 function migrateBooksToList(){
   // 幂等迁移：把 Obsidian 未读书单并入「待读图书」，按书名去重。
@@ -10016,7 +10016,7 @@ async function cloudDownload(){
     setCloudStatus("下载成功 ✓ "+new Date().toLocaleString());
     setCloudPill("ok");
     renderAll();
-  }catch(e){ console.error("云下载失败：", e);
+  }catch(e){ if(DEBUG)console.error("云下载失败：", e);
     let msg=(e&&e.message)?e.message:e;
     if(e&&e.name==="AbortError") msg="网络超时：无法在 15 秒内连接 GitHub（可能受网络限制）。可改用「离线恢复书签」一键恢复数据。";
     else if(/Failed to fetch|NetworkError|Load failed/i.test(msg)) msg="网络不可达：浏览器无法连接 GitHub（可能受网络限制）。可改用「离线恢复书签」一键恢复数据。";
@@ -10263,7 +10263,7 @@ async function cloudStartupPull(silent){
   }catch(e){
     const _m=(e&&e.name==="AbortError")?"网络超时（20 秒内未连上 GitHub）":((e&&e.message)?e.message:String(e));
     window.__lastPullErr=_m;
-    console.error("启动时云拉取失败：", e);
+    if(DEBUG)console.error("启动时云拉取失败：", e);
     setCloudPill("err");
     // 首拉失败此前「只置红灯、无任何提示」，是「一直同步失败却查不出原因」的主因。
     // 这里低频（60s 节流）把真实原因弹给用户，并写入状态灯悬浮提示，便于自查。
@@ -10381,7 +10381,7 @@ const CLEARED_FLAG = "wb_taskhub_cleared_20260821";
 const _hadTasks = load();
 undoLoad();
 // 新用户首次运行引导：仅当任务键从未存在、且非「主动清空」状态才 seed（避免「清空后复活」）
-if(!_hadTasks && !localStorage.getItem(CLEARED_FLAG)){ try{ seed(); }catch(e){ console.error("seed err", e); } }
+if(!_hadTasks && !localStorage.getItem(CLEARED_FLAG)){ try{ seed(); }catch(e){ if(DEBUG)console.error("seed err", e); } }
 
 /* 主题初始化（P2） */
 try{ const _st=localStorage.getItem(THEME_KEY); if(_st) applyTheme(_st); }catch(e){}

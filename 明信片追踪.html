@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN" data-theme="light">
 <head>
-<script>try{var _t=localStorage.getItem("wb_theme_v1")||localStorage.getItem("wb_postcards_theme");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
+<script>var DEBUG=(location.search||"").indexOf("debug=1")>=0;try{var _t=localStorage.getItem("wb_theme_v1")||localStorage.getItem("wb_postcards_theme");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#4F7CFF">
@@ -261,7 +261,7 @@
   .row-act .act-more>summary::-webkit-details-marker{display:none;}
   .row-act .act-more>.act-more-body{display:flex;flex-direction:column;gap:2px;}
   @media (max-width:560px){
-    .row-act .act-secondary{display:none !important;}
+    .row-act .act-secondary{display:none !important; /* 小屏隐藏次要操作，避免拥挤 */}
     .row-act .act-more{display:inline-flex;position:relative;}
     .row-act .act-more>summary{display:inline-flex;align-items:center;}
     .row-act .act-more[open]>.act-more-body{position:absolute;right:0;top:100%;background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);padding:4px 6px;z-index:6;min-width:84px;align-items:stretch;}
@@ -374,9 +374,9 @@
     .topbar{flex-wrap:wrap;row-gap:8px;}
     .stats{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));}
     /* C-3/iPad：平板档（含 iPad 竖屏 768）收起次要列，避免 8 列挤成一团；手机端 ≤560 仍走卡片式 */
-    .hide-sm{display:none !important;}
+    .hide-sm{display:none !important; /* 小屏隐藏工具类 */}
     /* 平板/大手机横屏：取消 fixed table-layout，避免隐藏列仍占宽导致日期等 white-space:nowrap 内容重叠到邻列 */
-    table{table-layout:auto !important;}
+    table{table-layout:auto !important; /* 窄屏改自动布局，允许列收缩换行 */}
     /* 561–980px 窄桌面窗口：8 列表格可能溢出，加横向滚动兜底（≤560 卡片式会覆盖回 visible） */
     .tablecard{overflow-x:auto;}
   }
@@ -398,10 +398,10 @@
     tbody td::before{content:attr(data-label);color:var(--sub);font-size:12px;font-weight:600;flex:none;text-align:left;}
     tbody td.col-act{justify-content:flex-end;}
     tbody td.col-act::before{display:none;}
-    .hide-sm{display:none !important;}
+    .hide-sm{display:none !important; /* 小屏隐藏工具类 */}
     .note{max-width:none;}
     /* P0：移动端强制显示缩略图（明信片核心信息），放大并左对齐 */
-    .col-thumb{display:flex !important;justify-content:flex-start;align-items:center;}
+    .col-thumb{display:flex !important;justify-content:flex-start;align-items:center; /* 缩略图列小屏强制 flex 对齐 */}
     .col-thumb .thumb{width:48px;height:48px;}
     .m-extra{display:block;}
     /* === 移动端 UI 统一优化 === */
@@ -421,8 +421,8 @@
     .seg{flex-direction:column;justify-content:center;align-items:center;gap:5px;padding:10px 4px;border-radius:var(--radius-sm);font-size:11.5px;font-weight:600;line-height:1.25;min-height:64px;white-space:normal;}
     .seg .tab-icon{width:22px;height:22px;}
     .seg.active{background:var(--pri-soft);color:var(--pri);box-shadow:inset 0 0 0 1px var(--pri);}
-    .seg-sep{display:none !important;}
-    #btnAdd{width:100%;margin-left:0 !important;min-height:44px;justify-content:center;}
+    .seg-sep{display:none !important; /* 小屏隐藏分段器分隔符 */}
+    #btnAdd{width:100%;margin-left:0 !important;min-height:44px;justify-content:center; /* 小屏按钮满宽、清除左间距 */}
     /* 统计卡片 */
     .stats{gap:8px;margin-bottom:12px;}
     .stat{padding:10px 12px;min-height:70px;border-radius:var(--radius-sm);}
@@ -433,13 +433,13 @@
     .w-ctrl{display:none;}
     /* 筛选栏：全宽堆叠 */
     .filters{gap:8px;margin-bottom:12px;}
-    .filters>*{flex:1 1 calc(50% - 4px) !important;min-width:0 !important;}
-    .filters .search-wrap{flex:1 1 100% !important;order:-1;}
+    .filters>*{flex:1 1 calc(50% - 4px) !important;min-width:0 !important; /* 筛选器小屏两列等宽、允许收缩 */}
+    .filters .search-wrap{flex:1 1 100% !important;order:-1; /* 搜索框小屏独占整行并置顶 */}
     .filters .search{width:100%;min-height:42px;padding-right:34px;}
-    .filters .chips{flex:1 1 100% !important;order:-2;}
+    .filters .chips{flex:1 1 100% !important;order:-2; /* 标签 chips 小屏独占整行并最前 */}
     .chip{padding:6px 11px;font-size:12.5px;min-height:34px;}
     .filters select,.filters input{min-height:42px;font-size:16px;}
-    .btn-reset{flex:1 1 100% !important;min-height:42px;}
+    .btn-reset{flex:1 1 100% !important;min-height:42px; /* 重置按钮小屏满宽、加大点按区 */}
     /* 列表卡片 */
     .tablecard{border-radius:var(--radius);margin-top:2px;}
     tbody tr{border-radius:var(--radius);margin-bottom:12px;padding:0;border:1px solid var(--line);}
@@ -510,7 +510,7 @@
 
 /* ===== 动效降级：尊重用户「减少动效」偏好 ===== */
 @media (prefers-reduced-motion: reduce){
-  *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important;}
+  *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important; /* 降低动效：强制近乎瞬时，覆盖一切动画/过渡 */}
 }
 
 /* ===== Batch 2 跨端体验补强（C-2 / C-4 / C-5 / C-1）===== */
@@ -1843,7 +1843,7 @@ function storageSet(k,v){
         ? "存储空间已满，本次修改没能写入本地（明信片图片较多时容易触发）。请先删除部分图片或清理旧记录，再重新操作。"
         : "本地存储写入失败，本次修改可能不会被保留。";
       try{ toast(msg,"danger"); }catch(_){ try{ alert(msg); }catch(__){} }
-      console.error("[storage] setItem failed:", k, e);
+      if(DEBUG)console.error("[storage] setItem failed:", k, e);
     }
     return false;
   }
