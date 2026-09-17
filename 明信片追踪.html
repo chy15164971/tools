@@ -1678,6 +1678,11 @@ const RECV_STATUSES={
   transit:{label:"在途", color:"#ff8a3d"},
   received:{label:"已收", color:"#22b07d"},
 };
+/* 代寄 mode/direction/step 常量枚举：单一事实源，避免散落字符串拼写错误（审计 B1-PC）*/
+const PMODE={BACK:"back", ONEWAY:"oneway"};
+const PDIR={ME:"me", THEM:"them"};
+const PSTEP={READY:"ready", SENT:"sent", PROXY_RECV:"proxyRecv", PROXY_BACK:"proxyBack", GOT_BACK:"gotBack", ENV_SENT:"envSent", ENV_RECV:"envRecv"};
+
 // 代寄 / write-back：同一张片寄给对方写回再寄回，4 节点往返生命周期
 // 方向：me = 我寄出在先（标准）；them = 对方寄出在先（互相代寄的另一条腿，方向相反）
 const PROXY_STEPS=[
@@ -1700,8 +1705,8 @@ const PROXY_STEPS_ONEWAY=[
   {k:"gotBack",  label:"对方收到"}
 ];
 function proxyStepsOf(p){
-  if(p && p.proxyMode==="oneway") return PROXY_STEPS_ONEWAY;
-  if(p && p.direction==="them") return PROXY_STEPS_THEM;
+  if(p && p.proxyMode===PMODE.ONEWAY) return PROXY_STEPS_ONEWAY;
+  if(p && p.direction===PDIR.THEM) return PROXY_STEPS_THEM;
   return PROXY_STEPS;
 }
 const PROXY_STATUS={
@@ -1729,15 +1734,15 @@ const ACT_STATUS={
 // 状态/计数与步进条（firstUndone 驱动）保持一致，不会出现「中间空却显示已完成」的自相矛盾
 function proxyStatusOf(p){
   const i=firstUndone(p);
-  if(p && p.proxyMode==="oneway") return ["ready","envSent","envRecv","sent","gotBack"][i<0?4:i];
-  return ["ready","sent","proxyRecv","proxyBack","gotBack"][i<0?4:i];
+  if(p && p.proxyMode===PMODE.ONEWAY) return [PSTEP.READY,PSTEP.ENV_SENT,PSTEP.ENV_RECV,PSTEP.SENT,PSTEP.GOT_BACK][i<0?4:i];
+  return [PSTEP.READY,PSTEP.SENT,PSTEP.PROXY_RECV,PSTEP.PROXY_BACK,PSTEP.GOT_BACK][i<0?4:i];
 }
 // 状态文字随模式/方向翻转；单向代寄为「对方寄出→我收→我写回寄出→对方收到」
 function proxyStatusText(p){
   const i=firstUndone(p);
-  if(p && p.proxyMode==="oneway"){ const idx=i<0?4:i; return ["准备中","对方已寄出（待我收）","我已收（待我写回寄出）","我写回寄出在途","对方已收"][idx]||"准备中"; }
+  if(p && p.proxyMode===PMODE.ONEWAY){ const idx=i<0?4:i; return ["准备中","对方已寄出（待我收）","我已收（待我写回寄出）","我写回寄出在途","对方已收"][idx]||"准备中"; }
   const idx=i<0?4:i;
-  if(p && p.direction==="them") return ["准备中","对方已寄出","我已收","我写回中","对方已收"][idx]||"准备中";
+  if(p && p.direction===PDIR.THEM) return ["准备中","对方已寄出","我已收","我写回中","对方已收"][idx]||"准备中";
   return ["准备中","我寄出在途","对方已收","对方寄回中","我已收"][idx]||"准备中";
 }
 function proxyReturnDays(p){ // 我收到日 − 我寄出日
@@ -1802,7 +1807,7 @@ function load(){
     if(g.some(p=>!p.direction)){ // 存在旧腿（无 direction）→ 整对视为 legacy，需纠正
       g.forEach((p,i)=>{
         if(!p.direction){ p.direction=(i===0)?"me":"them"; _mutualFixed=true; }
-        if(p.direction==="them" && (p.sent||p.proxyRecv||p.proxyBack||p.gotBack)){
+        if(p.direction===PDIR.THEM && (p.sent||p.proxyRecv||p.proxyBack||p.gotBack)){
           p.sent=p.proxyRecv=p.proxyBack=p.gotBack=""; _mutualFixed=true; // 旧镜像日期是 me 腿副本，清空
         }
       });
@@ -2109,8 +2114,8 @@ function renderStats(){
     //   ② 单向代寄（对方找我代寄，proxyMode=oneway）：对方已寄出(envSent)、我未收(envRecv 未填)
     //   单向代寄创建时强制 direction=me，故两分支天然互斥，不会重复计数
     const themTransitCards=proxies.filter(p=>
-      (p.direction==="them" && p.sent && !p.proxyRecv) ||
-      (p.proxyMode==="oneway" && p.envSent && !p.envRecv)
+      (p.direction===PDIR.THEM && p.sent && !p.proxyRecv) ||
+      (p.proxyMode===PMODE.ONEWAY && p.envSent && !p.envRecv)
     ).reduce((a,p)=>a+cc(p),0);
     // 可能丢失（单腿丢失即计）
     const lostProxyCards=proxies.filter(p=>isLostProxy(p)).reduce((a,p)=>a+cc(p),0);
@@ -2576,8 +2581,8 @@ function buildProxyUnits(src){
   const units=[];
   groups.forEach((legs,pid)=>{
     if(legs.length>=2){
-      const me=legs.find(x=>x.direction==="me")||legs[0];
-      const them=legs.find(x=>x.direction==="them")||legs.find(x=>x!==me);
+      const me=legs.find(x=>x.direction===PDIR.ME)||legs[0];
+      const them=legs.find(x=>x.direction===PDIR.THEM)||legs.find(x=>x!==me);
       units.push({type:"pair", pairId:pid, me, them});
     }else{
       units.push({type:"single", p:legs[0]});
@@ -3256,7 +3261,7 @@ function openProxyModal(id){
   fillOptions("pType", proxies.map(x=>x.type).concat(typeList));
   fillOptions("pCountry", proxies.map(x=>x.country).concat(countryList));
   // 模式：编辑时沿用原条目模式（旧条目无 proxyMode 一律按往返处理）；新建默认「往返 write-back」
-  const mode = (p && p.proxyMode==="oneway") ? "oneway" : "back";
+  const mode = (p && p.proxyMode===PMODE.ONEWAY) ?PMODE.ONEWAY:PMODE.BACK;
   const dir = p ? (p.direction||"me") : "me";
   document.getElementById("pDirection").value = dir;
   applyProxyModeUI(mode, dir, !!p);
@@ -3333,7 +3338,7 @@ function proxySharedMeta(data){
 }
 function saveProxyModal(){
   const id=document.getElementById("pId").value.trim();
-  const mode = document.getElementById("pProxyMode").value.trim()==="oneway" ? "oneway" : "back";
+  const mode = document.getElementById("pProxyMode").value.trim()==="oneway" ?PMODE.ONEWAY:PMODE.BACK;
   const data={
     proxy: document.getElementById("pProxy").value.trim(),
     country: document.getElementById("pCountry").value.trim(),
@@ -3353,7 +3358,7 @@ function saveProxyModal(){
   };
   if(!data.proxy){ toast("请填写对方（代寄人）", "danger"); return; }
   // 单向代寄：用到 对方寄出(envSent) + 我收(envRecv) + 我写回寄出(sent) + 完成(gotBack)，清空写回步骤并强制 direction=me
-  if(mode==="oneway"){ data.proxyRecv=""; data.proxyBack=""; data.direction="me"; }
+  if(mode==="oneway"){ data.proxyRecv=""; data.proxyBack=""; data.direction=PDIR.ME; }
   else { data.envSent=""; data.envRecv=""; } // 往返模式不携带单向信封字段
   const mutual=document.getElementById("pMutualChk").checked;
   if(id){
@@ -3370,7 +3375,7 @@ function saveProxyModal(){
     if(mutual && !p.pairId){
       const pairId="pr_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
       p.pairId=pairId;
-      const mirrorDir = p.direction==="them" ? "me" : "them"; // 镜像腿方向与本条相反
+      const mirrorDir = p.direction===PDIR.THEM ? "me" : "them"; // 镜像腿方向与本条相反
       const mirror=Object.assign({id:uid(), direction:mirrorDir, pairId}, proxySharedMeta(data)); // 只共享描述字段，日期清空
       touch(mirror); proxies.unshift(mirror);
       syncMutualMeta(pairId, p); // 确保镜像腿拿到最新共享字段
@@ -3385,12 +3390,12 @@ function saveProxyModal(){
     }
   }
   else {
-    const rec=Object.assign({id:uid(), direction:"me"}, data); // 新建：本条 = 我寄出在先
+    const rec=Object.assign({id:uid(), direction:PDIR.ME}, data); // 新建：本条 = 我寄出在先
     touch(rec);
     if(mutual && !rec.pairId){
       const pairId="pr_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
       rec.pairId=pairId;
-      const mirror=Object.assign({id:uid(), direction:"them", pairId}, proxySharedMeta(data)); // 镜像腿 = 对方寄出在先，方向相反、日期清空
+      const mirror=Object.assign({id:uid(), direction:PDIR.THEM, pairId}, proxySharedMeta(data)); // 镜像腿 = 对方寄出在先，方向相反、日期清空
       touch(mirror); proxies.unshift(mirror);
     }
     proxies.unshift(rec);
@@ -4004,8 +4009,8 @@ async function fillSample(){
   ];
   const prox=[
     {proxy:"Anna（笔友）", country:"德国", city:"柏林", platform:"Postcrossing", type:"交换", exchange:"私换", sent:d(-30), proxyRecv:d(-22), proxyBack:d(-18), gotBack:d(-9), note:"请 Anna 帮我盖柏林邮戳后写回，已收到写好的片"},
-    {proxy:"Minho", country:"韩国", city:"首尔", platform:"微博互换", type:"TAG", exchange:"互寄", direction:"me", pairId:"pr_sample_minho", sent:d(-5), proxyRecv:"", proxyBack:"", gotBack:"", note:"互寄：我代寄他的片（进行中，可点 ↔ 互寄补填对方那张）"},
-    {proxy:"Minho", country:"韩国", city:"首尔", platform:"微博互换", type:"TAG", exchange:"互寄", direction:"them", pairId:"pr_sample_minho", sent:"", proxyRecv:"", proxyBack:"", gotBack:"", note:"互寄：他代寄我的片（待填，可点 ↔ 互寄编辑）"},
+    {proxy:"Minho", country:"韩国", city:"首尔", platform:"微博互换", type:"TAG", exchange:"互寄", direction:PDIR.ME, pairId:"pr_sample_minho", sent:d(-5), proxyRecv:"", proxyBack:"", gotBack:"", note:"互寄：我代寄他的片（进行中，可点 ↔ 互寄补填对方那张）"},
+    {proxy:"Minho", country:"韩国", city:"首尔", platform:"微博互换", type:"TAG", exchange:"互寄", direction:PDIR.THEM, pairId:"pr_sample_minho", sent:"", proxyRecv:"", proxyBack:"", gotBack:"", note:"互寄：他代寄我的片（待填，可点 ↔ 互寄编辑）"},
   ];
   sent.forEach(s=>postcards.unshift(touch(Object.assign({id:uid()}, s))));
   recv.forEach(s=>received.unshift(touch(Object.assign({id:uid()}, s))));
