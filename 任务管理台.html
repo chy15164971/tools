@@ -726,7 +726,6 @@
   .lp-add input{flex:1;border:1px solid var(--line);border-radius:9px;padding:7px 9px;font-size:16px;font-family:inherit;min-width:0;}
   .lp-empty{font-size:12px;color:var(--sub);padding:6px 2px;}
 
-
   /* 子任务清单 / 标签 */
   .subtasks{margin-top:2px;}
   .subtasks .stitle{font-size:13px;color:var(--sub);font-weight:600;margin-bottom:6px;}
@@ -880,7 +879,6 @@
   [data-theme="dark"] .ov-chip.warn b{ color:#ff9a9a; }
   [data-theme="dark"] .ov-chip.ok{ color:#54e6b6; }
   [data-theme="dark"] .ov-chip.ok b{ color:#54e6b6; }
-
 
   /* ===== 顶部 widget 行（今天要处理 / 习惯打卡 / 待办清单 + 自定义卡），可拖拽重排/隐藏 ===== */
   .layout{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start;}
@@ -1401,7 +1399,6 @@
 }
 
 .ic-svg{width:1em;height:1em;vertical-align:-.15em;fill:currentColor;flex:none;}
-
 
 /* ===== 长列表分页（D5：阈值 100） ===== */
 .pager{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--line);background:var(--card);}
@@ -2745,6 +2742,13 @@ function emptyState(icon, text, sub, actionHtml){
     else { if(document.activeElement===last||!root.contains(document.activeElement)){ e.preventDefault(); first.focus(); } }
   });
 })();
+
+/* ---------- esc / escIcon（审查 C3：从两文件宿主代码下沉，单一事实源）----------
+ * 2026-09-17 P1-1 已把 esc 改为纯 HTML 转义（不再内嵌 iconify），并新增 escIcon
+ * 作为「显式图标化」入口；此处统一维护，避免两文件双份定义随编辑漂移。
+ * escIcon 依赖同块的 iconify（函数声明提升，文本顺序无关）。 */
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function escIcon(s){ return iconify(esc(s)); }
 /* <<< SHARED:END */
 
 /* ============================================================================
@@ -2774,10 +2778,8 @@ function emptyState(icon, text, sub, actionHtml){
  * PWA          sw.js(独立)/serviceWorker.register
  * ========================================================================== */
 
-
 var EMOJI_ICON={"🌟":"star","⚠":"warn","⚠️":"warn","🔍":"search","🎯":"target","📌":"pin","📥":"inbox","⏰":"alarm","📊":"bar","🔀":"shuffle","🎨":"palette","⚡":"bolt","📈":"up","📤":"out","📁":"folder","⏳":"glass","💡":"bulb","🌱":"seed","🔥":"fire","🎉":"pop","📅":"cal","👁":"eye","✨":"spark","🌍":"globe","🔁":"repeat","🔄":"refresh","📦":"box","🔗":"link","✉":"mail"};
 var _emojiRe=null;
-
 
 let cloud={token:"", gist:"", auto:true};
 
@@ -5341,10 +5343,6 @@ function renderInboxCount(){
 /* ===== 长列表分页内核（D5：阈值 100） =====
    只在渲染出口切片，不改数据结构：统计、导出、批量选择仍基于全量数据。
    页码按「视图/清单 key」各自记忆；筛选签名变化时自动回到第一页。 */
-
-
-
-
 
 /* 筛选签名：筛选条件变化时让对应列表回到第一页 */
 function thPgSig(){
@@ -8771,8 +8769,7 @@ function setupListsPanelEvents(){
 }
 
 /* ===== 工具 ===== */
-function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
-function escIcon(s){ return iconify(esc(s)); }
+
 function escNoIcon(s){return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}   // 仅转义 HTML，不转 SVG 图标：清单图标统一按原生 emoji 渲染，避免「命中 iconify 映射表的 emoji 变小灰图标、其余保持彩色」导致风格不一致
 
 /* ==== 云同步防重入 withBusy（）====
@@ -9842,8 +9839,6 @@ const CLOUD_KEY_ALT="wb_postcards_cloudsync_v1";   // 与明信片追踪共享�
 
 function cloudSave(){ try{ const s=JSON.stringify({token:cloud.token, gist:cloud.gist, auto:cloud.auto}); localStorage.setItem(CLOUD_KEY, s); try{ localStorage.setItem(CLOUD_KEY_ALT, s); }catch(e){} }catch(e){} }
 // 从「复制配置」产生的文本中解析出 Gist ID 与 Token（容错：按行匹配，顺序/空白不敏感）
-
-
 
 /* ===== 数据管理弹窗（）=====
    唯一入口：顶栏云 pill → 居中弹窗 + 双 Tab（本地备份 / 云同步），

@@ -1278,10 +1278,8 @@
 
 <script>
 
-
 var EMOJI_ICON={"🌟":"star","⚠":"warn","⚠️":"warn","🔍":"search","🎯":"target","📌":"pin","📥":"inbox","⏰":"alarm","📊":"bar","🔀":"shuffle","🎨":"palette","⚡":"bolt","📈":"up","📤":"out","📁":"folder","⏳":"glass","💡":"bulb","🌱":"seed","🔥":"fire","🎉":"pop","📅":"cal","👁":"eye","✨":"spark","🌍":"globe","🔁":"repeat","🔄":"refresh","📦":"box","🔗":"link","✉":"mail"};
 var _emojiRe=null;
-
 
 (function(){
 /* >>> SHARED:BEGIN —— 由 _shared/shared.js 自动生成，请勿直接编辑本块 */
@@ -1639,6 +1637,13 @@ function emptyState(icon, text, sub, actionHtml){
     else { if(document.activeElement===last||!root.contains(document.activeElement)){ e.preventDefault(); first.focus(); } }
   });
 })();
+
+/* ---------- esc / escIcon（审查 C3：从两文件宿主代码下沉，单一事实源）----------
+ * 2026-09-17 P1-1 已把 esc 改为纯 HTML 转义（不再内嵌 iconify），并新增 escIcon
+ * 作为「显式图标化」入口；此处统一维护，避免两文件双份定义随编辑漂移。
+ * escIcon 依赖同块的 iconify（函数声明提升，文本顺序无关）。 */
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function escIcon(s){ return iconify(esc(s)); }
 /* <<< SHARED:END */
 /* ===== 数据 ===== */
 const KEY="wb_postcards_v1";
@@ -1870,11 +1875,8 @@ function isLostProxy(p){ if(!p||!p.sent) return false; if(firstUndone(p)===-1) r
 function actOverdue(a){ if(!a||!a.deadline) return false; if(a.status==="done"||a.status==="closed") return false; const t=new Date(a.deadline+"T00:00:00"); if(isNaN(t)) return false; const today0=new Date(); today0.setHours(0,0,0,0); return t<today0; }
 function actDueSoon(a){ if(!a||!a.deadline) return false; if(a.status==="done"||a.status==="closed") return false; const t=new Date(a.deadline+"T00:00:00"); if(isNaN(t)) return false; const today0=new Date(); today0.setHours(0,0,0,0); const diff=Math.round((t-today0)/86400000); return diff>=0 && diff<=3; }
 function lostBadge(view,p){ const lost = view==="sent"?isLostSent(p) : view==="proxy"?isLostProxy(p):false; return lost?`<span class="badge" style="background:rgba(239,68,68,.14);color:var(--danger);margin-right:6px;">⚠ 可能丢失</span>`:""; }
-function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
-function escIcon(s){ return iconify(esc(s)); }
+
 // 返回值用于 HTML 属性（href="..."），必须再过 esc，否则可用 " 提前闭合属性造成属性逃逸型 XSS
-
-
 
 function normalizeRecv(){ received.forEach(p=>{ if(p && !p.status) p.status = p.received ? "received" : "transit"; }); }
 function syncListsFromData(){
@@ -2446,14 +2448,9 @@ function filteredActivities(){
   });
 }
 
-
 /* ===== 长列表分页内核（D5：阈值 100） =====
    只在渲染出口切片，不改数据结构：统计、导出、批量选择仍基于全量数据。
    页码按「视图/清单 key」各自记忆；筛选签名变化时自动回到第一页。 */
-
-
-
-
 
 /* 筛选签名：筛选条件变化时让对应列表回到第一页 */
 function pgSig(){
@@ -3523,8 +3520,6 @@ const CLOUD_KEY_ALT="wb_taskhub_cloudsync_v1";
 function cloudSave(){ try{ const s=JSON.stringify({token:cloud.token, gist:cloud.gist, auto:cloud.auto}); storageSet(CLOUD_KEY, s); storageSet(CLOUD_KEY_ALT, s); }catch(e){} }
 // 从「复制配置」产生的文本中解析出 Gist ID 与 Token（容错：按行匹配，顺序/空白不敏感）
 
-
-
 // deleted 必须随负载上传，否则其他设备无法感知本机的删除
 function syncPayload(){ return {postcards, received, proxies, activities, platList, typeList, actKindList, countryList, tabLabels:tabLabels(), widgetCfg:{order:widgetCfg.order,hidden:widgetCfg.hidden,custom:widgetCfg.custom,autoRename:widgetCfg.autoRename}, cfgSavedAt, deleted:deletedIds, savedAt:Date.now()}; }
 // 应用云端同步过来的「设置类」数据（标签名、自定义卡片配置），按 cfgSavedAt 做最后写入者胜出
@@ -3784,7 +3779,6 @@ async function withBusy(btn, fn){
     if(b){ try{ b.disabled=false; b.classList.remove("is-busy"); b.removeAttribute("aria-busy"); }catch(_){} }
   }
 }
-
 
 function safeImg(url){
   if(!/^https?:\/\//i.test(url||"")) return "—";
