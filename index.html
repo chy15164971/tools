@@ -194,7 +194,7 @@
     background:var(--pri-soft);border:1px dashed var(--pri);border-radius:var(--radius);padding:8px;cursor:pointer;min-height:40px;}
   .today-more:hover{background:#e7eeff;}
   .today-item{display:grid;grid-template-columns:4px minmax(0,1fr) auto;gap:10px;align-items:start;padding:9px 11px;border:1px solid var(--line);border-radius:var(--radius);background:var(--card);}
-  .today-item.overdue{border-color:#ffd2d2;background:#fff6f6;}
+  .today-item.overdue{border-color:#f0c4c4;}
   .today-item.done{opacity:.55;}
   .today-item.dropped{opacity:.5;background:var(--bg);}
   .today-item.dropped .t{text-decoration:line-through;}
@@ -220,6 +220,20 @@
   .badge.p0{background:#ffe9e9;color:var(--danger);} .badge.p1{background:#fff1e3;color:var(--warn);} .badge.p2{background:#eef0f3;color:#5a6472;}
   .ring{width:54px;height:54px;flex:none;}
 
+  /* 今天要处理：分组区段标题 */
+  .today-sec-h{display:flex;align-items:center;gap:6px;margin:10px 0 6px;font-size:12px;font-weight:600;color:var(--sub);}
+  .today-sec-h:first-child{margin-top:2px;}
+  .today-sec-dot{width:8px;height:8px;border-radius:50%;background:var(--c5);}
+  .today-sec-dot.over{background:var(--danger);}
+  .today-sec-h b{color:var(--text);font-weight:700;}
+  .today-sec-toggle{margin:8px 0 2px;align-self:stretch;text-align:left;font-size:12.5px;font-weight:600;color:var(--pri);
+    background:var(--pri-soft);border:1px dashed var(--pri);border-radius:var(--radius);padding:7px 10px;cursor:pointer;min-height:38px;}
+  .today-scroll-hint{position:sticky;bottom:0;left:0;right:0;margin-top:4px;text-align:center;font-size:11.5px;font-weight:600;color:var(--pri);
+    background:var(--card);border-top:1px solid var(--line);padding:8px 0 2px;pointer-events:none;}
+  /* 临时最大化：占满整行聚焦 */
+  .widget-row>.panel.today-max{flex:1 1 100%;max-height:none;min-height:auto;}
+  .widget-row>.panel.today-max .today-list{max-height:min(82vh,900px);}
+  .today-density,.today-max-btn{flex:none;padding:2px 8px;font-size:12px;}
   /* 视图切换 */
   .viewbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
   /* 视图切换：按「任务 / 管理 / 成长」三段分组。分组只用竖线分隔 + 读屏 role/aria-label 表达，
@@ -1692,6 +1706,8 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="var(--pri)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
       今天要处理
       <span class="spacer" style="flex:1"></span>
+      <button class="btn btn-ghost btn-sm today-density" id="todayDensityBtn" title="切换紧凑 / 详细密度">简</button>
+      <button class="btn btn-ghost btn-sm today-max-btn" id="todayMaxBtn" title="最大化 / 还原聚焦">⤢</button>
       <svg class="ring" id="ring" viewBox="0 0 36 36"></svg>
       <button class="ptoggle" title="收起 / 展开" aria-label="收起或展开"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
     </h3>
@@ -4285,53 +4301,45 @@ document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ const wm=document
 applyWidgetLayout();
 
 /* ===== 渲染：今天要处理 ===== */
-/* 任务很多时，默认只显示前 N 条「要处理」项，其余折叠进「展开全部」按钮；
-   紧急项（逾期+今天到期）始终优先展示，只有「已完成」项会被折叠。 */
-const TODAY_LIMIT=8;
-let todayExpanded=false;
-let subOpenIds=new Set();   // 今日面板里已展开子任务勾选区的任务 id
+/* 信息密度与分组：逾期 / 今天到期 / 已完成 三段分组；已完成默认折叠；
+   紧凑密度默认隐藏描述与次要徽标；头部提供「简/详」密度切换与「最大化」聚焦。 */
+let todayDoneExpanded=true;      // 已完成区默认展开（可手动折叠）
+let todayDensity="compact";      // "compact" | "detail"
+let todayMax=false;              // 是否临时最大化占满整行
+let subOpenIds=new Set();        // 今日面板里已展开子任务勾选区的任务 id
 function renderToday(){
   const d0=startOfDay(new Date()), now=new Date();
   window.__todayStats={pending:0, overdue:0};
   const backlogStart=addDays(d0,-14);
-  // 一次展开 近14天→今天，替代原来 3 次 getInstances，减少重复计算（逾期项按时间先后展示）
   const insts=filterInsts(getInstances(backlogStart, endOfDay(d0)));
   const overdue=[], due=[];
   for(const i of insts){
     if(isDone(i)) continue;
     if(i.end < d0){
-      if(i.task.skipMissed) continue;   // 「错过不补」的日常（游戏日常/签到）：往期作废，不进逾期待补做
+      if(i.task.skipMissed) continue;
       if(!overdue.find(o=>o.task.id===i.task.id && sameDay(o.date,i.date))) overdue.push(i);
     } else if(sameDay(i.date,d0)) {
       due.push(i);
     }
   }
-  due.sort((a,b)=> (gwRank(a.task)-gwRank(b.task)) || (priRank(a.task.priority)-priRank(b.task.priority)) );
+  due.sort((a,b)=> (gwRank(a.task)-gwRank(b.task)) || (priRank(a.task.priority)-priRank(a.task.priority)) );
   overdue.sort((a,b)=> parseLocal(b.end)-parseLocal(a.end) );
   const urgent=overdue.concat(due);
   const urgentDrop=urgent.filter(i=>isDropped(i.task,i.date)).length;
-  // 已标记「不补做」的任务仍留在原列表（灰显 + 「不补做」徽标），但不计入「待处理 / 逾期」动态数
-  // 「不补做」只标注、不计入动态数（列表照常展示，见下方渲染）
   const overdueDrop=overdue.filter(i=>isDropped(i.task,i.date)).length;
   window.__todayStats={pending:urgent.length-urgentDrop, overdue:overdue.length-overdueDrop};
 
   const list=document.getElementById("todayList");
   const krHtml=renderTodayKrHtml();
-  const todayAll=insts.filter(i=>sameDay(i.date,d0) && !i.dropped);   // 「不补做」不进完成率分母
+  const todayAll=insts.filter(i=>sameDay(i.date,d0) && !i.dropped);
   const done=todayAll.filter(isDone).length, total=todayAll.length;
-  if(!urgent.length && !done){ list.innerHTML='<div class="empty"><div class="empty-ic">🎉</div><div>今天没有待处理任务<br>把收件箱里的想法安排进来，或点上方「新建任务」添加一个</div></div>'+krHtml; renderRing(0,0); bindKrToday(); return; }
-  let html="";
-  const doneItems = todayAll.filter(isDone); // 已完成项也保留在清单里，按收件箱方式灰显 + 显示完成时间
-  const allItems = urgent.concat(doneItems);
-  const totalAll = allItems.length;
-  // 紧急项超过上限时直接全部展示（靠 max-height 滚动），不显示「展开」按钮，避免误导；
-  // 否则默认只显示前 TODAY_LIMIT 条（含已完成项），多出来的折叠进「展开全部」按钮。
-  const showAll = todayExpanded || urgent.length > TODAY_LIMIT;
-  const visible = showAll ? allItems : allItems.slice(0, TODAY_LIMIT);
-  for(const i of visible){
+  if(!urgent.length && !done){ list.innerHTML='<div class="empty"><div class="empty-ic">🎉</div><div>今天没有待处理任务<br>把收件箱里的想法安排进来，或点上方「新建任务」添加一个</div></div>'+krHtml+hintHtml(); renderRing(0,0); bindKrToday(); return; }
+
+  const compact = todayDensity==="compact";
+  const itemHtml=(i)=>{
     const p=i.task.priority, c=catColor(i.task.cat);
     const isDrop = isDropped(i.task,i.date);
-    const ov = overdue.includes(i) && !isDrop;   // 已标记不补做的逾期项不标红，改为灰显
+    const ov = overdue.includes(i) && !isDrop;
     const itDone = isDone(i);
     const daysLate = ov ? Math.max(1, Math.round((now - i.end)/86400000)) : 0;
     const when = isDrop ? ("不补做 · "+fmtRange(i.start,i.end)) : (ov ? ("逾期 "+ (daysLate<=1?"昨天":daysLate+" 天") +" · "+fmtRange(i.start,i.end)) : ("今天 "+fmtRange(i.start,i.date)));
@@ -4340,14 +4348,18 @@ function renderToday(){
     const subOpen=hasSub&&subOpenIds.has(i.task.id);
     const sub=hasSub?`<button type="button" class="s subtoggle" data-subopen="${i.task.id}" aria-expanded="${subOpen}" title="展开/收起子任务勾选">子任务 ${subBadge(i.task,dk).trim()} ${subOpen?"▲":"▼"}</button>`:"";
     const extra=[];
-    if(i.task.gw && i.task.gw!=="next") extra.push(`<span class="badge gw">${gwLabel(i.task.gw)}</span>`);
-    if(i.task.energy) extra.push(`<span class="badge sub">${i.task.energy==="high"?"精力↑":i.task.energy==="low"?"精力↓":"精力中"}</span>`);
-    if(i.task.est) extra.push(`<span class="badge sub">${i.task.est}′</span>`);
-    html+=`<div class="today-item ${ov?'overdue':''} ${itDone?'done':''} ${isDrop?'dropped no-count':''}">
-      <div class="bar" style="background:${priColor(p)}"></div>
+    if(!compact){
+      if(i.task.gw && i.task.gw!=="next") extra.push(`<span class="badge gw">${gwLabel(i.task.gw)}</span>`);
+      if(i.task.energy) extra.push(`<span class="badge sub">${i.task.energy==="high"?"精力↑":i.task.energy==="low"?"精力↓":"精力中"}</span>`);
+      if(i.task.est) extra.push(`<span class="badge sub">${i.task.est}′</span>`);
+    }
+    const barColor = ov ? "var(--danger)" : priColor(p);
+    const ibd = (!compact && i.task.desc) ? `<div class="ibd">${esc(i.task.desc)}</div>` : "";
+    return `<div class="today-item ${ov?'overdue':''} ${itDone?'done':''} ${isDrop?'dropped no-count':''}">
+      <div class="bar" style="background:${barColor}"></div>
       <div class="meta">
         <div class="t">${esc(i.task.title)}</div>
-        ${i.task.desc?`<div class="ibd">${esc(i.task.desc)}</div>`:""}
+        ${ibd}
         <div class="ibs">
           <span class="s ${ov?'over':''}">${when}${ov?' · 待补做':''}</span>
           ${isDrop?`<span class="badge drop">不补做</span>`:""}
@@ -4364,15 +4376,22 @@ function renderToday(){
             : `<button class="btn btn-pri btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">完成</button><button class="btn btn-quiet btn-sm" data-skip="${i.task.id}" data-date="${ymd(i.date)}">不补做</button>`)
       }</div>
     </div>`;
+  };
+
+  const secHead=(label, n, cls)=>`<div class="today-sec-h" data-sec="${cls}"><span class="today-sec-dot ${cls}"></span>${label} <b>${n}</b></div>`;
+  let html="";
+  if(overdue.length) html += secHead("逾期", overdue.length, "over") + overdue.map(itemHtml).join("");
+  if(due.length)     html += secHead("今天", due.length, "") + due.map(itemHtml).join("");
+  const doneItems=todayAll.filter(isDone);
+  if(doneItems.length){
+    const folded = !todayDoneExpanded;
+    html += `<div class="today-sec ${folded?'folded':''}">
+      <button class="today-sec-toggle" data-donesec>${folded?'▸':'▾'} 已完成 ${doneItems.length}</button>
+      <div class="today-sec-b" ${folded?'style="display:none"':''}>${ folded ? "" : doneItems.map(itemHtml).join("") }</div></div>`;
   }
-  // 仅当「总条数 > 上限 且 紧急项未超限」时，才显示「展开全部 / 收起」开关
-  const moreBtn = (totalAll>TODAY_LIMIT && urgent.length<=TODAY_LIMIT)
-    ? `<button class="today-more" id="todayMore">${todayExpanded?("收起 ▲"):("展开全部 "+totalAll+" 项 ▼")}</button>` : "";
-  list.innerHTML=html+moreBtn+krHtml;
-  renderRing(done, total);
+  list.innerHTML=html+krHtml+hintHtml();
+  renderRing(done,total);
   bindKrToday();
-  const moreBtnEl=list.querySelector("#todayMore");
-  if(moreBtnEl) moreBtnEl.onclick=()=>{ todayExpanded=!todayExpanded; renderToday(); };
   list.querySelectorAll("[data-done]").forEach(b=>b.onclick=()=>{ toggleDone(b.dataset.done, b.dataset.date); });
   list.querySelectorAll("[data-restore]").forEach(b=>b.onclick=()=>{ restoreTask(b.dataset.restore, b.dataset.date); });
   list.querySelectorAll("[data-skip]").forEach(b=>b.onclick=()=>{ skipTask(b.dataset.skip, b.dataset.date); });
@@ -4385,8 +4404,8 @@ function renderToday(){
     const t=state.tasks.find(x=>x.id===b.dataset.subtick); if(!t) return;
     const s=(t.subtasks||[]).find(x=>x.id===b.dataset.sid); if(!s) return;
     const date=b.dataset.date;
-    const beforeAll=t.subtasks.every(x=>subIsDone(t,x,date));   // 勾选前是否已全勾（用于判定回退）
-    snapshot();   // 子任务勾选会连带自动完成/回退整个任务，先留快照
+    const beforeAll=t.subtasks.every(x=>subIsDone(t,x,date));
+    snapshot();
     subToggle(t, s, date);
     syncDoneFromSubtasks(t, date, beforeAll);
     save();
@@ -4399,6 +4418,30 @@ function renderToday(){
     document.getElementById("fClear").style.display="inline-flex";
     renderAll();
   });
+  list.querySelectorAll("[data-donesec]").forEach(b=>b.onclick=()=>{ todayDoneExpanded=!todayDoneExpanded; renderToday(); });
+  const densBtn=document.getElementById("todayDensityBtn");
+  if(densBtn){ densBtn.textContent = todayDensity==="compact" ? "简" : "详"; densBtn.onclick=()=>{ todayDensity = todayDensity==="compact"?"detail":"compact"; renderToday(); }; }
+  const maxBtn=document.getElementById("todayMaxBtn");
+  if(maxBtn){ maxBtn.onclick=()=>{ todayMax=!todayMax; const p=document.querySelector('.toppanel[data-wid="today"]'); if(p) p.classList.toggle('today-max', todayMax); renderToday(); }; }
+  list.onscroll=()=>updateTodayScrollHint();
+  updateTodayScrollHint();
+}
+
+/* 滚动提示：列表内容溢出可视区时，吸底显示「还有 N 条，滚动查看」；滚到底自动隐藏。 */
+function hintHtml(){ return '<div class="today-scroll-hint" id="todayScrollHint"></div>'; }
+function updateTodayScrollHint(){
+  const list=document.getElementById("todayList");
+  const hint=document.getElementById("todayScrollHint");
+  if(!list||!hint) return;
+  const overflow = (list.scrollHeight - list.clientHeight) > 4;
+  if(!overflow){ hint.style.display="none"; hint.textContent=""; return; }
+  const items=list.querySelectorAll(".today-item");
+  const bottom=list.scrollTop+list.clientHeight;
+  let hidden=0;
+  items.forEach(it=>{ if(it.offsetTop + it.offsetHeight > bottom + 4) hidden++; });
+  if(hidden<=0){ hint.style.display="none"; hint.textContent=""; return; }
+  hint.textContent="↓ 还有 "+hidden+" 条，滚动查看";
+  hint.style.display="";
 }
 function renderRing(done,total){
   const svg=document.getElementById("ring"); const r=15.9, c=2*Math.PI*r;
