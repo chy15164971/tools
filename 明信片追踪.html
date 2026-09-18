@@ -3852,7 +3852,7 @@ function closeLightbox(){ document.getElementById("lightbox").classList.remove("
    场景：记录被云同步整包覆盖或误删后，旧 revision 仍保留数据，可在此按类别找回。
    去重：按 id；多版本取 updatedAt 较新者。恢复后抬新 updatedAt 并清墓碑，避免刚恢复又被同步删掉。 */
 const RECOVER_DEFS=[
-  {key:"postcards",label:"寄出明信片",icon:"✉",
+  {key:"postcards",label:"寄出明信片",icon:"✉️",
     collect:o=>cleanArr(o.postcards), local:()=>postcards,
     name:x=>(x&&x.recipient!=null)?String(x.recipient):"(未命名)",
     meta:x=>[ (STATUSES[x.status]&&STATUSES[x.status].label)||"", x.country||"" ].filter(Boolean).join(" · "),
