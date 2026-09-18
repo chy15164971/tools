@@ -62,13 +62,7 @@
     padding-right:env(safe-area-inset-right,0px);
   }
   #fabNew{display:none;}
-  @media(max-width:860px){
-    #fabNew{display:flex;position:fixed;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px) + var(--kb,0px));z-index:40;
-      width:56px;height:56px;border-radius:50%;border:none;background:var(--pri);color:var(--white);
-      align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer;}
-    #fabNew svg{width:26px;height:26px;}
-    #fabNew:active{transform:scale(.94);}
-  }
+  
   .wrap{max-width:1100px; margin:0 auto; padding:14px 14px 0;}
   .topbar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;}
   .brand{display:flex; align-items:center; gap:9px; font-weight:700; font-size:18px;}
@@ -112,7 +106,7 @@
   .health-grid .hv.warn{color:#d9480f;font-weight:700;}
   .cloud-section-row{display:flex;gap:8px;}
   .cloud-section-row .btn{flex:1;justify-content:center;}
-  @media (max-width:560px){ .cloud-section-row{flex-direction:column;} }
+  
   /* 关联应用跳转链接（顶栏 ghost 风格，点击新标签打开对方页面） */
   .sib-link{display:inline-flex;align-items:center;gap:6px;height:38px;min-height:38px;box-sizing:border-box;padding:0 12px;border-radius:var(--radius-sm);border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:13.5px;font-weight:600;text-decoration:none;cursor:pointer;font-family:inherit;white-space:nowrap;}
   .sib-link:hover{background:var(--hover);border-color:var(--pri);color:var(--pri);}
@@ -177,91 +171,18 @@
   .menu-body{min-height:0;}
   body.menu-open{overflow:hidden;}           /* Sheet 打开时锁定背景滚动 */
   /* 断点 860 互补区间 A：≤860 走移动端底部抽屉菜单（与下方 min-width:861 成对，勿单独改一侧；JS isMobile 同值） */
-  @media (max-width:860px){
-    .menu-backdrop{display:block;position:fixed;inset:0;background:rgba(20,24,33,.42);z-index:55;
-      opacity:0;visibility:hidden;transition:opacity .22s ease,visibility .22s ease;}
-    .menu-backdrop.show{opacity:1;visibility:visible;}
-    .menu{position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;max-width:none;min-width:0;
-      max-height:calc(86vh - env(safe-area-inset-bottom,0px) - var(--kb,0px));
-      max-height:calc(86dvh - env(safe-area-inset-bottom,0px) - var(--kb,0px)); /* M-17：dvh 跟随地址栏伸缩 */
-      border:none;border-radius:18px 18px 0 0;padding:0;
-      box-shadow:0 -10px 34px rgba(20,30,60,.22);z-index:60;
-      display:flex;flex-direction:column;
-      transform:translateY(102%);visibility:hidden;overscroll-behavior:contain;
-      transition:transform .26s cubic-bezier(.32,.72,.6,1),visibility .26s ease;}
-    .menu.show{display:flex;transform:translateY(0);visibility:visible;}
-    .menu-handle{display:flex;align-items:center;justify-content:center;height:24px;flex:none;touch-action:none;}
-    .menu-handle span{width:38px;height:4px;border-radius:2px;background:var(--line);}
-    .menu-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 16px 8px;flex:none;}
-    .menu-title{font-size:15.5px;font-weight:700;color:var(--ink);}
-    .menu-close{width:32px;height:32px;flex:none;border-radius:9px;border:1px solid var(--line);
-      background:var(--card);color:var(--sub);font-size:19px;line-height:1;padding:0;cursor:pointer;
-      display:inline-flex;align-items:center;justify-content:center;font-family:inherit;}
-    .menu-close:hover{background:var(--hover);color:var(--ink);}
-    .menu-body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
-      overscroll-behavior:contain;padding:0 12px calc(8px + env(safe-area-inset-bottom,0px));}
-    .menu .mgroup{padding:12px 12px 4px;font-size:12px;}   /* 移动端最小 12px，避免 iOS 缩放后难读 */
-    .menu .mitem{min-height:52px;padding:13px 14px;font-size:15px;border-radius:12px;}
-    .menu .mitem svg{width:17px;height:17px;}
-    .menu .msep{margin:6px 12px;}
-  }
+  
   /* 断点 860 互补区间 B：≥861 恢复常驻菜单（与上方 max-width:860 成对，勿单独改一侧） */
-  @media (min-width:861px){
-    .menu-backdrop{display:none!important; /* 移动端收起时强制隐藏，覆盖桌面 display 规则 */}
-    .menu-handle,.menu-header{display:none!important; /* 桌面隐藏汉堡把手/头部，移动端才显示 */}
-  }
-  @media (prefers-reduced-motion: reduce){
-    .menu,.menu-backdrop{transition:none!important; /* 移动端切换即时无动画，避免延迟感 */}
-  }
+  
+  
   /* 顶栏控件收敛后：品牌与操作区同行，换行时左对齐（） */
   .topbar{flex-wrap:wrap;row-gap:8px;}
   .topbar .spacer{flex:1 1 auto;min-width:0;}
-  @media (max-width:560px){
-    .wrap{padding:10px 12px 0;}      /* 增加左右边距，避免内容贴到 iPhone 屏幕边缘 */
-    .panel{padding:12px;}             /* 面板内边距同步收窄 */
-    .overview-bar{padding:10px 12px;gap:8px;}
-    .ov-title{display:none;}          /* 手机端只留图标+chip */
-    .ov-chip{padding:2px 8px;font-size:12px;}
-    .topbar{gap:8px;}
-    .sync{display:none;}              /* 手机端隐藏离线提示，省空间 */
-    .top-actions{gap:6px;}
-    .top-actions .sep{display:none;}
-    /* 移动端触控目标统一 ≥44px（P3-3） */
-      .top-actions>.btn,
-      .top-actions>.leadsel,
-      .top-actions .menu-wrap>.btn,
-      .top-actions .sib-link{height:44px;min-height:44px;}
-    /* 菜单项在移动端也保证 44px 触控高度 */
-    .menu .mitem{min-height:44px;}
-    .menu .mrow{min-height:44px;}
-    /* 今天要处理卡片在窄屏下更紧凑，减少右侧贴边感 */
-    .today-item{padding:8px 10px;gap:8px;}
-    .today-item .t{font-size:13.5px;}
-    .today-item .ibd{font-size:12px;}
-    .today-item .ibs{gap:5px;font-size:11.5px;}
-    .today-item .btn-sm{padding:6px 9px;min-height:44px;font-size:12.5px;} /* M-8：主操作提至 44px（iOS HIG） */
-    /* 面板标题右侧图标按钮适度缩小 */
-    .toppanel h3 .ring{width:42px;height:42px;}
-    .panel.collapsible .ptoggle{min-width:36px;min-height:36px;width:36px;height:36px;}
-    .panel.collapsible .ptoggle svg{width:14px;height:14px;}
-    /* 习惯打卡区更紧凑，避免 Sun 列贴边 */
-    .habitpanel h3 .btn-sm{padding:6px 9px;min-height:34px;font-size:12.5px;}
-    .hrow{grid-template-columns:minmax(92px,1.3fr) repeat(7,minmax(0,1fr));gap:4px;}
-    .hcell{height:28px;font-size:12px;}
-    .hinfo .hname{font-size:13px;}
-    .today-list{width:100%;padding:0;}
-    .today-item{width:100%;}
-  }
+  
   /* 窄屏收敛顶栏：低频控件收进 ⋯ 菜单，顶栏只留核心（） */
   /* 断点 860 互补区间 A：≤860 隐藏顶栏低频控件（与下方 min-width:861 成对） */
-  @media(max-width:860px){
-    #fLead{display:none;}
-    .menu .mrow{display:none;}       /* 移动端不显示「提前提醒」整行，避免空标签占位（默认 10 分钟兜底） */
-  }
-  @media(min-width:861px){
-    /* 桌面端：提前量选择器在菜单行内正常显示 */
-    .menu .mrow{display:flex;}
-  }
+  
+  
 
   .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:14px;margin-bottom:14px;}
   .panel h3{margin:0 0 10px;font-size:14px;color:var(--sub);font-weight:600;display:flex;align-items:center;gap:7px;}
@@ -312,11 +233,7 @@
   .seg button .ic{width:16px;height:16px;vertical-align:middle;flex:none;}
   .seg button.on{background:var(--pri);color:var(--white);}
   .seg button:focus-visible{outline:2px solid var(--pri);outline-offset:-2px;}
-  @media(max-width:560px){
-    /* 移动端：压缩分组标签与按钮内边距，尽量一屏多看几个 tab */
-    .seg{padding:3px;gap:1px;}
-    .seg button{padding:9px 11px;font-size:13.5px;}
-  }
+  
   .nav{display:flex;align-items:center;gap:6px;}
   .nav button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;}
   .nav button svg{width:16px;height:16px;}
@@ -345,7 +262,7 @@
   .hitbar b{color:var(--pri);}
   /* ：习惯视图统一工具条（替换原先重复的两处内联样式） */
   .habit-actions{display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
-  @media(max-width:560px){.habit-actions{justify-content:stretch;}.habit-actions .btn{flex:1;}}
+  
   .media-hitbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px;color:var(--sub);
     background:var(--pri-soft);border:1px dashed var(--pri);border-radius:8px;padding:6px 10px;margin-bottom:10px;}
   .media-hitbar b{color:var(--pri);}
@@ -443,13 +360,13 @@
   .empty-stats .trend .bar{width:60%;max-width:34px;background:var(--pri-soft);border-radius:6px 6px 0 0;min-height:10px;}
   .empty-stats .trend .lab{font-size:11px;color:var(--sub);margin-top:6px;}
   .empty-stats #esNewTask{display:block;margin:0 auto;}
-  @media (max-width:560px){ .empty-stats .es-grid{grid-template-columns:1fr;} }
+  
 
   /* 弹窗 */
   .mask{position:fixed;inset:0;background:rgba(20,24,33,.42);display:none;align-items:flex-end;justify-content:center;z-index:50;padding:0;}
   .mask.show{display:flex;}
   .modal{background:var(--card);width:100%;max-width:520px;border-radius:var(--radius-lg) var(--radius-lg) 0 0;max-height:calc(92vh - var(--kb,0px));max-height:calc(92dvh - var(--kb,0px));overflow:auto;padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));}
-  @media(min-width:861px){.mask{align-items:center;padding:20px;} .modal{border-radius:var(--radius-lg);}}
+  
   /* 完整模式下字段更多更挤，把弹窗加宽到 620px 让 row2 双列字段与 chkline 都能完整显示（V-4） */
   body.modal-full .modal{max-width:620px;}
   .modal h2{margin:0 0 14px;font-size:17px;display:flex;align-items:center;gap:8px;}
@@ -524,20 +441,9 @@
   .btn.is-busy{opacity:.65;cursor:progress;}
   .modal input:disabled,.modal select:disabled{opacity:.5;cursor:not-allowed;background:var(--sub2,#eef0f3);}
   .btn.is-busy::after{content:"";display:inline-block;width:12px;height:12px;margin-left:6px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:wbspin .7s linear infinite;vertical-align:-1px;}
-  @media (prefers-reduced-motion:reduce){ .btn.is-busy::after{animation:none;} }  /* 反馈类型配色（） */
+    /* 反馈类型配色（） */
   .fileIn{display:none;}
-  @media(max-width:560px){
-    .wrap{padding:10px 12px 0;}
-    .brand{font-size:16px;}
-    .seg button{padding:9px 11px;}
-    .curdate{min-width:110px;font-size:13px;}
-    /* 月历窄屏降级：日格压扁，chip 只留色块/时间，标题隐藏防截断（） */
-    .dcell{height:76px;padding:4px 5px;}
-    .dcell .chip{font-size:0;gap:3px;justify-content:center;padding:2px 3px;}
-    .dcell .chip .ct{font-size:11px;padding:0 3px;}
-    .dcell .chip .cb{display:none;}
-    .dcell .chip.overdue::before{width:5px;height:5px;margin-left:0;}
-  }
+  
   /* 时间轴结构修复：事件层与网格同处 tbody，垂直对齐一致 */
   .tcol .tbody{position:relative;flex:1;}
 
@@ -571,7 +477,7 @@
   .media-avg{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--sub);background:var(--soft);border-radius:999px;padding:6px 12px;margin-right:10px;}
   .media-avg b{color:var(--ink);font-size:13.5px;}
   .media-col{display:flex;flex-direction:column;gap:12px;min-width:0;}
-  @media(max-width:860px){.media-cols{grid-template-columns:1fr;}}
+  
   .mcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 15px;position:relative;overflow:hidden;}
   .mcard::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--pri);}
   .mcard.tv::before{background:var(--c4);}
@@ -614,13 +520,9 @@
   .mcard.done .fill{background:var(--line);}
   .mcard.done .mstep button{opacity:.75;}
   /* 恢复可读性：鼠标悬停 / 键盘聚焦卡内控件 / 触屏按压 */
-  @media (hover:hover){
-    .mcard.done:hover,.mcard.done:focus-within{opacity:1;filter:none;background:var(--card);border-color:var(--line);}
-    .mcard.done:hover .mbadge,.mcard.done:focus-within .mbadge{background:var(--pri-soft);border-color:transparent;color:var(--pri);}
-    .mcard.done:hover .mname,.mcard.done:focus-within .mname{color:var(--ink);}
-  }
+  
   /* 触屏设备无 hover：基准不透明度抬高一点，避免「淡到点不着」 */
-  @media (hover:none){ .mcard.done{opacity:.62;} }
+  
   .mcard .mdone{flex:none;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:rgba(16,185,129,.14);color:var(--ok);}
   .mcard.done .mdone{background:transparent;border:1px dashed rgba(16,185,129,.5);}
   .media-done-sep{font-size:12px;font-weight:700;color:var(--ok);margin:8px 2px 0;padding:7px 2px 0;border-top:1px dashed var(--line);}
@@ -697,12 +599,7 @@
   .sortsel:hover{border-color:var(--pri);}
   .ltree-item .drag-h{margin-right:-2px;}
   .lists-detail{flex:1;min-width:0;}
-  @media(max-width:860px){
-    .lists-2col .lists-body{flex-direction:column;}
-    .lists-pane{flex:none;max-width:none;width:100%;}
-    .ltree{flex-direction:row;overflow-x:auto;gap:6px;}
-    .ltree-item{flex:none;white-space:nowrap;}
-  }
+  
 
   /* 顶部常驻「待办清单」面板 */
   .listpanel{display:flex;flex-direction:column;min-width:0;}
@@ -823,9 +720,9 @@
   .stat-ring svg{width:72px;height:72px;flex:none;}
   .stat-ring .rt{font-size:13px;color:var(--sub);}
   .stat-ring .rt b{color:var(--ink);font-size:15px;}
-  @media(max-width:860px){.stat-cards{grid-template-columns:repeat(2,1fr);}}
-  @media(max-width:860px){.stat-grid2{grid-template-columns:1fr;}}
-  @media(max-width:560px){.media-stats{grid-template-columns:1fr;}}
+  
+  
+  
 
   /* ===== 暗色主题：组件级颜色覆盖（调色 token 已统一在上方 [data-theme="dark"] 块定义） ===== */
   [data-theme="dark"] .btn-ghost,
@@ -905,10 +802,7 @@
   .layout.full .widget-row{display:none;}            /* 进度看板全屏：隐藏顶部 widget 行 */
   .layout.hide-side-panels .habitpanel,
   .layout.hide-side-panels .listpanel{display:none;}
-  @media(max-width:860px){
-    .widget-row>.panel,
-    .widget-row>.custom-card{flex:1 1 100%;}
-  }
+  
   /* widget 控件（拖拽/上移/下移/隐藏/编辑/删除） */
   .w-ctrl{display:inline-flex;gap:2px;align-items:center;flex:none;}
   .w-ctrl .we,.w-ctrl .grip{border:none;background:none;color:var(--sub);cursor:pointer;border-radius:6px;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;line-height:1;padding:0;}
@@ -938,7 +832,7 @@
   .widget-row.top-collapsed{display:none;}
   .widget-row>.panel{padding:12px;}
   .widget-row>.panel h3{margin-bottom:8px;}
-  @media(max-width:860px){ .ov-title{display:none;} }   /* 平板/手机端省空间，只留图标+统计 */
+     /* 平板/手机端省空间，只留图标+统计 */
   .custom-card .n{font-size:16px;font-weight:700;color:var(--ink);margin:0 0 6px;}
   .custom-card .card-body{font-size:13px;color:var(--sub);line-height:1.5;word-break:break-word;}
   .custom-card .card-body a{color:var(--pri);word-break:break-all;}
@@ -1010,7 +904,7 @@
   .panel.collapsible.collapsed{margin-bottom:8px;}
   /* ：自动收起的重复 widget 给一个简短的状态后缀 + title 完整说明，避免长文本把面板撑变形 */
   .panel.collapsible.dup-hidden > h3::after{content:"· 已展开";font-size:11px;font-weight:400;color:var(--sub);margin-left:auto;white-space:nowrap;}
-  @media(max-width:860px){.panel.collapsible.dup-hidden > h3::after{content:"· 已展开";}}
+  
 
   /* ===== 习惯打卡 ===== */
   .habit-grid{display:flex;flex-direction:column;gap:6px;min-width:0;max-height:min(56vh,720px);overflow-y:auto;overflow-x:hidden;padding:0;}
@@ -1018,7 +912,7 @@
   .habit-layout{display:flex;gap:10px;align-items:flex-start;}
   .habit-main{flex:1 1 auto;min-width:0;}
   .habit-side{flex:0 0 150px;min-width:0;max-height:74vh;overflow:auto;padding-right:2px;border-left:1px solid var(--line);padding-left:10px;display:flex;flex-direction:column;align-items:stretch;}
-  @media(max-width:860px){ .habit-layout{flex-direction:column;gap:16px;} .habit-side{flex:0 0 auto;max-height:none;border-left:none;padding-left:0;border-top:1px solid var(--line);padding-top:14px;align-items:stretch;} }
+  
   .panel.overflow-x{overflow-x:auto;}
   .hrow{display:grid;grid-template-columns:minmax(118px,1.4fr) repeat(7,minmax(0,1fr));gap:5px;align-items:center;}
   .hrow.paused{opacity:.55;}
@@ -1246,13 +1140,7 @@
 /* ：工具条分组——桌面「定位组 + 显示组」同排，窄屏显示组折叠 */
 .gantt-ranges .gtools-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;min-width:0;}
 .gantt-ranges .gtools-toggle{display:none;}
-@media(max-width:860px){
-  .gantt-ranges{flex-direction:column;align-items:stretch;gap:6px;}
-  .gantt-ranges .gtools-toggle{display:inline-flex;align-self:flex-start;}
-  .gantt-ranges:not(.tools-open) .gtools-more{display:none;}
-  .gantt-ranges .gantt-sep{display:none;}
-  .gantt-ranges .gtools-row{gap:6px;}
-}
+
 .gantt-today{position:absolute;top:0;bottom:0;width:2px;background:var(--danger);z-index:5;pointer-events:none;}
 .gantt-today::after{content:"今";position:absolute;top:0;left:2px;font-size:10px;color:var(--white);background:var(--danger);padding:0 3px;border-radius:0 0 4px 0;}
 .gbar{cursor:grab;touch-action:none;}
@@ -1299,10 +1187,6 @@
 .health-row .hl small{display:block;color:var(--sub);font-size:11px;font-weight:400;margin-top:2px;}
 .health-row .habit-fit-bar{flex:1;min-width:0;}
 .health-row .habit-fit-bar b{width:44px;flex:none;text-align:right;font-size:14px;color:var(--ink);}
-@media(max-width:420px){
-  .health-row{flex-wrap:wrap;}
-  .health-row .hl{width:100%;}
-}
 
 /* ===== 清单增强 ===== */
 .ltxt-input{width:100%;border:1px solid var(--pri);border-radius:6px;padding:4px 6px;font-size:16px;background:var(--bg);color:var(--text);}
@@ -1365,48 +1249,11 @@
 .first-guide{background:rgba(124,92,255,.08);border:1px solid rgba(124,92,255,.3);border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:var(--text);}
 
 /* ===== 动效降级：尊重用户「减少动效」偏好 ===== */
-@media (prefers-reduced-motion: reduce){
-  *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important; /* 降低动效：强制近乎瞬时，覆盖一切动画/过渡 */}
-}
 
 /* ===== 移动端触控目标统一 ≥40px（ / WCAG 2.5.5）=====
    放在样式表末尾，确保能覆盖前面各组件里写死的 24~28px 图标按钮尺寸。 */
-@media(max-width:860px){
-  .btn-sm{min-height:40px;padding:9px 12px;}
-  .mcard .micon,.lcard .micon,.mcard .mstep button{width:auto;height:auto;min-width:40px;min-height:40px;padding:0 8px;}
-  .w-ctrl .we,.w-ctrl .grip{min-width:40px;min-height:40px;}
-  .ptoggle,.lmenu,.lx,.drag-h{min-width:40px;min-height:40px;}
-  .tp-chip{min-height:44px;padding:8px 14px;} /* M-8：36→44px */
-  .seg button{min-height:44px;}
-  .nav button{width:44px;height:44px;}
-  .filterbar .fsel,.filterbar .fsearch{min-height:40px;}
-  /* 完成时间：窄屏下日期与时刻各占一行，快捷按钮平分一行，避免挤成一团 */
-  .da-row input[type=date],.da-row input[type=time]{flex:1 1 100%;min-height:40px;}
-  .da-row.da-quick .btn-sm{flex:1 1 calc(50% - 3px);min-height:40px;}
-}
+
 /* ===== Batch 2 跨端体验补强（C-2 / C-4 / C-5 / C-1）===== */
-@media (max-width:860px){
-  /* C-4 安全区：避免内容被 iPhone 底部手势条遮挡 */
-  body{padding-bottom:env(safe-area-inset-bottom,0px);}
-  .wrap{padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));}
-  /* C-5 输入字号 ≥16px：防止 iOS 聚焦时页面自动放大 */
-  input,select,textarea{font-size:16px;}
-  input[type=checkbox],input[type=radio]{font-size:inherit;width:18px;height:18px;}
-  /* M-6：以下四处特异性高于上面的全局 16px 兜底，会被 iOS 聚焦缩放击穿，此处统一拉回 */
-  .review-notes textarea,.review-history select,.ck-add input,#f_editdate{font-size:16px;}
-}
-@media (hover:none){
-  /* C-1 触控端不残留 hover 态：覆盖写死的 :hover 背景/颜色 */
-  .overview-bar:hover,.tagchip:hover,.lp-head .lp-go:hover,.w-ctrl .we:hover,.w-ctrl .grip:hover,
-  .menu-item:hover,.gantt-row:hover,.lp-item .lp-x:hover,.subitem .sx:hover{background:initial;color:initial;filter:none;}
-  /* C-2 HTML5 拖拽在触控端不可用：隐藏拖拽手柄，改用已放大的上移/下移按钮重排 */
-  .w-ctrl .grip{display:none;}
-  /* M-2：触屏无 HTML5 拖拽，⠿ 手柄降级为「点击上移一位」的可用入口（见 moveItemUp） */
-  .drag-h{cursor:pointer;color:var(--pri);}
-  /* M-7：系统高亮已关闭，需自定义 :active 给出明确按下反馈 */
-  .btn:active,.btn-sm:active,.tagchip:active,.seg button:active,.menu .mitem:active,.pgbtn:active,
-  .nav button:active,.ptoggle:active,.tp-chip:active{transform:scale(.97);filter:brightness(.95);}
-}
 
 .ic-svg{width:1em;height:1em;vertical-align:-.15em;fill:currentColor;flex:none;}
 
@@ -1420,7 +1267,7 @@
 .pgbtn.cur{background:var(--pri);border-color:var(--pri);color:#fff;}
 .pgbtn:disabled{opacity:.4;cursor:not-allowed;}
 .pgdots{color:var(--sub);padding:0 2px;}
-@media(max-width:640px){ .pager{justify-content:center;} .pg-info{width:100%;text-align:center;} .modal-actions{flex-direction:column-reverse;} }
+
 /* 纪念日视图（data-v="anniv"）*/
 .anniv-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
 .anniv-stat{font-size:13px;color:var(--sub);}
@@ -1444,6 +1291,260 @@
 /* ===== M-3 平板档（768–860px）：iPad 竖屏（768/820/834）此前直接落进手机堆叠布局，信息密度过低 =====
    说明：只做「加性恢复」，不改动既有 860 断点，也不动 JS isMobile() 的 860 契约（见文件头注释）。
    本块置于样式表末尾，确保能覆盖前面的 ≤860 手机规则。 */
+
+
+
+/* ================= 响应式【媒体查询】集中区 =================
+   以下块按【原文件先后顺序】集中放置，未做跨断点重排，
+   以免同选择器在不同断点的层叠优先级反转。
+   新增响应式规则请追加到对应断点区块，保持顺序语义。
+   ===================================================== */
+/* [1/33] max-width:860px) */
+@media(max-width:860px){
+    #fabNew{display:flex;position:fixed;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px) + var(--kb,0px));z-index:40;
+      width:56px;height:56px;border-radius:50%;border:none;background:var(--pri);color:var(--white);
+      align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer;}
+    #fabNew svg{width:26px;height:26px;}
+    #fabNew:active{transform:scale(.94);}
+  }
+
+/* [2/33] (max-width:560px) */
+@media (max-width:560px){ .cloud-section-row{flex-direction:column;} }
+
+/* [3/33] (max-width:860px) */
+@media (max-width:860px){
+    .menu-backdrop{display:block;position:fixed;inset:0;background:rgba(20,24,33,.42);z-index:55;
+      opacity:0;visibility:hidden;transition:opacity .22s ease,visibility .22s ease;}
+    .menu-backdrop.show{opacity:1;visibility:visible;}
+    .menu{position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;max-width:none;min-width:0;
+      max-height:calc(86vh - env(safe-area-inset-bottom,0px) - var(--kb,0px));
+      max-height:calc(86dvh - env(safe-area-inset-bottom,0px) - var(--kb,0px)); /* M-17：dvh 跟随地址栏伸缩 */
+      border:none;border-radius:18px 18px 0 0;padding:0;
+      box-shadow:0 -10px 34px rgba(20,30,60,.22);z-index:60;
+      display:flex;flex-direction:column;
+      transform:translateY(102%);visibility:hidden;overscroll-behavior:contain;
+      transition:transform .26s cubic-bezier(.32,.72,.6,1),visibility .26s ease;}
+    .menu.show{display:flex;transform:translateY(0);visibility:visible;}
+    .menu-handle{display:flex;align-items:center;justify-content:center;height:24px;flex:none;touch-action:none;}
+    .menu-handle span{width:38px;height:4px;border-radius:2px;background:var(--line);}
+    .menu-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 16px 8px;flex:none;}
+    .menu-title{font-size:15.5px;font-weight:700;color:var(--ink);}
+    .menu-close{width:32px;height:32px;flex:none;border-radius:9px;border:1px solid var(--line);
+      background:var(--card);color:var(--sub);font-size:19px;line-height:1;padding:0;cursor:pointer;
+      display:inline-flex;align-items:center;justify-content:center;font-family:inherit;}
+    .menu-close:hover{background:var(--hover);color:var(--ink);}
+    .menu-body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+      overscroll-behavior:contain;padding:0 12px calc(8px + env(safe-area-inset-bottom,0px));}
+    .menu .mgroup{padding:12px 12px 4px;font-size:12px;}   /* 移动端最小 12px，避免 iOS 缩放后难读 */
+    .menu .mitem{min-height:52px;padding:13px 14px;font-size:15px;border-radius:12px;}
+    .menu .mitem svg{width:17px;height:17px;}
+    .menu .msep{margin:6px 12px;}
+  }
+
+/* [4/33] (min-width:861px) */
+@media (min-width:861px){
+    .menu-backdrop{display:none!important; /* 移动端收起时强制隐藏，覆盖桌面 display 规则 */}
+    .menu-handle,.menu-header{display:none!important; /* 桌面隐藏汉堡把手/头部，移动端才显示 */}
+  }
+
+/* [5/33] (prefers-reduced-motion: reduce) */
+@media (prefers-reduced-motion: reduce){
+    .menu,.menu-backdrop{transition:none!important; /* 移动端切换即时无动画，避免延迟感 */}
+  }
+
+/* [6/33] (max-width:560px) */
+@media (max-width:560px){
+    .wrap{padding:10px 12px 0;}      /* 增加左右边距，避免内容贴到 iPhone 屏幕边缘 */
+    .panel{padding:12px;}             /* 面板内边距同步收窄 */
+    .overview-bar{padding:10px 12px;gap:8px;}
+    .ov-title{display:none;}          /* 手机端只留图标+chip */
+    .ov-chip{padding:2px 8px;font-size:12px;}
+    .topbar{gap:8px;}
+    .sync{display:none;}              /* 手机端隐藏离线提示，省空间 */
+    .top-actions{gap:6px;}
+    .top-actions .sep{display:none;}
+    /* 移动端触控目标统一 ≥44px（P3-3） */
+      .top-actions>.btn,
+      .top-actions>.leadsel,
+      .top-actions .menu-wrap>.btn,
+      .top-actions .sib-link{height:44px;min-height:44px;}
+    /* 菜单项在移动端也保证 44px 触控高度 */
+    .menu .mitem{min-height:44px;}
+    .menu .mrow{min-height:44px;}
+    /* 今天要处理卡片在窄屏下更紧凑，减少右侧贴边感 */
+    .today-item{padding:8px 10px;gap:8px;}
+    .today-item .t{font-size:13.5px;}
+    .today-item .ibd{font-size:12px;}
+    .today-item .ibs{gap:5px;font-size:11.5px;}
+    .today-item .btn-sm{padding:6px 9px;min-height:44px;font-size:12.5px;} /* M-8：主操作提至 44px（iOS HIG） */
+    /* 面板标题右侧图标按钮适度缩小 */
+    .toppanel h3 .ring{width:42px;height:42px;}
+    .panel.collapsible .ptoggle{min-width:36px;min-height:36px;width:36px;height:36px;}
+    .panel.collapsible .ptoggle svg{width:14px;height:14px;}
+    /* 习惯打卡区更紧凑，避免 Sun 列贴边 */
+    .habitpanel h3 .btn-sm{padding:6px 9px;min-height:34px;font-size:12.5px;}
+    .hrow{grid-template-columns:minmax(92px,1.3fr) repeat(7,minmax(0,1fr));gap:4px;}
+    .hcell{height:28px;font-size:12px;}
+    .hinfo .hname{font-size:13px;}
+    .today-list{width:100%;padding:0;}
+    .today-item{width:100%;}
+  }
+
+/* [7/33] max-width:860px) */
+@media(max-width:860px){
+    #fLead{display:none;}
+    .menu .mrow{display:none;}       /* 移动端不显示「提前提醒」整行，避免空标签占位（默认 10 分钟兜底） */
+  }
+
+/* [8/33] min-width:861px) */
+@media(min-width:861px){
+    /* 桌面端：提前量选择器在菜单行内正常显示 */
+    .menu .mrow{display:flex;}
+  }
+
+/* [9/33] max-width:560px) */
+@media(max-width:560px){
+    /* 移动端：压缩分组标签与按钮内边距，尽量一屏多看几个 tab */
+    .seg{padding:3px;gap:1px;}
+    .seg button{padding:9px 11px;font-size:13.5px;}
+  }
+
+/* [10/33] max-width:560px) */
+@media(max-width:560px){.habit-actions{justify-content:stretch;}.habit-actions .btn{flex:1;}}
+
+/* [11/33] (max-width:560px) */
+@media (max-width:560px){ .empty-stats .es-grid{grid-template-columns:1fr;} }
+
+/* [12/33] min-width:861px) */
+@media(min-width:861px){.mask{align-items:center;padding:20px;} .modal{border-radius:var(--radius-lg);}}
+
+/* [13/33] (prefers-reduced-motion:reduce) */
+@media (prefers-reduced-motion:reduce){ .btn.is-busy::after{animation:none;} }
+
+/* [14/33] max-width:560px) */
+@media(max-width:560px){
+    .wrap{padding:10px 12px 0;}
+    .brand{font-size:16px;}
+    .seg button{padding:9px 11px;}
+    .curdate{min-width:110px;font-size:13px;}
+    /* 月历窄屏降级：日格压扁，chip 只留色块/时间，标题隐藏防截断（） */
+    .dcell{height:76px;padding:4px 5px;}
+    .dcell .chip{font-size:0;gap:3px;justify-content:center;padding:2px 3px;}
+    .dcell .chip .ct{font-size:11px;padding:0 3px;}
+    .dcell .chip .cb{display:none;}
+    .dcell .chip.overdue::before{width:5px;height:5px;margin-left:0;}
+  }
+
+/* [15/33] max-width:860px) */
+@media(max-width:860px){.media-cols{grid-template-columns:1fr;}}
+
+/* [16/33] (hover:hover) */
+@media (hover:hover){
+    .mcard.done:hover,.mcard.done:focus-within{opacity:1;filter:none;background:var(--card);border-color:var(--line);}
+    .mcard.done:hover .mbadge,.mcard.done:focus-within .mbadge{background:var(--pri-soft);border-color:transparent;color:var(--pri);}
+    .mcard.done:hover .mname,.mcard.done:focus-within .mname{color:var(--ink);}
+  }
+
+/* [17/33] (hover:none) */
+@media (hover:none){ .mcard.done{opacity:.62;} }
+
+/* [18/33] max-width:860px) */
+@media(max-width:860px){
+    .lists-2col .lists-body{flex-direction:column;}
+    .lists-pane{flex:none;max-width:none;width:100%;}
+    .ltree{flex-direction:row;overflow-x:auto;gap:6px;}
+    .ltree-item{flex:none;white-space:nowrap;}
+  }
+
+/* [19/33] max-width:860px) */
+@media(max-width:860px){.stat-cards{grid-template-columns:repeat(2,1fr);}}
+
+/* [20/33] max-width:860px) */
+@media(max-width:860px){.stat-grid2{grid-template-columns:1fr;}}
+
+/* [21/33] max-width:560px) */
+@media(max-width:560px){.media-stats{grid-template-columns:1fr;}}
+
+/* [22/33] max-width:860px) */
+@media(max-width:860px){
+    .widget-row>.panel,
+    .widget-row>.custom-card{flex:1 1 100%;}
+  }
+
+/* [23/33] max-width:860px) */
+@media(max-width:860px){ .ov-title{display:none;} }
+
+/* [24/33] max-width:860px) */
+@media(max-width:860px){.panel.collapsible.dup-hidden > h3::after{content:"· 已展开";}}
+
+/* [25/33] max-width:860px) */
+@media(max-width:860px){ .habit-layout{flex-direction:column;gap:16px;} .habit-side{flex:0 0 auto;max-height:none;border-left:none;padding-left:0;border-top:1px solid var(--line);padding-top:14px;align-items:stretch;} }
+
+/* [26/33] max-width:860px) */
+@media(max-width:860px){
+  .gantt-ranges{flex-direction:column;align-items:stretch;gap:6px;}
+  .gantt-ranges .gtools-toggle{display:inline-flex;align-self:flex-start;}
+  .gantt-ranges:not(.tools-open) .gtools-more{display:none;}
+  .gantt-ranges .gantt-sep{display:none;}
+  .gantt-ranges .gtools-row{gap:6px;}
+}
+
+/* [27/33] max-width:420px) */
+@media(max-width:420px){
+  .health-row{flex-wrap:wrap;}
+  .health-row .hl{width:100%;}
+}
+
+/* [28/33] (prefers-reduced-motion: reduce) */
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important; /* 降低动效：强制近乎瞬时，覆盖一切动画/过渡 */}
+}
+
+/* [29/33] max-width:860px) */
+@media(max-width:860px){
+  .btn-sm{min-height:40px;padding:9px 12px;}
+  .mcard .micon,.lcard .micon,.mcard .mstep button{width:auto;height:auto;min-width:40px;min-height:40px;padding:0 8px;}
+  .w-ctrl .we,.w-ctrl .grip{min-width:40px;min-height:40px;}
+  .ptoggle,.lmenu,.lx,.drag-h{min-width:40px;min-height:40px;}
+  .tp-chip{min-height:44px;padding:8px 14px;} /* M-8：36→44px */
+  .seg button{min-height:44px;}
+  .nav button{width:44px;height:44px;}
+  .filterbar .fsel,.filterbar .fsearch{min-height:40px;}
+  /* 完成时间：窄屏下日期与时刻各占一行，快捷按钮平分一行，避免挤成一团 */
+  .da-row input[type=date],.da-row input[type=time]{flex:1 1 100%;min-height:40px;}
+  .da-row.da-quick .btn-sm{flex:1 1 calc(50% - 3px);min-height:40px;}
+}
+
+/* [30/33] (max-width:860px) */
+@media (max-width:860px){
+  /* C-4 安全区：避免内容被 iPhone 底部手势条遮挡 */
+  body{padding-bottom:env(safe-area-inset-bottom,0px);}
+  .wrap{padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));}
+  /* C-5 输入字号 ≥16px：防止 iOS 聚焦时页面自动放大 */
+  input,select,textarea{font-size:16px;}
+  input[type=checkbox],input[type=radio]{font-size:inherit;width:18px;height:18px;}
+  /* M-6：以下四处特异性高于上面的全局 16px 兜底，会被 iOS 聚焦缩放击穿，此处统一拉回 */
+  .review-notes textarea,.review-history select,.ck-add input,#f_editdate{font-size:16px;}
+}
+
+/* [31/33] (hover:none) */
+@media (hover:none){
+  /* C-1 触控端不残留 hover 态：覆盖写死的 :hover 背景/颜色 */
+  .overview-bar:hover,.tagchip:hover,.lp-head .lp-go:hover,.w-ctrl .we:hover,.w-ctrl .grip:hover,
+  .menu-item:hover,.gantt-row:hover,.lp-item .lp-x:hover,.subitem .sx:hover{background:initial;color:initial;filter:none;}
+  /* C-2 HTML5 拖拽在触控端不可用：隐藏拖拽手柄，改用已放大的上移/下移按钮重排 */
+  .w-ctrl .grip{display:none;}
+  /* M-2：触屏无 HTML5 拖拽，⠿ 手柄降级为「点击上移一位」的可用入口（见 moveItemUp） */
+  .drag-h{cursor:pointer;color:var(--pri);}
+  /* M-7：系统高亮已关闭，需自定义 :active 给出明确按下反馈 */
+  .btn:active,.btn-sm:active,.tagchip:active,.seg button:active,.menu .mitem:active,.pgbtn:active,
+  .nav button:active,.ptoggle:active,.tp-chip:active{transform:scale(.97);filter:brightness(.95);}
+}
+
+/* [32/33] max-width:640px) */
+@media(max-width:640px){ .pager{justify-content:center;} .pg-info{width:100%;text-align:center;} .modal-actions{flex-direction:column-reverse;} }
+
+/* [33/33] (min-width:768px) and (max-width:860px) */
 @media (min-width:768px) and (max-width:860px){
   .wrap{max-width:100%;padding:14px 20px 0;}          /* 回收两侧留白 */
   .stat-cards{grid-template-columns:repeat(3,1fr);}   /* 手机档 2 列 → 平板 3 列 */
@@ -1451,6 +1552,7 @@
   .media-cols{grid-template-columns:repeat(2,1fr);}   /* 手机档单列 → 平板双列 */
   .today-item .btn-sm{min-height:40px;}               /* 平板空间够，无需 44px 那么高 */
 }
+
 </style>
 </head>
 <body>

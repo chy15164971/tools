@@ -141,12 +141,7 @@
   .cloud-section-title{font-size:12px;font-weight:700;color:var(--sub);margin-bottom:10px;letter-spacing:.02em;}
   .cloud-section-row{display:flex;gap:8px;}
   .cloud-section-row .btn{flex:1;justify-content:center;}
-  @media (max-width:480px){
-    .cloud-modal{padding:16px;border-radius:var(--radius-lg) var(--radius-lg) 0 0;max-width:none;max-height:92vh;overflow:auto;}
-    .cloud-section-row{flex-direction:column;}
-    .cloud-btns{flex-direction:column;}
-    .cloud-btns .btn{width:100%;justify-content:center;}
-  }
+  
   /* 关联应用跳转链接（顶栏 ghost 风格，点击新标签打开对方页面） */
   .sib-link{display:inline-flex;align-items:center;gap:6px;height:38px;min-height:38px;box-sizing:border-box;padding:0 12px;border-radius:var(--radius-sm);border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:13.5px;font-weight:600;text-decoration:none;cursor:pointer;font-family:inherit;white-space:nowrap;}
   .sib-link:hover{background:var(--hover);border-color:var(--pri);color:var(--pri);}
@@ -262,12 +257,7 @@
   .row-act .act-more>summary{list-style:none;cursor:pointer;outline:none;}
   .row-act .act-more>summary::-webkit-details-marker{display:none;}
   .row-act .act-more>.act-more-body{display:flex;flex-direction:column;gap:2px;}
-  @media (max-width:560px){
-    .row-act .act-secondary{display:none !important; /* 小屏隐藏次要操作，避免拥挤 */}
-    .row-act .act-more{display:inline-flex;position:relative;}
-    .row-act .act-more>summary{display:inline-flex;align-items:center;}
-    .row-act .act-more[open]>.act-more-body{position:absolute;right:0;top:100%;background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);padding:4px 6px;z-index:6;min-width:84px;align-items:stretch;}
-  }
+  
 
   /* 活动弹窗：多明信片关联 chip */
   .link-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px;}
@@ -368,10 +358,115 @@
   @keyframes wbspin{to{transform:rotate(360deg)}}
   .btn.is-busy{opacity:.65;cursor:progress;}
   .btn.is-busy::after{content:"";display:inline-block;width:12px;height:12px;margin-left:6px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:wbspin .7s linear infinite;vertical-align:-1px;}
-  @media (prefers-reduced-motion:reduce){ .btn.is-busy::after{animation:none;} }
+  
 
   /* 响应式：跨页统一 3 档断点（>860 桌面 / 561–860 平板 / ≤560 手机；与 任务管理台.html 主断点一致） */
-  @media (max-width:980px){
+  
+  
+
+  /* ===== 顶部 widget 可编辑（拖拽 / 隐藏 / 自定义卡） ===== */
+  .stat.widget{position:relative;}
+  .w-ctrl{position:absolute;top:4px;right:4px;display:none;gap:3px;z-index:6;flex-wrap:wrap;justify-content:flex-end;max-width:calc(100% - 16px);}
+  .stats.editing .stat.widget{padding-top:28px;}
+  .stats.editing .w-ctrl{display:flex;}
+  .w-ctrl button{border:none;background:rgba(31,36,48,.07);color:var(--sub);width:22px;height:22px;border-radius:6px;font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex:0 0 auto;}
+  .w-ctrl button:hover{background:var(--pri);color:var(--white);}
+  .w-ctrl .grip{cursor:grab;}
+  .stat.dragging{opacity:.35;}
+  .stat.drop-before{box-shadow:0 -3px 0 var(--pri);}
+  .stat.drop-after{box-shadow:0 3px 0 var(--pri);}
+  .stat .w-body{margin-top:3px;font-size:12.5px;color:var(--ink);word-break:break-word;line-height:1.45;}
+  .stat .w-body.link a{color:var(--pri);text-decoration:none;font-weight:600;}
+  .stat .w-body.link a:hover{text-decoration:underline;}
+  .stat .w-title{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:5px;}
+  /* 仅本页显示的自定义卡：标题后加轻标记，避免用户以为卡片丢失 */
+  .stat.widget[data-scope]>.l::after,
+  .stat.widget[data-scope]>.w-title::after{content:" · 本页";font-weight:400;opacity:.55;}
+  /* 手动数字卡与自动统计卡同构：数字在上(.n) + 标题在下(.l)，字体沿用 .n/.l 定义 */
+  .w-actions{margin:0 0 14px;display:flex;align-items:center;gap:10px;}
+  #btnAddWidget{border:1px dashed var(--line);background:var(--card);color:var(--sub);border-radius:var(--radius);padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit;}
+  #btnAddWidget:hover{border-color:var(--pri);color:var(--pri);}
+  .w-showhidden{font-size:12.5px;color:var(--pri);background:none;border:none;cursor:pointer;font-family:inherit;}
+  #widgetModal .row{margin-bottom:12px;}
+  #widgetModal label{display:block;font-size:12.5px;color:var(--sub);margin-bottom:5px;}
+  #widgetModal input, #widgetModal textarea, #widgetModal select{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:16px;background:var(--card);color:var(--ink);}
+  #widgetModal textarea{min-height:72px;resize:vertical;}
+
+/* ===== 动效降级：尊重用户「减少动效」偏好 ===== */
+
+/* ===== Batch 2 跨端体验补强（C-2 / C-4 / C-5 / C-1）===== */
+
+.ic-svg{width:1em;height:1em;vertical-align:-.15em;fill:currentColor;flex:none;}
+
+  /* ===== 从 Gist 历史找回列表（与任务管理台 .mrec-* 同构）===== */
+  .mrec-list{display:flex;flex-direction:column;gap:8px;max-height:min(56vh,560px);overflow:auto;margin-top:4px;}
+  /* ==== RR 轮换名单编辑器（8 人 RR：每 N 周给名单下一位寄一张，寄完闭环） ==== */
+  .rot-cfg{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0;}
+  .rot-cfg label{font-size:12.5px;color:var(--sub);}
+  .rot-cfg input{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:var(--radius-sm);padding:8px 10px;font-size:16px;font-family:inherit;min-height:38px;}
+  .rot-cfg input[type=number]{width:68px;}
+  .rot-list{overflow-x:auto;-webkit-overflow-scrolling:touch;}.rot-head{display:grid;grid-template-columns:32px minmax(64px,1fr) minmax(88px,1.1fr) 116px 116px 116px 116px 80px;gap:6px;font-size:12px;color:var(--sub);margin-bottom:4px;}
+  .rot-row{display:grid;grid-template-columns:32px minmax(64px,1fr) minmax(88px,1.1fr) 116px 116px 116px 116px 80px;gap:6px;align-items:center;margin-bottom:6px;}
+  .rot-row input{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:var(--radius-sm);padding:7px 6px;font-size:16px;font-family:inherit;width:100%;min-width:0;min-height:38px;box-sizing:border-box;}
+  .rot-no{font-size:12.5px;color:var(--sub);text-align:center;}
+  .rot-ops{display:flex;gap:4px;}
+  .rot-ops .mini{width:24px;height:28px;font-size:12px;}
+  .rot-bulk summary{font-size:12.5px;color:var(--sub);cursor:pointer;padding:4px 0;}
+  #aRotBulk{width:100%;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:var(--radius-sm);padding:10px 11px;font-size:16px;font-family:inherit;margin:6px 0;}
+  
+  .mrec-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);}
+  .mrec-main{flex:1;min-width:0;}
+  .mrec-name{font-size:14px;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .mrec-meta{font-size:12px;color:var(--sub);margin-top:3px;}
+  .mrec-restore{flex:none;}
+  .mrec-group-head{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:var(--sub);padding:8px 2px 4px;border-bottom:1px solid var(--line);margin-top:2px;}
+  .mrec-group-head .cnt{background:var(--bg2);color:var(--sub);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:600;}
+  .mrec-empty{text-align:center;color:var(--sub);font-size:13px;padding:18px;}
+  
+
+/* ===== 长列表分页（D5：阈值 100） ===== */
+.pager{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--line);background:var(--card);}
+.pager-wrap{display:flex;flex-direction:column;}
+.pg-info{font-size:12.5px;color:var(--sub);}
+.pg-nums{display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
+.pgbtn{min-width:30px;height:30px;padding:0 8px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;font-size:13px;cursor:pointer;line-height:1;}
+.pgbtn:hover:not(:disabled){border-color:var(--pri);color:var(--pri);}
+.pgbtn.cur{background:var(--pri);border-color:var(--pri);color:#fff;}
+.pgbtn:disabled{opacity:.4;cursor:not-allowed;}
+.pgdots{color:var(--sub);padding:0 2px;}
+
+/* ===== M-3 平板档（768–980px）：iPad 竖屏压缩密度，尽量让 8 列不触发横向滚动 =====
+   说明：本页 980 断点与任务台的 860 是**有意差异**（8 列表格在 861–980 会日期重叠，
+   见文件头注释），故此处同样只做加性增强，不统一两页断点。 */
+
+
+
+/* ================= 响应式【媒体查询】集中区 =================
+   以下块按【原文件先后顺序】集中放置，未做跨断点重排，
+   以免同选择器在不同断点的层叠优先级反转。
+   新增响应式规则请追加到对应断点区块，保持顺序语义。
+   ===================================================== */
+/* [1/12] (max-width:480px) */
+@media (max-width:480px){
+    .cloud-modal{padding:16px;border-radius:var(--radius-lg) var(--radius-lg) 0 0;max-width:none;max-height:92vh;overflow:auto;}
+    .cloud-section-row{flex-direction:column;}
+    .cloud-btns{flex-direction:column;}
+    .cloud-btns .btn{width:100%;justify-content:center;}
+  }
+
+/* [2/12] (max-width:560px) */
+@media (max-width:560px){
+    .row-act .act-secondary{display:none !important; /* 小屏隐藏次要操作，避免拥挤 */}
+    .row-act .act-more{display:inline-flex;position:relative;}
+    .row-act .act-more>summary{display:inline-flex;align-items:center;}
+    .row-act .act-more[open]>.act-more-body{position:absolute;right:0;top:100%;background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);padding:4px 6px;z-index:6;min-width:84px;align-items:stretch;}
+  }
+
+/* [3/12] (prefers-reduced-motion:reduce) */
+@media (prefers-reduced-motion:reduce){ .btn.is-busy::after{animation:none;} }
+
+/* [4/12] (max-width:980px) */
+@media (max-width:980px){
     .wrap{max-width:100%;}
     .topbar{flex-wrap:wrap;row-gap:8px;}
     .stats{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));}
@@ -382,7 +477,9 @@
     /* 561–980px 窄桌面窗口：8 列表格可能溢出，加横向滚动兜底（≤560 卡片式会覆盖回 visible） */
     .tablecard{overflow-x:auto;}
   }
-  @media (max-width:560px){
+
+/* [5/12] (max-width:560px) */
+@media (max-width:560px){
     /* 手机端：auto-fill 网格下强制 2 列，三标签页卡片宽度统一 */
     .stats{grid-template-columns:repeat(2,1fr);}
     /* 统计卡为奇数时，最后一张占满整行，避免右侧留白 */
@@ -482,40 +579,12 @@
     .lb-hint{bottom:12px;}
   }
 
-  /* ===== 顶部 widget 可编辑（拖拽 / 隐藏 / 自定义卡） ===== */
-  .stat.widget{position:relative;}
-  .w-ctrl{position:absolute;top:4px;right:4px;display:none;gap:3px;z-index:6;flex-wrap:wrap;justify-content:flex-end;max-width:calc(100% - 16px);}
-  .stats.editing .stat.widget{padding-top:28px;}
-  .stats.editing .w-ctrl{display:flex;}
-  .w-ctrl button{border:none;background:rgba(31,36,48,.07);color:var(--sub);width:22px;height:22px;border-radius:6px;font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex:0 0 auto;}
-  .w-ctrl button:hover{background:var(--pri);color:var(--white);}
-  .w-ctrl .grip{cursor:grab;}
-  .stat.dragging{opacity:.35;}
-  .stat.drop-before{box-shadow:0 -3px 0 var(--pri);}
-  .stat.drop-after{box-shadow:0 3px 0 var(--pri);}
-  .stat .w-body{margin-top:3px;font-size:12.5px;color:var(--ink);word-break:break-word;line-height:1.45;}
-  .stat .w-body.link a{color:var(--pri);text-decoration:none;font-weight:600;}
-  .stat .w-body.link a:hover{text-decoration:underline;}
-  .stat .w-title{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:5px;}
-  /* 仅本页显示的自定义卡：标题后加轻标记，避免用户以为卡片丢失 */
-  .stat.widget[data-scope]>.l::after,
-  .stat.widget[data-scope]>.w-title::after{content:" · 本页";font-weight:400;opacity:.55;}
-  /* 手动数字卡与自动统计卡同构：数字在上(.n) + 标题在下(.l)，字体沿用 .n/.l 定义 */
-  .w-actions{margin:0 0 14px;display:flex;align-items:center;gap:10px;}
-  #btnAddWidget{border:1px dashed var(--line);background:var(--card);color:var(--sub);border-radius:var(--radius);padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit;}
-  #btnAddWidget:hover{border-color:var(--pri);color:var(--pri);}
-  .w-showhidden{font-size:12.5px;color:var(--pri);background:none;border:none;cursor:pointer;font-family:inherit;}
-  #widgetModal .row{margin-bottom:12px;}
-  #widgetModal label{display:block;font-size:12.5px;color:var(--sub);margin-bottom:5px;}
-  #widgetModal input, #widgetModal textarea, #widgetModal select{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:16px;background:var(--card);color:var(--ink);}
-  #widgetModal textarea{min-height:72px;resize:vertical;}
-
-/* ===== 动效降级：尊重用户「减少动效」偏好 ===== */
+/* [6/12] (prefers-reduced-motion: reduce) */
 @media (prefers-reduced-motion: reduce){
   *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important; /* 降低动效：强制近乎瞬时，覆盖一切动画/过渡 */}
 }
 
-/* ===== Batch 2 跨端体验补强（C-2 / C-4 / C-5 / C-1）===== */
+/* [7/12] (max-width:980px) */
 @media (max-width:980px){
   /* C-4 安全区：避免内容被 iPhone 底部手势条遮挡 */
   body{padding-bottom:env(safe-area-inset-bottom,0px);}
@@ -524,6 +593,8 @@
   input,select,textarea{font-size:16px;}
   input[type=checkbox],input[type=radio]{font-size:inherit;width:18px;height:18px;}
 }
+
+/* [8/12] (hover:none) */
 @media (hover:none){
   /* C-1 触控端不残留 hover 态 */
   .topbar a:hover,.cloudpill:hover,.stat.widget:hover,.w-ctrl button:hover,.tag:hover,
@@ -541,58 +612,27 @@
   .pgbtn:active,.lb-close:active{transform:scale(.97);filter:brightness(.95);}
 }
 
-.ic-svg{width:1em;height:1em;vertical-align:-.15em;fill:currentColor;flex:none;}
-
-  /* ===== 从 Gist 历史找回列表（与任务管理台 .mrec-* 同构）===== */
-  .mrec-list{display:flex;flex-direction:column;gap:8px;max-height:min(56vh,560px);overflow:auto;margin-top:4px;}
-  /* ==== RR 轮换名单编辑器（8 人 RR：每 N 周给名单下一位寄一张，寄完闭环） ==== */
-  .rot-cfg{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0;}
-  .rot-cfg label{font-size:12.5px;color:var(--sub);}
-  .rot-cfg input{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:var(--radius-sm);padding:8px 10px;font-size:16px;font-family:inherit;min-height:38px;}
-  .rot-cfg input[type=number]{width:68px;}
-  .rot-list{overflow-x:auto;-webkit-overflow-scrolling:touch;}.rot-head{display:grid;grid-template-columns:32px minmax(64px,1fr) minmax(88px,1.1fr) 116px 116px 116px 116px 80px;gap:6px;font-size:12px;color:var(--sub);margin-bottom:4px;}
-  .rot-row{display:grid;grid-template-columns:32px minmax(64px,1fr) minmax(88px,1.1fr) 116px 116px 116px 116px 80px;gap:6px;align-items:center;margin-bottom:6px;}
-  .rot-row input{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:var(--radius-sm);padding:7px 6px;font-size:16px;font-family:inherit;width:100%;min-width:0;min-height:38px;box-sizing:border-box;}
-  .rot-no{font-size:12.5px;color:var(--sub);text-align:center;}
-  .rot-ops{display:flex;gap:4px;}
-  .rot-ops .mini{width:24px;height:28px;font-size:12px;}
-  .rot-bulk summary{font-size:12.5px;color:var(--sub);cursor:pointer;padding:4px 0;}
-  #aRotBulk{width:100%;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:var(--radius-sm);padding:10px 11px;font-size:16px;font-family:inherit;margin:6px 0;}
-  @media(max-width:700px){
+/* [9/12] max-width:700px) */
+@media(max-width:700px){
     .rot-head{display:grid;font-size:11px;}
     .rot-row{grid-template-columns:32px minmax(64px,1fr) minmax(88px,1.1fr) 116px 116px 116px 116px 80px;gap:5px;padding:8px 0;border-bottom:1px solid var(--line);}
     .rot-list{overflow-x:auto;-webkit-overflow-scrolling:touch;}
     .rot-no{text-align:center;font-weight:600;}
   }
-  .mrec-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);}
-  .mrec-main{flex:1;min-width:0;}
-  .mrec-name{font-size:14px;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-  .mrec-meta{font-size:12px;color:var(--sub);margin-top:3px;}
-  .mrec-restore{flex:none;}
-  .mrec-group-head{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:var(--sub);padding:8px 2px 4px;border-bottom:1px solid var(--line);margin-top:2px;}
-  .mrec-group-head .cnt{background:var(--bg2);color:var(--sub);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:600;}
-  .mrec-empty{text-align:center;color:var(--sub);font-size:13px;padding:18px;}
-  @media(max-width:560px){ .mrec-restore{min-height:40px;padding:9px 12px;} .btn-sm{min-height:40px;} .linkbtn{min-height:40px;} }
 
-/* ===== 长列表分页（D5：阈值 100） ===== */
-.pager{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--line);background:var(--card);}
-.pager-wrap{display:flex;flex-direction:column;}
-.pg-info{font-size:12.5px;color:var(--sub);}
-.pg-nums{display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
-.pgbtn{min-width:30px;height:30px;padding:0 8px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;font-size:13px;cursor:pointer;line-height:1;}
-.pgbtn:hover:not(:disabled){border-color:var(--pri);color:var(--pri);}
-.pgbtn.cur{background:var(--pri);border-color:var(--pri);color:#fff;}
-.pgbtn:disabled{opacity:.4;cursor:not-allowed;}
-.pgdots{color:var(--sub);padding:0 2px;}
+/* [10/12] max-width:560px) */
+@media(max-width:560px){ .mrec-restore{min-height:40px;padding:9px 12px;} .btn-sm{min-height:40px;} .linkbtn{min-height:40px;} }
+
+/* [11/12] max-width:640px) */
 @media(max-width:640px){ .pager{justify-content:center;} .pg-info{width:100%;text-align:center;} }
-/* ===== M-3 平板档（768–980px）：iPad 竖屏压缩密度，尽量让 8 列不触发横向滚动 =====
-   说明：本页 980 断点与任务台的 860 是**有意差异**（8 列表格在 861–980 会日期重叠，
-   见文件头注释），故此处同样只做加性增强，不统一两页断点。 */
+
+/* [12/12] (min-width:768px) and (max-width:980px) */
 @media (min-width:768px) and (max-width:980px){
   .wrap{padding:14px 18px 0;}
   .chip{padding:6px 10px;font-size:13px;}
   .filters select,.filters input{min-height:38px;}
 }
+
 </style>
 </head>
 <body>
