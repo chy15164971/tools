@@ -189,10 +189,6 @@
 
   /* 今天要处理 */
   .today-list{display:flex;flex-direction:column;gap:8px;max-height:min(56vh,720px);overflow-y:auto;overflow-x:hidden;padding:0;min-width:0;}
-  /* 折叠态「展开全部 / 收起」按钮：不抢视觉，点击区足够大 */
-  .today-more{margin-top:2px;align-self:stretch;text-align:center;font-size:12.5px;font-weight:600;color:var(--pri);
-    background:var(--pri-soft);border:1px dashed var(--pri);border-radius:var(--radius);padding:8px;cursor:pointer;min-height:40px;}
-  .today-more:hover{background:#e7eeff;}
   .today-item{display:grid;grid-template-columns:4px minmax(0,1fr) auto;gap:10px;align-items:start;padding:9px 11px;border:1px solid var(--line);border-radius:var(--radius);background:var(--card);}
   .today-item.overdue{border-color:#f0c4c4;}
   .today-item.done{opacity:.55;}
@@ -778,7 +774,6 @@
   [data-theme="dark"] .cloudpill.off{ background:#232a3a; color:#8b94a3; border-color:#232a3a; }
   [data-theme="dark"] .btn-danger{ border-color:var(--line); }
   [data-theme="dark"] .menu .mitem.danger:hover{ background:#3a2024; }
-  [data-theme="dark"] .today-more:hover,
   [data-theme="dark"] .filter-badge:hover{ background:#2a3a5e; }
   [data-theme="dark"] .badge.p0{ background:rgba(255,93,93,.16); }
   [data-theme="dark"] .badge.p1{ background:rgba(255,154,82,.16); }
@@ -822,10 +817,22 @@
   .w-ctrl .we,.w-ctrl .grip{border:none;background:none;color:var(--sub);cursor:pointer;border-radius:6px;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;line-height:1;padding:0;}
   .w-ctrl .we:hover,.w-ctrl .grip:hover{background:var(--hover);color:var(--ink);}
   .w-ctrl .grip{cursor:grab;}
+  .w-ctrl .w-more{font-size:16px;}                    /* ⋯ 溢出菜单入口，与 24px 图标盒同尺寸 */
+  /* 面板头溢出菜单：承载低频操作（上移/下移/隐藏/编辑/删除），避免表头被四枚小按钮塞满 */
+  .w-more-wrap{position:relative;display:inline-flex;align-items:center;}
+  .w-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:122px;display:none;flex-direction:column;gap:1px;
+    padding:5px;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);}
+  .w-menu.show{display:flex;}
+  .w-menu .mitem-w{display:flex;align-items:center;gap:8px;width:100%;padding:7px 9px;border:none;background:none;color:var(--ink);
+    font-family:inherit;font-size:12.5px;text-align:left;white-space:nowrap;cursor:pointer;border-radius:7px;}
+  .w-menu .mitem-w:hover{background:var(--hover);}
+  .w-menu .mitem-w .mi{width:14px;text-align:center;color:var(--sub);flex:none;font-size:13px;}
+  .w-menu .mitem-w[data-act="del"]{color:var(--danger);}
+  .w-menu .mitem-w[data-act="del"] .mi{color:var(--danger);}
   .widget-row .panel.dragging,.widget-row .custom-card.dragging{opacity:.45;}
   .widget-row .panel.drop-before,.widget-row .custom-card.drop-before{box-shadow:-3px 0 0 0 var(--pri);}
   .widget-row .panel.drop-after,.widget-row .custom-card.drop-after{box-shadow:3px 0 0 0 var(--pri);}
-  .custom-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:14px;}
+  .custom-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:14px;position:relative;}
   .widget-row>.panel.whidden,
   .widget-row>.custom-card.whidden{display:none !important; /* 隐藏状态卡片，压过其它 display 规则 */}
   /* 顶部概览条：默认收起三栏，首屏仅一行（解决顶部偏长 + 视觉统一） */
@@ -844,7 +851,10 @@
   .ov-chev{width:18px;height:18px;color:var(--sub);flex:none;transition:transform .2s;margin-left:2px;}
   .overview-bar.open .ov-chev{transform:rotate(180deg);}
   .widget-row.top-collapsed{display:none;}
-  .widget-row>.panel{padding:12px;}
+  .widget-row>.panel{padding:12px;position:relative;}
+  /* 悬停/聚焦时置顶：下拉菜单会伸出面板右边界，不置顶会被右侧面板卡片盖住 */
+  .widget-row>.panel:hover,.widget-row>.panel:focus-within,
+  .widget-row>.custom-card:hover,.widget-row>.custom-card:focus-within{z-index:30;}
   .widget-row>.panel h3{margin-bottom:8px;}
      /* 平板/手机端省空间，只留图标+统计 */
   .custom-card .n{font-size:16px;font-weight:700;color:var(--ink);margin:0 0 6px;}
@@ -1548,6 +1558,9 @@
   .menu-item:hover,.gantt-row:hover,.lp-item .lp-x:hover,.subitem .sx:hover{background:initial;color:initial;filter:none;}
   /* C-2 HTML5 拖拽在触控端不可用：隐藏拖拽手柄，改用已放大的上移/下移按钮重排 */
   .w-ctrl .grip{display:none;}
+  /* 面板头溢出菜单：触屏加大点击目标（44px 达标） */
+  .w-menu{min-width:150px;}
+  .w-menu .mitem-w{min-height:44px;padding:11px 12px;font-size:13.5px;}
   /* M-2：触屏无 HTML5 拖拽，⠿ 手柄降级为「点击上移一位」的可用入口（见 moveItemUp） */
   .drag-h{cursor:pointer;color:var(--pri);}
   /* M-7：系统高亮已关闭，需自定义 :active 给出明确按下反馈 */
@@ -4153,13 +4166,48 @@ function syncOrder(){
   cur.forEach(w=>{ if(!widgetCfg.order.includes(w)) widgetCfg.order.push(w); });
   widgetCfg.order=widgetCfg.order.filter(w=> cur.includes(w) || widgetCfg.hidden.includes(w));
 }
+/* 关闭所有面板头溢出菜单；except 传当前要打开的那个（刚关掉再打开同一菜单时避免自打自关） */
+function closeWMenus(except){
+  document.querySelectorAll(".w-menu.show").forEach(function(m){
+    if(m===except) return;
+    m.classList.remove("show");
+    const b=m.parentNode&&m.parentNode.querySelector(".w-more");
+    if(b) b.setAttribute("aria-expanded","false");
+  });
+}
+/* 面板头控制按钮的唯一处理入口：自动面板（injectAutoCtrl）与自定义卡（bindCustomCard）共用，
+   避免两处各写一份分支导致行为漂移 */
+function handleCtrlAct(act,wid,btn){
+  if(act==="more"){
+    const menu=btn.parentNode?btn.parentNode.querySelector(".w-menu"):null; if(!menu) return;
+    const willShow=!menu.classList.contains("show");
+    closeWMenus();
+    if(willShow){ menu.classList.add("show"); btn.setAttribute("aria-expanded","true"); }
+    return;
+  }
+  if(act==="up") moveWidget(wid,-1);
+  else if(act==="down") moveWidget(wid,1);
+  else if(act==="hide") hideWidget(wid);
+  else if(act==="edit") openWidgetModal(wid);
+  else if(act==="del") delWidget(wid);
+  closeWMenus();
+}
+/* 点击菜单之外的任意处 / Esc 关闭菜单（只注册一次） */
+document.addEventListener("click",function(e){ if(!(e.target&&e.target.closest&&e.target.closest(".w-more-wrap"))) closeWMenus(); });
+document.addEventListener("keydown",function(e){ if(e.key==="Escape") closeWMenus(); });
+/* 面板头控制区：常态只留 ⠿ 拖拽手柄 + ⋯ 溢出菜单；上移/下移/隐藏（自定义卡另有编辑/删除）
+   等低频操作收进菜单——此前四枚小按钮常驻，三栏并排时表头被塞满且互相挤压 */
 function ctrlHtml(wid,isCustom,hideEdit){
-  const edit=(isCustom&&!hideEdit)?'<button aria-label="编辑" class="we" title="编辑" data-act="edit" data-wid="'+wid+'">✎</button>':"";
-  const del=isCustom?'<button aria-label="删除" class="we" title="删除" data-act="del" data-wid="'+wid+'">✕</button>':"";
+  const edit=(isCustom&&!hideEdit)?'<button role="menuitem" class="mitem-w" data-act="edit" data-wid="'+wid+'"><span class="mi">✎</span>编辑</button>':"";
+  const del=isCustom?'<button role="menuitem" class="mitem-w" data-act="del" data-wid="'+wid+'"><span class="mi">✕</span>删除</button>':"";
   return '<span class="w-ctrl"><button aria-label="拖拽排序" class="grip" title="拖拽排序" data-act="grip" data-wid="'+wid+'">⠿</button>'
-    +'<button aria-label="上移" class="we" title="上移" data-act="up" data-wid="'+wid+'">↑</button>'
-    +'<button aria-label="下移" class="we" title="下移" data-act="down" data-wid="'+wid+'">↓</button>'
-    +'<button aria-label="隐藏" class="we" title="隐藏" data-act="hide" data-wid="'+wid+'">⊘</button>'+edit+del+'</span>';
+    +'<span class="w-more-wrap">'
+    +'<button aria-label="更多操作" aria-haspopup="true" aria-expanded="false" class="we w-more" title="更多操作（上移 / 下移 / 隐藏）" data-act="more" data-wid="'+wid+'">⋯</button>'
+    +'<span class="w-menu" role="menu">'
+    +'<button role="menuitem" class="mitem-w" data-act="up" data-wid="'+wid+'"><span class="mi">↑</span>上移</button>'
+    +'<button role="menuitem" class="mitem-w" data-act="down" data-wid="'+wid+'"><span class="mi">↓</span>下移</button>'
+    +'<button role="menuitem" class="mitem-w" data-act="hide" data-wid="'+wid+'"><span class="mi">⊘</span>隐藏</button>'
+    +edit+del+'</span></span></span>';
 }
 
 /* O13：统一空状态模板（图标 + 说明 + 可选操作按钮），消除多视图语气/结构不一致 */
@@ -4178,7 +4226,7 @@ function injectAutoCtrl(panel, wid){
   const h3=panel.querySelector("h3"); if(!h3) return;
   const ctrl=document.createElement("span"); ctrl.className="w-ctrl"; ctrl.innerHTML=ctrlHtml(wid,false);
   const spacer=h3.querySelector(".spacer"); h3.insertBefore(ctrl, spacer?spacer.nextSibling:null);
-  ctrl.querySelectorAll("button").forEach(b=>b.addEventListener("click",e=>{ e.stopPropagation(); const act=b.dataset.act; if(act==="up")moveWidget(wid,-1); else if(act==="down")moveWidget(wid,1); else if(act==="hide")hideWidget(wid); }));
+  ctrl.querySelectorAll("button").forEach(b=>b.addEventListener("click",e=>{ e.stopPropagation(); handleCtrlAct(b.dataset.act, wid, b); }));
 }
 function bindWidgetDrag(node, wid){
   if(node.__dragBound) return; node.__dragBound=true; // 守卫：容器节点在重渲染时不被替换，重复 bind 会累积监听器（拖放时重复触发）
@@ -4192,7 +4240,7 @@ function bindWidgetDrag(node, wid){
 }
 function bindCustomCard(node,wid){
   bindWidgetDrag(node,wid);
-  node.querySelectorAll(".w-ctrl button").forEach(b=>b.addEventListener("click",e=>{ e.stopPropagation(); const act=b.dataset.act; if(act==="up")moveWidget(wid,-1); else if(act==="down")moveWidget(wid,1); else if(act==="hide")hideWidget(wid); else if(act==="edit")openWidgetModal(wid); else if(act==="del")delWidget(wid); }));
+  node.querySelectorAll(".w-ctrl button").forEach(b=>b.addEventListener("click",e=>{ e.stopPropagation(); handleCtrlAct(b.dataset.act, wid, b); }));
 }
 function applyWidgetLayout(){
   const row=document.getElementById("widgetRow"); if(!row) return;
