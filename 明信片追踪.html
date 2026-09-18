@@ -95,8 +95,6 @@
   .cloudpill.err{background:var(--danger);border-color:var(--danger);}
   .cloudpill.off{background:#e9edf5;color:#6b7488;border-color:#e9edf5;box-shadow:none;}
   .cloudpill .ic{margin-right:0;}
-  .cloud-divider{margin:16px 0 10px;font-size:12.5px;color:var(--sub);font-weight:700;display:flex;align-items:center;gap:8px;}
-  .cloud-divider::before,.cloud-divider::after{content:"";flex:1;height:1px;background:var(--line);}
   .cloud-btns{display:flex;gap:10px;flex-wrap:wrap;}
   .cloud-modal{max-width:420px;padding:20px;}
   /* 数据管理弹窗双 Tab（与任务管理台对齐） */
@@ -243,8 +241,6 @@
   .m-extra{display:none;color:var(--muted);font-size:11px;margin-top:4px;line-height:1.4;}
   .col-act{text-align:right;white-space:normal;box-sizing:border-box;vertical-align:middle;}
   /* 表格单元格：内容超长省略；不与 word-break 冲突（用 inline-clamp） */
-  td .cell-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:100%;}
-  td .cell-block{display:block;max-width:100%;overflow-wrap:break-word;}
   .row-act{display:inline-flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:6px;white-space:nowrap;vertical-align:middle;}
   .linkbtn{border:none;background:none;color:var(--pri);cursor:pointer;font-size:12.5px;font-family:inherit;padding:2px 6px;border-radius:6px;white-space:nowrap;line-height:1.4;}
   .linkbtn:hover{background:var(--pri-soft);}
@@ -341,8 +337,6 @@
   .sp-lab .l-them{display:block;color:var(--muted);}
   .sp-lab.single{color:var(--sub);font-size:11px;font-weight:600;line-height:1.2;}
   .muted{color:var(--sub);font-size:12px;}
-  .stepwrap{display:flex;align-items:center;gap:10px;}
-  .stepwrap .badge{font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;flex:none;}
   .opt-row .opt-in{flex:1;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:var(--radius-sm);padding:9px 11px;font-size:16px;font-family:inherit;}
   .opt-del{border:1px solid #ffd9d9;background:var(--card);color:var(--danger);border-radius:var(--radius-sm);width:38px;height:38px;flex:none;cursor:pointer;font-size:17px;line-height:1;font-family:inherit;}
   .opt-del:hover{background:var(--warnbg);}
@@ -703,7 +697,7 @@
 
   <div class="topview">
     <div class="segtabs" id="segtabs" role="tablist" aria-label="视图切换"></div>
-    <button class="btn btn-pri btn-sm" id="btnAdd" style="margin-left:auto"></button>
+    <button class="btn btn-pri btn-sm" id="btnAdd" aria-label="新建记录" style="margin-left:auto"></button>
   </div>
 
   <div class="stats" id="stats"></div>
@@ -711,7 +705,7 @@
     <button class="btn btn-ghost btn-sm" id="wToggle">＋ 统计卡</button>
     <button class="btn btn-ghost btn-sm" id="btnAddWidget" style="display:none">＋ 添加卡片</button>
     <button class="btn btn-ghost btn-sm" id="btnEditStats" title="编辑统计卡布局（排序/隐藏/重命名）">编辑布局</button>
-    <button class="w-showhidden" id="btnShowHidden" style="display:none"></button>
+    <button class="w-showhidden" id="btnShowHidden" aria-label="显示已隐藏卡片" style="display:none"></button>
   </div>
 
   <div class="filters" id="filters"></div>
@@ -1936,7 +1930,7 @@ function isLostProxy(p){ if(!p||!p.sent) return false; if(firstUndone(p)===-1) r
 /* 活动 deadline 预警：与 sent/proxy 的丢失预警对齐——过期标红、临近(≤3天)提示 */
 function actOverdue(a){ if(!a||!a.deadline) return false; if(a.status==="done"||a.status==="closed") return false; const t=new Date(a.deadline+"T00:00:00"); if(isNaN(t)) return false; const today0=new Date(); today0.setHours(0,0,0,0); return t<today0; }
 function actDueSoon(a){ if(!a||!a.deadline) return false; if(a.status==="done"||a.status==="closed") return false; const t=new Date(a.deadline+"T00:00:00"); if(isNaN(t)) return false; const today0=new Date(); today0.setHours(0,0,0,0); const diff=Math.round((t-today0)/86400000); return diff>=0 && diff<=3; }
-function lostBadge(view,p){ const lost = view==="sent"?isLostSent(p) : view==="proxy"?isLostProxy(p):false; return lost?`<span class="badge" style="background:rgba(239,68,68,.14);color:var(--danger);margin-right:6px;">⚠ 可能丢失</span>`:""; }
+function lostBadge(view,p){ const lost = view==="sent"?isLostSent(p) : view==="proxy"?isLostProxy(p):false; return lost?`<span class="badge" style="background:rgba(239,68,68,.14);color:var(--danger);margin-right:6px;">⚠️ 可能丢失</span>`:""; }
 
 // 返回值用于 HTML 属性（href="..."），必须再过 esc，否则可用 " 提前闭合属性造成属性逃逸型 XSS
 
@@ -2236,7 +2230,7 @@ function renderStats(){
   bindWidgetCtrls(el);
   const sh=document.getElementById("btnShowHidden");
   const hc=widgetCfg.hidden.filter(isHiddenHere).length;
-  if(hc){ sh.style.display=""; sh.textContent="显示已隐藏("+hc+")"; } else sh.style.display="none";
+  if(hc){ sh.style.display=""; sh.textContent="显示已隐藏("+hc+")"; sh.setAttribute('aria-label',"显示已隐藏卡片"); } else sh.style.display="none";
 }
 function statCtrl(wid, isCustom){
   /* 自动统计卡也允许改名（仅改显示文字），故同样给 ✎ 按钮，但走 rename 分支 */
@@ -2678,7 +2672,7 @@ function renderProxyPairRow(u, isDone){
   return `<tr class="${isDone?"row-done":""}">
     ${proxyBaseCells(base, st.color)}
     <td data-label="往返步骤">${renderProxyPairStepper(me, them)}</td>
-    <td data-label="状态">${lostPair?`<span class="badge" style="background:rgba(239,68,68,.14);color:var(--danger);margin-right:6px;">⚠ 可能丢失</span>`:""}<span class="badge" style="background:${st.color}22;color:${st.color}">${st.label}</span></td>
+    <td data-label="状态">${lostPair?`<span class="badge" style="background:rgba(239,68,68,.14);color:var(--danger);margin-right:6px;">⚠️ 可能丢失</span>`:""}<span class="badge" style="background:${st.color}22;color:${st.color}">${st.label}</span></td>
     <td data-label="往返天数">${rd==null?"—":rd+" 天"}</td>
     <td class="col-act" data-label="操作"><div class="row-act"><button class="linkbtn act-primary" data-pedit="${convId}">编辑</button><button class="linkbtn act-secondary" data-conv="proxy:${convId}">转换</button><button class="linkbtn act-secondary" data-pair="proxy" data-pid="${pairId}" data-cur="${convId}">↔ 互寄</button><button class="linkbtn danger act-primary" data-ppair="${pairId}">删除</button><details class="act-more"><summary class="linkbtn">⋯</summary><div class="act-more-body"><button class="linkbtn act-secondary" data-conv="proxy:${convId}">转换</button><button class="linkbtn act-secondary" data-pair="proxy" data-pid="${pairId}" data-cur="${convId}">↔ 互寄</button></div></details></div></td>
   </tr>`;
@@ -2864,7 +2858,7 @@ function bindTableDelegation(){
     el=t.closest(".st.clickable, .sp-node.clickable"); if(el){ toggleProxyStep(el.dataset.pid, parseInt(el.dataset.pstep,10)); return; }
   });
 }
-function renderAddBtn(){ const b=document.getElementById("btnAdd"); if(!b) return; const map={ sent:["新建寄出",()=>openRecModal("sent")], received:["新建收到",()=>openRecModal("received")], proxy:["新建代寄",()=>openProxyModal()], activity:["新建活动",()=>openActivityModal()] }; const c=map[view]||map.sent; b.textContent=c[0]; b.onclick=c[1]; }
+function renderAddBtn(){ const b=document.getElementById("btnAdd"); if(!b) return; const map={ sent:["新建寄出",()=>openRecModal("sent")], received:["新建收到",()=>openRecModal("received")], proxy:["新建代寄",()=>openProxyModal()], activity:["新建活动",()=>openActivityModal()] }; const c=map[view]||map.sent; b.textContent=c[0]; b.setAttribute('aria-label',c[0]); b.onclick=c[1]; }
 function renderAllNow(){ renderTabs(); renderStats(); renderFilters(); renderTable(); renderAddBtn(); }
 /*  重渲染合并：同一事件内的多次 renderAll 合并为 1–2 次实际渲染，且不丢最新状态 */
 let _raPending=false, _raDirty=false;

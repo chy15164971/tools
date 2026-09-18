@@ -32,7 +32,7 @@
   --accent:#7c5cff; --white:#fff; --ink-strong:#1f2430; }
   [data-theme="dark"]{
     --bg:#0f1320; --card:#171c2b; --ink:#e7ebf3; --text:#e7ebf3; --sub:#9aa3b2; --line:#262d3f;
-    --pri:#5b86ff; --pri-soft:#1c2740; --hover:#1c2236; --bg2:#11162a; --muted:#9aa3b2; --bd:#262d3f;
+    --pri:#5b86ff; --pri-soft:#1c2740; --hover:#1c2236; --bg2:#11162a; --muted:#9aa3b2;
     --ok:#2dd4a0; --warn:#ff9a52; --danger:#ff5d5d;
     --c4:#ff7aa6; --c5:#5a6478;
     --shadow:0 2px 10px rgba(0,0,0,.32);
@@ -108,9 +108,6 @@
   .cloud-section-row .btn{flex:1;justify-content:center;}
   
   /* 关联应用跳转链接（顶栏 ghost 风格，点击新标签打开对方页面） */
-  .sib-link{display:inline-flex;align-items:center;gap:6px;height:38px;min-height:38px;box-sizing:border-box;padding:0 12px;border-radius:var(--radius-sm);border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:13.5px;font-weight:600;text-decoration:none;cursor:pointer;font-family:inherit;white-space:nowrap;}
-  .sib-link:hover{background:var(--hover);border-color:var(--pri);color:var(--pri);}
-  .sib-link svg{width:16px;height:16px;}
   .inbox-pill{position:relative;}
   .btn-pri{background:var(--pri);color:var(--white);}
   .btn-pri:active{transform:scale(.97);}
@@ -549,11 +546,6 @@
 
   /* ===== 待办清单 / 库存 ===== */
   .lists-wrap{padding:2px 0;}
-  .lists-head{display:flex;justify-content:flex-end;margin-bottom:12px;}
-  .lists-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:16px;}
-  .lstat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center;}
-  .lstat .n{font-size:22px;font-weight:700;}
-  .lstat .l{font-size:12px;color:var(--sub);margin-top:2px;}
   .lcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 15px;margin-bottom:12px;}
   .lcard .lhead{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
   .lcard .lname{font-size:15px;font-weight:700;flex:1;cursor:pointer;}
@@ -577,16 +569,7 @@
   .litem .lup, .lp-item .lup{color:var(--sub);cursor:pointer;flex:none;font-size:14px;line-height:1;padding:0 3px;border:none;background:none;}
   .litem .lup:hover, .lp-item .lup:hover{color:var(--pri);}
   .litem .lup:disabled, .lp-item .lup:disabled{opacity:.3;cursor:not-allowed;}
-  .litem .ldn, .lp-item .ldn{color:var(--sub);cursor:pointer;flex:none;font-size:14px;line-height:1;padding:0 3px;border:none;background:none;}
-  .litem .ldn:hover, .lp-item .ldn:hover{color:var(--pri);}
-  .litem .ldn:disabled, .lp-item .ldn:disabled{opacity:.3;cursor:not-allowed;}
   /* 排序模式 */
-  .lists-head.sortbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-  .lists-head.sortbar .sorttitle{font-weight:600;color:var(--ink);margin-right:2px;}
-  .lists-head.sortbar .spacer{flex:1;}
-  .lcard.sorting{outline:2px dashed var(--pri);outline-offset:2px;}
-  .lcard.sorting .lnum{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:7px;background:var(--pri);color:var(--white);font-size:12px;font-weight:700;flex:none;margin-right:2px;}
-  .lcard:not(.sorting) .lnum{display:none;}
   .lcard.dragover{outline:2px solid var(--ok);outline-offset:2px;}
   .litem.dragover, .lp-item.dragover{background:var(--pri-soft);border-radius:8px;}
   /* 清单视图：左树右详情双栏 */
@@ -638,7 +621,6 @@
 
   /* 子任务清单 / 标签 */
   .subtasks{margin-top:2px;}
-  .subtasks .stitle{font-size:13px;color:var(--sub);font-weight:600;margin-bottom:6px;}
   .subtoggle{cursor:pointer;background:transparent;border:none;padding:0;font:inherit;color:inherit;}
   .subcheck{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;width:100%;min-width:0;}
   .subcheck-item{display:inline-flex;align-items:center;gap:6px;max-width:100%;min-width:0;min-height:36px;padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--sub);font-size:13px;cursor:pointer;}
@@ -726,10 +708,6 @@
   .trend.dense .lab{font-size:11px;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
   .trend.dense .num{font-size:11px;}
   .trend.dense .bar{max-width:none;width:70%;}
-  .stat-ring{display:flex;align-items:center;gap:14px;}
-  .stat-ring svg{width:72px;height:72px;flex:none;}
-  .stat-ring .rt{font-size:13px;color:var(--sub);}
-  .stat-ring .rt b{color:var(--ink);font-size:15px;}
   
   
   
@@ -763,7 +741,6 @@
   [data-theme="dark"] .field select,
   [data-theme="dark"] .field textarea,
   [data-theme="dark"] .subadd input,
-  [data-theme="dark"] .hbtn{ background:var(--bg2); color:var(--ink); border-color:var(--line); }
   [data-theme="dark"] .cal th,
   [data-theme="dark"] .tcol .dayhead,
   [data-theme="dark"] .gantt-row.head .gname,
@@ -894,7 +871,6 @@
   .w-modal input:focus,.w-modal select:focus,.w-modal textarea:focus{outline:none;border-color:var(--pri);box-shadow:0 0 0 3px var(--pri-soft);}
   [data-theme="dark"] .w-modal{background:var(--card);}
   [data-theme="dark"] .w-modal select,[data-theme="dark"] .w-modal input,[data-theme="dark"] .w-modal textarea{background:var(--bg2);color:var(--ink);border-color:var(--line);}
-  .jm-sum{font-size:13px;color:var(--sub);margin-bottom:10px;}
   .jm-sec{margin:12px 0 6px;font-size:13px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:6px;}
   .jm-sec .tag{font-size:11px;font-weight:600;padding:1px 7px;border-radius:99px;background:rgba(124,92,255,.14);color:var(--accent);}
   .jm-item{display:flex;align-items:flex-start;gap:9px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:6px;font-size:13px;line-height:1.55;}
@@ -910,9 +886,6 @@
   .mg-tab.active{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08);}
   .mg-swap{display:flex;justify-content:flex-end;margin-top:-6px;}
   .mg-note{font-size:12px;color:var(--sub);line-height:1.6;margin-top:8px;}
-  .mg-li{display:flex;gap:6px;padding:3px 0;font-size:12.5px;color:var(--ink);}
-  .mg-li .k{color:var(--sub);flex:none;}
-  .mg-warn{border-color:var(--danger)!important;background:rgba(239,68,68,.06); /* 警告边框须压过主题边框色 */}
   .w-presets{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
   .w-presets button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer;font-family:inherit;text-align:left;font-size:13px;transition:.15s;}
   .w-presets button:hover{border-color:var(--pri);background:var(--pri-soft);}
@@ -1144,8 +1117,6 @@
 .kr-spark{margin-top:5px;display:flex;align-items:center;gap:6px;}
 .spark-n{font-size:11px;color:var(--sub);}
 .badge.w{background:rgba(124,92,255,.14);color:var(--accent);}
-.kr-w{font-size:11px;color:var(--sub);}
-.okr-tree-line{border-left:2px solid var(--line);}
 
 /* ===== 选择模式 + 批量工具条 ===== */
 .sel-mode .sel-chk{display:inline-flex;}
@@ -1192,15 +1163,12 @@
 /* 甘特图：项目筛选下拉（与视图切换按钮同排） */
 .gantt-projsel{height:28px;font-size:12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text);padding:0 6px;max-width:150px;font-family:inherit;}
 .gantt-projsel:focus{outline:none;border-color:var(--pri,#4f8cff);}
-.gantt-focus-note{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);margin-left:2px;}
 
 /* ===== 统计增强 ===== */
 .stats-ranges{display:flex;gap:6px;margin:0 0 10px;flex-wrap:wrap;}
 .stats-ranges button.active{background:var(--pri);color:var(--white);border-color:var(--pri);}
 .trend .col .num.rec{color:var(--sub);font-style:italic;}
 .trend .col .bar.norec{background:repeating-linear-gradient(45deg,var(--line),var(--line) 3px,transparent 3px,transparent 6px);}
-.stat-extra{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;}
-.stat-extra .stat-sec{min-width:0;}
 .habit-fit-bar{display:flex;align-items:center;gap:8px;}
 .habit-fit-bar .bf{flex:1;}
 /*  健康度小节：左标签（含副说明）+ 右进度条，两条纵向堆叠，替代原 stat-extra 双卡 */
@@ -1220,7 +1188,6 @@
 .ldue{font-size:11px;margin-left:6px;}
 .ldue.overdue{color:var(--danger);font-weight:600;}
 .litem.late{box-shadow:inset 3px 0 0 var(--danger);}
-.litem .ldue-badge{cursor:pointer;}
 .limport{display:flex;gap:6px;margin-top:8px;}
 .limport textarea{width:100%;min-height:54px;resize:vertical;border:1px solid var(--line);border-radius:8px;padding:6px;font-size:16px;background:var(--bg);color:var(--text);}
 .lconvert{font-size:11px;color:var(--pri);cursor:pointer;margin-left:6px;}
@@ -1391,7 +1358,6 @@
       .top-actions>.btn,
       .top-actions>.leadsel,
       .top-actions .menu-wrap>.btn,
-      .top-actions .sib-link{height:44px;min-height:44px;}
     /* 菜单项在移动端也保证 44px 触控高度 */
     .menu .mitem{min-height:44px;}
     .menu .mrow{min-height:44px;}
@@ -1555,7 +1521,6 @@
 @media (hover:none){
   /* C-1 触控端不残留 hover 态：覆盖写死的 :hover 背景/颜色 */
   .overview-bar:hover,.tagchip:hover,.lp-head .lp-go:hover,.w-ctrl .we:hover,.w-ctrl .grip:hover,
-  .menu-item:hover,.gantt-row:hover,.lp-item .lp-x:hover,.subitem .sx:hover{background:initial;color:initial;filter:none;}
   /* C-2 HTML5 拖拽在触控端不可用：隐藏拖拽手柄，改用已放大的上移/下移按钮重排 */
   .w-ctrl .grip{display:none;}
   /* 面板头溢出菜单：触屏加大点击目标（44px 达标） */
@@ -1777,7 +1742,7 @@
         <button data-v="habit" role="tab" aria-selected="false" aria-label="习惯打卡视图">习惯</button>
         <button data-v="stats" role="tab" aria-selected="false" aria-label="统计视图">统计</button>
         <button data-v="review" role="tab" aria-selected="false" title="周/日回顾体检" aria-label="定期回顾视图">回顾</button>
-      <button data-v="anniv" role="tab" aria-selected="false" title="纪念日记录与倒计时" aria-label="纪念日视图">📅 纪念日</button>
+      <button data-v="anniv" role="tab" aria-selected="false" title="纪念日记录与倒计时" aria-label="纪念日视图">纪念日</button>
       </div>
     </div>
     <div class="nav">
@@ -4253,7 +4218,7 @@ function applyWidgetLayout(){
   // 按 order 重排（隐藏的加 .whidden）
   widgetCfg.order.slice().forEach(wid=>{ const n=row.querySelector('[data-wid="'+wid+'"]'); if(!n)return; n.classList.toggle("whidden", widgetCfg.hidden.includes(wid)); row.appendChild(n); });
   // 编辑后刷新自定义卡内容
-  widgetCfg.custom.forEach(w=>{ const wid="c:"+w.id; const n=row.querySelector('[data-wid="'+wid+'"]'); if(n){ const tmp=document.createElement("div"); tmp.innerHTML=renderCustomCard(w).trim(); n.innerHTML=tmp.firstChild.innerHTML; bindCustomCard(n,wid); } });
+  widgetCfg.custom.forEach(w=>{ const wid="c:"+w.id; const n=row.querySelector('[data-wid="'+wid+'"]'); if(n){ const fresh=renderCustomCard(w).trim(); if(n.__lastCardHTML!==fresh){ const tmp=document.createElement("div"); tmp.innerHTML=fresh; n.innerHTML=tmp.firstChild?tmp.firstChild.innerHTML:""; bindCustomCard(n,wid); n.__lastCardHTML=fresh; } } });
   const sh=document.getElementById("btnShowHidden");
   if(widgetCfg.hidden.length){ sh.style.display=""; sh.textContent="显示已隐藏("+widgetCfg.hidden.length+")"; } else sh.style.display="none";
 }
@@ -5095,7 +5060,7 @@ function renderMonth(){
         /* 超期：日期早于今天 且 未完成 → 标记 overdue（红色左边框/红点）；已标不补做的项不标红 */
         const overdue = !isDone(i) && !isDrop && d < startOfDay(today);
         const ovCls = overdue ? ' overdue' : '';
-        const ovMark = overdue ? '⚠ ' : '';
+        const ovMark = overdue ? '⚠️ ' : '';
         const dpMark = isDrop ? '🚫 ' : '';
         const daMark = isDone(i) ? ' · '+doneAtMark(i.task, i.date, false) : '';
         chips+=`<div class="chip${ovCls}${isDrop?' dropped':''}" data-id="${i.task.id}" data-date="${k}" style="background:${col};${done}" title="${dpMark}${ovMark}${ttl}（${fmtRange(i.start,i.end)}）${isDrop?' · 不补做':''}${daMark}"><span class="ct">${fmtTime(i.start)}</span><span class="cb">${dpMark}${ovMark}${ttl}${subBadge(i.task,k)}${daMark}</span></div>`;
@@ -6506,7 +6471,7 @@ function renderOkr(){
       const wBadge=(k.weight&&k.weight!==1)?`<span class="badge w">权重 ${k.weight}</span>`:'';
       const sparkHtml = spark ? `<div class="kr-spark">${spark}</div>` : `<div class="spark-empty">📈 趋势将在攒满 2 周后生成（当前 ${e.target?pct:0}%）</div>`;
       return `<div class="kr-item${risk?' risk':''}">
-        <div class="kr-name">${esc(k.title)} ${linked.length?`<span class="badge sub krt-toggle" data-krtoggle="${k.id}"><span class="arr">▸</span> 关联任务 ${linked.length}</span>`:""} ${k.start?`<span class="badge sub">📅 ${k.start}${k.end?" ~ "+k.end:""}</span>`:""} ${th?`<span class="badge ${th.cls}">${th.label}</span>`:""} ${e.auto?'<span class="badge ok">自动</span>':''} ${wBadge} ${risk?'<span class="badge th-over" title="临近截止且未达标">⚠ 风险</span>':''}</div>
+        <div class="kr-name">${esc(k.title)} ${linked.length?`<span class="badge sub krt-toggle" data-krtoggle="${k.id}"><span class="arr">▸</span> 关联任务 ${linked.length}</span>`:""} ${k.start?`<span class="badge sub">📅 ${k.start}${k.end?" ~ "+k.end:""}</span>`:""} ${th?`<span class="badge ${th.cls}">${th.label}</span>`:""} ${e.auto?'<span class="badge ok">自动</span>':''} ${wBadge} ${risk?'<span class="badge th-over" title="临近截止且未达标">⚠️ 风险</span>':''}</div>
         <div class="kr-row"><div class="pbar sm"><div class="pbar-fill" style="width:${pct}%"></div></div>
           ${curHtml}
           <button class="btn btn-ghost btn-sm" data-kredit="${k.id}">编辑</button>
@@ -6637,7 +6602,7 @@ function renderReview(){
     h+=diagCard("🐌 停滞(>14天未动)", stalled.length, stalled);
     h+=`<div class="diag-card"><div class="diag-num">${doneWeek}</div><div class="diag-label">本周已完成</div></div>`;
     h+=`<div class="diag-card"><div class="diag-num">${state.projects.filter(p=>p.status!=='done').length}</div><div class="diag-label">进行中项目</div></div>`;
-    let okrHtml=state.okrs.length?state.okrs.map(o=>{ const stalled=o.krs.some(k=>{ const e=krEffective(k); return e.target>0 && e.current===0; }); return `<div class="okr-mini${stalled?' alert':''}"><span>${esc(o.title)}${stalled?' ⚠':''}</span><b>${okrOverall(o)}%</b></div>`; }).join(""):`<div class="muted">暂无目标</div>`;
+    let okrHtml=state.okrs.length?state.okrs.map(o=>{ const stalled=o.krs.some(k=>{ const e=krEffective(k); return e.target>0 && e.current===0; }); return `<div class="okr-mini${stalled?' alert':''}"><span>${esc(o.title)}${stalled?' ⚠️':''}</span><b>${okrOverall(o)}%</b></div>`; }).join(""):`<div class="muted">暂无目标</div>`;
     h+=`<div class="diag-card wide"><div class="diag-label">目标 OKR 总览</div>${okrHtml}</div>`;
   }
   h+=`</div>`;
