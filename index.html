@@ -3150,7 +3150,7 @@ function moveRecInstance(t, fromDate, deltaDays){
 
 /* ===== 生成可见区间内的所有任务实例（单一数据源 → 各视图共用） ===== */
 function _sigOfTask(t){   // O9：只序列化影响实例集合的字段，打卡/标题变化不失效缓存
-  try{ return (t.start||"")+"|"+(t.end||"")+"|"+JSON.stringify(t.recurrence||null)+"|"+JSON.stringify(t.overrides||null); }
+  try{ return (t.start||"")+"|"+(t.end||"")+"|"+JSON.stringify(t.recurrence||null)+"|"+JSON.stringify(t.overrides||null)+"|"+(t.dropped?1:0); }
   catch(e){ return String(t.id)+(t.start||"")+(t.end||""); }
 }
 function getInstances(rangeStart, rangeEnd){
@@ -3165,7 +3165,7 @@ function getInstances(rangeStart, rangeEnd){
     const emittedKeys = new Set();
     const bs = parseLocal(t.start), be = parseLocal(t.end);
     if(!t.recurrence || t.recurrence.freq==="none"){
-      if(be>=rangeStart && bs<=rangeEnd) sub.push({task:t, date:startOfDay(bs), start:bs, end:be, recurring:false});
+      if(be>=rangeStart && bs<=rangeEnd) sub.push({task:t, date:startOfDay(bs), start:bs, end:be, recurring:false, dropped:!!t.dropped});
     } else {
       const until = t.recurrence.until ? endOfDay(parseLocal(t.recurrence.until)) : rangeEnd;
       let cur = startOfDay(Math.max(bs.getTime(), rangeStart.getTime()));
@@ -4328,6 +4328,7 @@ function renderToday(){
   const overdue=[], due=[];
   for(const i of insts){
     if(isDone(i)) continue;
+    if(isDropped(i.task,i.date)) continue;   // 已标记不补做：移出今日面板（仍灰显于日历/月/日视图原日期处）
     if(i.end < d0){
       if(i.task.skipMissed) continue;
       if(!overdue.find(o=>o.task.id===i.task.id && sameDay(o.date,i.date))) overdue.push(i);
@@ -4338,9 +4339,7 @@ function renderToday(){
   due.sort((a,b)=> (gwRank(a.task)-gwRank(b.task)) || (priRank(a.task.priority)-priRank(a.task.priority)) );
   overdue.sort((a,b)=> parseLocal(b.end)-parseLocal(a.end) );
   const urgent=overdue.concat(due);
-  const urgentDrop=urgent.filter(i=>isDropped(i.task,i.date)).length;
-  const overdueDrop=overdue.filter(i=>isDropped(i.task,i.date)).length;
-  window.__todayStats={pending:urgent.length-urgentDrop, overdue:overdue.length-overdueDrop};
+  window.__todayStats={pending:urgent.length, overdue:overdue.length};
 
   const list=document.getElementById("todayList");
   const krHtml=renderTodayKrHtml();
