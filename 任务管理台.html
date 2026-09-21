@@ -2652,6 +2652,20 @@ function fetchWithTimeout(url, opts, ms){
   const id=setTimeout(function(){ ctrl.abort(); }, ms||15000);
   return fetch(url, Object.assign({}, opts, {signal:ctrl.signal})).finally(function(){ clearTimeout(id); });
 }
+// 把 GitHub 的错误响应体与限流信息拼进提示：否则「读云端」失败只看到裸的「HTTP 403」，
+// 无从判断是 Token 权限不足（Resource not accessible…）还是 API 配额耗尽（rate limit exceeded），
+// 正是「一直同步失败却查不出原因」的根因（2026-09-20 排查时补）。
+async function gistErrText(res){
+  let d="HTTP "+(res&&res.status);
+  try{ const ej=await res.json(); if(ej&&ej.message) d+=" · "+ej.message; }catch(_){}
+  try{
+    const h=res&&res.headers;
+    const rem=(h&&h.get)?h.get("x-ratelimit-remaining"):null;
+    const rst=(h&&h.get)?h.get("x-ratelimit-reset"):null;
+    if(rem==="0"&&rst){ const t=new Date(Number(rst)*1000); if(!isNaN(t.getTime())) d+="（API 配额已用尽，约 "+t.toLocaleTimeString()+" 重置）"; }
+  }catch(_){}
+  return d;
+}
 
 function safeUrl(u){ u=(u||"").trim(); if(!u) return "#"; if(/^(https?:|mailto:|tel:)/i.test(u)) return esc(u); try{ var _p=new URL(u,location.href); if(_p.protocol==="http:"||_p.protocol==="https:") return esc(u); }catch(e){} return "#"; }
 
@@ -10143,7 +10157,7 @@ async function cloudUpload(silent){
     // H1 修复：读云端失败（网络不可达 / HTTP 非 2xx）→ 放弃本次上传，仅保留本地已落盘，
     //          绝不拿「可能过旧的本地整包」覆盖云端（此前多次"数据消失"的共同机理）。
     const r2=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 20000);
-    if(!r2.ok) throw new Error("HTTP "+r2.status);
+    if(!r2.ok) throw new Error(await gistErrText(r2));
     const d2=await r2.json();
     const ff=d2.files&&d2.files["taskhub.json"];
     if(ff&&ff.content){ const o2=JSON.parse(ff.content); mergeTasksIntoLocal(o2); if(Array.isArray(o2.habits)) habits=mergeHabits(habits, o2.habits, o2.deleted); if(o2.media) media=mediaMergeKeep(o2.media, o2.deleted); }
@@ -10153,7 +10167,7 @@ async function cloudUpload(silent){
       headers:{"Authorization":authHeader(),"Content-Type":"application/json"},
       body:JSON.stringify({files:{"taskhub.json":{content:JSON.stringify(syncPayload(),null,2)}}})
     }, 15000);
-    if(!res.ok){ let d="HTTP "+res.status; try{ const ej=await res.json(); if(ej&&ej.message) d+=" · "+ej.message; }catch(_){} throw new Error(d); }
+    if(!res.ok) throw new Error(await gistErrText(res));
     const t=new Date().toLocaleTimeString();
     // M4：把「本次同步云端改了什么」告诉用户 —— 静默覆盖不再无感知
     const S=window.__lastMergeStats;
@@ -10183,7 +10197,7 @@ async function cloudDownload(){
   setCloudStatus("下载中…");
   try{
     const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 15000);
-    if(!res.ok){ let d="HTTP "+res.status; try{ const ej=await res.json(); if(ej&&ej.message) d+=" · "+ej.message; }catch(_){} throw new Error(d); }
+    if(!res.ok) throw new Error(await gistErrText(res));
     const data=await res.json();
     const _files=data.files||{};
     let f=_files["taskhub.json"];
@@ -10430,7 +10444,7 @@ async function cloudStartupPull(silent){
   window.__pullOk=false;   // 供静默轮询判定本次拉取成败（本函数内部自行 catch，不向外抛错）
   try{
     const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 20000);
-    if(!res.ok) throw new Error("HTTP "+res.status);   // H2：云不可达/认证失败 → 走 catch，不放开自动上传
+    if(!res.ok) throw new Error(await gistErrText(res));   // H2：云不可达/认证失败 → 走 catch，不放开自动上传
     _bootSyncAllowed=true;   // 云可达且有数据，启动期内的自动上传/落盘上传均放开
     window.__pullOk=true;
     const data=await res.json();
