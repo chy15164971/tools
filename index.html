@@ -3700,6 +3700,16 @@ function clearKindTomb(kind,id){
   deletedIds=deletedIds.filter(d=>String((d&&d.id)||d)!==k);
   if(deletedIds.length!==before) deletedIdsSave();
 }
+// 取某类墓碑的「id → 墓碑时刻」表：本地 ∪ 云端，同 id 取较晚时刻。
+// 与 kindTombSet 的区别：这里**保留 ts**，供「打卡时刻 vs 墓碑时刻」比较（habitday 专用）。
+function kindTombMap(kind, cloudDeleted){
+  const p=TOMB_NS[kind], m=new Map();
+  const add=o=>{ const t=normTomb(o); if(!t.id||t.id.indexOf(p)!==0) return;
+    const k=t.id.slice(p.length), ts=+(t.ts||0);
+    if(!m.has(k)||ts>+(m.get(k)||0)) m.set(k,ts); };
+  (deletedIds||[]).forEach(add); (cloudDeleted||[]).forEach(add);
+  return m;
+}
 // 取某类的「已删除 id 集合」= 本地墓碑 ∪ 云端墓碑（两者都可能带对方设备的删除记录）
 function kindTombSet(kind, cloudDeleted){
   const p=TOMB_NS[kind], s=new Set();
@@ -9758,13 +9768,14 @@ async function habitQuick(id){
   h.days=h.days||[];
   if(act==="1"){
     const tg=habitWeekTargetDays(h);
-    tg.forEach(d=>{ if(!h.days.includes(d)){ h.days.push(d); clearKindTomb("habitday", habitDayKey(h.id,d)); } });
+    h.dayTs=h.dayTs||{};
+    tg.forEach(d=>{ if(!h.days.includes(d)){ h.days.push(d); h.dayTs[d]=Date.now(); clearKindTomb("habitday", habitDayKey(h.id,d)); } });
     toast("已标记本周目标日完成");
   } else if(act==="2"){
     const wk=habitWeekDays().map(ymd);
     const removed=h.days.filter(d=>wk.includes(d));
     h.days=h.days.filter(d=>!wk.includes(d));
-    removed.forEach(d=>pushKindTomb("habitday", habitDayKey(h.id,d)));   // 批量取消同样要传播
+    removed.forEach(d=>{ if(h.dayTs) delete h.dayTs[d]; pushKindTomb("habitday", habitDayKey(h.id,d)); });   // 批量取消同样要传播
     toast("已清空本周");
   } else return;
   habitSave(); renderAll();
@@ -9956,9 +9967,12 @@ function toggleHabitDay(id, day){
   const willDone = ix<0;
   if(ix>=0){
     h.days.splice(ix,1);
+    if(h.dayTs) delete h.dayTs[day];                  // 取消 ⇒ 打卡时刻一并作废，让墓碑重新生效
     pushKindTomb("habitday", habitDayKey(id, day));   // 取消打卡也要能跨设备传播，否则会被别的设备并回来
   }else{
     h.days.push(day);
+    // 记下打卡时刻：晚于墓碑时刻时「新打卡胜出」，解开「云端残留墓碑 ⇒ 这天永远打不上」的死锁
+    h.dayTs=h.dayTs||{}; h.dayTs[day]=Date.now();
     clearKindTomb("habitday", habitDayKey(id, day));  // 重新打卡 ⇒ 撤掉墓碑，否则下轮合并又把这天抹掉
   }
   habitSave();
@@ -10395,11 +10409,21 @@ function mergeTasksIntoLocal(obj){
 // 本地数据轻量签名：用于启动拉取时判断本地与云端是否真有内容分歧（避免单纯时间戳差异也弹窗）
 function mergeHabits(loc, cloud, cloudDeleted){
   loc=(loc||[]); cloud=(cloud||[]);
-  const deadDays=kindTombSet("habitday", cloudDeleted);   // 已取消打卡的天（habitId:ymd），两端墓碑取并集
+  const deadDays=kindTombMap("habitday", cloudDeleted);   // 已取消打卡的天（habitId:ymd）→ 墓碑时刻
+  /* 打卡时刻胜过墓碑：墓碑本无「新旧」概念，一旦写入就永久有效，于是「云端残留墓碑」会把用户
+     之后重新打的卡一路抹掉 —— 表现为「点了变绿、过会儿又变灰，这天永远打不上」（2026-09-26 实报）。
+     给每次打卡记 dayTs（该天的打卡时刻），合并时若打卡时刻 ≥ 墓碑时刻 ⇒ 视作用户主动重新打卡，
+     墓碑让位。旧数据没有 dayTs 时退化为原行为（墓碑胜出），保证向后兼容。 */
   const fdays=(h, days)=>{
     const hid=String((h&&h.id)||"");
     if(!hid || !deadDays.size) return days||[];
-    return (days||[]).filter(d=>!deadDays.has(hid+":"+d));
+    const ts=(h&&h.dayTs)||{};
+    return (days||[]).filter(d=>{
+      const t=+(ts[d]||0), tomb=deadDays.get(hid+":"+d);
+      if(tomb===undefined) return true;   // 这天没有墓碑 → 保留
+      if(!t) return false;                // 旧数据没记打卡时刻 → 墓碑胜出（向后兼容）
+      return t>=tomb;                     // 打卡不早于墓碑 → 新打卡胜出
+    });
   };
   const m=new Map();
   // 本地一侧也要过墓碑：否则「云端只带墓碑、不带该习惯」时本地那份会被原样保留（墓碑失效）
@@ -10409,8 +10433,12 @@ function mergeHabits(loc, cloud, cloudDeleted){
     const cur=m.get(h.id);
     if(!cur){ const nh=JSON.parse(JSON.stringify(h)); nh.days=fdays(nh, nh.days); m.set(h.id, nh); return; }
     const ds=new Set((cur.days||[]).concat(h.days||[]));
+    // dayTs 合并：同一天取较晚时刻（较新的一次打卡动作胜出）
+    const ta=cur.dayTs||{}, tb=h.dayTs||{}, tm=Object.assign({}, ta);
+    Object.keys(tb).forEach(k=>{ if(!(k in tm) || +((tb[k])||0) > +((tm[k])||0)) tm[k]=tb[k]; });
     const lu=+(cur.updated||0), cu=+(h.updated||0);
     if(cu>lu){ const {days, archived, paused, ...rest}=h; Object.assign(cur, rest); }  // 归档/暂停不同步：避免云端旧状态把本端活动习惯藏进归档
+    cur.dayTs=tm;   // 必须在 Object.assign 之后：rest 含 dayTs，会整体覆盖掉刚合好的 tm
     cur.days=fdays(cur, Array.from(ds).sort());
   });
   // 删除传播：并集只增不减，本地删掉的习惯/取消的打卡若云端或其他设备仍持有会被并回 → 墓碑胜出
