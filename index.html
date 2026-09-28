@@ -4449,7 +4449,7 @@ function todayItemHtml(i, compact, ov){
       ? `<button class="btn btn-ghost btn-sm" data-restore="${i.task.id}" data-date="${ymd(i.date)}">恢复</button>`
       : (itDone
           ? `<button class="btn btn-ghost btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">撤销</button>`
-          : `<button class="btn btn-pri btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">完成</button><button class="btn btn-quiet btn-sm" data-skip="${i.task.id}" data-date="${ymd(i.date)}">不补做</button>`)
+          : `<button class="btn btn-pri btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">完成</button><button class="btn btn-quiet btn-sm" data-skip="${i.task.id}" data-date="${ymd(i.date)}">不补做</button><button class="btn btn-ghost btn-sm" data-defer="both" data-id="${i.task.id}" data-date="${ymd(i.date)}">推迟</button><button class="btn btn-ghost btn-sm" data-defer="end" data-id="${i.task.id}" data-date="${ymd(i.date)}">延期</button>`)
     }</div>
   </div>`;
 }
@@ -4482,6 +4482,7 @@ function renderToday(){
   list.querySelectorAll("[data-done]").forEach(b=>b.onclick=()=>{ toggleDone(b.dataset.done, b.dataset.date); });
   list.querySelectorAll("[data-restore]").forEach(b=>b.onclick=()=>{ restoreTask(b.dataset.restore, b.dataset.date); });
   list.querySelectorAll("[data-skip]").forEach(b=>b.onclick=()=>{ skipTask(b.dataset.skip, b.dataset.date); });
+  list.querySelectorAll("[data-defer]").forEach(b=>b.onclick=()=>{ openDeferFromCard(b.dataset.id, b.dataset.date); });
   list.querySelectorAll("[data-subopen]").forEach(b=>b.onclick=()=>{
     const id=b.dataset.subopen;
     if(subOpenIds.has(id)) subOpenIds.delete(id); else subOpenIds.add(id);
@@ -4556,6 +4557,7 @@ function renderTodayPage(){
   view.querySelectorAll("[data-done]").forEach(b=>b.onclick=()=>{ toggleDone(b.dataset.done, b.dataset.date); });
   view.querySelectorAll("[data-restore]").forEach(b=>b.onclick=()=>{ restoreTask(b.dataset.restore, b.dataset.date); });
   view.querySelectorAll("[data-skip]").forEach(b=>b.onclick=()=>{ skipTask(b.dataset.skip, b.dataset.date); });
+  view.querySelectorAll("[data-defer]").forEach(b=>b.onclick=()=>{ openDeferFromCard(b.dataset.id, b.dataset.date); });
   view.querySelectorAll("[data-subopen]").forEach(b=>b.onclick=()=>{
     const id=b.dataset.subopen;
     if(subOpenIds.has(id)) subOpenIds.delete(id); else subOpenIds.add(id);
@@ -4647,7 +4649,7 @@ function renderTaskDetail(){
   let actions = `<button class="btn btn-pri btn-sm" id="detailEdit">编辑</button>`;
   if(doneState) actions += `<button class="btn btn-ghost btn-sm" id="detailUndo">撤销完成</button>`;
   else if(droppedState) actions += `<button class="btn btn-ghost btn-sm" id="detailRestore">恢复</button>`;
-  else { actions += `<button class="btn btn-pri btn-sm" id="detailDone">完成</button><button class="btn btn-quiet btn-sm" id="detailSkip">不补做</button>`; }
+  else { actions += `<button class="btn btn-pri btn-sm" id="detailDone">完成</button><button class="btn btn-quiet btn-sm" id="detailSkip">不补做</button><button class="btn btn-ghost btn-sm" id="detailDefer">推迟/延期</button>`; }
   const body = `<div class="detail-h"><h3 class="dt">${esc(t.title)}</h3>${statusHtml}</div>
     <div class="detail-badges">${badges.join("")}</div>
     <div class="detail-grid">${rows}</div>
@@ -4661,6 +4663,7 @@ function renderTaskDetail(){
   const undoBtn=document.getElementById("detailUndo"); if(undoBtn) undoBtn.onclick=()=>{ toggleDone(detailId, detailDate); refresh(); };
   const skipBtn=document.getElementById("detailSkip"); if(skipBtn) skipBtn.onclick=()=>{ skipTask(detailId, detailDate); refresh(); };
   const restoreBtn=document.getElementById("detailRestore"); if(restoreBtn) restoreBtn.onclick=()=>{ restoreTask(detailId, detailDate); refresh(); };
+  const deferBtn=document.getElementById("detailDefer"); if(deferBtn) deferBtn.onclick=()=>{ const _id=detailId, _d=detailDate; closeTaskDetail(); openDeferFromCard(_id, _d); };
   el.querySelectorAll("[data-subtick]").forEach(b=>b.onclick=()=>{
     const tt=state.tasks.find(x=>x.id===b.dataset.subtick); if(!tt) return;
     const s=(tt.subtasks||[]).find(x=>x.id===b.dataset.sid); if(!s) return;
@@ -7237,6 +7240,7 @@ function syncSeg(){
 
 /* ===== 弹窗 ===== */
 let editingId=null, editingDate=null, editingScope="once", editingDateAuto=false;
+let __deferCloseAfter=false;   // 从「今日要处理」卡片/详情直接推迟时置真：推迟落盘后自动关编辑弹窗并刷新
 function setModalMode(mode){
   const body=document.body;
   body.classList.toggle("modal-full", mode==="full");
@@ -7637,6 +7641,7 @@ function shiftTaskByDays(n, mode){
     ed.value = ymd(ne); if(!et.value) et.value = "23:59";
     if(!sd.value){ sd.value = ymd(startOfDay(new Date())); st.value = "00:00"; }  // 无开始日的任务：开始日取今天（与保存逻辑一致）
     closeDeferPop(); saveTask(); toast("已延期到 "+ymd(ne));
+    __afterDeferShift();
     return;
   }
 
@@ -7663,8 +7668,21 @@ function shiftTaskByDays(n, mode){
     ed.value = newS; et.value = wasNoDate ? "10:00" : newSt;
   }
   closeDeferPop(); saveTask(); toast("已推迟到 "+newS);
+  __afterDeferShift();
+}
+function __afterDeferShift(){
+  if(__deferCloseAfter){ __deferCloseAfter=false; closeDeferPop(); closeModal(); renderAll(); }
 }
 function closeDeferPop(){ const p=document.getElementById("deferPop"); if(p) p.style.display="none"; }
+/* 从「今日要处理」卡片 / 详情弹窗直达推迟：直接加载编辑弹窗并展开「推迟/延期」菜单，
+   用户选幅度后由 shiftTaskByDays 落盘、__afterDeferShift 自动关弹窗并刷新。 */
+function openDeferFromCard(taskId, date){
+  const t=state.tasks.find(x=>x.id===taskId); if(!t){ toast("任务不存在"); return; }
+  __deferCloseAfter=true;
+  openModal(taskId, date, "once");
+  const dp=document.getElementById("deferPop");
+  if(dp) dp.style.display="flex";
+}
 /* 按“目标日期”推迟/延期：算出与当前开始/截止的差值再平移 */
 function shiftTaskToDate(dateStr, mode){
   if(!dateStr) return;
