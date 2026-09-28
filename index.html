@@ -236,6 +236,28 @@
   .today-page .tp-prog b{font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;}
   .today-page .today-items{display:flex;flex-direction:column;gap:8px;}
   .today-page .today-item{width:100%;}                 /* 整页宽度，不再受 widget 列宽限制 */
+  /* 今日任务项可点击查看详情 */
+  .today-item[data-open]{cursor:pointer;}
+  .today-item[data-open]:hover{box-shadow:0 1px 0 var(--line), 0 0 0 1px var(--pri-soft);}
+  .today-item[data-open]:hover .t{color:var(--pri);}
+  .today-item[data-open] .t::after{content:"›";float:right;color:var(--muted);font-weight:700;margin-left:8px;opacity:0;transition:opacity .12s;}
+  .today-item[data-open]:hover .t::after{opacity:1;}
+  /* 任务详情弹窗 */
+  .detail-h{display:flex;align-items:flex-start;gap:10px;margin:0 0 12px;}
+  .detail-h .dt{font-size:17px;font-weight:700;line-height:1.35;margin:0;flex:1;min-width:0;word-break:break-word;}
+  .detail-status{font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;flex:none;white-space:nowrap;}
+  .detail-status.done{background:#e7f6ec;color:#1f9d55;}
+  .detail-status.dropped{background:var(--sub2,#eef0f3);color:var(--sub);}
+  .detail-status.todo{background:var(--pri-soft);color:var(--pri);}
+  .detail-badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+  .detail-grid{display:flex;flex-direction:column;gap:9px;margin-bottom:14px;}
+  .detail-kv{display:grid;grid-template-columns:74px minmax(0,1fr);gap:10px;font-size:13.5px;align-items:start;}
+  .detail-kv .dk{color:var(--sub);}
+  .detail-kv .dv{color:var(--ink);min-width:0;word-break:break-word;}
+  .detail-sec{font-size:12px;font-weight:700;color:var(--sub);margin:14px 0 7px;letter-spacing:.03em;}
+  .detail-desc{white-space:pre-wrap;line-height:1.6;font-size:13.5px;color:var(--ink);background:var(--bg);border-radius:10px;padding:10px 12px;max-height:240px;overflow:auto;}
+  .detail-actions{display:flex;gap:10px;margin-top:18px;position:sticky;bottom:0;background:var(--card);padding-top:12px;}
+  .detail-actions .btn{flex:1;justify-content:center;}
   .today-page .today-sec-h{margin:14px 0 6px;}
   @media(max-width:860px){ .today-page{max-width:none;} }
   /* 视图切换 */
@@ -2109,6 +2131,13 @@
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- 任务详情弹窗（只读预览，可一键跳编辑 / 完成 / 不补做） -->
+<div class="mask" id="detailMask">
+  <div class="modal" style="max-width:560px;">
+    <div class="detail-body" id="detailBody"></div>
   </div>
 </div>
 
@@ -4402,7 +4431,7 @@ function todayItemHtml(i, compact, ov){
   }
   const barColor = ov ? "var(--danger)" : priColor(p);
   const ibd = (!compact && i.task.desc) ? `<div class="ibd">${esc(i.task.desc)}</div>` : "";
-  return `<div class="today-item ${ov?'overdue':''} ${itDone?'done':''} ${isDrop?'dropped no-count':''}">
+  return `<div class="today-item ${ov?'overdue':''} ${itDone?'done':''} ${isDrop?'dropped no-count':''}" data-open="${i.task.id}" data-open-date="${ymd(i.date)}">
     <div class="bar" style="background:${barColor}"></div>
     <div class="meta">
       <div class="t">${esc(i.task.title)}</div>
@@ -4481,6 +4510,7 @@ function renderToday(){
   if(densBtn){ densBtn.textContent = todayDensity==="compact" ? "简" : "详"; densBtn.onclick=()=>{ todayDensity = todayDensity==="compact"?"detail":"compact"; renderToday(); }; }
   const maxBtn=document.getElementById("todayMaxBtn");
   if(maxBtn){ maxBtn.onclick=()=>{ todayMax=!todayMax; const p=document.querySelector('.toppanel[data-wid="today"]'); if(p) p.classList.toggle('today-max', todayMax); renderToday(); }; }
+  list.querySelectorAll("[data-open]").forEach(el=>el.onclick=e=>{ if(e.target.closest(".today-acts,.subtoggle,[data-subtick],.tagchip")) return; openTaskDetail(el.dataset.open, el.dataset.openDate); });
   list.onscroll=()=>updateTodayScrollHint();
   updateTodayScrollHint();
 }
@@ -4550,10 +4580,109 @@ function renderTodayPage(){
     renderAll();
   });
   view.querySelectorAll("[data-donesec]").forEach(b=>b.onclick=()=>{ todayDoneExpanded=!todayDoneExpanded; renderAll(); });
+  view.querySelectorAll("[data-open]").forEach(el=>el.onclick=e=>{ if(e.target.closest(".today-acts,.subtoggle,[data-subtick],.tagchip")) return; openTaskDetail(el.dataset.open, el.dataset.openDate); });
   const densBtn=document.getElementById("todayPageDensity");
   if(densBtn){ densBtn.onclick=()=>{ todayDensity = todayDensity==="compact"?"detail":"compact"; renderAll(); }; }
 }
 
+
+/* 任务详情：点击今日任务项打开只读预览，可跳编辑 / 完成 / 不补做 / 子任务勾选 */
+let detailId=null, detailDate=null;
+function recLabel(rec){
+  if(!rec || rec.freq==="none") return "";
+  const names={daily:"每天", weekly:"每周", monthly:"每月", yearly:"每年"};
+  const iv = rec.interval && rec.interval>1 ? ("每 "+rec.interval+" ") : "";
+  if(rec.freq==="weekly"){
+    const wd=["日","一","二","三","四","五","六"];
+    const ds=(rec.daysOfWeek&&rec.daysOfWeek.length)? rec.daysOfWeek.map(n=>"周"+wd[n]).join("、") : "周"+(new Date().getDay());
+    return (rec.interval&&rec.interval>1 ? ("每 "+rec.interval+" 周 "+ds) : ("每周 "+ds)) + (rec.until? (" · 至 "+rec.until) : "");
+  }
+  return iv + names[rec.freq] + (rec.until? (" · 至 "+rec.until) : "");
+}
+function instOf(t, date){
+  if(!date) return null;
+  const insts=getInstances(startOfDay(parseLocal(date+"T00:00")), endOfDay(parseLocal(date+"T00:00")));
+  return insts.find(x=>x.task.id===t.id) || null;
+}
+function openTaskDetail(id, date){
+  const t=state.tasks.find(x=>x.id===id);
+  if(!t){ toast("任务不存在或已删除"); return; }
+  detailId=id;
+  detailDate = date || (noDate(t) ? "" : ymd(startOfDay(new Date())));
+  renderTaskDetail();
+  document.getElementById("detailMask").classList.add("show");
+}
+function closeTaskDetail(){ const m=document.getElementById("detailMask"); if(m) m.classList.remove("show"); detailId=null; detailDate=null; }
+function renderTaskDetail(){
+  const t=state.tasks.find(x=>x.id===detailId); if(!t) return;
+  const date=detailDate, dk=date||"";
+  const inst=instOf(t, date);
+  const doneState = inst ? isDone(inst) : isTaskDone(t);
+  const droppedState = isDropped(t, date);
+  const p=t.priority, c=catColor(t.cat);
+  const proj=(state.projects||[]).find(x=>x.id===t.project);
+  const kr = t.krId ? krOf(t.krId) : null;
+  const statusHtml = doneState ? `<span class="detail-status done">已完成</span>` : (droppedState ? `<span class="detail-status dropped">不补做</span>` : `<span class="detail-status todo">待处理</span>`);
+  const badges=[
+    `<span class="badge" style="background:${hexA(priColor(p),.16)};color:${priColor(p)}">${esc(p)}</span>`,
+    `<span class="badge" style="background:${hexA(c,.16)};color:${c}">${esc(t.cat||"")}</span>`
+  ];
+  if(t.gw && t.gw!=="next") badges.push(`<span class="badge gw">${gwLabel(t.gw)}</span>`);
+  if(t.energy) badges.push(`<span class="badge sub">${t.energy==="high"?"精力↑":t.energy==="low"?"精力↓":"精力中"}</span>`);
+  if(t.est) badges.push(`<span class="badge sub">${t.est}′</span>`);
+  if(t.ctx) badges.push(`<span class="badge sub">${esc(t.ctx)}</span>`);
+  const kv=(k,v)=>`<div class="detail-kv"><div class="dk">${k}</div><div class="dv">${v}</div></div>`;
+  let rows="";
+  rows += kv("时间", noDate(t) ? "📥 收件箱（不指定日期）" : (fmtRange(parseLocal(t.start), parseLocal(t.end)) + (date? ("<br><span class=\"muted\" style=\"font-size:12px;\">"+ymd(parseLocal(date+"T00:00"))+"</span>") : "")));
+  const rec=recLabel(t.recurrence);
+  if(rec) rows += kv("重复", esc(rec));
+  if(proj) rows += kv("项目", esc(proj.name));
+  if(kr) rows += kv("关联目标", `<span class="kr-link" data-kr="${esc(kr.k.id)}" style="color:var(--accent);cursor:pointer;">${esc(kr.o.title)} › ${esc(kr.k.title)}</span>`);
+  const tags=tagsHtml(t);
+  if(tags) rows += kv("标签", tags);
+  const descHtml = t.desc ? `<div class="detail-sec">描述</div><div class="detail-desc">${esc(t.desc)}</div>` : "";
+  const subHtml = (t.subtasks&&t.subtasks.length) ? `<div class="detail-sec">子任务 ${subBadge(t,dk).trim()}</div>`+subChecklistHtml(t, dk) : "";
+  const doneAt = doneState ? doneAtMark(t, date, true) : "";
+  const doneAtHtml = doneAt ? `<div class="detail-sec">完成记录</div><div class="detail-desc" style="max-height:none;background:transparent;padding:0;">${esc(doneAt)}</div>` : "";
+  let actions = `<button class="btn btn-pri btn-sm" id="detailEdit">编辑</button>`;
+  if(doneState) actions += `<button class="btn btn-ghost btn-sm" id="detailUndo">撤销完成</button>`;
+  else if(droppedState) actions += `<button class="btn btn-ghost btn-sm" id="detailRestore">恢复</button>`;
+  else { actions += `<button class="btn btn-pri btn-sm" id="detailDone">完成</button><button class="btn btn-quiet btn-sm" id="detailSkip">不补做</button>`; }
+  const body = `<div class="detail-h"><h3 class="dt">${esc(t.title)}</h3>${statusHtml}</div>
+    <div class="detail-badges">${badges.join("")}</div>
+    <div class="detail-grid">${rows}</div>
+    ${descHtml}${subHtml}${doneAtHtml}
+    <div class="detail-actions">${actions}</div>`;
+  const el=document.getElementById("detailBody");
+  el.innerHTML=body;
+  const refresh=()=>{ renderTaskDetail(); };
+  const editBtn=document.getElementById("detailEdit"); if(editBtn) editBtn.onclick=()=>{ closeTaskDetail(); openModal(detailId, detailDate); };
+  const doneBtn=document.getElementById("detailDone"); if(doneBtn) doneBtn.onclick=()=>{ toggleDone(detailId, detailDate); refresh(); };
+  const undoBtn=document.getElementById("detailUndo"); if(undoBtn) undoBtn.onclick=()=>{ toggleDone(detailId, detailDate); refresh(); };
+  const skipBtn=document.getElementById("detailSkip"); if(skipBtn) skipBtn.onclick=()=>{ skipTask(detailId, detailDate); refresh(); };
+  const restoreBtn=document.getElementById("detailRestore"); if(restoreBtn) restoreBtn.onclick=()=>{ restoreTask(detailId, detailDate); refresh(); };
+  el.querySelectorAll("[data-subtick]").forEach(b=>b.onclick=()=>{
+    const tt=state.tasks.find(x=>x.id===b.dataset.subtick); if(!tt) return;
+    const s=(tt.subtasks||[]).find(x=>x.id===b.dataset.sid); if(!s) return;
+    const d=b.dataset.date;
+    const beforeAll=tt.subtasks.every(x=>subIsDone(tt,x,d));
+    snapshot();
+    subToggle(tt, s, d);
+    syncDoneFromSubtasks(tt, d, beforeAll);
+    save();
+    renderAll();
+    refresh();
+  });
+  el.querySelectorAll(".tagchip").forEach(ch=>ch.onclick=()=>{
+    state.filter={q:ch.dataset.tag, cat:"", pri:"", tag:""};
+    const fs=document.getElementById("fSearch"); if(fs) fs.value=ch.dataset.tag;
+    const fc=document.getElementById("fCat"); if(fc) fc.value=""; const fp=document.getElementById("fPri"); if(fp) fp.value=""; const ft=document.getElementById("fTag"); if(ft) ft.value="";
+    const fcl=document.getElementById("fClear"); if(fcl) fcl.style.display="inline-flex";
+    closeTaskDetail();
+    renderAll();
+  });
+  el.querySelectorAll("[data-kr]").forEach(k=>k.onclick=()=>{ const id=k.dataset.kr; closeTaskDetail(); okrOpenKR(id); });
+}
 
 /* 滚动提示：列表内容溢出可视区时，吸底显示「还有 N 条，滚动查看」；滚到底自动隐藏。 */
 function hintHtml(){ return '<div class="today-scroll-hint" id="todayScrollHint"></div>'; }
@@ -9573,6 +9702,7 @@ document.addEventListener("keydown",async e=>{ if(e.key!=="Escape") return;
   if(habitOpen){ closeHabit(); return; }
   if(helpOpen){ document.getElementById("helpMask").classList.remove("show"); return; }
   if(dataOpen){ closeDataModal(); return; }   // 数据管理弹窗 Esc 关闭（）
+  { const detO=(()=>{ const d=document.getElementById("detailMask"); return !!d && d.classList.contains("show"); })(); if(detO){ closeTaskDetail(); return; } }
   { const ro=document.getElementById("recoverMask"); if(ro && ro.classList.contains("show")){ closeRecoverModal(); return; } }
 });
 /* 主任务弹窗：点击遮罩关闭（与媒体/习惯/数据弹窗行为一致 ）；有未保存内容时二次确认 */
@@ -9583,6 +9713,8 @@ document.getElementById("mask").addEventListener("click", async e=>{
   }
   closeModal();
 });
+/* 任务详情弹窗：点击遮罩关闭 */
+document.getElementById("detailMask").addEventListener("click", e=>{ if(e.target.id==="detailMask") closeTaskDetail(); });
 
 /* ===== 筛选栏交互 ===== */
 document.getElementById("fSearch").oninput=debounce(e=>{ state.filter.q=e.target.value; document.getElementById("fClear").style.display=(state.filter.q||state.filter.cat||state.filter.pri||state.filter.tag)?"inline-flex":"none"; renderAll(); },240);
