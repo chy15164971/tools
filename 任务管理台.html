@@ -227,6 +227,17 @@
   .widget-row>.panel.today-max{flex:1 1 100%;max-height:none;min-height:auto;}
   .widget-row>.panel.today-max .today-list{max-height:min(82vh,900px);}
   .today-density,.today-max-btn{flex:none;padding:2px 8px;font-size:12px;}
+  /* ===== 今日要处理整页视图（底部「今日」标签；与顶部今日 widget 同源、放大为整页展示） ===== */
+  .today-page{display:flex;flex-direction:column;gap:14px;max-width:1080px;margin:0 auto;}
+  .today-page .tp-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .today-page .tp-head h2{margin:0;font-size:19px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:8px;}
+  .today-page .tp-head h2::before{content:"";width:4px;height:18px;border-radius:3px;background:var(--pri);flex:none;}
+  .today-page .tp-prog{font-size:13px;color:var(--sub);}
+  .today-page .tp-prog b{font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;}
+  .today-page .today-items{display:flex;flex-direction:column;gap:8px;}
+  .today-page .today-item{width:100%;}                 /* 整页宽度，不再受 widget 列宽限制 */
+  .today-page .today-sec-h{margin:14px 0 6px;}
+  @media(max-width:860px){ .today-page{max-width:none;} }
   /* 视图切换 */
   .viewbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
   /* 视图切换：按「任务 / 管理 / 成长」三段分组。分组只用竖线分隔 + 读屏 role/aria-label 表达，
@@ -1730,6 +1741,7 @@
         <button data-v="month" role="tab" aria-selected="true" class="on" aria-label="月视图">月</button>
         <button data-v="week" role="tab" aria-selected="false" aria-label="周视图">周</button>
         <button data-v="day" role="tab" aria-selected="false" aria-label="日视图">日</button>
+        <button data-v="today" role="tab" aria-selected="false" title="今日要处理整页视图（放大于顶部单栏）" aria-label="今日要处理整页视图">今日</button>
         <button data-v="gantt" role="tab" aria-selected="false" aria-label="甘特图视图">甘特</button>
       </div>
       <div class="seg-group" role="group" aria-label="管理视图">
@@ -4344,7 +4356,8 @@ let todayDoneExpanded=true;      // 已完成区默认展开（可手动折叠�
 let todayDensity="compact";      // "compact" | "detail"
 let todayMax=false;              // 是否临时最大化占满整行
 let subOpenIds=new Set();        // 今日面板里已展开子任务勾选区的任务 id
-function renderToday(){
+/* 今日要处理：数据模型（顶部 widget 与底部整页视图共用，保证两套口径完全一致） */
+function buildTodayModel(){
   const d0=startOfDay(new Date()), now=new Date();
   window.__todayStats={pending:0, overdue:0};
   const backlogStart=addDays(d0,-14);
@@ -4360,64 +4373,73 @@ function renderToday(){
       due.push(i);
     }
   }
-  due.sort((a,b)=> (gwRank(a.task)-gwRank(b.task)) || (priRank(a.task.priority)-priRank(a.task.priority)) );
+  due.sort((a,b)=> (gwRank(a.task)-gwRank(b.task)) || (priRank(a.task.priority)-priRank(b.task.priority)) );
   overdue.sort((a,b)=> parseLocal(b.end)-parseLocal(a.end) );
   const urgent=overdue.concat(due);
   window.__todayStats={pending:urgent.length, overdue:overdue.length};
-
-  const list=document.getElementById("todayList");
-  const krHtml=renderTodayKrHtml();
   const todayAll=insts.filter(i=>sameDay(i.date,d0) && !i.dropped);
   const done=todayAll.filter(isDone).length, total=todayAll.length;
+  return {d0, now, insts, overdue, due, urgent, todayAll, done, total};
+}
+
+/* 今日要处理：单条任务 HTML（顶部 widget 与底部整页视图共用，输出完全一致） */
+function todayItemHtml(i, compact, ov){
+  const p=i.task.priority, c=catColor(i.task.cat);
+  const isDrop = isDropped(i.task,i.date);
+  const itDone = isDone(i);
+  const now=new Date();
+  const daysLate = ov ? Math.max(1, Math.round((now - i.end)/86400000)) : 0;
+  const when = isDrop ? ("不补做 · "+fmtRange(i.start,i.end)) : (ov ? ("逾期 "+ (daysLate<=1?"昨天":daysLate+" 天") +" · "+fmtRange(i.start,i.end)) : ("今天 "+fmtRange(i.start,i.date)));
+  const dk=ymd(i.date);
+  const hasSub=!!(i.task.subtasks&&i.task.subtasks.length);
+  const subOpen=hasSub&&subOpenIds.has(i.task.id);
+  const sub=hasSub?`<button type="button" class="s subtoggle" data-subopen="${i.task.id}" aria-expanded="${subOpen}" title="展开/收起子任务勾选">子任务 ${subBadge(i.task,dk).trim()} ${subOpen?"▲":"▼"}</button>`:"";
+  const extra=[];
+  if(!compact){
+    if(i.task.gw && i.task.gw!=="next") extra.push(`<span class="badge gw">${gwLabel(i.task.gw)}</span>`);
+    if(i.task.energy) extra.push(`<span class="badge sub">${i.task.energy==="high"?"精力↑":i.task.energy==="low"?"精力↓":"精力中"}</span>`);
+    if(i.task.est) extra.push(`<span class="badge sub">${i.task.est}′</span>`);
+  }
+  const barColor = ov ? "var(--danger)" : priColor(p);
+  const ibd = (!compact && i.task.desc) ? `<div class="ibd">${esc(i.task.desc)}</div>` : "";
+  return `<div class="today-item ${ov?'overdue':''} ${itDone?'done':''} ${isDrop?'dropped no-count':''}">
+    <div class="bar" style="background:${barColor}"></div>
+    <div class="meta">
+      <div class="t">${esc(i.task.title)}</div>
+      ${ibd}
+      <div class="ibs">
+        <span class="s ${ov?'over':''}">${when}${ov?' · 待补做':''}</span>
+        ${isDrop?`<span class="badge drop">不补做</span>`:""}
+        <span class="badge" style="background:${hexA(priColor(p),.16)};color:${priColor(p)}">${esc(p)}</span>
+        <span class="badge" style="background:${hexA(c,.16)};color:${c}">${esc(i.task.cat||"")}</span>
+        ${sub}${tagsHtml(i.task)}${extra.join("")}${itDone?`<span class="badge done-at" style="${DONE_AT_CSS}">${doneAtMark(i.task, i.date, true)}</span>`:""}
+      ${hasSub&&subOpen?subChecklistHtml(i.task,dk):""}
+      </div>
+    </div>
+    <div class="today-acts">${isDrop
+      ? `<button class="btn btn-ghost btn-sm" data-restore="${i.task.id}" data-date="${ymd(i.date)}">恢复</button>`
+      : (itDone
+          ? `<button class="btn btn-ghost btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">撤销</button>`
+          : `<button class="btn btn-pri btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">完成</button><button class="btn btn-quiet btn-sm" data-skip="${i.task.id}" data-date="${ymd(i.date)}">不补做</button>`)
+    }</div>
+  </div>`;
+}
+
+const TODAY_SEC_HEAD=(label, n, cls)=>`<div class="today-sec-h" data-sec="${cls}"><span class="today-sec-dot ${cls}"></span>${label} <b>${n}</b></div>`;
+
+function renderToday(){
+  const m=buildTodayModel();
+  const {overdue, due, urgent, todayAll, done, total}=m;
+  const list=document.getElementById("todayList");
+  const krHtml=renderTodayKrHtml();
   if(!urgent.length && !done){ list.innerHTML='<div class="empty"><div class="empty-ic">🎉</div><div>今天没有待处理任务<br>把收件箱里的想法安排进来，或点上方「新建任务」添加一个</div></div>'+krHtml+hintHtml(); renderRing(0,0); bindKrToday(); return; }
 
   const compact = todayDensity==="compact";
-  const itemHtml=(i)=>{
-    const p=i.task.priority, c=catColor(i.task.cat);
-    const isDrop = isDropped(i.task,i.date);
-    const ov = overdue.includes(i) && !isDrop;
-    const itDone = isDone(i);
-    const daysLate = ov ? Math.max(1, Math.round((now - i.end)/86400000)) : 0;
-    const when = isDrop ? ("不补做 · "+fmtRange(i.start,i.end)) : (ov ? ("逾期 "+ (daysLate<=1?"昨天":daysLate+" 天") +" · "+fmtRange(i.start,i.end)) : ("今天 "+fmtRange(i.start,i.date)));
-    const dk=ymd(i.date);
-    const hasSub=!!(i.task.subtasks&&i.task.subtasks.length);
-    const subOpen=hasSub&&subOpenIds.has(i.task.id);
-    const sub=hasSub?`<button type="button" class="s subtoggle" data-subopen="${i.task.id}" aria-expanded="${subOpen}" title="展开/收起子任务勾选">子任务 ${subBadge(i.task,dk).trim()} ${subOpen?"▲":"▼"}</button>`:"";
-    const extra=[];
-    if(!compact){
-      if(i.task.gw && i.task.gw!=="next") extra.push(`<span class="badge gw">${gwLabel(i.task.gw)}</span>`);
-      if(i.task.energy) extra.push(`<span class="badge sub">${i.task.energy==="high"?"精力↑":i.task.energy==="low"?"精力↓":"精力中"}</span>`);
-      if(i.task.est) extra.push(`<span class="badge sub">${i.task.est}′</span>`);
-    }
-    const barColor = ov ? "var(--danger)" : priColor(p);
-    const ibd = (!compact && i.task.desc) ? `<div class="ibd">${esc(i.task.desc)}</div>` : "";
-    return `<div class="today-item ${ov?'overdue':''} ${itDone?'done':''} ${isDrop?'dropped no-count':''}">
-      <div class="bar" style="background:${barColor}"></div>
-      <div class="meta">
-        <div class="t">${esc(i.task.title)}</div>
-        ${ibd}
-        <div class="ibs">
-          <span class="s ${ov?'over':''}">${when}${ov?' · 待补做':''}</span>
-          ${isDrop?`<span class="badge drop">不补做</span>`:""}
-          <span class="badge" style="background:${hexA(priColor(p),.16)};color:${priColor(p)}">${esc(p)}</span>
-          <span class="badge" style="background:${hexA(c,.16)};color:${c}">${esc(i.task.cat||"")}</span>
-          ${sub}${tagsHtml(i.task)}${extra.join("")}${itDone?`<span class="badge done-at" style="${DONE_AT_CSS}">${doneAtMark(i.task, i.date, true)}</span>`:""}
-        ${hasSub&&subOpen?subChecklistHtml(i.task,dk):""}
-        </div>
-      </div>
-      <div class="today-acts">${isDrop
-        ? `<button class="btn btn-ghost btn-sm" data-restore="${i.task.id}" data-date="${ymd(i.date)}">恢复</button>`
-        : (itDone
-            ? `<button class="btn btn-ghost btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">撤销</button>`
-            : `<button class="btn btn-pri btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">完成</button><button class="btn btn-quiet btn-sm" data-skip="${i.task.id}" data-date="${ymd(i.date)}">不补做</button>`)
-      }</div>
-    </div>`;
-  };
+  const itemHtml=(i)=> todayItemHtml(i, compact, overdue.includes(i));
 
-  const secHead=(label, n, cls)=>`<div class="today-sec-h" data-sec="${cls}"><span class="today-sec-dot ${cls}"></span>${label} <b>${n}</b></div>`;
   let html="";
-  if(overdue.length) html += secHead("逾期", overdue.length, "over") + overdue.map(itemHtml).join("");
-  if(due.length)     html += secHead("今天", due.length, "") + due.map(itemHtml).join("");
+  if(overdue.length) html += TODAY_SEC_HEAD("逾期", overdue.length, "over") + overdue.map(itemHtml).join("");
+  if(due.length)     html += TODAY_SEC_HEAD("今天", due.length, "") + due.map(itemHtml).join("");
   const doneItems=todayAll.filter(isDone);
   if(doneItems.length){
     const folded = !todayDoneExpanded;
@@ -4462,6 +4484,76 @@ function renderToday(){
   list.onscroll=()=>updateTodayScrollHint();
   updateTodayScrollHint();
 }
+
+/* 今日要处理整页视图：底部「今日」标签触发；与顶部 widget 同源、放大为整页、无高度上限、随窗口滚动。
+   进入该视图时顶部「今天要处理」widget 由 VIEW_DUP_PANEL 自动收起（内容重复）。 */
+function renderTodayPage(){
+  const m=buildTodayModel();
+  const {overdue, due, urgent, todayAll, done, total}=m;
+  const view=document.getElementById("view");
+  if(!view) return;
+  const krHtml=renderTodayKrHtml();
+  if(!urgent.length && !done){
+    view.innerHTML='<div class="today-page"><div class="empty"><div class="empty-ic">🎉</div><div>今天没有待处理任务<br>把收件箱里的想法安排进来，或点上方「新建任务」添加一个</div></div>'+krHtml+'</div>';
+    bindKrToday();
+    return;
+  }
+  const compact = todayDensity==="compact";
+  const itemHtml=(i)=> todayItemHtml(i, compact, overdue.includes(i));
+
+  let body="";
+  if(overdue.length) body += TODAY_SEC_HEAD("逾期", overdue.length, "over") + overdue.map(itemHtml).join("");
+  if(due.length)     body += TODAY_SEC_HEAD("今天", due.length, "") + due.map(itemHtml).join("");
+  const doneItems=todayAll.filter(isDone);
+  if(doneItems.length){
+    const folded = !todayDoneExpanded;
+    body += `<div class="today-sec ${folded?'folded':''}">
+      <button class="today-sec-toggle" data-donesec>${folded?'▸':'▾'} 已完成 ${doneItems.length}</button>
+      <div class="today-sec-b" ${folded?'style="display:none"':''}>${ folded ? "" : doneItems.map(itemHtml).join("") }</div></div>`;
+  }
+  const densLabel = todayDensity==="compact" ? "简" : "详";
+  view.innerHTML = `<div class="today-page">
+    <div class="tp-head">
+      <h2>今日要处理</h2>
+      <span class="tp-prog">今天 <b>${done}</b>/<b>${total}</b> 已完成</span>
+      <span class="spacer" style="flex:1"></span>
+      <button class="btn btn-ghost btn-sm" id="todayPageDensity" title="切换紧凑 / 详细密度">${densLabel}</button>
+    </div>
+    <div class="today-items">${body}</div>
+    ${krHtml}
+  </div>`;
+  bindKrToday();
+  view.querySelectorAll("[data-done]").forEach(b=>b.onclick=()=>{ toggleDone(b.dataset.done, b.dataset.date); });
+  view.querySelectorAll("[data-restore]").forEach(b=>b.onclick=()=>{ restoreTask(b.dataset.restore, b.dataset.date); });
+  view.querySelectorAll("[data-skip]").forEach(b=>b.onclick=()=>{ skipTask(b.dataset.skip, b.dataset.date); });
+  view.querySelectorAll("[data-subopen]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.subopen;
+    if(subOpenIds.has(id)) subOpenIds.delete(id); else subOpenIds.add(id);
+    renderAll();
+  });
+  view.querySelectorAll("[data-subtick]").forEach(b=>b.onclick=()=>{
+    const t=state.tasks.find(x=>x.id===b.dataset.subtick); if(!t) return;
+    const s=(t.subtasks||[]).find(x=>x.id===b.dataset.sid); if(!s) return;
+    const date=b.dataset.date;
+    const beforeAll=t.subtasks.every(x=>subIsDone(t,x,date));
+    snapshot();
+    subToggle(t, s, date);
+    syncDoneFromSubtasks(t, date, beforeAll);
+    save();
+    renderAll();
+  });
+  view.querySelectorAll(".tagchip").forEach(c=>c.onclick=()=>{
+    state.filter={q:c.dataset.tag, cat:"", pri:"", tag:""};
+    document.getElementById("fSearch").value=c.dataset.tag;
+    document.getElementById("fCat").value=""; document.getElementById("fPri").value=""; document.getElementById("fTag").value="";
+    document.getElementById("fClear").style.display="inline-flex";
+    renderAll();
+  });
+  view.querySelectorAll("[data-donesec]").forEach(b=>b.onclick=()=>{ todayDoneExpanded=!todayDoneExpanded; renderAll(); });
+  const densBtn=document.getElementById("todayPageDensity");
+  if(densBtn){ densBtn.onclick=()=>{ todayDensity = todayDensity==="compact"?"detail":"compact"; renderAll(); }; }
+}
+
 
 /* 滚动提示：列表内容溢出可视区时，吸底显示「还有 N 条，滚动查看」；滚到底自动隐藏。 */
 function hintHtml(){ return '<div class="today-scroll-hint" id="todayScrollHint"></div>'; }
@@ -5514,6 +5606,7 @@ function renderCur(){
   else if(state.view===VIEWS.OKR) s="目标 OKR";
   else if(state.view===VIEWS.REVIEW) s="定期回顾";
   else if(state.view===VIEWS.ANNIV) s="纪念日";
+  else if(state.view===VIEWS.TODAY) s="今日要处理";
   else { s=d.getFullYear()+"年"+(d.getMonth()+1)+"月 · 甘特"; }
   document.getElementById("curdate").textContent=s;
 }
@@ -5991,7 +6084,7 @@ const PANEL_KEYS={top:"toppanel",habit:"habitpanel",list:"listpanel"};
    进入这些视图时把对应 widget 临时收起（不改用户持久偏好，切回其它视图自动恢复），避免同屏两处相同信息。
    注：「清单」视图曾用同一规则自动收起顶部「清单速览」，导致该栏只剩空白卡片；
    按用户反馈已移除该映射——清单视图下顶部「清单速览」与其他视图一致，正常展开、内容照常渲染。 */
-const VIEW_DUP_PANEL={habit:"habit"};
+const VIEW_DUP_PANEL={habit:"habit", today:"top"};
 function applyPanelCollapse(isFullPage, view){
   const dup = view ? VIEW_DUP_PANEL[view] : null;
   for(const k in PANEL_KEYS){
@@ -6887,7 +6980,7 @@ function renderAllNow(){
   const _hs = Array.from(_hsEls).map(e=>e.scrollLeft);
   renderCur();
   const isMedia = state.view===VIEWS.MEDIA;
-  const isFullPage = isMedia||state.view===VIEWS.STATS||state.view===VIEWS.HABIT||state.view===VIEWS.LISTS||state.view===VIEWS.PROJECTS||state.view===VIEWS.OKR||state.view===VIEWS.REVIEW||state.view===VIEWS.ANNIV; // 整页视图
+  const isFullPage = isMedia||state.view===VIEWS.STATS||state.view===VIEWS.HABIT||state.view===VIEWS.LISTS||state.view===VIEWS.PROJECTS||state.view===VIEWS.OKR||state.view===VIEWS.REVIEW||state.view===VIEWS.ANNIV||state.view===VIEWS.TODAY; // 整页视图
   const isInbox = state.view===VIEWS.INBOX;
   // 非日历/收件箱视图：日期导航用 display:none 彻底移出布局，避免右侧留下空白占位带（）
   document.querySelector(".nav").style.display = (isFullPage||isInbox)?"none":"";
@@ -6918,6 +7011,7 @@ function renderAllNow(){
   else if(state.view===VIEWS.OKR) renderOkr();
   else if(state.view===VIEWS.REVIEW) renderReview();
   else if(state.view===VIEWS.ANNIV) renderAnniv();
+  else if(state.view===VIEWS.TODAY) renderTodayPage();
   else renderGantt();
   renderToday();
   renderHabitPanel();
@@ -9574,7 +9668,7 @@ document.getElementById("mgKeep").onchange=mgRender;
 document.getElementById("mgDrop").onchange=mgRender;
 document.getElementById("okrSave").onclick=okrSave;
 document.getElementById("okrDelete").onclick=okrDelete;
-function bindKrToday(){ const list=document.getElementById("todayList"); if(list) list.querySelectorAll(".kr-today-item[data-kr]").forEach(b=>b.onclick=()=>okrOpenKR(b.dataset.kr)); }
+function bindKrToday(){ document.querySelectorAll("#todayList .kr-today-item[data-kr], #view .kr-today-item[data-kr]").forEach(b=>b.onclick=()=>okrOpenKR(b.dataset.kr)); }
 
 /* ===== 键盘快捷键 ===== */
 function inField(){ const a=document.activeElement; return a && (a.tagName==="INPUT"||a.tagName==="TEXTAREA"||a.tagName==="SELECT"||a.isContentEditable); }
