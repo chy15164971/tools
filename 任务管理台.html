@@ -199,16 +199,31 @@
   .today-item .bar.p0{background:var(--danger);} .today-item .bar.p1{background:var(--warn);} .today-item .bar.p2{background:var(--c5);}
   .today-item .meta{min-width:0;overflow:hidden;}
   /* 卡片右侧动作区：必须包成「单个 grid 项」，否则第二个裸按钮会被 3 列网格换行掉进 4px 第一列（2026-09-16 实锤） */
-  .today-acts{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;align-items:center;}
+  .today-acts{display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end;align-items:center;}
   .today-acts .btn{flex:none;white-space:nowrap;}
-  .today-item .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  /* 动作层级：任务信息优先——「完成」是唯一强调按钮；其余降为图标化次要按钮（更小、更低对比、悬停/聚焦才显现） */
+  .today-acts .btn-sm{font-size:12px;padding:3px 9px;min-height:26px;line-height:1.2;}
+  .today-act{width:26px;height:26px;min-height:26px;padding:0;display:inline-flex;align-items:center;justify-content:center;
+    font-size:13px;line-height:1;border-radius:7px;background:transparent;border:1px solid transparent;color:var(--muted);cursor:pointer;}
+  .today-act:hover{background:var(--bg2);border-color:var(--line);color:var(--text);}
+  .today-act:focus-visible{outline:2px solid var(--pri);outline-offset:1px;}
+  /* 桌面端：次要动作默认隐形，指针进入该任务行 / 键盘聚焦时才淡入（元素仍在 DOM 内、可被读屏与 Tab 聚焦，不改变布局） */
+  @media (hover:hover){
+    .today-acts .btn-sec{opacity:0;transition:opacity .14s ease;}
+    .today-item:hover .today-acts .btn-sec,
+    .today-item:focus-within .today-acts .btn-sec,
+    .today-acts .btn-sec:focus-visible{opacity:1;}
+  }
+  @media (hover:none){ .today-acts .btn-sec{opacity:1;} }   /* 触屏无悬停：常显，保证一定点得到 */
+  .today-item .t{font-weight:600;font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .today-item .ibd{font-size:12.5px;color:var(--sub);margin-top:3px;line-height:1.5;word-break:break-word;text-align:left;}
   .today-item .ibs{font-size:12px;color:var(--sub);margin-top:4px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;min-width:0;}
   .today-item .ibs>*{min-width:0;}
   .today-item .ibs .badge,
   .today-item .ibs .tagchip{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .today-item .s{font-size:12px;color:var(--sub);}
-  .today-item .over{color:var(--danger);font-weight:600;}
+  .today-item .s.when{color:var(--text);font-weight:600;}   /* 截止/逾期是核心信息：提到正文色并加粗 */
+  .today-item .over{color:var(--danger);font-weight:600;}   /* 逾期仍优先用危险色（写在 .when 之后以生效） */
   .badge{font-size:11px;padding:2px 7px;border-radius:999px;background:var(--pri-soft);color:var(--pri);font-weight:600;}
   .badge.p0{background:#ffe9e9;color:var(--danger);} .badge.p1{background:#fff1e3;color:var(--warn);} .badge.p2{background:#eef0f3;color:#5a6472;}
   .ring{width:54px;height:54px;flex:none;}
@@ -236,6 +251,8 @@
   .today-page .tp-prog b{font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;}
   .today-page .today-items{display:flex;flex-direction:column;gap:8px;}
   .today-page .today-item{width:100%;}                 /* 整页宽度，不再受 widget 列宽限制 */
+  /* 整页空间充裕：标题放大并允许两行，避免长标题被单行截断（窄 widget 内仍保持单行省略） */
+  .today-page .today-item .t{font-size:15px;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
   /* 今日任务项可点击查看详情 */
   .today-item[data-open]{cursor:pointer;}
   .today-item[data-open]:hover{box-shadow:0 1px 0 var(--line), 0 0 0 1px var(--pri-soft);}
@@ -256,8 +273,8 @@
   .detail-kv .dv{color:var(--ink);min-width:0;word-break:break-word;}
   .detail-sec{font-size:12px;font-weight:700;color:var(--sub);margin:14px 0 7px;letter-spacing:.03em;}
   .detail-desc{white-space:pre-wrap;line-height:1.6;font-size:13.5px;color:var(--ink);background:var(--bg);border-radius:10px;padding:10px 12px;max-height:240px;overflow:auto;}
-  .detail-actions{display:flex;gap:10px;margin-top:18px;position:sticky;bottom:0;background:var(--card);padding-top:12px;}
-  .detail-actions .btn{flex:1;justify-content:center;}
+  .detail-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px;position:sticky;bottom:0;background:var(--card);padding-top:12px;}
+  .detail-actions .btn{flex:1 1 72px;justify-content:center;}   /* 允许换行，四个按钮在窄屏不再被压扁 */
   .today-page .today-sec-h{margin:14px 0 6px;}
   @media(max-width:860px){ .today-page{max-width:none;} }
   /* 视图切换 */
@@ -1400,6 +1417,9 @@
     .today-item .ibd{font-size:12px;}
     .today-item .ibs{gap:5px;font-size:11.5px;}
     .today-item .btn-sm{padding:6px 9px;min-height:44px;font-size:12.5px;} /* M-8：主操作提至 44px（iOS HIG） */
+    /* 图标化次要动作：触屏放宽到 44×44 触控区，并常显（无悬停可用） */
+    .today-acts .today-act{width:44px;height:44px;min-height:44px;min-width:44px;font-size:15px;}
+    .today-acts .btn-sec{opacity:1;}
     /* 面板标题右侧图标按钮适度缩小 */
     .toppanel h3 .ring{width:42px;height:42px;}
     .panel.collapsible .ptoggle{min-width:36px;min-height:36px;width:36px;height:36px;}
@@ -4437,7 +4457,7 @@ function todayItemHtml(i, compact, ov){
       <div class="t">${esc(i.task.title)}</div>
       ${ibd}
       <div class="ibs">
-        <span class="s ${ov?'over':''}">${when}${ov?' · 待补做':''}</span>
+        <span class="s when ${ov?'over':''}">${when}${ov?' · 待补做':''}</span>
         ${isDrop?`<span class="badge drop">不补做</span>`:""}
         <span class="badge" style="background:${hexA(priColor(p),.16)};color:${priColor(p)}">${esc(p)}</span>
         <span class="badge" style="background:${hexA(c,.16)};color:${c}">${esc(i.task.cat||"")}</span>
@@ -4449,22 +4469,66 @@ function todayItemHtml(i, compact, ov){
       ? `<button class="btn btn-ghost btn-sm" data-restore="${i.task.id}" data-date="${ymd(i.date)}">恢复</button>`
       : (itDone
           ? `<button class="btn btn-ghost btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">撤销</button>`
-          : `<button class="btn btn-pri btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">完成</button><button class="btn btn-quiet btn-sm" data-skip="${i.task.id}" data-date="${ymd(i.date)}">不补做</button><button class="btn btn-ghost btn-sm" data-defer="both" data-id="${i.task.id}" data-date="${ymd(i.date)}">推迟</button><button class="btn btn-ghost btn-sm" data-defer="end" data-id="${i.task.id}" data-date="${ymd(i.date)}">延期</button>`)
+          : `<button class="btn btn-pri btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">完成</button>`
+            +`<button class="today-act btn-sec" data-skip="${i.task.id}" data-date="${ymd(i.date)}" title="不补做：移出今日，仍灰显在原日期" aria-label="不补做">&#8864;</button>`
+            +`<button class="today-act btn-sec" data-defer="both" data-id="${i.task.id}" data-date="${ymd(i.date)}" title="推迟 / 延期" aria-label="推迟或延期">&#9200;</button>`)
     }</div>
   </div>`;
 }
 
 const TODAY_SEC_HEAD=(label, n, cls)=>`<div class="today-sec-h" data-sec="${cls}"><span class="today-sec-dot ${cls}"></span>${label} <b>${n}</b></div>`;
 
+/* 今日区域公共绑定（顶部 widget 与「今日」整页共用，唯一差异是刷新回调）；
+   之前两处各有约 35 行近乎逐字重复的绑定，改一处漏一处，现统一收敛。 */
+function bindTodayActions(root, rerender){
+  root.querySelectorAll("[data-done]").forEach(b=>b.onclick=()=>{ toggleDone(b.dataset.done, b.dataset.date); });
+  root.querySelectorAll("[data-restore]").forEach(b=>b.onclick=()=>{ restoreTask(b.dataset.restore, b.dataset.date); });
+  root.querySelectorAll("[data-skip]").forEach(b=>b.onclick=()=>{ skipTask(b.dataset.skip, b.dataset.date); });
+  root.querySelectorAll("[data-defer]").forEach(b=>b.onclick=()=>{ openDeferFromCard(b.dataset.id, b.dataset.date); });
+  root.querySelectorAll("[data-subopen]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.subopen;
+    if(subOpenIds.has(id)) subOpenIds.delete(id); else subOpenIds.add(id);
+    rerender();
+  });
+  root.querySelectorAll("[data-subtick]").forEach(b=>b.onclick=()=>{
+    const t=state.tasks.find(x=>x.id===b.dataset.subtick); if(!t) return;
+    const s=(t.subtasks||[]).find(x=>x.id===b.dataset.sid); if(!s) return;
+    const date=b.dataset.date;
+    const beforeAll=t.subtasks.every(x=>subIsDone(t,x,date));
+    snapshot();
+    subToggle(t, s, date);
+    syncDoneFromSubtasks(t, date, beforeAll);
+    save();
+    rerender();
+  });
+  root.querySelectorAll(".tagchip").forEach(c=>c.onclick=()=>{
+    state.filter={q:c.dataset.tag, cat:"", pri:"", tag:""};
+    document.getElementById("fSearch").value=c.dataset.tag;
+    document.getElementById("fCat").value=""; document.getElementById("fPri").value=""; document.getElementById("fTag").value="";
+    document.getElementById("fClear").style.display="inline-flex";
+    renderAll();
+  });
+  root.querySelectorAll("[data-donesec]").forEach(b=>b.onclick=()=>{ todayDoneExpanded=!todayDoneExpanded; rerender(); });
+  root.querySelectorAll("[data-open]").forEach(el=>el.onclick=e=>{ if(e.target.closest(".today-acts,.subtoggle,[data-subtick],.tagchip")) return; openTaskDetail(el.dataset.open, el.dataset.openDate); });
+}
+/* 顶部 widget 头部的「密度 / 最大化」：空态也必须绑定，否则首次进入空列表时按钮是死的 */
+function bindTodayHeader(){
+  const densBtn=document.getElementById("todayDensityBtn");
+  if(densBtn){ densBtn.textContent = todayDensity==="compact" ? "简" : "详"; densBtn.onclick=()=>{ todayDensity = todayDensity==="compact"?"detail":"compact"; renderToday(); }; }
+  const maxBtn=document.getElementById("todayMaxBtn");
+  if(maxBtn){ maxBtn.onclick=()=>{ todayMax=!todayMax; const p=document.querySelector('.toppanel[data-wid="today"]'); if(p) p.classList.toggle('today-max', todayMax); renderToday(); }; }
+}
 function renderToday(){
   const m=buildTodayModel();
   const {overdue, due, urgent, todayAll, done, total}=m;
   const list=document.getElementById("todayList");
   const krHtml=renderTodayKrHtml();
+  bindTodayHeader();   // 空态也要绑，否则首次进入空列表时密度/最大化按钮无响应
   if(!urgent.length && !done){ list.innerHTML='<div class="empty"><div class="empty-ic">🎉</div><div>今天没有待处理任务<br>把收件箱里的想法安排进来，或点上方「新建任务」添加一个</div></div>'+krHtml+hintHtml(); renderRing(0,0); bindKrToday(); return; }
 
   const compact = todayDensity==="compact";
-  const itemHtml=(i)=> todayItemHtml(i, compact, overdue.includes(i));
+  const ovSet=new Set(overdue);   // 避免 overdue.includes(i) 的 O(n^2)
+  const itemHtml=(i)=> todayItemHtml(i, compact, ovSet.has(i));
 
   let html="";
   if(overdue.length) html += TODAY_SEC_HEAD("逾期", overdue.length, "over") + overdue.map(itemHtml).join("");
@@ -4479,42 +4543,10 @@ function renderToday(){
   list.innerHTML=html+krHtml+hintHtml();
   renderRing(done,total);
   bindKrToday();
-  list.querySelectorAll("[data-done]").forEach(b=>b.onclick=()=>{ toggleDone(b.dataset.done, b.dataset.date); });
-  list.querySelectorAll("[data-restore]").forEach(b=>b.onclick=()=>{ restoreTask(b.dataset.restore, b.dataset.date); });
-  list.querySelectorAll("[data-skip]").forEach(b=>b.onclick=()=>{ skipTask(b.dataset.skip, b.dataset.date); });
-  list.querySelectorAll("[data-defer]").forEach(b=>b.onclick=()=>{ openDeferFromCard(b.dataset.id, b.dataset.date); });
-  list.querySelectorAll("[data-subopen]").forEach(b=>b.onclick=()=>{
-    const id=b.dataset.subopen;
-    if(subOpenIds.has(id)) subOpenIds.delete(id); else subOpenIds.add(id);
-    renderToday();
-  });
-  list.querySelectorAll("[data-subtick]").forEach(b=>b.onclick=()=>{
-    const t=state.tasks.find(x=>x.id===b.dataset.subtick); if(!t) return;
-    const s=(t.subtasks||[]).find(x=>x.id===b.dataset.sid); if(!s) return;
-    const date=b.dataset.date;
-    const beforeAll=t.subtasks.every(x=>subIsDone(t,x,date));
-    snapshot();
-    subToggle(t, s, date);
-    syncDoneFromSubtasks(t, date, beforeAll);
-    save();
-    renderToday();
-  });
-  list.querySelectorAll(".tagchip").forEach(c=>c.onclick=()=>{
-    state.filter={q:c.dataset.tag, cat:"", pri:"", tag:""};
-    document.getElementById("fSearch").value=c.dataset.tag;
-    document.getElementById("fCat").value=""; document.getElementById("fPri").value=""; document.getElementById("fTag").value="";
-    document.getElementById("fClear").style.display="inline-flex";
-    renderAll();
-  });
-  list.querySelectorAll("[data-donesec]").forEach(b=>b.onclick=()=>{ todayDoneExpanded=!todayDoneExpanded; renderToday(); });
-  const densBtn=document.getElementById("todayDensityBtn");
-  if(densBtn){ densBtn.textContent = todayDensity==="compact" ? "简" : "详"; densBtn.onclick=()=>{ todayDensity = todayDensity==="compact"?"detail":"compact"; renderToday(); }; }
-  const maxBtn=document.getElementById("todayMaxBtn");
-  if(maxBtn){ maxBtn.onclick=()=>{ todayMax=!todayMax; const p=document.querySelector('.toppanel[data-wid="today"]'); if(p) p.classList.toggle('today-max', todayMax); renderToday(); }; }
-  list.querySelectorAll("[data-open]").forEach(el=>el.onclick=e=>{ if(e.target.closest(".today-acts,.subtoggle,[data-subtick],.tagchip")) return; openTaskDetail(el.dataset.open, el.dataset.openDate); });
-  list.onscroll=()=>updateTodayScrollHint();
+  bindTodayActions(list, renderToday);
   updateTodayScrollHint();
 }
+
 
 /* 今日要处理整页视图：底部「今日」标签触发；与顶部 widget 同源、放大为整页、无高度上限、随窗口滚动。
    进入该视图时顶部「今天要处理」widget 由 VIEW_DUP_PANEL 自动收起（内容重复）。 */
@@ -4524,13 +4556,23 @@ function renderTodayPage(){
   const view=document.getElementById("view");
   if(!view) return;
   const krHtml=renderTodayKrHtml();
+  const densLabel = todayDensity==="compact" ? "简" : "详";
+  const bindDens=()=>{ const b=document.getElementById("todayPageDensity"); if(b){ b.onclick=()=>{ todayDensity = todayDensity==="compact"?"detail":"compact"; renderAll(); }; } };
+  // 空态也保留标题栏（含密度切换），与有条目时结构一致，避免空态下按钮失效
+  const head=`<div class="tp-head">
+      <h2>今日要处理</h2>
+      <span class="tp-prog">今天 <b>${done}</b>/<b>${total}</b> 已完成</span>
+      <span class="spacer" style="flex:1"></span>
+      <button class="btn btn-ghost btn-sm" id="todayPageDensity" title="切换紧凑 / 详细密度">${densLabel}</button>
+    </div>`;
   if(!urgent.length && !done){
-    view.innerHTML='<div class="today-page"><div class="empty"><div class="empty-ic">🎉</div><div>今天没有待处理任务<br>把收件箱里的想法安排进来，或点上方「新建任务」添加一个</div></div>'+krHtml+'</div>';
-    bindKrToday();
+    view.innerHTML=`<div class="today-page">${head}<div class="empty"><div class="empty-ic">🎉</div><div>今天没有待处理任务<br>把收件箱里的想法安排进来，或点上方「新建任务」添加一个</div></div>${krHtml}${hintHtml()}</div>`;
+    bindKrToday(); bindDens();
     return;
   }
   const compact = todayDensity==="compact";
-  const itemHtml=(i)=> todayItemHtml(i, compact, overdue.includes(i));
+  const ovSet=new Set(overdue);
+  const itemHtml=(i)=> todayItemHtml(i, compact, ovSet.has(i));
 
   let body="";
   if(overdue.length) body += TODAY_SEC_HEAD("逾期", overdue.length, "over") + overdue.map(itemHtml).join("");
@@ -4542,50 +4584,15 @@ function renderTodayPage(){
       <button class="today-sec-toggle" data-donesec>${folded?'▸':'▾'} 已完成 ${doneItems.length}</button>
       <div class="today-sec-b" ${folded?'style="display:none"':''}>${ folded ? "" : doneItems.map(itemHtml).join("") }</div></div>`;
   }
-  const densLabel = todayDensity==="compact" ? "简" : "详";
-  view.innerHTML = `<div class="today-page">
-    <div class="tp-head">
-      <h2>今日要处理</h2>
-      <span class="tp-prog">今天 <b>${done}</b>/<b>${total}</b> 已完成</span>
-      <span class="spacer" style="flex:1"></span>
-      <button class="btn btn-ghost btn-sm" id="todayPageDensity" title="切换紧凑 / 详细密度">${densLabel}</button>
-    </div>
+  view.innerHTML = `<div class="today-page">${head}
     <div class="today-items">${body}</div>
     ${krHtml}
   </div>`;
   bindKrToday();
-  view.querySelectorAll("[data-done]").forEach(b=>b.onclick=()=>{ toggleDone(b.dataset.done, b.dataset.date); });
-  view.querySelectorAll("[data-restore]").forEach(b=>b.onclick=()=>{ restoreTask(b.dataset.restore, b.dataset.date); });
-  view.querySelectorAll("[data-skip]").forEach(b=>b.onclick=()=>{ skipTask(b.dataset.skip, b.dataset.date); });
-  view.querySelectorAll("[data-defer]").forEach(b=>b.onclick=()=>{ openDeferFromCard(b.dataset.id, b.dataset.date); });
-  view.querySelectorAll("[data-subopen]").forEach(b=>b.onclick=()=>{
-    const id=b.dataset.subopen;
-    if(subOpenIds.has(id)) subOpenIds.delete(id); else subOpenIds.add(id);
-    renderAll();
-  });
-  view.querySelectorAll("[data-subtick]").forEach(b=>b.onclick=()=>{
-    const t=state.tasks.find(x=>x.id===b.dataset.subtick); if(!t) return;
-    const s=(t.subtasks||[]).find(x=>x.id===b.dataset.sid); if(!s) return;
-    const date=b.dataset.date;
-    const beforeAll=t.subtasks.every(x=>subIsDone(t,x,date));
-    snapshot();
-    subToggle(t, s, date);
-    syncDoneFromSubtasks(t, date, beforeAll);
-    save();
-    renderAll();
-  });
-  view.querySelectorAll(".tagchip").forEach(c=>c.onclick=()=>{
-    state.filter={q:c.dataset.tag, cat:"", pri:"", tag:""};
-    document.getElementById("fSearch").value=c.dataset.tag;
-    document.getElementById("fCat").value=""; document.getElementById("fPri").value=""; document.getElementById("fTag").value="";
-    document.getElementById("fClear").style.display="inline-flex";
-    renderAll();
-  });
-  view.querySelectorAll("[data-donesec]").forEach(b=>b.onclick=()=>{ todayDoneExpanded=!todayDoneExpanded; renderAll(); });
-  view.querySelectorAll("[data-open]").forEach(el=>el.onclick=e=>{ if(e.target.closest(".today-acts,.subtoggle,[data-subtick],.tagchip")) return; openTaskDetail(el.dataset.open, el.dataset.openDate); });
-  const densBtn=document.getElementById("todayPageDensity");
-  if(densBtn){ densBtn.onclick=()=>{ todayDensity = todayDensity==="compact"?"detail":"compact"; renderAll(); }; }
+  bindTodayActions(view, renderAll);
+  bindDens();
 }
+
 
 
 /* 任务详情：点击今日任务项打开只读预览，可跳编辑 / 完成 / 不补做 / 子任务勾选 */
@@ -4646,7 +4653,7 @@ function renderTaskDetail(){
   const subHtml = (t.subtasks&&t.subtasks.length) ? `<div class="detail-sec">子任务 ${subBadge(t,dk).trim()}</div>`+subChecklistHtml(t, dk) : "";
   const doneAt = doneState ? doneAtMark(t, date, true) : "";
   const doneAtHtml = doneAt ? `<div class="detail-sec">完成记录</div><div class="detail-desc" style="max-height:none;background:transparent;padding:0;">${esc(doneAt)}</div>` : "";
-  let actions = `<button class="btn btn-pri btn-sm" id="detailEdit">编辑</button>`;
+  let actions = `<button class="btn btn-ghost btn-sm" id="detailEdit">编辑</button>`;   /* 弹窗内唯一强调动作是「完成」，编辑降为次要 */
   if(doneState) actions += `<button class="btn btn-ghost btn-sm" id="detailUndo">撤销完成</button>`;
   else if(droppedState) actions += `<button class="btn btn-ghost btn-sm" id="detailRestore">恢复</button>`;
   else { actions += `<button class="btn btn-pri btn-sm" id="detailDone">完成</button><button class="btn btn-quiet btn-sm" id="detailSkip">不补做</button><button class="btn btn-ghost btn-sm" id="detailDefer">推迟/延期</button>`; }
