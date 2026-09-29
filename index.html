@@ -23,7 +23,7 @@
   /* === SHARED TOKENS START === */
   :root{
     --bg:#f5f7fb; --card:#ffffff; --ink:#1f2430; --text:#1f2430; --sub:#6b7280; --line:#e7ebf2;
-    --pri:#4F7CFF; --pri-soft:#eaf0ff; --ok:#22b07d; --warn:#ff8a3d; --danger:#ef4444;
+    --pri:#4F7CFF; --pri-soft:#eaf0ff; --ok:#22b07d; --ok-soft:#e7f6ec; --warn:#ff8a3d; --danger:#ef4444;
     /* 数据色（c4 媒体剧集 / c5 兜底灰在用；c1~c3 已删除，分类/优先级用用户自定义色） */
     --c4:#ff5c8a; --c5:#9aa0ab; --c6:#9b6bff;
     --radius:12px; --radius-sm:8px; --radius-lg:16px; --shadow:0 2px 10px rgba(31,36,48,.06);
@@ -33,7 +33,7 @@
   [data-theme="dark"]{
     --bg:#0f1320; --card:#171c2b; --ink:#e7ebf3; --text:#e7ebf3; --sub:#9aa3b2; --line:#262d3f;
     --pri:#5b86ff; --pri-soft:#1c2740; --hover:#1c2236; --bg2:#11162a; --muted:#9aa3b2;
-    --ok:#2dd4a0; --warn:#ff9a52; --danger:#ff5d5d;
+    --ok:#2dd4a0; --ok-soft:#10312a; --warn:#ff9a52; --danger:#ff5d5d;
     --c4:#ff7aa6; --c5:#5a6478;
     --shadow:0 2px 10px rgba(0,0,0,.32);
     --soft:#1c2233;
@@ -103,7 +103,7 @@
   .health-grid{display:grid;grid-template-columns:auto 1fr;gap:7px 14px;font-size:13px;margin-top:4px;}
   .health-grid .hk{color:var(--sub);}
   .health-grid .hv{text-align:right;font-variant-numeric:tabular-nums;}
-  .health-grid .hv.warn{color:#d9480f;font-weight:700;}
+  .health-grid .hv.warn{color:var(--warn);font-weight:700;}
   .cloud-section-row{display:flex;gap:8px;}
   .cloud-section-row .btn{flex:1;justify-content:center;}
   
@@ -268,8 +268,8 @@
   .detail-h{display:flex;align-items:flex-start;gap:10px;margin:0 0 12px;}
   .detail-h .dt{font-size:17px;font-weight:700;line-height:1.35;margin:0;flex:1;min-width:0;word-break:break-word;}
   .detail-status{font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;flex:none;white-space:nowrap;}
-  .detail-status.done{background:#e7f6ec;color:#1f9d55;}
-  .detail-status.dropped{background:var(--sub2,#eef0f3);color:var(--sub);}
+  .detail-status.done{background:var(--ok-soft);color:var(--ok);}
+  .detail-status.dropped{background:var(--bg2);color:var(--sub);}
   .detail-status.todo{background:var(--pri-soft);color:var(--pri);}
   .detail-badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
   .detail-grid{display:flex;flex-direction:column;gap:9px;margin-bottom:14px;}
@@ -501,7 +501,7 @@
   /*  云同步防重入：请求飞行期间的忙态指示（spinner 用纯 CSS border 实现，零依赖、离线可用） */
   @keyframes wbspin{to{transform:rotate(360deg)}}
   .btn.is-busy{opacity:.65;cursor:progress;}
-  .modal input:disabled,.modal select:disabled{opacity:.5;cursor:not-allowed;background:var(--sub2,#eef0f3);}
+  .modal input:disabled,.modal select:disabled{opacity:.5;cursor:not-allowed;background:var(--bg2,#eef0f3);}
   .btn.is-busy::after{content:"";display:inline-block;width:12px;height:12px;margin-left:6px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:wbspin .7s linear infinite;vertical-align:-1px;}
     /* 反馈类型配色（） */
   .fileIn{display:none;}
@@ -1601,6 +1601,12 @@
   .stat-grid2{grid-template-columns:1fr 1fr;}         /* 手机档单列 → 平板双列 */
   .media-cols{grid-template-columns:repeat(2,1fr);}   /* 手机档单列 → 平板双列 */
   .today-item .btn-sm{min-height:40px;}               /* 平板空间够，无需 44px 那么高 */
+}
+/* iPad 竖/横屏等「桌面宽度 + 触屏无悬停」：动作图标/按钮提到 44px 触控区并常显（覆盖桌面档的 26px 与竖屏档的 40px），不影响桌面鼠标环境 */
+@media (hover:none) and (pointer:coarse) and (min-width:768px){
+  .today-item .btn-sm{padding:6px 12px;min-height:44px;font-size:13px;}
+  .today-acts .today-act{width:44px;height:44px;min-height:44px;min-width:44px;font-size:15px;}
+  .today-acts .btn-sec{opacity:1;}
 }
 
 </style>
@@ -4342,10 +4348,10 @@ const FUNC_PRESETS=[
 function computeFuncSummary(){
   const tasks=state.tasks||[]; const today0=startOfDay(new Date()); const ws=addDays(today0,-7);
   const catMap={}; let active=0;
-  const weekDone=tasks.filter(t=>isTaskDone(t)&&(t.doneDates||[]).some(d=>parseLocal(d)>=ws)).length;
+  const weekDone=tasks.filter(t=>doneInWindow(t,ws)).length;
   const overdue=tasks.filter(t=>!noDate(t)&&!isTaskDoneNow(t)&&!t.skipMissed&&parseLocal(t.end)<today0);
   const dueToday=tasks.filter(t=>!isTaskDoneNow(t)&&!noDate(t)&&(()=>{const e=parseLocal(t.end);return e>=today0&&e<addDays(today0,1);})());
-  const trend=[]; for(let i=6;i>=0;i--){ const d=addDays(today0,-i); const k=ymd(d); const c=tasks.filter(t=>isTaskDone(t)&&(t.doneDates||[]).includes(k)).length; trend.push({d,c}); }
+  const trend=[]; for(let i=6;i>=0;i--){ const d=addDays(today0,-i); const k=ymd(d); const c=tasks.filter(t=>doneOnDate(t,k)).length; trend.push({d,c}); }
   tasks.forEach(t=>{ if(!isTaskDoneNow(t) && !t.dropped && !isDropped(t, ymd(today0))) active++; const c=(t.cat&&t.cat.name)||t.cat||"未分类"; catMap[c]=(catMap[c]||0)+1; });
   return {weekDone, overdue, dueToday, trend, catMap, active, total:tasks.length};
 }
@@ -5277,6 +5283,27 @@ function isTaskDoneNow(t, ref){
   return false;
 }
 function isTaskDone(t){ if(!t.recurrence||t.recurrence.freq==="none") return t.status==="done"; return (t.doneDates||[]).length>0; }
+// P1-1 修复：统计口径统一——重复任务查 doneDates，非重复任务查 doneAt.self（完成时刻时间戳）。
+// 原统计只看 doneDates，导致全部一次性（非重复）任务的完成被漏计、统计系统性偏低。
+function doneInWindow(t, fromTs){
+  if(!t) return false;
+  const from = startOfDay(fromTs||new Date()).getTime();
+  if(t.recurrence && t.recurrence.freq!=="none"){
+    return (t.doneDates||[]).some(d=>{ const x=parseLocal(d); return x instanceof Date && !isNaN(x) && startOfDay(x).getTime()>=from; });
+  }
+  if(t.status!=="done") return false;
+  const self=(t.doneAt||{}).self; if(!self) return false;
+  const x=parseLocal(self); return x instanceof Date && !isNaN(x) && startOfDay(x).getTime()>=from;
+}
+function doneOnDate(t, k){   // 趋势柱状图按天判断：重复看 doneDates.includes，非重复看该日完成记录或 self 日期
+  if(!t) return false;
+  if(t.recurrence && t.recurrence.freq!=="none") return (t.doneDates||[]).includes(k);
+  if(t.status!=="done") return false;
+  const da=(t.doneAt||{});
+  if(da[k]) return true;
+  const self=da.self; if(!self) return false;
+  const x=parseLocal(self); return x instanceof Date && !isNaN(x) && ymd(x)===k;
+}
 
 /* 已标记不补做：软态，保留数据、可恢复、仍在列表中（灰显 + 「不补做」徽标），不计入进行中/活跃，但逾期清单仍如实展示（带标注）。
    重复任务标记某日不补做 → 落在 overrides[date].skip；普通任务 → t.dropped。 */
@@ -6953,7 +6980,7 @@ function exportReview(){
     const someday=state.tasks.filter(t=>(t.gw||"next")==="someday" && !isTaskDoneNow(t));
     const stalled=state.tasks.filter(t=>{ if(isTaskDone(t)) return false; const age=(Date.now()-(t.createdAt||Date.now()))/86400000; return age>14 && (t.gw||"next")!=="waiting"; });
     const weekStart=addDays(startOfDay(new Date()),-7);
-    const doneWeek=state.tasks.filter(t=>isTaskDone(t) && (t.doneDates||[]).some(d=>parseLocal(d)>=weekStart)).length;
+    const doneWeek=state.tasks.filter(t=>doneInWindow(t,weekStart)).length;
     let checked={}; try{ checked=JSON.parse(localStorage.getItem("wb_taskhub_review_"+wk)||"{}"); }catch(e){}
     const notes=reviewNotesGet(wk);
     const tpl=reviewTplGet();
@@ -9511,7 +9538,27 @@ function saveRemind(){
     localStorage.setItem(KEY, JSON.stringify(remind));
   }catch(e){}
 }
-window.addEventListener("storage", e=>{ if(e.key==="wb_taskhub_remind_v1" && e.newValue){ try{ const o=JSON.parse(e.newValue); if(o&&Array.isArray(o.reminded)){ const set=new Set([...remind.reminded,...o.reminded]); remind.reminded=Array.from(set); } }catch(_){} } });
+let _mergingFromStorage=false;
+// P1-3：多标签页同设备——另一标签写入任务键时，逐任务合并到本地（mergeTasks 幂等），变化才落盘+重渲染，避免静默互相覆盖导致数据丢失
+window.addEventListener("storage", e=>{
+  if(e.key==="wb_taskhub_remind_v1" && e.newValue){ try{ const o=JSON.parse(e.newValue); if(o&&Array.isArray(o.reminded)){ const set=new Set([...remind.reminded,...o.reminded]); remind.reminded=Array.from(set); } }catch(_){} }
+  else if(e.key===KEY && e.newValue && !_mergingFromStorage){
+    try{
+      const incoming=JSON.parse(e.newValue);
+      if(Array.isArray(incoming)){
+        const before=JSON.stringify(state.tasks);
+        const merged=mergeTasks(state.tasks, incoming, deletedIds);
+        if(JSON.stringify(merged)!==before){
+          state.tasks=merged;
+          deletedIdsSave();
+          _mergingFromStorage=true;
+          saveQuiet(); renderAll();
+          _mergingFromStorage=false;
+        }
+      }
+    }catch(_){}
+  }
+});
 let remindTimer=null;
 /* ===== M2：Service Worker 后台提醒（尽力而为）=====
    页面关闭后浏览器仍可能运行 sw.js —— 把「未来 12h 内的提醒计划」写入同源 Cache Storage，
@@ -9684,7 +9731,7 @@ document.getElementById("f_title").addEventListener("blur", applyNL);
 document.getElementById("subAddBtn").onclick=addSub;
 document.getElementById("subInput").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); addSub(); } });
 // 点遮罩不再关闭弹窗，避免误触别处丢失未保存内容（关闭请用 ✕ 或取消按钮）
-document.addEventListener("keydown",e=>{ if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="z"){ e.preventDefault(); undo(); } });
+document.addEventListener("keydown",e=>{ if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="z"){ const tag=(e.target&&e.target.tagName)||""; if(tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT"||(e.target&&e.target.isContentEditable)) return; e.preventDefault(); undo(); } });
 // 撤销 / 清空任务仅放在「⋯」菜单（所有屏宽常驻，避免与顶栏重复）
 document.getElementById("btnMenuUndo").onclick=undo;
 document.getElementById("btnMenuHistory").onclick=()=>openRecoverModal();
