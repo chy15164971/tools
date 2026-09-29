@@ -4489,7 +4489,7 @@ function todayItemHtml(i, compact, ov){
           ? `<button class="btn btn-ghost btn-sm btn-doneact" data-done="${i.task.id}" data-date="${ymd(i.date)}"><span class="ico">&#8617;</span><span class="lbl">撤销</span></button>`
           : `<button class="btn btn-pri btn-sm btn-doneact" data-done="${i.task.id}" data-date="${ymd(i.date)}"><span class="ico">&#10003;</span><span class="lbl">完成</span></button>`
             +(compact   /* 简密度=图标（默认，最省空间）；详密度切回文字，降低图标学习成本 */
-              ? `<button class="today-act btn-sec" data-skip="${i.task.id}" data-date="${ymd(i.date)}" title="不补做：移出今日，仍灰显在原日期" aria-label="不补做">&#8864;</button>`
+              ? `<button class="today-act btn-sec" data-skip="${i.task.id}" data-date="${ymd(i.date)}" title="不补做：移出今日，仍灰显在原日期" aria-label="不补做">🚫</button>`
               : `<button class="btn btn-quiet btn-sm btn-sec" data-skip="${i.task.id}" data-date="${ymd(i.date)}" title="不补做：移出今日，仍灰显在原日期">不补做</button>`)
             +(compact
               ? `<button class="today-act btn-sec" data-defer="both" data-id="${i.task.id}" data-date="${ymd(i.date)}" title="推迟 / 延期" aria-label="推迟或延期">&#9200;</button>`
