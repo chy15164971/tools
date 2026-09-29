@@ -215,6 +215,11 @@
     .today-acts .btn-sec:focus-visible{opacity:1;}
   }
   @media (hover:none){ .today-acts .btn-sec{opacity:1;} }   /* 触屏无悬停：常显，保证一定点得到 */
+  .today-acts .btn-doneact .ico{display:none;}   /* 默认显示文字；仅 ≤360px 切纯图标 */
+  @media(max-width:360px){
+    .today-acts .btn-doneact .lbl{display:none;}
+    .today-acts .btn-doneact .ico{display:inline;}
+  }
   .today-item .t{font-weight:600;font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .today-item .ibd{font-size:12.5px;color:var(--sub);margin-top:3px;line-height:1.5;word-break:break-word;text-align:left;}
   .today-item .ibs{font-size:12px;color:var(--sub);margin-top:4px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;min-width:0;}
@@ -4431,6 +4436,24 @@ function buildTodayModel(){
   return {d0, now, insts, overdue, due, urgent, todayAll, done, total};
 }
 
+/* 任务徽章拼装（今日卡片与详情弹窗共用，避免两处各写一遍优先级/分类/GTD/精力/耗时） */
+function taskBadges(t, opts){
+  opts=opts||{};
+  const p=t.priority, c=catColor(t.cat);
+  const base=[
+    `<span class="badge" style="background:${hexA(priColor(p),.16)};color:${priColor(p)}">${esc(p)}</span>`,
+    `<span class="badge" style="background:${hexA(c,.16)};color:${c}">${esc(t.cat||"")}</span>`
+  ];
+  const extra=[];
+  if(!opts.compact){
+    if(t.gw && t.gw!=="next") extra.push(`<span class="badge gw">${gwLabel(t.gw)}</span>`);
+    if(t.energy) extra.push(`<span class="badge sub">${t.energy==="high"?"精力↑":t.energy==="low"?"精力↓":"精力中"}</span>`);
+    if(t.est) extra.push(`<span class="badge sub">${t.est}′</span>`);
+  }
+  if(opts.ctx && t.ctx) extra.push(`<span class="badge sub">${esc(t.ctx)}</span>`);
+  return {base, extra};
+}
+
 /* 今日要处理：单条任务 HTML（顶部 widget 与底部整页视图共用，输出完全一致） */
 function todayItemHtml(i, compact, ov){
   const p=i.task.priority, c=catColor(i.task.cat);
@@ -4443,12 +4466,8 @@ function todayItemHtml(i, compact, ov){
   const hasSub=!!(i.task.subtasks&&i.task.subtasks.length);
   const subOpen=hasSub&&subOpenIds.has(i.task.id);
   const sub=hasSub?`<button type="button" class="s subtoggle" data-subopen="${i.task.id}" aria-expanded="${subOpen}" title="展开/收起子任务勾选">子任务 ${subBadge(i.task,dk).trim()} ${subOpen?"▲":"▼"}</button>`:"";
-  const extra=[];
-  if(!compact){
-    if(i.task.gw && i.task.gw!=="next") extra.push(`<span class="badge gw">${gwLabel(i.task.gw)}</span>`);
-    if(i.task.energy) extra.push(`<span class="badge sub">${i.task.energy==="high"?"精力↑":i.task.energy==="low"?"精力↓":"精力中"}</span>`);
-    if(i.task.est) extra.push(`<span class="badge sub">${i.task.est}′</span>`);
-  }
+  const _bd=taskBadges(i.task, {compact, ctx:false});   // 卡片不显示「情境」，仅详情弹窗显示
+  const extra=_bd.extra;
   const barColor = ov ? "var(--danger)" : priColor(p);
   const ibd = (!compact && i.task.desc) ? `<div class="ibd">${esc(i.task.desc)}</div>` : "";
   return `<div class="today-item ${ov?'overdue':''} ${itDone?'done':''} ${isDrop?'dropped no-count':''}" data-open="${i.task.id}" data-open-date="${ymd(i.date)}">
@@ -4459,19 +4478,22 @@ function todayItemHtml(i, compact, ov){
       <div class="ibs">
         <span class="s when ${ov?'over':''}">${when}${ov?' · 待补做':''}</span>
         ${isDrop?`<span class="badge drop">不补做</span>`:""}
-        <span class="badge" style="background:${hexA(priColor(p),.16)};color:${priColor(p)}">${esc(p)}</span>
-        <span class="badge" style="background:${hexA(c,.16)};color:${c}">${esc(i.task.cat||"")}</span>
+        ${_bd.base.join("")}
         ${sub}${tagsHtml(i.task)}${extra.join("")}${itDone?`<span class="badge done-at" style="${DONE_AT_CSS}">${doneAtMark(i.task, i.date, true)}</span>`:""}
       ${hasSub&&subOpen?subChecklistHtml(i.task,dk):""}
       </div>
     </div>
     <div class="today-acts">${isDrop
-      ? `<button class="btn btn-ghost btn-sm" data-restore="${i.task.id}" data-date="${ymd(i.date)}">恢复</button>`
+      ? `<button class="btn btn-ghost btn-sm btn-doneact" data-restore="${i.task.id}" data-date="${ymd(i.date)}"><span class="ico">&#8634;</span><span class="lbl">恢复</span></button>`
       : (itDone
-          ? `<button class="btn btn-ghost btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">撤销</button>`
-          : `<button class="btn btn-pri btn-sm" data-done="${i.task.id}" data-date="${ymd(i.date)}">完成</button>`
-            +`<button class="today-act btn-sec" data-skip="${i.task.id}" data-date="${ymd(i.date)}" title="不补做：移出今日，仍灰显在原日期" aria-label="不补做">&#8864;</button>`
-            +`<button class="today-act btn-sec" data-defer="both" data-id="${i.task.id}" data-date="${ymd(i.date)}" title="推迟 / 延期" aria-label="推迟或延期">&#9200;</button>`)
+          ? `<button class="btn btn-ghost btn-sm btn-doneact" data-done="${i.task.id}" data-date="${ymd(i.date)}"><span class="ico">&#8617;</span><span class="lbl">撤销</span></button>`
+          : `<button class="btn btn-pri btn-sm btn-doneact" data-done="${i.task.id}" data-date="${ymd(i.date)}"><span class="ico">&#10003;</span><span class="lbl">完成</span></button>`
+            +(compact   /* 简密度=图标（默认，最省空间）；详密度切回文字，降低图标学习成本 */
+              ? `<button class="today-act btn-sec" data-skip="${i.task.id}" data-date="${ymd(i.date)}" title="不补做：移出今日，仍灰显在原日期" aria-label="不补做">&#8864;</button>`
+              : `<button class="btn btn-quiet btn-sm btn-sec" data-skip="${i.task.id}" data-date="${ymd(i.date)}" title="不补做：移出今日，仍灰显在原日期">不补做</button>`)
+            +(compact
+              ? `<button class="today-act btn-sec" data-defer="both" data-id="${i.task.id}" data-date="${ymd(i.date)}" title="推迟 / 延期" aria-label="推迟或延期">&#9200;</button>`
+              : `<button class="btn btn-ghost btn-sm btn-sec" data-defer="both" data-id="${i.task.id}" data-date="${ymd(i.date)}" title="推迟 / 延期">推迟/延期</button>`))
     }</div>
   </div>`;
 }
@@ -4480,37 +4502,48 @@ const TODAY_SEC_HEAD=(label, n, cls)=>`<div class="today-sec-h" data-sec="${cls}
 
 /* 今日区域公共绑定（顶部 widget 与「今日」整页共用，唯一差异是刷新回调）；
    之前两处各有约 35 行近乎逐字重复的绑定，改一处漏一处，现统一收敛。 */
-function bindTodayActions(root, rerender){
-  root.querySelectorAll("[data-done]").forEach(b=>b.onclick=()=>{ toggleDone(b.dataset.done, b.dataset.date); });
-  root.querySelectorAll("[data-restore]").forEach(b=>b.onclick=()=>{ restoreTask(b.dataset.restore, b.dataset.date); });
-  root.querySelectorAll("[data-skip]").forEach(b=>b.onclick=()=>{ skipTask(b.dataset.skip, b.dataset.date); });
-  root.querySelectorAll("[data-defer]").forEach(b=>b.onclick=()=>{ openDeferFromCard(b.dataset.id, b.dataset.date); });
-  root.querySelectorAll("[data-subopen]").forEach(b=>b.onclick=()=>{
-    const id=b.dataset.subopen;
-    if(subOpenIds.has(id)) subOpenIds.delete(id); else subOpenIds.add(id);
-    rerender();
-  });
-  root.querySelectorAll("[data-subtick]").forEach(b=>b.onclick=()=>{
-    const t=state.tasks.find(x=>x.id===b.dataset.subtick); if(!t) return;
-    const s=(t.subtasks||[]).find(x=>x.id===b.dataset.sid); if(!s) return;
-    const date=b.dataset.date;
+/* 今日区域交互：改为事件委托——容器元素常驻（只换 innerHTML），监听器只绑一次，
+   避免每次重绘都全量重新绑定。⚠️ 必须限定作用域：#view 里其他视图也有 data-done 等同名属性，
+   故整页侧用 .today-page 收口，防止误触发别的渲染器。 */
+let __todayDelegated=false;
+function handleTodayClick(e, rerender){
+  const el=e.target; if(!el || !el.closest) return;
+  const done=el.closest("[data-done]");      if(done){ toggleDone(done.dataset.done, done.dataset.date); return; }
+  const rest=el.closest("[data-restore]");   if(rest){ restoreTask(rest.dataset.restore, rest.dataset.date); return; }
+  const sk=el.closest("[data-skip]");        if(sk){ skipTask(sk.dataset.skip, sk.dataset.date); return; }
+  const df=el.closest("[data-defer]");       if(df){ openDeferFromCard(df.dataset.id, df.dataset.date); return; }
+  const so=el.closest("[data-subopen]");     if(so){ const id=so.dataset.subopen; if(subOpenIds.has(id)) subOpenIds.delete(id); else subOpenIds.add(id); rerender(); return; }
+  const st=el.closest("[data-subtick]");     if(st){
+    const t=state.tasks.find(x=>x.id===st.dataset.subtick); if(!t) return;
+    const s=(t.subtasks||[]).find(x=>x.id===st.dataset.sid); if(!s) return;
+    const date=st.dataset.date;
     const beforeAll=t.subtasks.every(x=>subIsDone(t,x,date));
     snapshot();
     subToggle(t, s, date);
     syncDoneFromSubtasks(t, date, beforeAll);
     save();
-    rerender();
-  });
-  root.querySelectorAll(".tagchip").forEach(c=>c.onclick=()=>{
-    state.filter={q:c.dataset.tag, cat:"", pri:"", tag:""};
-    document.getElementById("fSearch").value=c.dataset.tag;
+    rerender(); return;
+  }
+  const tc=el.closest(".tagchip");           if(tc){
+    state.filter={q:tc.dataset.tag, cat:"", pri:"", tag:""};
+    document.getElementById("fSearch").value=tc.dataset.tag;
     document.getElementById("fCat").value=""; document.getElementById("fPri").value=""; document.getElementById("fTag").value="";
     document.getElementById("fClear").style.display="inline-flex";
-    renderAll();
-  });
-  root.querySelectorAll("[data-donesec]").forEach(b=>b.onclick=()=>{ todayDoneExpanded=!todayDoneExpanded; rerender(); });
-  root.querySelectorAll("[data-open]").forEach(el=>el.onclick=e=>{ if(e.target.closest(".today-acts,.subtoggle,[data-subtick],.tagchip")) return; openTaskDetail(el.dataset.open, el.dataset.openDate); });
+    renderAll(); return;
+  }
+  const ds=el.closest("[data-donesec]");     if(ds){ todayDoneExpanded=!todayDoneExpanded; rerender(); return; }
+  const op=el.closest("[data-open]");
+  if(op && !el.closest(".today-acts,.subtoggle,[data-subtick],.tagchip")){ openTaskDetail(op.dataset.open, op.dataset.openDate); }
 }
+function bindTodayDelegation(){
+  if(__todayDelegated) return;
+  const list=document.getElementById("todayList");
+  const view=document.getElementById("view");
+  if(list) list.addEventListener("click", e=>handleTodayClick(e, renderToday));
+  if(view) view.addEventListener("click", e=>{ if(!e.target.closest(".today-page")) return; handleTodayClick(e, renderAll); });
+  __todayDelegated=true;
+}
+
 /* 顶部 widget 头部的「密度 / 最大化」：空态也必须绑定，否则首次进入空列表时按钮是死的 */
 function bindTodayHeader(){
   const densBtn=document.getElementById("todayDensityBtn");
@@ -4543,7 +4576,7 @@ function renderToday(){
   list.innerHTML=html+krHtml+hintHtml();
   renderRing(done,total);
   bindKrToday();
-  bindTodayActions(list, renderToday);
+  bindTodayDelegation();
   updateTodayScrollHint();
 }
 
@@ -4589,7 +4622,7 @@ function renderTodayPage(){
     ${krHtml}
   </div>`;
   bindKrToday();
-  bindTodayActions(view, renderAll);
+  bindTodayDelegation();
   bindDens();
 }
 
@@ -4632,14 +4665,8 @@ function renderTaskDetail(){
   const proj=(state.projects||[]).find(x=>x.id===t.project);
   const kr = t.krId ? krOf(t.krId) : null;
   const statusHtml = doneState ? `<span class="detail-status done">已完成</span>` : (droppedState ? `<span class="detail-status dropped">不补做</span>` : `<span class="detail-status todo">待处理</span>`);
-  const badges=[
-    `<span class="badge" style="background:${hexA(priColor(p),.16)};color:${priColor(p)}">${esc(p)}</span>`,
-    `<span class="badge" style="background:${hexA(c,.16)};color:${c}">${esc(t.cat||"")}</span>`
-  ];
-  if(t.gw && t.gw!=="next") badges.push(`<span class="badge gw">${gwLabel(t.gw)}</span>`);
-  if(t.energy) badges.push(`<span class="badge sub">${t.energy==="high"?"精力↑":t.energy==="low"?"精力↓":"精力中"}</span>`);
-  if(t.est) badges.push(`<span class="badge sub">${t.est}′</span>`);
-  if(t.ctx) badges.push(`<span class="badge sub">${esc(t.ctx)}</span>`);
+  const _bd=taskBadges(t, {compact:false, ctx:true});
+  const badges=_bd.base.concat(_bd.extra);
   const kv=(k,v)=>`<div class="detail-kv"><div class="dk">${k}</div><div class="dv">${v}</div></div>`;
   let rows="";
   rows += kv("时间", noDate(t) ? "📥 收件箱（不指定日期）" : (fmtRange(parseLocal(t.start), parseLocal(t.end)) + (date? ("<br><span class=\"muted\" style=\"font-size:12px;\">"+ymd(parseLocal(date+"T00:00"))+"</span>") : "")));
@@ -10722,19 +10749,20 @@ function dataSigOf(obj){
 async function cloudStartupPull(silent){
   window.__pullOk=false;   // 供静默轮询判定本次拉取成败（本函数内部自行 catch，不向外抛错）
   try{
+    if(!silent) setCloudPill("syncing");   // 拉取中给可见反馈（静默轮询不闪灯，避免每 15s 抖动）
     const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 20000);
     if(!res.ok) throw new Error(await gistErrText(res));   // H2：云不可达/认证失败 → 走 catch，不放开自动上传
     _bootSyncAllowed=true;   // 云可达且有数据，启动期内的自动上传/落盘上传均放开
     window.__pullOk=true;
     const data=await res.json();
     const f=data.files&&data.files["taskhub.json"];
-    if(!f||!f.content) return;
+    if(!f||!f.content){ setCloudPill("ok"); return; }
     const obj=JSON.parse(f.content);
     const localT=+(localStorage.getItem("wb_taskhub_local_savedAt_v1")||0);
     const cloudT=obj.savedAt||0;
     const localEmpty = !state.tasks.length && !(habits&&habits.length) && !(lists&&lists.length) && !(cats&&cats.length) && !(pris&&pris.length) && !(tagTree&&tagTree.length) && !(state.projects&&state.projects.length) && !(state.okrs&&state.okrs.length) && !(media&&media.books&&media.books.length) && !(media&&media.tvs&&media.tvs.length) && !(media&&media.auds&&media.auds.length);
     // 情形 1：新实例 / 云端无时间戳 → 直接采用云端（静默）
-    if(localEmpty || cloudT===0){ applyCloudObj(obj); setCloudStatus("已从云端恢复数据 ✓ "+new Date().toLocaleTimeString()); renderAll(); return; }
+    if(localEmpty || cloudT===0){ applyCloudObj(obj); setCloudPill("ok"); setCloudStatus("已从云端恢复数据 ✓ "+new Date().toLocaleTimeString()); renderAll(); return; }
     // 逐任务合并（始终安全、非破坏）：云端较新的任务覆盖本地，本地独有任务保留，删除经 tombstone 传播
     const beforeSig=dataSig();
     mergeTasksIntoLocal(obj);
