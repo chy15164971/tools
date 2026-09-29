@@ -207,7 +207,7 @@
     font-size:13px;line-height:1;border-radius:7px;background:transparent;border:1px solid transparent;color:var(--muted);cursor:pointer;}
   .today-act:hover{background:var(--bg2);border-color:var(--line);color:var(--text);}
   .today-act:focus-visible{outline:2px solid var(--pri);outline-offset:1px;}
-  /* 桌面端：次要动作默认隐形，指针进入该任务行 / 键盘聚焦时才淡入（元素仍在 DOM 内、可被读屏与 Tab 聚焦，不改变布局） */
+  /* 桌面端：次要动作默认隐形，指针进入该任务行 / 键盘聚焦时才淡入（元素仍在 DOM 内、可被 Tab 聚焦；隐藏态用 aria-hidden 避免读屏误读，不改变布局） */
   @media (hover:hover){
     .today-acts .btn-sec{opacity:0;transition:opacity .14s ease;}
     .today-item:hover .today-acts .btn-sec,
@@ -4410,6 +4410,9 @@ let todayDoneExpanded=true;      // 已完成区默认展开（可手动折叠�
 let todayDensity="compact";      // "compact" | "detail"
 let todayMax=false;              // 是否临时最大化占满整行
 let subOpenIds=new Set();        // 今日面板里已展开子任务勾选区的任务 id
+/* 展开态是 UI 偏好，持久化到独立本地键（不进云同步，避免多设备互相干扰）；坏数据兜底跳过 */
+try{ (JSON.parse(localStorage.getItem("wb_today_subopen_v1")||"[]")||[]).forEach(id=>{ if(id) subOpenIds.add(id); }); }catch(_){}
+function persistSubOpen(){ try{ localStorage.setItem("wb_today_subopen_v1", JSON.stringify([...subOpenIds])); }catch(_){} }
 /* 今日要处理：数据模型（顶部 widget 与底部整页视图共用，保证两套口径完全一致） */
 function buildTodayModel(){
   const d0=startOfDay(new Date()), now=new Date();
@@ -4512,7 +4515,7 @@ function handleTodayClick(e, rerender){
   const rest=el.closest("[data-restore]");   if(rest){ restoreTask(rest.dataset.restore, rest.dataset.date); return; }
   const sk=el.closest("[data-skip]");        if(sk){ skipTask(sk.dataset.skip, sk.dataset.date); return; }
   const df=el.closest("[data-defer]");       if(df){ openDeferFromCard(df.dataset.id, df.dataset.date); return; }
-  const so=el.closest("[data-subopen]");     if(so){ const id=so.dataset.subopen; if(subOpenIds.has(id)) subOpenIds.delete(id); else subOpenIds.add(id); rerender(); return; }
+  const so=el.closest("[data-subopen]");     if(so){ const id=so.dataset.subopen; if(subOpenIds.has(id)) subOpenIds.delete(id); else subOpenIds.add(id); persistSubOpen(); rerender(); return; }
   const st=el.closest("[data-subtick]");     if(st){
     const t=state.tasks.find(x=>x.id===st.dataset.subtick); if(!t) return;
     const s=(t.subtasks||[]).find(x=>x.id===st.dataset.sid); if(!s) return;
@@ -4539,10 +4542,23 @@ function bindTodayDelegation(){
   if(__todayDelegated) return;
   const list=document.getElementById("todayList");
   const view=document.getElementById("view");
-  if(list) list.addEventListener("click", e=>handleTodayClick(e, renderToday));
-  if(view) view.addEventListener("click", e=>{ if(!e.target.closest(".today-page")) return; handleTodayClick(e, renderAll); });
+  const onFocusIn=e=>{ const b=e.target.closest && e.target.closest(".btn-sec"); if(b) b.setAttribute("aria-hidden","false"); };
+  const onFocusOut=e=>{ const b=e.target.closest && e.target.closest(".btn-sec"); if(b) b.setAttribute("aria-hidden","true"); };
+  if(list){
+    list.addEventListener("click", e=>handleTodayClick(e, renderToday));
+    list.addEventListener("focusin", onFocusIn);
+    list.addEventListener("focusout", onFocusOut);
+  }
+  if(view){
+    view.addEventListener("click", e=>{ if(!e.target.closest(".today-page")) return; handleTodayClick(e, renderAll); });
+    view.addEventListener("focusin", e=>{ if(!e.target.closest(".today-page")) return; onFocusIn(e); });
+    view.addEventListener("focusout", e=>{ if(!e.target.closest(".today-page")) return; onFocusOut(e); });
+  }
   __todayDelegated=true;
 }
+/* 渲染后把次要动作（推迟 / 不补做等）标 aria-hidden=true：隐藏态不被读屏读取，
+   但保留 DOM 焦点（用 opacity:0 而非 visibility:hidden），键盘 Tab 到达时 focusin 会切回 false 并配合 :focus-visible 显现 */
+function todaySecAriaReset(root){ if(root) root.querySelectorAll(".btn-sec").forEach(b=>b.setAttribute("aria-hidden","true")); }
 
 /* 顶部 widget 头部的「密度 / 最大化」：空态也必须绑定，否则首次进入空列表时按钮是死的 */
 function bindTodayHeader(){
@@ -4577,6 +4593,7 @@ function renderToday(){
   renderRing(done,total);
   bindKrToday();
   bindTodayDelegation();
+  todaySecAriaReset(list);
   updateTodayScrollHint();
 }
 
@@ -4623,6 +4640,7 @@ function renderTodayPage(){
   </div>`;
   bindKrToday();
   bindTodayDelegation();
+  todaySecAriaReset(view);
   bindDens();
 }
 
