@@ -446,6 +446,15 @@
     .cloud-section-row{flex-direction:column;}
     .cloud-btns{flex-direction:column;}
     .cloud-btns .btn{width:100%;justify-content:center;}
+    /* P1-4：手机端触控目标统一≥44px（遵循文件自带 44px 契约），避免误触；不影响 iPad/桌面 */
+    .btn-sm{min-height:44px;}
+    .seg{min-height:44px;padding:9px 16px;}
+    .dtab{min-height:44px;padding:11px 14px;}
+    .linkbtn{min-height:40px;padding:8px 12px;display:inline-flex;align-items:center;}
+    .mini,.opt-del{width:42px;height:42px;}
+    .lb-edit{min-height:34px;padding:4px 14px;}
+    .cloud-modal-close{width:40px;height:40px;}
+    .w-ctrl button{width:30px;height:30px;}
   }
 
 /* [2/12] (max-width:560px) */
@@ -1831,7 +1840,7 @@ function load(){
     const r=localStorage.getItem(KEY);
     if(r){
       const a=JSON.parse(r);
-      if(Array.isArray(a)){ a.forEach(function(it){ if(it && it.dir==="received") received.push(it); else postcards.push(it); }); }
+      if(Array.isArray(a)){ a.forEach(function(it){ if(!it || typeof it!=="object" || Array.isArray(it)) return; if(!it.id) it.id=uid(); if(it.dir==="received") received.push(it); else postcards.push(it); }); }
       else if(a && typeof a==="object"){
         postcards=cleanArr(a.postcards);
         received=cleanArr(a.received);
@@ -1916,8 +1925,9 @@ function transitDays(p){
   if(!p.sent) return null;
   if(p.status==="returned") return null; // F7 修复：退回件不再「在途」，显示 —，避免天数无限增长
   const s=new Date(p.sent+"T00:00:00");
+  if(isNaN(s)) return null;   // P1-5：脏日期串（如云同步/导入带入）防护，返回 null 让显示层走「—」分支，避免渲染 NaN 天
   let v;
-  if(p.status==="arrived" && p.arrived) v=daysBetween(s, new Date(p.arrived+"T00:00:00"));
+  if(p.status==="arrived" && p.arrived){ const a=new Date(p.arrived+"T00:00:00"); if(isNaN(a)) return null; v=daysBetween(s,a); }
   else v=daysBetween(s, new Date());
   return v<0?0:v; // 到达日若填成未来日期，归零避免显示负天数
 }
@@ -2471,10 +2481,14 @@ function resetFilter(){
    renderChipsGeneric + CHIP_GROUPS 配置；外部调用点（含活动类型编辑器）保留同名薄封装。 */
 function renderChipsGeneric(elId, entries, curKey, allLabel, dataAttr, onPick){
   const el=document.getElementById(elId); if(!el) return;
-  const all=`<span class="chip ${curKey==="all"?"active":""}" data-${dataAttr}="all">${allLabel}</span>`;
-  const opts=entries.map(e=>`<span class="chip ${curKey===e.k?"active":""}" data-${dataAttr}="${e.k}">${esc(e.label)}</span>`).join("");
+  const mk=(k,label,active)=>`<span class="chip ${active?"active":""}" role="button" tabindex="0" data-${dataAttr}="${k}">${esc(label)}</span>`;  // P2：chip 加 role/tabindex，键盘可达（焦点环复用 [role="button"]:focus-visible）
+  const all=mk("all",allLabel,curKey==="all");
+  const opts=entries.map(e=>mk(e.k,e.label,curKey===e.k)).join("");
   el.innerHTML=all+opts;
-  el.querySelectorAll(".chip").forEach(ch=>ch.onclick=()=>{ onPick(ch.dataset[dataAttr]); });
+  el.querySelectorAll(".chip").forEach(ch=>{
+    ch.onclick=()=>{ onPick(ch.dataset[dataAttr]); };
+    ch.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); onPick(ch.dataset[dataAttr]); } };
+  });
 }
 const CHIP_GROUPS = {
   sent:[{id:"statusChips", entries:()=>STATUS_ORDER.map(s=>({k:s,label:STATUSES[s].label})), cur:()=>filter.status, all:"全部", attr:"s", pick:v=>{ filter.status=v; }}],
@@ -3008,7 +3022,8 @@ function saveRecModal(dir){
   // F6 重复检测：同视图内「同名 + 同国家 + 同平台」视为疑似重复，仅提示不阻断
   const sameName=REC_DEFS[dir].arr().filter(x=>x.id!==cur.id && (x[REC_DEFS[dir].nameField]||"")===(cur[REC_DEFS[dir].nameField]||"") && x.country===cur.country && x.platform===cur.platform);
   if(sameName.length) toast("提示：已有相似记录（同"+(REC_DEFS[dir].nameLabel)+"·同国家·同平台），请确认是否重复", "danger");
-  save(); closeRecModal(dir); renderAll(); toast(id?"已更新":(wantPair?"已添加（含对方）":"已添加"));
+  save(); closeRecModal(dir); renderAll();
+  if(!sameName.length) toast(id?"已更新":(wantPair?"已添加（含对方）":"已添加"));   // P1-1：有重复警告时不弹成功 toast，避免立即覆盖警告
 }
 function makeCounterpart(dir, src){
   const base={ id:uid(), country:src.country||"", city:src.city||"", platform:src.platform||"", type:src.type||"", exchange:src.exchange||"", note:src.note||"" };
@@ -3454,7 +3469,8 @@ function saveProxyModal(){
   // F6 重复检测：同「对方 + 国家 + 平台」视为疑似重复，仅提示不阻断
   const dupP=proxies.filter(x=>x.id!==id && x.proxy===data.proxy && x.country===data.country && x.platform===data.platform);
   if(dupP.length) toast("提示：已有相似代寄（同对方·同国家·同平台），请确认是否重复", "danger");
-  save(); closeProxyModal(); renderAll(); toast((id?"已更新":"已添加")+(document.getElementById("pMutualChk").checked&&!id?"（含反向互寄腿）":""));
+  save(); closeProxyModal(); renderAll();
+  if(!dupP.length) toast((id?"已更新":"已添加")+(document.getElementById("pMutualChk").checked&&!id?"（含反向互寄腿）":""));   // P1-1：有重复警告时不弹成功 toast，避免立即覆盖警告
 }
 async function delProxy(id){
   if(!(await confirmDialog("确定删除这条代寄记录？",{danger:true, ok:"删除"}))) return;
@@ -3782,8 +3798,9 @@ function scheduleCloudRetry(){
   clearTimeout(_upRetryTimer);
   _upRetryTimer=setTimeout(cloudRetryTick, delay);
 }
+var _pendingUpload=false;
 function cloudAutoUpload(){
-  if(_cloudBusy) return;
+  if(_cloudBusy){ _pendingUpload=true; return; }   // P1-3：手动同步进行中，自动上传被跳过 → 标记待补传，待 withBusy 结束自动补上，避免修改永不同步到其它设备
   if(!cloud.auto) return;
   if(!cloud.token||!cloud.gist) return;
   if(_upTimer) clearTimeout(_upTimer);
@@ -3834,6 +3851,7 @@ async function withBusy(btn, fn){
   finally{
     _cloudBusy=false;
     if(b){ try{ b.disabled=false; b.classList.remove("is-busy"); b.removeAttribute("aria-busy"); }catch(_){} }
+    if(_pendingUpload){ _pendingUpload=false; cloudAutoUpload(); }   // P1-3：上一轮上传因忙被跳过，此刻补上，避免修改永不同步到其它设备
   }
 }
 
@@ -4018,7 +4036,7 @@ function importJSON(file){
       if(!Array.isArray(a) && !(a && typeof a==="object" && ("postcards" in a || "received" in a))) throw new Error("格式不对");
       if(!(await confirmDialog("导入将覆盖本地全部数据（寄出 + 收到 + 代寄 + 活动，及平台/类型列表、站点链接、标签名等设置）。建议先「导出 JSON」备份。确认覆盖导入？",{ok:"覆盖导入",danger:true}))){ toast("已取消导入"); return; }
       // 数组为旧格式：确认文案已承诺「覆盖」，这里必须先清空再灌入，否则变成追加导致数据翻倍
-      if(Array.isArray(a)){ postcards=[]; received=[]; a.forEach(function(it){ if(it && it.dir==="received") received.push(it); else postcards.push(it); }); }
+      if(Array.isArray(a)){ postcards=[]; received=[]; a.forEach(function(it){ if(!it || typeof it!=="object" || Array.isArray(it)) return; if(!it.id) it.id=uid(); if(it.dir==="received") received.push(it); else postcards.push(it); }); }
       else {
         postcards=cleanArr(a.postcards);
         received=cleanArr(a.received);
@@ -4200,7 +4218,7 @@ document.getElementById("recoverClose").onclick=closeRecoverModal;
 { const mr=document.getElementById("recoverMask"); if(mr) mr.addEventListener("click", e=>{ if(e.target===mr) closeRecoverModal(); }); }
 document.getElementById("csCopy").onclick=()=>{ try{ const _ti=document.getElementById("csToken"), _gi=document.getElementById("csGist"); const _t=((_ti&&_ti.value)||"").trim(), _g=((_gi&&_gi.value)||"").trim(); if(_t) cloud.token=_t; if(_g) cloud.gist=_g; if(_t||_g) cloudSave(); if(!cloud.gist&&!cloud.token){ setCloudStatus("本机尚未配置 Gist ID / Token，没有可复制的配置", true); toast("本机尚未配置，无配置可复制","warn"); return; } const txt="Gist ID: "+(cloud.gist||"")+"\nToken: "+(cloud.token||""); if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(()=>{ setCloudStatus("已复制同步配置，可粘贴到另一台设备 ✓"); toast("已复制同步配置，可粘贴到另一台设备 ✓","success"); }, ()=>{ setCloudStatus("复制失败，请手动复制"); toast("复制失败，请手动复制","danger"); }); } else { setCloudStatus("当前浏览器不支持自动复制，请手动复制"); toast("当前浏览器不支持自动复制，请手动复制","warn"); } }catch(e){ const _m="复制失败："+(e&&e.message?e.message:e); setCloudStatus(_m); toast(_m,"danger"); } };
 document.getElementById("csPaste").onclick=async()=>{ try{ if(!(navigator.clipboard&&navigator.clipboard.readText)){ setCloudStatus("当前浏览器不支持自动读取剪贴板，请手动把配置粘贴到上方两个输入框", true); toast("当前浏览器不支持自动读取剪贴板，请手动粘贴配置","warn"); return; } const txt=await navigator.clipboard.readText(); const cfg=parseConfig(txt); if(!cfg.gist&&!cfg.token){ setCloudStatus("剪贴板里没找到 Gist ID / Token，请确认先从另一台设备点过「复制配置」", true); toast("剪贴板里没有有效的同步配置，请先从另一台设备复制","warn"); return; } document.getElementById("csToken").value=cfg.token||""; document.getElementById("csGist").value=cfg.gist||""; cloud.token=cfg.token||""; cloud.gist=cfg.gist||""; cloudSave(); setCloudStatus("已从剪贴板填入配置，正在拉取云端数据…"); toast("已从剪贴板填入配置，正在拉取云端数据…"); await cloudPull(true); }catch(e){ setCloudStatus("粘贴失败："+(e&&e.message?e.message:e)+"（可手动把配置粘贴到上方输入框）", true); toast("粘贴失败："+(e&&e.message?e.message:e),"danger"); } };
-document.getElementById("csSync").onclick=async()=>{ if(!cloud.token||!cloud.gist){ setCloudStatus("请先在上方填写 Token 与 Gist ID", true); return; } setCloudStatus("同步中…"); const r=await withBusy("csSync", ()=>cloudPull(true)); if(r===true) setCloudStatus("已同步 ✓ "+new Date().toLocaleTimeString()); else if(r==="cancel") setCloudStatus("已取消同步"); else setCloudStatus("同步失败：无法读取云端（网络受限，或 Token / Gist ID 有误），已保留本机数据，稍后会自动重试", true); };
+document.getElementById("csSync").onclick=async()=>{ cloud.token=document.getElementById("csToken").value.trim(); cloud.gist=document.getElementById("csGist").value.trim(); cloudSave(); if(!cloud.token||!cloud.gist){ setCloudStatus("请先在上方填写 Token 与 Gist ID", true); return; } setCloudStatus("同步中…"); const r=await withBusy("csSync", ()=>cloudPull(true)); if(r===true) setCloudStatus("已同步 ✓ "+new Date().toLocaleTimeString()); else if(r==="cancel") setCloudStatus("已取消同步"); else setCloudStatus("同步失败：无法读取云端（网络受限，或 Token / Gist ID 有误），已保留本机数据，稍后会自动重试", true); };
 document.getElementById("csExport").onclick=()=>{ exportJSON(); };
 document.getElementById("csImport").onclick=()=>{ document.getElementById("fileInput").click(); };
 document.addEventListener("click",e=>{ const m=document.getElementById("menu"); if(m.classList.contains("show") && !e.target.closest(".menu-wrap")) m.classList.remove("show"); });
