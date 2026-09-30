@@ -7779,15 +7779,30 @@ async function deleteTask(){
   const et = state.tasks.find(x=>x.id===editingId);
   const recEditing = !!(et && et.recurrence && et.recurrence.freq!=="none");
   const onceMode = !!(editingDate && editingScope==="once" && recEditing);
+  /* 删除 与 不补做 是两个独立操作，语义严格分开，不得混用：
+     · 删除（本函数）  → 真删除：单次实例写 overrides 硬跳过 {skip:true,hard:true}（该日不再生成、
+                         不留灰显）；或直接整组删除。实例进度一并清空。
+     · 不补做          → 走 skipTask（今日页 🚫 / 详情弹窗），写软态 {skip:true}：照常生成实例并灰显保留。
+     此前 onceMode 下「删除」被实现成写软态 skip（=不补做灰显），导致删除与不补做混淆，已修正。 */
   if(onceMode){
-    if(!(await confirmDialog("确定将该日任务标记为不补做？整组重复保留。",{danger:true}))) return;
+    const r = await confirmDialog(
+      "删除这一天？该日将不再出现（不灰显、不保留），整组重复任务保留。",
+      {danger:true, ok:"仅删除该日", extra:"删除整组", extraDanger:true, extraValue:"all", cancel:"取消"});
+    if(r==="all"){
+      if(!(await confirmDialog("确定删除整个重复任务？（所有日期一并删除）",{danger:true}))) return;
+      snapshot();
+      deleteTasksWithHistory([et]);   // 墓碑 + 回收站 + 完成流水
+      trashRefresh();
+      save(); closeModal(); renderAll(); toast("已删除整个重复任务（可 Ctrl+Z 撤销）"); return;
+    }
+    if(r!==true) return;   // 取消 / Esc
     snapshot();
     et.overrides = et.overrides || {};
-    // 叠加而非整条覆盖（与 skipTask 同口径：别把该日的内容 override 冲掉），并保留子任务勾选
+    // 硬跳过 hard:true = 该日不生成实例（真删除、不灰显）；叠加写，避免冲掉该日其它 override 内容
     const _dk=ovKeyD(editingDate);
-    et.overrides[_dk] = Object.assign({}, et.overrides[_dk]||{}, {skip:true});
-    clearInstanceProgress(et, editingDate, {keepSubs:true});
-    save(); closeModal(); renderAll(); toast("已标记该日不补做（整组保留）"); return;
+    et.overrides[_dk] = Object.assign({}, et.overrides[_dk]||{}, {skip:true, hard:true});
+    clearInstanceProgress(et, editingDate);   // 真删除 → 清空该次实例进度（与「不补做」保留勾选不同）
+    save(); closeModal(); renderAll(); toast("已删除该日（整组保留，可 Ctrl+Z 撤销）"); return;
   }
   if(!(await confirmDialog("确定删除该任务？",{danger:true}))) return;
   snapshot();
