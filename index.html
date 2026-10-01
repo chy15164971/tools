@@ -8343,6 +8343,22 @@ function mediaMergeKeep(incoming, cloudDeleted){
     auds:  dropTombed("media", uid(media.auds,  incoming.auds),  cloudDeleted)
   };
 }
+// 云端优先合并（用于「云端优先」分支 applyCloudSecondary）：同 id 直接用云端字段覆盖本地（解决手机端进度面板看不到电脑端更新的进度），
+// 仅保留本地独有 id，并滤除墓碑。与 lists/okrs/projects 等次级集合在情形 4 的「整体采用云端」语义对齐。
+function mediaAdoptCloud(incoming, cloudDeleted){
+  if(!incoming || typeof incoming!=="object") return media;
+  const uid=(loc,cloud)=>{
+    const m=new Map();
+    (cloud||[]).forEach(x=>{ if(x&&x.id) m.set(x.id,x); });               // ① 云端优先
+    (loc||[]).forEach(x=>{ if(x&&x.id && !m.has(x.id)) m.set(x.id,x); }); // ② 本地独有补回
+    return Array.from(m.values());
+  };
+  return {
+    books: dropTombed("media", uid(media.books, incoming.books), cloudDeleted),
+    tvs:   dropTombed("media", uid(media.tvs,   incoming.tvs),   cloudDeleted),
+    auds:  dropTombed("media", uid(media.auds,  incoming.auds),  cloudDeleted)
+  };
+}
 function mediaSave(){ storageSetSafe(MEDIA_KEY, JSON.stringify(media)); markLocalSave(); cloudAutoUpload(); }
 function mediaLoad(){ try{ const r=localStorage.getItem(MEDIA_KEY); if(r){ media=JSON.parse(r); mediaNorm(); return true; } }catch(e){} return false; }
 function mediaSeed(){
@@ -10686,7 +10702,7 @@ function applyCloudObj(obj){
 }
 // 仅采用云端的「次级集合」(项目/目标/清单/习惯/媒体/分类/标签)，不动任务（任务已由 mergeTasksIntoLocal 逐条合并）
 function applyCloudSecondary(obj){
-  if(obj.media) media=mediaMergeKeep(obj.media, obj.deleted);
+  if(obj.media) media=mediaAdoptCloud(obj.media, obj.deleted);   // 云端优先分支：采用云端进度，与其他次级集合语义对齐（修复手机端进度面板不同步）
   if(Array.isArray(obj.habits)) habits=mergeHabits(habits, obj.habits, obj.deleted);
   if(Array.isArray(obj.lists)) lists=dropTombed("list", obj.lists, obj.deleted);
   if(Array.isArray(obj.cats)) cats=obj.cats;
