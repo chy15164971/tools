@@ -5925,11 +5925,15 @@ function batchInboxDone(){
 }
 async function batchInboxDelete(){
   const ids=Array.from(selIds); if(!ids.length){ toast("请先勾选任务"); return; }
-  if(!(await confirmDialog("删除选中的 "+ids.length+" 项任务？",{danger:true}))) return;
+  const sel=ids.map(id=>state.tasks.find(x=>x.id===id)).filter(Boolean);
+  const completed=sel.filter(isTaskDone);        // 已标记完成的任务保留，不删
+  const toDel=sel.filter(t=>!isTaskDone(t));
+  if(!toDel.length){ toast("选中的 "+completed.length+" 项均为已完成，已保留"); return; }
+  if(!(await confirmDialog("删除选中的 "+toDel.length+" 项任务？"+(completed.length?("（另 "+completed.length+" 项已完成，将保留）"):""),{danger:true}))) return;
   snapshot();
-  deleteTasksWithHistory(Array.from(selIds).map(id=>state.tasks.find(x=>x.id===id)));
+  deleteTasksWithHistory(toDel);
   trashRefresh();
-  save(); selClear(); renderAll(); toast("已删除 "+ids.length+" 项");
+  save(); selClear(); renderAll(); toast("已删除 "+toDel.length+" 项"+(completed.length?("，保留 "+completed.length+" 项已完成"):""));
 }
 // M8：批量改属性（分类/优先级/标签/日期）。只修改被勾选的属性行；日期用于把任务移到某一天。
 function batchInboxProps(){
@@ -7789,7 +7793,20 @@ async function deleteTask(){
       "删除这一天？该日将不再出现（不灰显、不保留），整组重复任务保留。",
       {danger:true, ok:"仅删除该日", extra:"删除整组", extraDanger:true, extraValue:"all", cancel:"取消"});
     if(r==="all"){
-      if(!(await confirmDialog("确定删除整个重复任务？（所有日期一并删除）",{danger:true}))) return;
+      // 「删除整组」改语义：保留已完成日期、不再生成未完成日期。
+      // 重复任务的「已完成」= doneDates 里多个日期；截断 recurrence.until 到最后完成日，
+      // 该日仍生成（已完成态），之后不再生成未完成实例；无完成记录才真正整组删除。
+      const _dd=(et.doneDates||[]).slice().sort();
+      if(_dd.length){
+        const _last=_dd[_dd.length-1];
+        if(!(await confirmDialog("停止该重复并保留已完成的 "+_dd.length+" 个日期？未完成日期将不再生成（可 Ctrl+Z 撤销）",{danger:true}))) return;
+        snapshot();
+        et.recurrence=et.recurrence||{};
+        et.recurrence.until=_last;            // 截断排期：之后不再生成未完成实例，已完成日期历史保留
+        touchTask(et);
+        save(); closeModal(); renderAll(); toast("已停止该重复，保留 "+_dd.length+" 个已完成日期（可 Ctrl+Z 撤销）"); return;
+      }
+      if(!(await confirmDialog("该重复任务没有完成记录，确定删除整个重复任务？（所有日期一并删除）",{danger:true}))) return;
       snapshot();
       deleteTasksWithHistory([et]);   // 墓碑 + 回收站 + 完成流水
       trashRefresh();
@@ -9035,12 +9052,19 @@ async function editListEmoji(lid){
 }
 async function delList(lid){
   const l=lists.find(x=>x.id===lid); if(!l) return;
-  if(!(await confirmDialog("删除清单「"+l.name+"」及其全部条目？",{danger:true}))) return;
+  const doneItems=(l.items||[]).filter(i=>i.done);   // 已完成的条目保留，不随清单删除
+  if(!(await confirmDialog("删除清单「"+l.name+"」？其下 "+doneItems.length+" 个已完成条目将保留到「已完成留存」清单，未完成条目一并删除。",{danger:true}))) return;
   snapshot();
+  if(doneItems.length){
+    let arch=lists.find(x=>x.name==="已完成留存");
+    if(!arch){ arch={id:"l"+Date.now().toString(36)+Math.random().toString(36).slice(2,5), name:"已完成留存", emoji:"", updated:Date.now(), items:[]}; lists.push(arch); }
+    doneItems.forEach(it=>arch.items.push(Object.assign({}, it, {ut:Date.now(), fromList:l.name})));
+    arch.updated=Date.now();
+  }
   lists=lists.filter(x=>x.id!==lid);
   pushKindTomb("list", lid);   // 墓碑：防云端/其他设备仍持有的该清单被并集并回
   if(state.selList===lid) state.selList = lists[0]?lists[0].id:null;
-  listsSave(); renderAll(); toast("已删除清单（可 Ctrl+Z 撤销）");
+  listsSave(); renderAll(); toast("已删除清单，保留 "+doneItems.length+" 个已完成条目");
 }
 function addItem(lid, text){
   const l=lists.find(x=>x.id===lid); if(!l) return;
