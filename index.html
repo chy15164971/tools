@@ -1412,8 +1412,8 @@
     /* 移动端触控目标统一 ≥44px（P3-3） */
       .top-actions>.btn,
       .top-actions>.leadsel,
-      .top-actions .menu-wrap>.btn,
-    /* 菜单项在移动端也保证 44px 触控高度 */
+      .top-actions .menu-wrap>.btn{min-height:44px;}
+    /* 菜单项在移动端也保证 44px 触控高度（分条书写，避免选择器列表跨注释续行） */
     .menu .mitem{min-height:44px;}
     .menu .mrow{min-height:44px;}
     /* 今天要处理卡片在窄屏下更紧凑，减少右侧贴边感 */
@@ -1577,8 +1577,10 @@
 
 /* [31/33] (hover:none) */
 @media (hover:none){
-  /* C-1 触控端不残留 hover 态：覆盖写死的 :hover 背景/颜色 */
-  .overview-bar:hover,.tagchip:hover,.lp-head .lp-go:hover,.w-ctrl .we:hover,.w-ctrl .grip:hover,
+  /* C-1 触控端不残留 hover 态：覆盖写死的 :hover 背景/颜色（与下面 C-2 必须分条书写——
+     选择器列表若跨注释续行，会把下一条规则的 {display:none} 并入本列表，导致点击后元素消失） */
+  .overview-bar:hover,.tagchip:hover,.lp-head .lp-go:hover,.w-ctrl .we:hover,.w-ctrl .grip:hover
+    {background:inherit;color:inherit;box-shadow:none;}
   /* C-2 HTML5 拖拽在触控端不可用：隐藏拖拽手柄，改用已放大的上移/下移按钮重排 */
   .w-ctrl .grip{display:none;}
   /* 面板头溢出菜单：触屏加大点击目标（44px 达标） */
@@ -2518,7 +2520,7 @@
   <div class="modal" style="max-width:400px;">
     <h3 id="confirmTitle">确认</h3>
     <p class="hint" id="confirmMsg" style="margin-top:0;font-size:14px;color:var(--ink);white-space:pre-wrap;"></p>
-    <div class="modal-act">
+    <div class="modal-actions">
       <button class="btn btn-ghost" id="confirmExtra" style="display:none;"></button>
       <button class="btn btn-ghost" id="confirmCancel">取消</button>
       <button class="btn btn-pri" id="confirmOk">确定</button>
@@ -2532,7 +2534,7 @@
     <h3 id="promptTitle">输入</h3>
     <p class="hint" id="promptMsg" style="margin-top:0;font-size:14px;color:var(--ink);white-space:pre-wrap;"></p>
     <input class="field" id="promptInput" type="text" autocomplete="off" spellcheck="false">
-    <div class="modal-act">
+    <div class="modal-actions">
       <button class="btn btn-ghost" id="promptCancel">取消</button>
       <button class="btn btn-pri" id="promptOk">确定</button>
     </div>
@@ -2545,7 +2547,7 @@
     <h3 id="chooseTitle">请选择</h3>
     <p class="hint" id="chooseMsg" style="margin-top:0;font-size:14px;color:var(--ink);white-space:pre-wrap;"></p>
     <div id="chooseList" class="choose-list"></div>
-    <div class="modal-act">
+    <div class="modal-actions">
       <button class="btn btn-ghost" id="chooseCancel">取消</button>
     </div>
   </div>
@@ -3622,19 +3624,24 @@ function storageSetSafe(k,v){
    只留 2 份（全量快照体积大，localStorage 约 5MB）；配额不足自动降级为 1 份，仍失败则静默放弃，不阻塞主流程。 */
 const FULL_RING_KEY="wb_taskhub_full_ring_v1";
 const FULL_RING_LAST="wb_taskhub_full_ring_last_v1";
-const FULL_RING_MAX=10;
+/* P1-7：全量快照体积大（含 tasks+media+habits+lists+projects+okrs+tagTree），留 10 份在中等数据量下
+   即撑爆 localStorage（约 5MB）→ 此后所有修改无法落盘，等同数据丢失。按注释原意改为 2 份。 */
+const FULL_RING_MAX=2;
+/* 去重指纹：只存「长度 + djb2 哈希」，不再把完整 JSON 串另写一份（旧实现等于磁盘上多一份全量） */
+function ringFingerprint(s){ let h=5381; for(let i=0;i<s.length;i++){ h=((h<<5)+h+s.charCodeAt(i))|0; } return s.length.toString(36)+"."+(h>>>0).toString(36); }
 function fullRingSnapshot(){ return {t:Date.now(), tasks:state.tasks||[], media:media||{}, habits:habits||[], lists:lists||[], projects:state.projects||[], okrs:state.okrs||[], tagTree:tagTree||[]}; }
 function fullRingPush(){
   try{
     const snap=fullRingSnapshot();
     const cur=JSON.stringify(snap);
-    if(cur===localStorage.getItem(FULL_RING_LAST)) return;   // 内容无变化不重复留档
+    const fp=ringFingerprint(cur);
+    if(fp===localStorage.getItem(FULL_RING_LAST)) return;   // 内容无变化不重复留档
     let ring=[]; try{ ring=JSON.parse(localStorage.getItem(FULL_RING_KEY)||"[]"); }catch(e){ ring=[]; }
     if(!Array.isArray(ring)) ring=[];
     ring.push(snap);
     while(ring.length>FULL_RING_MAX) ring.shift();
-    try{ localStorage.setItem(FULL_RING_KEY, JSON.stringify(ring)); localStorage.setItem(FULL_RING_LAST, cur); }
-    catch(e){ try{ const c5=JSON.stringify(ring.slice(-5)); localStorage.setItem(FULL_RING_KEY,c5); localStorage.setItem(FULL_RING_LAST,cur); }
+    try{ localStorage.setItem(FULL_RING_KEY, JSON.stringify(ring)); localStorage.setItem(FULL_RING_LAST, fp); }
+    catch(e){ try{ const c2=JSON.stringify(ring.slice(-2)); localStorage.setItem(FULL_RING_KEY,c2); localStorage.setItem(FULL_RING_LAST,fp); }
       catch(e2){ try{ localStorage.setItem(FULL_RING_KEY, JSON.stringify(ring.slice(-1))); }catch(e3){} } }
   }catch(e){}
 }
@@ -6892,7 +6899,9 @@ function renderReview(){
     someday=state.tasks.filter(t=>(t.gw||"next")==="someday" && !isTaskDoneNow(t));
     stalled=state.tasks.filter(t=>{ if(isTaskDone(t)) return false; const age=(Date.now()-(t.createdAt||Date.now()))/86400000; return age>14 && (t.gw||"next")!=="waiting"; });
     const weekStart=addDays(startOfDay(new Date()),-7);
-    doneWeek=state.tasks.filter(t=>isTaskDone(t) && (t.doneDates||[]).some(d=>parseLocal(d)>=weekStart)).length;
+    /* P1-3：旧写法只查 doneDates，非重复任务的完成存在 status==="done"+doneAt.self → 恒不计入，
+       页面数字长期低于导出（exportReview 已用 doneInWindow）。统一为同一口径。 */
+    doneWeek=state.tasks.filter(t=>doneInWindow(t,weekStart)).length;
   }
   const stepDefs=[
  {key:0, label:"收集：把所有想法/票据清入收件箱", view:"inbox", m:(inboxTasks.length?("收件箱 "+inboxTasks.length+" 项"):"已清空")},
@@ -8217,12 +8226,14 @@ function addTag(){ const nm=(document.getElementById("tagNew").value||"").trim()
 function exportJSON(){
   const theme=document.documentElement.dataset.theme||"light";
   /* _ver:3 起纳入 projects / okrs / tagTree —— 此前导出不含项目与目标，备份是残缺的 */
-  const pkg={ _app:"任务管理台", _ver:3, tasks:state.tasks, media:media, habits:habits, stats:stats,
-    theme:theme, cats, pris, lists, tagTree, projects:state.projects, okrs:state.okrs, cfg:collectCfg(), savedAt:Date.now() };
+  /* _ver:4 起纳入 anniv / deleted —— 此前导出不含纪念日与墓碑，本地备份不可完整还原（P2-8） */
+  const pkg={ _app:"任务管理台", _ver:4, tasks:state.tasks, media:media, habits:habits, stats:stats,
+    theme:theme, cats, pris, lists, tagTree, projects:state.projects, okrs:state.okrs,
+    anniv:state.anniv, deleted:deletedIds, cfg:collectCfg(), savedAt:Date.now() };
   const blob=new Blob([JSON.stringify(pkg,null,2)],{type:"application/json"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
   a.download="任务管理台全量备份_"+ymd(new Date())+".json"; a.click();
-  toast("已导出全量备份（任务+项目+目标+书/剧+习惯）");
+  toast("已导出全量备份（任务+项目+目标+书/剧+习惯+纪念日+墓碑）");
 }
 /* M5 合并式导入的通用工具：按 id 合并，取 updated 较新的一方；doneDates 取并集 */
 function mergeByIdList(loc, inc){
@@ -8285,6 +8296,9 @@ function mergeImported(inc){
     });
   }
   if(Array.isArray(inc.tagTree)) tagTree=mergeByIdList(tagTree, inc.tagTree);
+  /* P2-8：合并导入同样带走纪念日（此前仅覆盖导入有部分恢复，合并路径整块丢） */
+  if(Array.isArray(inc.anniv)) state.anniv=mergeByIdList(state.anniv||[], inc.anniv);
+  mediaNorm();
 }
 function importJSON(file){
   const r=new FileReader();
@@ -8307,7 +8321,8 @@ function importJSON(file){
       if(mode==="overwrite"){
       if(isPkg){
         state.tasks=(data.tasks||[]).map(t=>{ const c=sanitizeTask(t)||{}; return Object.assign({status:"todo",doneDates:[],recurrence:{freq:"none"},updated:c.updated||Date.now()},c); }).filter(Boolean);
-        media=Object.assign({books:[],tvs:[]},data.media||{});
+        /* P1-11：auds 漏默认值会让 renderMedia 的 media.auds.filter 抛 TypeError，被 renderAll 吞成"界面刷新出错" */
+        media=Object.assign({books:[],tvs:[],auds:[]},data.media||{}); mediaNorm();
         habits=data.habits||[];
         lists=data.lists||[];
         stats=Object.assign({history:[]},data.stats||{});
@@ -8317,6 +8332,15 @@ function importJSON(file){
         if(Array.isArray(data.tagTree)){ tagTree=data.tagTree; saveTags(); }
         if(Array.isArray(data.projects)){ state.projects=data.projects; projectsSave(); }
         if(Array.isArray(data.okrs)){ state.okrs=data.okrs; okrsSave(); }
+        /* P2-8：_ver:4 起备份含纪念日与墓碑；旧备份无这些字段则保持现状，不清空 */
+        if(Array.isArray(data.anniv)){ state.anniv=data.anniv; annivSave(); }
+        if(Array.isArray(data.deleted)){ deletedIds=data.deleted.map(normTomb); deletedIdsSave(); }
+        /* P1-8（导入路径）：备份里若同时含「任务本体 + 该任务的墓碑」（历史脏备份/手工编辑），
+           墓碑会让下一轮云同步把刚恢复的任务再删一次 —— 这里按任务 id 就地清掉矛盾墓碑 */
+        { const alive=new Set(state.tasks.map(t=>String(t&&t.id)));
+          const before=deletedIds.length;
+          deletedIds=deletedIds.filter(d=>!alive.has(String((d&&d.id)||d)));
+          if(deletedIds.length!==before) deletedIdsSave(); }
         rebuildCatPriSelects();
         if(data.theme) applyTheme(data.theme);
         if(data.cfg) applyCfg(data.cfg);   // M9：覆盖导入时配置一并恢复
@@ -10557,7 +10581,8 @@ const INST_HARD_MAX=1500;                              // O11-4：单任务单�
 const TASK_ALLOW=new Set([                             // O11-1：导入字段白名单（其余字段一律丢弃，防脏数据/原型污染）
   "id","title","desc","status","start","end","doneDates","recurrence","tags","cat","priority",
   "project","krId","updated","doneAt","overrides","subtasks","subDone","skipMissed","dropped",
-  "est","energy","seed","archived","done"
+  "est","energy","seed","archived","done",
+  "gw","ctx","createdAt"        // P1-9：GTD 三态 / 情境 / 创建时间——缺失会让导入任务 GTD 回落 next、情境徽标消失、收件箱排序与"停滞>14天"判定失真
 ]);
 async function cloudUpload(silent){
   if(!cloud.token||!cloud.gist){ if(!silent) setCloudStatus("请先填写 Token 与 Gist ID", true); return; }
