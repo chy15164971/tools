@@ -1932,6 +1932,11 @@ function uid(){ return "pc_"+Date.now().toString(36)+Math.random().toString(36).
 function touch(rec){ if(rec && typeof rec==="object"){ try{ rec.updatedAt=Date.now(); }catch(e){} } return rec; }
 // 列表并集（不丢本地独有项）
 function unionArr(a,b){ return Array.from(new Set([].concat(a||[], b||[]))).filter(Boolean); }
+/* P1-7 本地日期串：全文件统一的「今天」取值口径。
+   原先 6 处用 new Date().toISOString() 取 UTC 后截取日期 —— toISOString 取的是 UTC，
+   东八区本地 00:00–08:00 之间操作会得到**昨天**的日期串；而所有天数计算（daysBetween/daysSince/
+   transitDays）与 rotDstr() 都按本地零点解析 → 在途天数、往返天数、逾期判定全部偏移 1 天。 */
+function todayStr(){ return rotDstr(new Date()); }
 function daysBetween(a,b){ return Math.round((Date.UTC(b.getFullYear(),b.getMonth(),b.getDate())-Date.UTC(a.getFullYear(),a.getMonth(),a.getDate()))/86400000); }
 function transitDays(p){
   if(!p.sent) return null;
@@ -1948,7 +1953,8 @@ const LOST_DAYS={平邮:60,空邮:30,挂号:120,其他:45,"":60}; // 各渠道�
 const PROXY_LOST_DAYS=75; // 代寄：自「我寄出」起超过该天数仍未走完，判定可能丢失
 function daysSince(dateStr){ if(!dateStr) return null; const a=new Date(dateStr+"T00:00:00"); if(isNaN(a)) return null; return Math.round((Date.now()-a)/86400000); }
 function isLostSent(p){ if(!p||p.status!=="transit") return false; const d=transitDays(p); return d!=null && d>(LOST_DAYS[p.channel]||60); }
-function isLostProxy(p){ if(!p||!p.sent) return false; if(firstUndone(p)===-1) return false; const d=daysSince(p.sent); return d!=null && d>PROXY_LOST_DAYS; }
+/* P1-6：补终止条件 —— 对方已寄回(gotBack)即闭环，无论前面节点如何都不该再报「可能丢失」 */
+function isLostProxy(p){ if(!p||!p.sent) return false; if(p.gotBack) return false; if(firstUndone(p)===-1) return false; const d=daysSince(p.sent); return d!=null && d>PROXY_LOST_DAYS; }
 /* 活动 deadline 预警：与 sent/proxy 的丢失预警对齐——过期标红、临近(≤3天)提示 */
 function actOverdue(a){ if(!a||!a.deadline) return false; if(a.status==="done"||a.status==="closed") return false; const t=new Date(a.deadline+"T00:00:00"); if(isNaN(t)) return false; const today0=new Date(); today0.setHours(0,0,0,0); return t<today0; }
 function actDueSoon(a){ if(!a||!a.deadline) return false; if(a.status==="done"||a.status==="closed") return false; const t=new Date(a.deadline+"T00:00:00"); if(isNaN(t)) return false; const today0=new Date(); today0.setHours(0,0,0,0); const diff=Math.round((t-today0)/86400000); return diff>=0 && diff<=3; }
@@ -2537,7 +2543,11 @@ function filteredActivities(){
 /* 筛选签名：筛选条件变化时让对应列表回到第一页 */
 function pgSig(){
   try{
-    return (typeof view!=="undefined"?view:"")+"|"+JSON.stringify(typeof filter!=="undefined"?filter:null)+"|"+JSON.stringify(typeof afilter!=="undefined"?afilter:null);
+    /* P2-6：原来只纳入 filter(寄出) 与 afilter(活动)，漏了 rfilter(收到)、pfilter(代寄) 与 sort。
+       后果：「收到」页翻到第 3 页后改筛选 → 签名不变 → 页码不重置 → pgSlice clamp 到末页，
+       出现「第 38–40 条 / 共 40 条」这种明显错位的观感。 */
+    const f=(view==="received")?rfilter:(view==="proxy")?pfilter:(view==="activity")?afilter:filter;
+    return (view||"")+"|"+JSON.stringify(f||null)+"|"+JSON.stringify(sort||"")+"|"+PAGE_SIZE;
   }catch(e){ return ""; }
 }
 
@@ -2586,7 +2596,14 @@ function applySort(arr, dir){
   return c;
 }
 // 每步独立按真实字段判定完成态（不再用顺序计数，避免「中间空却显示已完成」的假象）
-function firstUndone(p){ const steps=proxyStepsOf(p); for(let j=0;j<steps.length;j++) if(!p[steps[j].k]) return j; return -1; }
+/* P1-6：原实现从**前**向后扫，返回「第一个未完成」的下标。
+   致命处：toggleProxyStep 允许任意顺序点节点（注释明确「不级联」），于是跳步时派生量全错——
+   ① 只勾第 4 步(gotBack) → firstUndone()===0 → proxyStatusOf 渲染成「准备中」，但完成日已填；
+   ② isLostProxy 只看 firstUndone!==-1 → 勾了第 3、4 步且超期 75 天，**已完成的卡片**被打上「可能丢失」；
+   ③ proxyUnitDone 同样受影响 → 完成的行不沉底、5 态计数全部错位。
+   改为从后向前扫：只要最后一个节点没填就还没完成；最后一个填了即视为已完成（跳步不再产生矛盾状态）。
+   （保存时的顺序补齐 normalizeProxySteps 属治本项，本轮先止血。） */
+function firstUndone(p){ const steps=proxyStepsOf(p); for(let j=steps.length-1;j>=0;j--) if(!p[steps[j].k]) return j; return -1; }
 /* 各视图「已完成/已到」判定：用于把这类行稳定沉底 + 弱化 */
 function isSentDone(p){ return p && p.status==="arrived"; }            // 寄出：已到
 function isRecvDone(p){ return p && p.status==="received"; }           // 收到：已收(=已到)
@@ -2607,7 +2624,7 @@ function toggleProxyStep(pid, idx){
   const p=proxies.find(x=>x.id===pid); if(!p) return;
   const steps=proxyStepsOf(p);
   const k=steps[idx].k;
-  p[k] = p[k] ? "" : new Date().toISOString().slice(0,10);
+  p[k] = p[k] ? "" : todayStr();   // P1-7：同上，改本地取值
   touch(p);
   save(); renderAll();
 }
@@ -2703,6 +2720,25 @@ function renderProxyPairRow(u, isDone){
     <td class="col-act" data-label="操作"><div class="row-act"><button class="linkbtn act-primary" data-pedit="${convId}">编辑</button><button class="linkbtn act-secondary" data-conv="proxy:${convId}">转换</button><button class="linkbtn act-secondary" data-pair="proxy" data-pid="${pairId}" data-cur="${convId}">↔ 互寄</button><button class="linkbtn danger act-primary" data-ppair="${pairId}">删除</button><details class="act-more"><summary class="linkbtn">⋯</summary><div class="act-more-body"><button class="linkbtn act-secondary" data-conv="proxy:${convId}">转换</button><button class="linkbtn act-secondary" data-pair="proxy" data-pid="${pairId}" data-cur="${convId}">↔ 互寄</button></div></details></div></td>
   </tr>`;
 }
+/* ===== P1-4 窄屏隐藏列的 th/td 配对 =====
+   .hide-sm 只写在 <th> 上，而对应 <td> 漏加 —— 561~980px（iPad 竖屏+横屏）时表头消失、数据格仍在，
+   列序整体错位一格，「操作」列按钮上方顶着无主的日期值：看错列会把「到达日」当成「寄出日」，
+   而日期是本应用最核心的字段。手工补 class 下次加列还会漏，故改为**渲染后按可见 th 顺序统一同步**。
+   同时处理反向：视口从窄变宽时要把之前加上的 hide-sm 摘掉，否则列永久消失。 */
+function syncHideSm(tb){
+  const ths=Array.from(document.querySelectorAll("#thead th"));
+  if(!ths.length||!tb) return;
+  const vis=ths.map(th=>th.classList.contains("hide-sm"));
+  if(!vis.some(Boolean)) return;                                  // 无隐藏列则不必动 DOM
+  const rows=Array.from(tb.querySelectorAll("tr"));
+  for(const tr of rows){
+    if(tr.children.length!==ths.length) continue;                 // 列数不匹配（如代寄互寄对行）→ 跳过，绝不猜
+    Array.from(tr.children).forEach((td,i)=>{
+      if(vis[i]) td.classList.add("hide-sm");
+      else td.classList.remove("hide-sm");
+    });
+  }
+}
 function renderTable(){
   const thead=document.getElementById("thead");
   const tb=document.getElementById("tbody");
@@ -2745,6 +2781,7 @@ function renderTable(){
         <td class="col-act" data-label="操作"><div class="row-act"><button class="linkbtn act-primary" data-edit="${p.id}">编辑</button><button class="linkbtn act-secondary" data-conv="sent:${p.id}">转换</button>${p.pairId?`<button class="linkbtn act-secondary" data-pair="sent" data-pid="${p.pairId}">↔ 对方</button>`:""}<button class="linkbtn danger act-primary" data-del="${p.id}">删除</button><details class="act-more"><summary class="linkbtn">⋯</summary><div class="act-more-body"><button class="linkbtn act-secondary" data-conv="sent:${p.id}">转换</button>${p.pairId?`<button class="linkbtn act-secondary" data-pair="sent" data-pid="${p.pairId}">↔ 对方</button>`:""}</div></details></div></td>
       </tr>`;
     }).join("");
+    syncHideSm(tb);   // P1-4：按可见 th 顺序同步窄屏隐藏列 class（th/td 必须成对，否则 iPad 上列错位）
   }else if(view==="received"){
     list=sinkDoneLast(filteredRecv(), isRecvDone);
     thead.innerHTML=`<tr>
@@ -2772,6 +2809,7 @@ function renderTable(){
         <td class="col-act" data-label="操作"><div class="row-act"><button class="linkbtn act-primary" data-redit="${p.id}">编辑</button><button class="linkbtn act-secondary" data-conv="received:${p.id}">转换</button>${p.pairId?`<button class="linkbtn act-secondary" data-pair="received" data-pid="${p.pairId}">↔ 对方</button>`:""}<button class="linkbtn danger act-primary" data-rdel="${p.id}">删除</button><details class="act-more"><summary class="linkbtn">⋯</summary><div class="act-more-body"><button class="linkbtn act-secondary" data-conv="received:${p.id}">转换</button>${p.pairId?`<button class="linkbtn act-secondary" data-pair="received" data-pid="${p.pairId}">↔ 对方</button>`:""}</div></details></div></td>
       </tr>`;
     }).join("");
+    syncHideSm(tb);   // P1-4：按可见 th 顺序同步窄屏隐藏列 class（th/td 必须成对，否则 iPad 上列错位）
   }else if(view==="proxy"){
     list=sinkDoneLast(buildProxyUnits(), proxyUnitDone);
     thead.innerHTML=`<tr>
@@ -2786,7 +2824,7 @@ function renderTable(){
       <th class="col-act">操作</th>
     </tr>`;
     document.getElementById("emptyText").textContent="还没有代寄记录。点「新建代寄」添加：默认是「往返 write-back」（我请对方代寄并写回，4 节点）；若对方找你代寄、只需你寄出，可在弹窗顶部切到「单向代寄」，填好对方与寄出/收到日即可。";
-    tb.innerHTML=pgSlice(list,"pc-"+view,pgSig()).map(u=> u.type==="pair" ? renderProxyPairRow(u, proxyUnitDone(u)) : renderProxySingleRow(u.p, proxyUnitDone(u))).join("");
+    tb.innerHTML=pgSlice(list,"pc-"+view,pgSig()).map(u=> u.type==="pair" ? renderProxyPairRow(u, proxyUnitDone(u)) : renderProxySingleRow(u.p, proxyUnitDone(u))).join("");     syncHideSm(tb);
   }else{
     list=sinkDoneLast(filteredActivities(), isActDone);
     thead.innerHTML=`<tr>
@@ -2837,6 +2875,7 @@ function renderTable(){
         <td class="col-act" data-label="操作"><div class="row-act"><button class="linkbtn act-primary" data-aedit="${a.id}">编辑</button><button class="linkbtn danger act-primary" data-adel="${a.id}">删除</button></div></td>
       </tr>`;
     }).join("");
+    syncHideSm(tb);   // P1-4：按可见 th 顺序同步窄屏隐藏列 class（th/td 必须成对，否则 iPad 上列错位）
   }
   // F5 修复：区分「无数据」与「被筛掉」——后者不再误导用户去新建
   const srcLen = view==="sent"?postcards.length : view==="received"?received.length : view==="proxy"?proxies.length : activities.length;
@@ -2962,7 +3001,7 @@ function readForm(dir){
 const SENT_RANK={unwritten:0, unsent:1, transit:2, arrived:3, returned:4};
 function normalizeRecDates(rec, dir){
   if(!rec) return rec;
-  const today=new Date().toISOString().slice(0,10);
+  const today=todayStr();   // P1-7：原 toISOString() 取 UTC，东八区本地 00:00–08:00 会得到「昨天」
   if(dir==="sent"){
     // D1（审查建议）：保留历史轨迹——状态回退不再清空已填日期；仅「未写」视为彻底重置才清零
     if(rec.status==="unwritten"){ rec.sent=""; rec.arrived=""; }
@@ -3319,12 +3358,12 @@ function saveActivityModal(){
   if(id){
     const a=activities.find(x=>x.id===id);
     if(!a){ toast("未找到该活动", "danger"); return; }
-    if(data.status==="done") data.doneAt = (a.status==="done" && a.doneAt)? a.doneAt : new Date().toISOString().slice(0,10);
+    if(data.status==="done") data.doneAt = (a.status==="done" && a.doneAt)? a.doneAt : todayStr();
     else data.doneAt="";
     delete a.linkType; delete a.linkId;
     Object.assign(a, data); touch(a);
   }else{
-    data.doneAt = (data.status==="done")? new Date().toISOString().slice(0,10) : "";
+    data.doneAt = (data.status==="done")? todayStr() : "";
     activities.unshift(touch(Object.assign({id:uid()}, data)));
   }
   closeActivityModal(); renderAll(); saveAndToast(id?"已更新":"已添加");
@@ -3332,7 +3371,7 @@ function saveActivityModal(){
 function changeActivityStatus(id, status){
   const a=activities.find(x=>x.id===id); if(!a) return;
   a.status=status; touch(a);
-  if(status==="done"){ if(!a.doneAt) a.doneAt=new Date().toISOString().slice(0,10); }
+  if(status==="done"){ if(!a.doneAt) a.doneAt=todayStr(); }
   else a.doneAt="";
   renderAll(); saveAndToast("状态已更新");
 }
@@ -3799,8 +3838,12 @@ async function cloudPull(silent){
     if(remote) localStorage.setItem(SAVED_AT, String(Math.max(Date.now(), remote))); // 抬平 savedAt，避免拉取后被冲突检测误暂停
     setCloudStatus((changed>0||settingsApplied) ? ("同步完成 ✓ 新增/更新 "+(changed+(settingsApplied?1:0))+" 项（"+new Date().toLocaleString()+"）") : ("已是最新（"+new Date().toLocaleString()+"）"));
     setCloudPill("ok"); window.__pullOk=true; markSynced();   // 拉取成功 → 标记成功并记最后同步时间
-    if(settingsApplied){ try{ renderTabs(); renderStats(); }catch(e){} } // 设置变化需重渲染标签栏与统计卡
-    renderAll();
+    /* P1-5：原本此处还有一句**无条件** renderAll()，而上一行已按 changed/settingsApplied 条件渲染过 →
+       ① 云端无变化时每 15s 仍全量重绘；② 有变化时同一轮渲染两遍；
+       ③ 更要命：renderAll → renderFilters → buildFilterBar 会 wrap.innerHTML 重建整条筛选栏 ——
+          用户正在搜索框打字时光标与已输入内容被冲掉（debounce 挂在已脱离文档的旧节点上）、
+          iOS 上正展开的下拉被强制收起。改为与 3753 同一条件，合并成一次渲染。 */
+    if(changed>0 || settingsApplied) renderAll();
     return true;
   }catch(e){
     if(!silent) setCloudStatus("下载失败："+(e&&e.message?e.message:e), true);
@@ -4110,7 +4153,7 @@ function importJSON(file){
 }
 async function fillSample(){
   if((postcards.length+received.length) && !(await confirmDialog("将追加示例数据到现有记录？",{ok:"追加"}))) return;
-  const today=new Date(); const d=n=>{ const x=new Date(today); x.setDate(x.getDate()+n); return x.toISOString().slice(0,10); };
+  const today=new Date(); const d=n=>{ const x=new Date(today); x.setDate(x.getDate()+n); return rotDstr(x); };   // P1-7：原 toISOString 会把负偏移算到昨天
   const sent=[
     {recipient:"Anna（笔友）", country:"德国", city:"柏林", channel:"平邮", platform:"Postcrossing", type:"交换", status:"transit", sent:d(-9), note:"风景明信片交换"},
     {recipient:"Marco", country:"意大利", city:"罗马", channel:"空邮", platform:"Postcrossing", type:"交换", status:"arrived", sent:d(-20), arrived:d(-6), note:"约定的城市明信片"},
