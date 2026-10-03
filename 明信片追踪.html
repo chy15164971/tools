@@ -819,7 +819,7 @@
     </div>
     <div class="field">
       <label>正面图 URL（可选）</label>
-      <input id="fImage" placeholder="https://… 图片链接">
+      <input id="fImage" maxlength="500" placeholder="https://… 图片链接（仅支持 http(s) 链接）">
       <div class="field" style="margin-top:6px;">
         <label>正面图预览</label>
         <img id="fImgPrev" class="img-prev" alt="正面图预览">
@@ -878,7 +878,7 @@
     </div>
     <div class="field">
       <label>正面图 URL（可选）</label>
-      <input id="rImage" placeholder="https://… 图片链接">
+      <input id="rImage" maxlength="500" placeholder="https://… 图片链接（仅支持 http(s) 链接）">
       <div class="field" style="margin-top:6px;">
         <label>正面图预览</label>
         <img id="rImgPrev" class="img-prev" alt="正面图预览">
@@ -1494,11 +1494,23 @@ function fetchWithTimeout(url, opts, ms){
 
 function safeUrl(u){ u=(u||"").trim(); if(!u) return "#"; if(/^(https?:|mailto:|tel:)/i.test(u)) return esc(u); try{ var _p=new URL(u,location.href); if(_p.protocol==="http:"||_p.protocol==="https:") return esc(u); }catch(e){} return "#"; }
 
-function toast(msg, kind){
+function toast(msg, kind, ms){
   const t=document.getElementById("toast");
   t.textContent=msg;
   t.className="toast"+(kind?(" "+kind):"");
-  t.classList.add("show"); clearTimeout(t._timer); t._timer=setTimeout(()=>t.classList.remove("show"),1800);
+  t.classList.add("show"); clearTimeout(t._timer);
+  t._timer=setTimeout(()=>t.classList.remove("show"), ms || 1800);
+}
+/* ===== P0-1 保存收口 =====
+   storageSet() 捕获配额异常后已弹 danger 并 return false，但全文件 32 处 save() 调用原本都忽略返回值，
+   紧随其后的成功 toast 又会把那条 danger 覆盖掉（toast 是单元素复用）→ 用户点「已添加 ✓」、刷新后数据消失。
+   saveAndToast()：保存失败时改为给出**可行动**的长提示并 return false；成功才弹 okMsg。
+   失败文案要长到能读完，所以显式给 7000ms。 */
+const SAVE_FAIL_TXT="未能保存到本地（浏览器存储空间已满）。请先用「导出备份」备份，再删除部分记录或图片后重试。";
+function saveAndToast(okMsg, kind){
+  if(save()){ if(okMsg) toast(okMsg, kind); return true; }
+  toast("⚠️ "+(okMsg||"本次修改")+" "+SAVE_FAIL_TXT, "danger", 7000);
+  return false;
 }
 
 /* ---------- 无障碍增强（D4 B+） ---------- */
@@ -2922,9 +2934,22 @@ function fillForm(dir, p){
   fillSelect(def.typeId, "type", p? (p.type||"") : "");
   fillSelect(def.countryId, "country", p? (p.country||"") : "");
 }
+/* P0-2 图片字段只收 http(s) 链接。
+   原先零校验：纯文本框只 .trim()，而 safeImg()（L3858）**只在渲染时**过滤 /^https?:\/\//——
+   data: 内嵌的 base64 早已写进 localStorage。一张 base64 图 ≈ 1.33× 原图，3~4 张即写满 5MB 配额，
+   之后所有 save() 失败（叠上 P0-1 就是静默丢数据），还会撑爆每次 syncPayload 的体积、拖慢搜索。 */
+function sanitizeImageUrl(v){
+  v=String(v==null?"":v).trim();
+  if(!v) return "";
+  if(/^data:/i.test(v)){ toast("图片只支持 http(s) 链接：data: 内嵌图片会让本地存储瞬间写满，已忽略","warn",5200); return ""; }
+  if(!/^https?:\/\//i.test(v)){ toast("图片需以 http:// 或 https:// 开头，已忽略","warn",4000); return ""; }
+  return v.slice(0,500);
+}
 function readForm(dir){
   const def=REC_DEFS[dir]; const o={};
   for(const fid in def.form){ const rf=def.form[fid]; const el=document.getElementById(fid); if(el) o[rf]=el.value.trim(); }
+  if(def.form.fImage) o.image=sanitizeImageUrl(o.image);
+  if(def.form.rImage) o.image=sanitizeImageUrl(o.image);
   o.status=document.getElementById(def.statusId).value || def.defaultStatus;
   return o;
 }
@@ -2953,7 +2978,8 @@ function changeRecStatus(dir, id, status){
   const p=findRec(dir,id); if(!p) return;
   p.status=status;
   normalizeRecDates(p, dir);
-  save(); renderAll(); toast("状态已更新");
+  touch(p);   // P1-1：全文件 22 处 touch() 唯独这条主路径漏了 → updatedAt 不更新，mergeById 判「云端更新」会把本地状态覆盖回去（状态自己跳回）
+  renderAll(); saveAndToast("状态已更新");
 }
 // 删除记录后同步摘掉活动里的关联引用，避免死链长期累积并污染 CSV 导出（原先只显示「（关联已删）」）
 function unlinkFromActivities(id){
@@ -2973,7 +2999,7 @@ async function delRec(dir, id){
   if(!(await confirmDialog("删除「"+nm+"」这张"+(dir==="sent"?"寄出":"收到")+"记录？",{danger:true}))) return;
   const arr=REC_DEFS[dir].arr(); const idx=arr.findIndex(x=>x.id===id);
   if(idx>=0){ arr.splice(idx,1); unlinkFromActivities(id); pushTomb(id); tombSave(); }   // 墓碑：让删除能跨设备传播
-  save(); renderAll(); toast("已删除");
+  renderAll(); saveAndToast("已删除");
 }
 // D8：图片输入框 → 预览图绑定（有值显示、点击放大），sent/received 共用
 function bindImgPreview(inputId, prevId){
@@ -3007,7 +3033,13 @@ function saveRecModal(dir){
   const data=readForm(dir);
   normalizeRecDates(data, dir);   // 补填 + 回退清退，保证状态与日期自洽
   let cur;
-  if(id){ cur=findRec(dir,id); if(cur) Object.assign(cur, data); }
+  if(id){
+    cur=findRec(dir,id);
+    /* P0-3：原 `if(cur)` 静默跳过 → cur 保持 undefined，随后读 cur.id 直接抛 TypeError（弹窗卡死、无提示）。
+       真实触发路径：云同步把这条记录按墓碑删掉后，用户仍在旧弹窗里点保存。 */
+    if(!cur){ toast("该记录已在其它设备被删除，无法保存。请关闭窗口后重新添加。","danger",6000); closeRecModal(dir); return; }
+    Object.assign(cur, data);
+  }
   else { cur=Object.assign({id:uid()}, data); REC_DEFS[dir].arr().unshift(cur); }
   touch(cur);
   // 关联对方：勾选且当前条目尚未关联 → 自动生成对方条目并共享 pairId（只建一次）
@@ -3022,8 +3054,10 @@ function saveRecModal(dir){
   // F6 重复检测：同视图内「同名 + 同国家 + 同平台」视为疑似重复，仅提示不阻断
   const sameName=REC_DEFS[dir].arr().filter(x=>x.id!==cur.id && (x[REC_DEFS[dir].nameField]||"")===(cur[REC_DEFS[dir].nameField]||"") && x.country===cur.country && x.platform===cur.platform);
   if(sameName.length) toast("提示：已有相似记录（同"+(REC_DEFS[dir].nameLabel)+"·同国家·同平台），请确认是否重复", "danger");
-  save(); closeRecModal(dir); renderAll();
-  if(!sameName.length) toast(id?"已更新":(wantPair?"已添加（含对方）":"已添加"));   // P1-1：有重复警告时不弹成功 toast，避免立即覆盖警告
+  const saved=save(); closeRecModal(dir); renderAll();
+  if(!saved){ toast("⚠️ "+SAVE_FAIL_TXT,"danger",7000); return; }   // P0-1：失败提示不被成功 toast 覆盖
+  // P1-1：有重复警告时不弹成功 toast，避免立即覆盖警告
+  if(!sameName.length) toast(id?"已更新":(wantPair?"已添加（含对方）":"已添加"));
 }
 function makeCounterpart(dir, src){
   const base={ id:uid(), country:src.country||"", city:src.city||"", platform:src.platform||"", type:src.type||"", exchange:src.exchange||"", note:src.note||"" };
@@ -3070,7 +3104,7 @@ function bindLink(dir, id, tgtDir, cid){
   src.pairId=pid; tgt.pairId=pid;
   if(dir==="proxy"){ syncMutualMeta(pid, src); closeProxyModal(); } else { closeRecModal(dir); }  // D8 合并：互寄两条腿描述字段对齐 + 按来源关对应弹窗
   document.getElementById("linkModal").classList.remove("show");
-  save(); renderAll(); toast("已关联到对方记录");
+  renderAll(); saveAndToast("已关联到对方记录");
 }
 function closeLinkModal(){ document.getElementById("linkModal").classList.remove("show"); }
 /* ===== 操作：进行中活动（RR 未满员 / TAG 未 tag / 交换进行中） ===== */
@@ -3293,20 +3327,20 @@ function saveActivityModal(){
     data.doneAt = (data.status==="done")? new Date().toISOString().slice(0,10) : "";
     activities.unshift(touch(Object.assign({id:uid()}, data)));
   }
-  save(); closeActivityModal(); renderAll(); toast(id?"已更新":"已添加");
+  closeActivityModal(); renderAll(); saveAndToast(id?"已更新":"已添加");
 }
 function changeActivityStatus(id, status){
   const a=activities.find(x=>x.id===id); if(!a) return;
   a.status=status; touch(a);
   if(status==="done"){ if(!a.doneAt) a.doneAt=new Date().toISOString().slice(0,10); }
   else a.doneAt="";
-  save(); renderAll(); toast("状态已更新");
+  renderAll(); saveAndToast("状态已更新");
 }
 async function delActivity(id){
   const a=activities.find(x=>x.id===id); if(!a) return;
   if(!(await confirmDialog("确定删除活动「"+(a.title||"未命名")+"」？",{danger:true, ok:"删除"}))) return;
   activities=activities.filter(x=>x.id!==id); pushTomb(id); tombSave();
-  save(); renderAll(); toast("已删除");
+  renderAll(); saveAndToast("已删除");
 }
 function openActivityLink(id, idx){
   const a=activities.find(x=>x.id===id); if(!a||!Array.isArray(a.links)) return;
@@ -3445,7 +3479,7 @@ function saveProxyModal(){
       const mirror=Object.assign({id:uid(), direction:mirrorDir, pairId}, proxySharedMeta(data)); // 只共享描述字段，日期清空
       touch(mirror); proxies.unshift(mirror);
       syncMutualMeta(pairId, p); // 确保镜像腿拿到最新共享字段
-      save(); closeProxyModal(); renderAll(); toast("已更新（已生成反向互寄腿，可点「↔ 互寄」补填对方那张）");
+      closeProxyModal(); renderAll(); saveAndToast("已更新（已生成反向互寄腿，可点「↔ 互寄」补填对方那张）");
       return;
     }
     // 取消勾选且本来是互寄的一对 → 同时解绑另一边，避免悬空
@@ -3469,7 +3503,8 @@ function saveProxyModal(){
   // F6 重复检测：同「对方 + 国家 + 平台」视为疑似重复，仅提示不阻断
   const dupP=proxies.filter(x=>x.id!==id && x.proxy===data.proxy && x.country===data.country && x.platform===data.platform);
   if(dupP.length) toast("提示：已有相似代寄（同对方·同国家·同平台），请确认是否重复", "danger");
-  save(); closeProxyModal(); renderAll();
+  const savedProxy=save(); closeProxyModal(); renderAll();
+  if(!savedProxy){ toast("⚠️ "+SAVE_FAIL_TXT,"danger",7000); return; }
   if(!dupP.length) toast((id?"已更新":"已添加")+(document.getElementById("pMutualChk").checked&&!id?"（含反向互寄腿）":""));   // P1-1：有重复警告时不弹成功 toast，避免立即覆盖警告
 }
 async function delProxy(id){
@@ -3481,7 +3516,7 @@ async function delProxy(id){
     if(rest.length<=1) rest.forEach(p=>{ delete p.pairId; touch(p); });
   }
   tombSave();
-  save(); renderAll(); toast("已删除");
+  renderAll(); saveAndToast("已删除");
 }
 // 删除整对互寄（双方各一条，共享 pairId 会一并清除，避免悬空）
 async function delProxyPair(pairId){
@@ -3489,7 +3524,7 @@ async function delProxyPair(pairId){
   if(!(await confirmDialog(`确定删除这一对互寄记录（${n} 条）？`,{danger:true, ok:"删除整对"}))) return;
   proxies.filter(p=>p.pairId===pairId).forEach(p=>{ unlinkFromActivities(p.id); pushTomb(p.id); });  // 整对逐条打墓碑
   proxies=proxies.filter(p=>p.pairId!==pairId); tombSave();
-  save(); renderAll(); toast("已删除互寄对");
+  renderAll(); saveAndToast("已删除互寄对");
 }
 /* ===== 转换归类：将现有条目在 寄出/收到/代寄 之间重新归类 ===== */
 let convCtx={dir:null, id:null};
@@ -3719,6 +3754,16 @@ async function cloudUpload(silent){
 async function cloudPull(silent){
   window.__pullOk=false;
   if(!cloud.token||!cloud.gist){ if(!silent) setCloudStatus("请先填写 Token 与 Gist ID", true); return false; }
+  /* P0-3：把「有弹窗打开时不拉取」的守卫从 cloudAutoDownload 下沉到这里。
+     原先只有自动轮询那一条路径检查，另外三条都没有 —— 其中 `cloudUpload` 的冲突自愈
+     （保存后自动触发）是**无感**进入的：mergeById 用 Object.assign 原地改写用户正在编辑的那条记录对象
+     （弹窗 DOM 不刷新），用户点保存时又用旧表单值覆盖掉刚合并进来的云端修改 → 静默丢数据。
+     这里只拦「承载记录编辑的弹窗」，不含数据管理/云同步设置弹窗本身，
+     否则在数据管理弹窗里点「立即同步」会被自己的守卫挡掉。 */
+  if(document.querySelector("#mask.show,#maskActivity.show,#maskProxy.show,#maskConvert.show,#maskActKinds.show,#maskOpts.show,#confirmMask.show,#linkModal.show")){
+    if(!silent) setCloudStatus("有编辑弹窗打开中，已暂缓同步（关闭弹窗后会自动继续）");
+    return false;
+  }
   if(!silent){
     if(!(await confirmDialog("将把云端数据合并到本地（按 id 合并：云端更新的记录覆盖本地旧版本；本地新增/更新的记录保留），确认？",{}))){ setCloudStatus("已取消下载"); return "cancel"; }
   }
@@ -4056,7 +4101,8 @@ function importJSON(file){
       }
       syncListsFromData();
       normalizeRecv();
-      save(false); renderAll();
+      const savedImport=save(false); renderAll();
+      if(!savedImport){ toast("⚠️ 导入的数据未能写入本地（存储空间已满）。请先清理旧数据后重新导入。","danger",7000); return; }
       toast("已导入 "+(postcards.length+received.length+proxies.length+activities.length)+" 条");
     }catch(e){ toast("导入失败："+e.message, "danger"); }
   };
@@ -4090,7 +4136,7 @@ async function fillSample(){
     {title:"和 Yuki 的私人交换", kind:"exchange", platform:"私换", url:"", cur:0, max:0, deadline:"", status:"ongoing", note:"进行中：我方已寄出，等对方回片"},
   ];
   acts.forEach(a=>activities.unshift(touch(Object.assign({id:uid()}, a))));
-  save(); renderAll(); toast("已填入示例");
+  renderAll(); saveAndToast("已填入示例");
 }
 async function clearAll(){
   if(!postcards.length && !received.length && !proxies.length && !activities.length) return;  // F4 修复：漏 activities 导致只剩活动时点清空无响应
@@ -4098,7 +4144,7 @@ async function clearAll(){
   // 清空也必须逐条打墓碑，否则云端还有这些记录，下次拉取会全部复活
   [].concat(postcards,received,proxies,activities).forEach(p=>{ if(p&&p.id) pushTomb(p.id); });
   postcards=[]; received=[]; proxies=[]; activities=[]; tombSave();
-  save(false); renderAll(); toast("已清空");
+  renderAll(); save(false) && toast("已清空");
 }
 
 /* ===== 事件绑定 ===== */
