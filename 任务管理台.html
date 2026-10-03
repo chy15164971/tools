@@ -447,12 +447,23 @@
   
   /* 完整模式下字段更多更挤，把弹窗加宽到 620px 让 row2 双列字段与 chkline 都能完整显示（V-4） */
   body.modal-full .modal{max-width:620px;}
+  /* 弹窗宽度固定（520/620px），与视口宽度无关 —— 必须用**容器查询**才能让弹窗内部自适应。
+     iOS Safari 16+/Chrome 105+ 支持；更老的浏览器退化为下方视口断点规则。 */
+  .modal{container-type:inline-size;container-name:modal;}
+  @container modal (max-width:430px){
+    .row2{flex-direction:column;gap:0;}
+    .row2>*{width:100%;}
+  }
   .modal h2{margin:0 0 14px;font-size:17px;display:flex;align-items:center;gap:8px;}
   .field{margin-bottom:12px;}
   .field label{display:block;font-size:13px;color:var(--sub);margin-bottom:5px;font-weight:600;}
   .field input:not([type=color]):not([type=range]):not([type=checkbox]):not([type=radio]),.field select,.field textarea{width:100%;border:1px solid var(--line);border-radius:11px;padding:11px 12px;font-size:16px;font-family:inherit;background:var(--card);color:var(--ink);}
   .field textarea{resize:vertical;min-height:60px;}
-  .row2{display:flex;gap:10px;} .row2>*{flex:1;}
+  .row2{display:flex;gap:10px;}
+  /* min-width:0：flex item 默认 min-width:auto，长内容会撑破列宽、把文字挤出可视区（截图里 label 被裁） */
+  .row2>*{flex:1 1 0;min-width:0;}
+  /* span2：说明文字长的字段跨整行，兼顾「可读」与「弹窗别太高」——短字段对仍两列省高度 */
+  .row2>.span2{flex:1 1 100%;}
   .hs-row{display:grid;grid-template-columns:88px 1fr;gap:10px;align-items:start;margin-bottom:12px;}
   .hs-row .hs-lbl{font-size:13px;color:var(--sub);font-weight:600;padding-top:6px;white-space:nowrap;}
   .hs-row .hs-ctrl{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0;}
@@ -462,7 +473,7 @@
   .checks{display:flex;gap:6px;flex-wrap:wrap;}
   .checks label{display:flex;align-items:center;gap:4px;background:var(--hover);border:1px solid var(--line);border-radius:9px;padding:7px 9px;font-size:13px;font-weight:500;color:var(--ink);cursor:pointer;margin:0;}
   .checks input{width:auto;}
-  .modal-actions{display:flex;gap:10px;margin-top:8px;position:sticky;bottom:0;background:var(--card);padding:12px 0 4px;z-index:2;}  /* 长表单下操作栏常驻可见（） */
+  .modal-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;position:sticky;bottom:0;background:var(--card);padding:12px 0 4px;z-index:2;}  /* 长表单下操作栏常驻可见（） */
   /* 数据管理弹窗：本地备份 / 云同步 双 Tab（） */
   .dtabs{display:flex;gap:4px;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:16px;}
   .dtab{flex:1;border:none;background:transparent;border-radius:9px;padding:9px 12px;font-size:14px;font-weight:600;color:var(--sub);cursor:pointer;font-family:inherit;min-height:40px;transition:.15s;}
@@ -483,7 +494,8 @@
   .mode-toggle .mt-hint{font-size:12px;color:var(--muted);margin-left:4px;}
   body:not(.modal-full) .full-only{display:none !important; /* 非全屏弹窗下隐藏「仅全屏显示」元素 */}
   body.modal-full .mode-toggle .mt-btn[data-mode="full"]{background:var(--pri);color:var(--white);border-color:var(--pri);}
-  .modal-actions .btn{flex:1;justify-content:center;}
+  /* flex:1 1 auto + min-width + nowrap：按钮多时换行成两排，而不是把文字压成竖排一字一行 */
+  .modal-actions .btn{flex:1 1 auto;min-width:88px;justify-content:center;white-space:nowrap;}
   /* 首次引导（审查 F1：轻量一次性浮层，localStorage 门控，不干扰既有流程） */
   #introMask .modal{max-width:520px;}
   .intro-hero{font-size:22px;font-weight:800;margin:0 0 4px;display:flex;align-items:center;gap:10px;}
@@ -1628,7 +1640,10 @@
 }
 
 /* [32/33] max-width:640px) */
-@media(max-width:640px){ .pager{justify-content:center;} .pg-info{width:100%;text-align:center;} .modal-actions{flex-direction:column-reverse;} }
+@media(max-width:640px){ .pager{justify-content:center;} .pg-info{width:100%;text-align:center;}
+  .modal-actions{flex-direction:column-reverse;}
+  .row2{flex-direction:column;gap:0;}   /* 无容器查询的老浏览器兜底：弹窗内一律单列 */
+  .row2>*{width:100%;} }
 
 /* [33/33] (min-width:768px) and (max-width:860px) */
 @media (min-width:768px) and (max-width:860px){
@@ -2053,7 +2068,7 @@
       </div>
     </div>
     <div class="full-only field">
-      <label>标签（逗号或空格分隔，便于跨分类检索）</label>
+      <label title="逗号或空格分隔，便于跨分类检索">标签</label>
       <input id="f_tags" placeholder="例如：求职, 设计, 周报">
       <div class="tagpick" id="tagPick"></div>
     </div>
@@ -2120,7 +2135,7 @@
     </div>
     </div><!-- /#dateFields -->
     <div class="full-only field" id="scopeField" style="display:none;background:var(--pri-soft);border:1px dashed var(--pri);border-radius:10px;padding:10px 12px;margin-top:4px;">
-      <label style="display:block;margin-bottom:6px;font-weight:600;">编辑范围 · 这是重复任务的一次</label>
+      <label style="display:block;margin-bottom:6px;font-weight:600;" title="这是重复任务的一次；「整组」改的是所有日期">编辑范围</label>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
         <span style="font-size:13px;color:var(--sub);">编辑哪一次：</span>
         <input type="date" id="f_editdate" style="padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);">
@@ -2137,7 +2152,7 @@
       <small class="hint" style="display:block;margin-top:6px;">选「仅此一次」只改这一天（时间/标题等独立）；想改整组请切到「整组重复」。</small>
     </div>
     <div class="full-only field subtasks" id="subField">
-      <label>子任务清单（勾选完成、点 ✕ 删除；完成后任务显示进度 n/m）</label>
+      <label title="勾选完成、点 ✕ 删除；完成后任务显示进度 n/m">子任务清单</label>
       <div class="sublist" id="subList"></div>
       <div class="subadd"><input id="subInput" placeholder="添加子任务，回车确认"><button class="btn btn-ghost btn-sm" id="subAddBtn" type="button">添加</button><button class="btn btn-ghost btn-sm" id="subBulkBtn" type="button">批量</button></div>
       <div id="subBulkWrap" style="display:none;margin-top:8px;">
@@ -2219,12 +2234,12 @@
       <div class="field"><label>主题色</label><input id="pj_color" type="color" value="#ff7a59"></div>
       <div class="field"><label>状态</label><select id="pj_status"><option value="active">进行中</option><option value="done">已完成</option></select></div>
     </div>
-    <div class="field"><label>关联目标 KR（可多选，将显示在项目卡）</label><div id="pj_kr_list" class="kr-checklist"></div></div>
+    <div class="field"><label title="可多选，将显示在项目卡">关联目标 KR</label><div id="pj_kr_list" class="kr-checklist"></div></div>
     <div class="row2">
       <div class="field"><label>开始日期</label><input id="pj_start" type="date"></div>
       <div class="field"><label>结束日期</label><input id="pj_end" type="date"></div>
     </div>
-    <div class="field"><label>里程碑（每行一个：YYYY-MM-DD 描述）</label><textarea id="pj_ms" placeholder="2026-09-01 交付初稿&#10;2026-09-15 评审通过"></textarea></div>
+    <div class="field"><label title="每行一个：YYYY-MM-DD 描述">里程碑</label><textarea id="pj_ms" placeholder="2026-09-01 交付初稿&#10;2026-09-15 评审通过"></textarea></div>
     <div class="defer-pop" id="pjDeferPop" style="display:none;">
       <div class="dp-title">项目延期（只推截止日）</div>
       <button class="dp-chip" data-pjd="1">+1天</button>
@@ -2275,8 +2290,8 @@
     <input id="okr_objId" type="hidden">
     <input id="okr_krId" type="hidden">
     <div id="okrObjGroup">
-      <div class="field"><label>目标名称（Objective）</label><input id="okr_o_title" maxlength="60" placeholder="如：2026 Q3 · 拿到心仪 offer"></div>
-      <div class="field"><label>周期（如 2026-Q3，可留空）</label><input id="okr_o_period" placeholder="2026-Q3"></div>
+      <div class="field"><label title="Objective：目标名称">目标名称</label><input id="okr_o_title" maxlength="60" placeholder="如：2026 Q3 · 拿到心仪 offer"></div>
+      <div class="field"><label title="如 2026-Q3，可留空">周期</label><input id="okr_o_period" placeholder="2026-Q3"></div>
       <div class="row2">
         <div class="field"><label>层级</label><select id="okr_o_level"><option value="normal">普通</option><option value="year">年度</option><option value="quarter">季度</option><option value="month">月度</option></select></div>
         <div class="field"><label>父目标（可选）</label><select id="okr_o_parent"></select></div>
@@ -2286,10 +2301,10 @@
       <div class="field"><label>关键结果 KR 名称</label><input id="okr_k_title" maxlength="60" placeholder="如：完成 30 次有效投递"></div>
       <div class="row2">
         <div class="field"><label>目标值（数字）</label><input id="okr_k_target" type="number" min="0" value="0"></div>
-        <div class="field"><label>单位（如 次 / % / 篇）</label><input id="okr_k_unit" placeholder="次" maxlength="10"></div>
+        <div class="field"><label title="如 次 / % / 篇">单位</label><input id="okr_k_unit" placeholder="次" maxlength="10"></div>
       </div>
       <div class="row2">
-        <div class="field"><label>权重（KR 在目标内的重要性，默认 1）</label><input id="okr_k_weight" type="number" min="0.1" step="0.1" value="1"></div>
+        <div class="field"><label title="KR 在目标内的重要性，默认 1">权重</label><input id="okr_k_weight" type="number" min="0.1" step="0.1" value="1"></div>
         <div class="field"></div>
       </div>
       <div class="row2">
@@ -2322,7 +2337,7 @@
       <div class="field"><label>当前进度</label><input id="m_current" type="number" min="0" value="0"></div>
       <div class="field"><label>总量</label><input id="m_total" type="number" min="1" value="1"></div>
     </div>
-    <div class="field"><label>单位（如 章 / 集 / 页 / 课；百分比模式下可选留空）</label><input id="m_unit" maxlength="8" placeholder="章"></div>
+    <div class="field"><label title="如 章 / 集 / 页 / 课；百分比模式下可留空">单位</label><input id="m_unit" maxlength="8" placeholder="章"></div>
     <label class="chk" style="display:flex;align-items:center;gap:6px;min-height:34px;cursor:pointer;margin:2px 0 6px;"><input type="checkbox" id="m_percent"> 以百分比记录（当前进度直接填 0–100，如 45 表示 45%）</label>
     <div class="field"><label>平台（可选）</label><input id="m_platform" placeholder="微信读书 / B站 / 腾讯视频 ..."></div>
     <div class="modal-actions">
@@ -2441,7 +2456,7 @@
     <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>分类与优先级</h2>
     <p class="hint" style="margin-top:0;">改名会自动同步已有任务；删除时若仍有任务在用，会让你选择迁移目标。每组至少保留 1 项。若改名后仍有任务留着旧名称，它们会作为「遗留值」出现在下方，可一键合并到现行名称。</p>
     <div class="field">
-      <label>任务分类（颜色决定日历色块）</label>
+      <label title="颜色决定日历色块">任务分类</label>
       <div class="optlist" id="catList"></div>
       <div class="optadd">
         <input type="color" id="catNewColor" value="#4F7CFF" title="颜色">
@@ -2451,7 +2466,7 @@
       </div>
     </div>
     <div class="field" style="margin-top:16px;">
-      <label>优先级（列表自上而下 = 由高到低）</label>
+      <label title="列表自上而下 = 由高到低">优先级</label>
       <div class="optlist" id="priList"></div>
       <div class="optadd">
         <input type="color" id="priNewColor" value="#ff5c5c" title="颜色">
@@ -2601,7 +2616,7 @@
     <div id="wRowLink" class="w-row" style="display:none"><label>链接 URL</label><input id="wUrl" placeholder="https://…"></div>
     <div id="wRowNum" class="w-row" style="display:none"><label>数字</label><input id="wNum" placeholder="例如 8/10"></div>
     <div style="margin-top:16px;border-top:1px dashed var(--line);padding-top:14px">
-      <label style="display:block;font-size:12.5px;color:var(--sub);margin-bottom:8px">或添加功能卡（自动统计，无需手填）</label>
+      <label style="display:block;font-size:12.5px;color:var(--sub);margin-bottom:8px" title="自动统计，无需手填">或添加功能卡</label>
       <div id="wPresets" class="w-presets"></div>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
