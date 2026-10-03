@@ -239,6 +239,10 @@
   .today-sec-dot{width:8px;height:8px;border-radius:50%;background:var(--c5);}
   .today-sec-dot.over{background:var(--danger);}
   .today-sec-h b{color:var(--text);font-weight:700;}
+  /* 逾期分区头的批量操作：靠右排布，桌面压低存在感避免与分区标题抢视线 */
+  .today-sec-act{margin-left:auto;min-height:24px;padding:2px 8px;font-size:11.5px;font-weight:600;color:var(--sub);border:1px solid var(--line);background:var(--card);border-radius:7px;cursor:pointer;}
+  .today-sec-act:hover{background:var(--hover);color:var(--ink-strong);}
+  .today-sec-act:focus-visible{outline:2px solid var(--pri);outline-offset:1px;}
   .today-sec-toggle{margin:8px 0 2px;align-self:stretch;text-align:left;font-size:12.5px;font-weight:600;color:var(--pri);
     background:var(--pri-soft);border:1px dashed var(--pri);border-radius:var(--radius);padding:7px 10px;cursor:pointer;min-height:38px;}
   .today-scroll-hint{position:sticky;bottom:0;left:0;right:0;margin-top:4px;text-align:center;font-size:11.5px;font-weight:600;color:var(--pri);
@@ -1578,6 +1582,7 @@
   /* P1-1：今日页「完成 / 不补做 🚫 / 推迟 ⏰」此前漏出本档放大清单（.today-acts .btn-sm 特异性更高，
      不会被上面的 .btn-sm 规则覆盖）→ 手机端主操作仅 26px，误点「不补做」直接改数据代价最高 */
   .today-acts .btn-sm{min-height:40px;}
+  .today-sec-act{min-height:36px;padding:5px 10px;font-size:12px;}   /* 批量顺延是高频操作，移动端保证可点 */
   .today-act{width:40px;height:40px;min-height:40px;min-width:40px;font-size:16px;}
 }
 
@@ -4488,7 +4493,9 @@ applyWidgetLayout();
 /* ===== 渲染：今天要处理 ===== */
 /* 信息密度与分组：逾期 / 今天到期 / 已完成 三段分组；已完成默认折叠；
    紧凑密度默认隐藏描述与次要徽标；头部提供「简/详」密度切换与「最大化」聚焦。 */
-let todayDoneExpanded=true;      // 已完成区默认展开（可手动折叠）
+/* 已完成区默认**折叠**：用户不使用任务管理台写日志 →「今天做完了什么」没有回看场景，
+   默认展开只会把待办区挤下去、让今日页失焦。仍可随时点开回看/撤销。 */
+let todayDoneExpanded=false;   // 已完成区默认折叠（可手动展开）
 let todayDensity="compact";      // "compact" | "detail"
 let todayMax=false;              // 是否临时最大化占满整行
 let subOpenIds=new Set();        // 今日面板里已展开子任务勾选区的任务 id
@@ -4586,7 +4593,48 @@ function todayItemHtml(i, compact, ov){
   </div>`;
 }
 
-const TODAY_SEC_HEAD=(label, n, cls)=>`<div class="today-sec-h" data-sec="${cls}"><span class="today-sec-dot ${cls}"></span>${label} <b>${n}</b></div>`;
+/* 分区头。actionHtml：可选的右侧操作（用 margin-left:auto 靠右），如逾期的「全部顺延到今天」。 */
+const TODAY_SEC_HEAD=(label, n, cls, actionHtml)=>`<div class="today-sec-h" data-sec="${cls}"><span class="today-sec-dot ${cls}"></span>${label} <b>${n}</b>${actionHtml||""}</div>`;
+
+/* 逾期批量顺延到今天：今日页最高频的清理动作。
+   两个关键点：
+   ① buildTodayModel 的 overdue 里**同一任务可能出现多条**（逾期 3 天就有 3 个实例，逐日展开），
+      直接逐条平移会把任务推过头；因此按任务分组、取**最早**的那个实例算平移天数，
+      一次平移即可让该任务的全部实例都落到今天及之后。
+   ② 批量只 snapshot() 一次 —— 逐条 snapshot 会在撤销栈里塞入 N 个几乎相同的快照。 */
+function deferOverdueAllToday(){
+  const m=buildTodayModel();
+  if(!m.overdue.length){ toast("没有逾期待处理的任务"); return; }
+  const d0=startOfDay(new Date());
+  const byTask=new Map();
+  for(const i of m.overdue){
+    const k=i.task.id;
+    const cur=byTask.get(k);
+    if(!cur || startOfDay(parseLocal(ymd(i.date)+"T00:00")) < startOfDay(parseLocal(ymd(cur.date)+"T00:00"))) byTask.set(k,i);
+  }
+  snapshot();   // 批量操作只入栈一次
+  let n=0;
+  for(const i of byTask.values()){
+    const t=i.task;
+    const from=startOfDay(parseLocal(ymd(i.date)+"T00:00"));
+    const delta=Math.round((d0-from)/DAY);
+    if(!(delta>0)) continue;
+    if(t.recurrence&&t.recurrence.freq!=="none"){
+      moveRecInstance(t, parseLocal(ymd(i.date)+"T00:00"), delta);
+    }else{
+      /* 以**实例**为基准平移到今天，并原样保留「时刻 + 时长」——
+         若按 delta 去平移 t.start（模板原值），一旦模板 start 与实例日期不一致
+         （历史数据 / 改期残留），落点会偏移。这里直接用 i.start/i.end 重建。 */
+      const dur=parseLocal(i.end)-parseLocal(i.start);
+      const ns=new Date(d0.getTime() + (parseLocal(i.start)-from));   // 今天 + 该实例原本的时刻
+      t.start=toStr(ns);
+      t.end=toStr(new Date(ns.getTime()+dur));
+    }
+    touchTask(t); n++;
+  }
+  save(); renderAll();
+  toastUndo(n ? ("已把 "+n+" 个逾期任务顺延到今天") : "逾期的任务都已在今天，无需顺延");
+}
 
 /* 今日区域公共绑定（顶部 widget 与「今日」整页共用，唯一差异是刷新回调）；
    之前两处各有约 35 行近乎逐字重复的绑定，改一处漏一处，现统一收敛。 */
@@ -4596,6 +4644,7 @@ const TODAY_SEC_HEAD=(label, n, cls)=>`<div class="today-sec-h" data-sec="${cls}
 let __todayDelegated=false;
 function handleTodayClick(e, rerender){
   const el=e.target; if(!el || !el.closest) return;
+  const dall=el.closest("[data-deferall]"); if(dall){ deferOverdueAllToday(); return; }   // 逾期分区头「全部顺延到今天」
   const done=el.closest("[data-done]");      if(done){ toggleDone(done.dataset.done, done.dataset.date); return; }
   const rest=el.closest("[data-restore]");   if(rest){ restoreTask(rest.dataset.restore, rest.dataset.date); return; }
   const sk=el.closest("[data-skip]");        if(sk){ skipTask(sk.dataset.skip, sk.dataset.date); return; }
@@ -4652,29 +4701,43 @@ function bindTodayHeader(){
   const maxBtn=document.getElementById("todayMaxBtn");
   if(maxBtn){ maxBtn.onclick=()=>{ todayMax=!todayMax; const p=document.querySelector('.toppanel[data-wid="today"]'); if(p) p.classList.toggle('today-max', todayMax); renderToday(); }; }
 }
+/* ===== 今日页分区主体：顶部 widget 与底部整页**共用同一份渲染** =====
+   此前 renderToday / renderTodayPage 各自写了一遍「逾期 / 今天 / 已完成」的拼接、空态判断与空态文案，
+   改一处忘另一处就会出不一致（本文件已因 emptyState 重复定义、formDirtyTask 漏字段踩过同类坑）。 */
+function todayEmptyHtml(){
+  return '<div class="empty"><div class="empty-ic">🎉</div><div>今天没有待处理任务<br>把收件箱里的想法安排进来，或点上方「新建任务」添加一个</div></div>';
+}
+function todaySectionsHtml(m, itemHtml){
+  const {overdue, due, todayAll}=m;
+  let html="";
+  if(overdue.length){
+    // 批量操作放在分区头而非条目上：条目侧第三批刚做过动作层级精简（4→3 个），再挤压会伤可点性
+    const act='<button class="btn btn-ghost btn-xs today-sec-act" type="button" data-deferall title="把所有逾期任务顺延到今天（可撤销）">全部顺延到今天</button>';
+    html += TODAY_SEC_HEAD("逾期", overdue.length, "over", act) + overdue.map(itemHtml).join("");
+  }
+  if(due.length) html += TODAY_SEC_HEAD("今天", due.length, "") + due.map(itemHtml).join("");
+  const doneItems=todayAll.filter(isDone);
+  if(doneItems.length){
+    const folded=!todayDoneExpanded;
+    html += `<div class="today-sec ${folded?'folded':''}">
+      <button class="today-sec-toggle" data-donesec>${folded?'▸':'▾'} 已完成 ${doneItems.length}</button>
+      <div class="today-sec-b" ${folded?'style="display:none"':''}>${ folded ? "" : doneItems.map(itemHtml).join("") }</div></div>`;
+  }
+  return html;
+}
+
 function renderToday(){
   const m=buildTodayModel();
   const {overdue, due, urgent, todayAll, done, total}=m;
   const list=document.getElementById("todayList");
   const krHtml=renderTodayKrHtml();
   bindTodayHeader();   // 空态也要绑，否则首次进入空列表时密度/最大化按钮无响应
-  if(!urgent.length && !done){ list.innerHTML='<div class="empty"><div class="empty-ic">🎉</div><div>今天没有待处理任务<br>把收件箱里的想法安排进来，或点上方「新建任务」添加一个</div></div>'+krHtml+hintHtml(); renderRing(0,0); bindKrToday(); return; }
+  if(!urgent.length && !done){ list.innerHTML=todayEmptyHtml()+krHtml+hintHtml(); renderRing(0,0); bindKrToday(); return; }
 
   const compact = todayDensity==="compact";
   const ovSet=new Set(overdue);   // 避免 overdue.includes(i) 的 O(n^2)
   const itemHtml=(i)=> todayItemHtml(i, compact, ovSet.has(i));
-
-  let html="";
-  if(overdue.length) html += TODAY_SEC_HEAD("逾期", overdue.length, "over") + overdue.map(itemHtml).join("");
-  if(due.length)     html += TODAY_SEC_HEAD("今天", due.length, "") + due.map(itemHtml).join("");
-  const doneItems=todayAll.filter(isDone);
-  if(doneItems.length){
-    const folded = !todayDoneExpanded;
-    html += `<div class="today-sec ${folded?'folded':''}">
-      <button class="today-sec-toggle" data-donesec>${folded?'▸':'▾'} 已完成 ${doneItems.length}</button>
-      <div class="today-sec-b" ${folded?'style="display:none"':''}>${ folded ? "" : doneItems.map(itemHtml).join("") }</div></div>`;
-  }
-  list.innerHTML=html+krHtml+hintHtml();
+  list.innerHTML = todaySectionsHtml(m, itemHtml) + krHtml + hintHtml();
   renderRing(done,total);
   bindKrToday();
   bindTodayDelegation();
@@ -4701,26 +4764,15 @@ function renderTodayPage(){
       <button class="btn btn-ghost btn-sm" id="todayPageDensity" title="切换紧凑 / 详细密度">${densLabel}</button>
     </div>`;
   if(!urgent.length && !done){
-    view.innerHTML=`<div class="today-page">${head}<div class="empty"><div class="empty-ic">🎉</div><div>今天没有待处理任务<br>把收件箱里的想法安排进来，或点上方「新建任务」添加一个</div></div>${krHtml}${hintHtml()}</div>`;
+    view.innerHTML=`<div class="today-page">${head}${todayEmptyHtml()}${krHtml}${hintHtml()}</div>`;
     bindKrToday(); bindDens();
     return;
   }
   const compact = todayDensity==="compact";
   const ovSet=new Set(overdue);
   const itemHtml=(i)=> todayItemHtml(i, compact, ovSet.has(i));
-
-  let body="";
-  if(overdue.length) body += TODAY_SEC_HEAD("逾期", overdue.length, "over") + overdue.map(itemHtml).join("");
-  if(due.length)     body += TODAY_SEC_HEAD("今天", due.length, "") + due.map(itemHtml).join("");
-  const doneItems=todayAll.filter(isDone);
-  if(doneItems.length){
-    const folded = !todayDoneExpanded;
-    body += `<div class="today-sec ${folded?'folded':''}">
-      <button class="today-sec-toggle" data-donesec>${folded?'▸':'▾'} 已完成 ${doneItems.length}</button>
-      <div class="today-sec-b" ${folded?'style="display:none"':''}>${ folded ? "" : doneItems.map(itemHtml).join("") }</div></div>`;
-  }
   view.innerHTML = `<div class="today-page">${head}
-    <div class="today-items">${body}</div>
+    <div class="today-items">${todaySectionsHtml(m, itemHtml)}</div>
     ${krHtml}
   </div>`;
   bindKrToday();
