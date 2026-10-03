@@ -369,9 +369,12 @@
   /* 横向滚动提示：右侧渐隐遮罩，暗示内容可横滑；pointer-events:none 不挡点击 */
   .timeline::after{content:"";position:absolute;top:0;right:0;bottom:0;width:28px;pointer-events:none;
     background:linear-gradient(to right,transparent,var(--bg));}
-  .tgutter{flex:none;width:50px;border-right:1px solid var(--line);}
+  /* P2-3：横滑后小时刻度整列会消失 —— 对齐甘特 .gname 的做法，固定左侧刻度列（需显式背景，
+     否则下方事件块会透出来叠在刻度上） */
+  .tgutter{flex:none;width:50px;border-right:1px solid var(--line);position:sticky;left:0;z-index:2;background:var(--bg);}
   .tgutter .ghead{height:34px;border-bottom:1px solid var(--line);}
   .tgutter .ghr{height:44px;font-size:11px;color:var(--sub);text-align:right;padding-right:6px;line-height:44px;}
+  [data-theme="dark"] .tgutter{background:#1d2435;}   /* 与 .gname 的暗色覆盖保持一致 */
   .tcols{flex:1;display:flex;min-width:0;}
   .tcol{flex:1;min-width:120px;border-right:1px solid var(--line);position:relative;display:flex;flex-direction:column;}
   .tcol .hrline{height:44px;border-bottom:1px dashed var(--line);}
@@ -514,7 +517,9 @@
   .fsearch{flex:1;min-width:160px;border:1px solid var(--line);border-radius:11px;padding:9px 12px;font-size:14px;font-family:inherit;background:var(--card);color:var(--ink);}
   .fsel{border:1px solid var(--line);border-radius:11px;padding:9px 10px;font-size:14px;background:var(--card);color:var(--ink);}
   .leadsel{border:1px solid var(--line);border-radius:11px;padding:7px 8px;font-size:13px;background:var(--card);color:var(--ink);}
-  .ev{touch-action:none;}
+  .ev{touch-action:pan-y;}   /* P1-2：默认允许以事件块为起点的纵向滚动（触屏拖拽 HTML5 本不触发，
+                                none 会让"手指落在内容上就滚不动"）；精细指针档才收成 none 供拖拽用 */
+  @media (hover:hover) and (pointer:fine){ .ev{touch-action:none;} }
   .dcell.drop{outline:2px solid var(--pri);outline-offset:-2px;background:var(--pri-soft) !important; /* 拖放高亮必须压过行条纹/继承底色 */}
   .chip.dragging{z-index:20;box-shadow:0 4px 12px rgba(0,0,0,.18);}
   .btn.on-remind{background:var(--pri);color:var(--white);border-color:var(--pri);}
@@ -1193,7 +1198,8 @@
 
 .gantt-today{position:absolute;top:0;bottom:0;width:2px;background:var(--danger);z-index:5;pointer-events:none;}
 .gantt-today::after{content:"今";position:absolute;top:0;left:2px;font-size:10px;color:var(--white);background:var(--danger);padding:0 3px;border-radius:0 0 4px 0;}
-.gbar{cursor:grab;touch-action:none;}
+.gbar{cursor:grab;touch-action:pan-x pan-y;}   /* P1-2：触屏允许横滑（甘特此前只能点空白轨道才能横滑），精细指针档再收成 none */
+@media (hover:hover) and (pointer:fine){ .gbar{touch-action:none;} }
 .gbar.dragging{cursor:grabbing;opacity:.7;box-shadow:0 3px 12px rgba(0,0,0,.25);}
 .gantt-empty-actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;}
 /* 甘特工具条分组分隔线 */
@@ -1475,11 +1481,13 @@
     .brand{font-size:16px;}
     .seg button{padding:9px 11px;}
     .curdate{min-width:110px;font-size:13px;}
-    /* 月历窄屏降级：日格压扁，chip 只留色块/时间，标题隐藏防截断（） */
-    .dcell{height:76px;padding:4px 5px;}
-    .dcell .chip{font-size:0;gap:3px;justify-content:center;padding:2px 3px;}
-    .dcell .chip .ct{font-size:11px;padding:0 3px;}
-    .dcell .chip .cb{display:none;}
+    /* P2-4：原窄屏降级用 font-size:0 + .cb{display:none} 把 chip 标题整段抹掉，日历退化成一堆
+       看不懂的色块。改为两行布局：标题在上（沿用已有的 ellipsis 截断）、时间在下作辅，
+       日格加高到 88px 容纳 2-3 条。 */
+    .dcell{height:88px;padding:4px 5px;}
+    .dcell .chip{font-size:11px;gap:0;flex-direction:column;align-items:stretch;justify-content:center;padding:2px 3px;}
+    .dcell .chip .cb{display:block;padding:0 2px;font-size:11px;line-height:1.25;}
+    .dcell .chip .ct{font-size:9px;padding:0 2px;opacity:.8;align-self:flex-start;margin-top:1px;}
     .dcell .chip.overdue::before{width:5px;height:5px;margin-left:0;}
   }
 
@@ -1561,6 +1569,10 @@
   /* 完成时间：窄屏下日期与时刻各占一行，快捷按钮平分一行，避免挤成一团 */
   .da-row input[type=date],.da-row input[type=time]{flex:1 1 100%;min-height:40px;}
   .da-row.da-quick .btn-sm{flex:1 1 calc(50% - 3px);min-height:40px;}
+  /* P1-1：今日页「完成 / 不补做 🚫 / 推迟 ⏰」此前漏出本档放大清单（.today-acts .btn-sm 特异性更高，
+     不会被上面的 .btn-sm 规则覆盖）→ 手机端主操作仅 26px，误点「不补做」直接改数据代价最高 */
+  .today-acts .btn-sm{min-height:40px;}
+  .today-act{width:40px;height:40px;min-height:40px;min-width:40px;font-size:16px;}
 }
 
 /* [30/33] (max-width:860px) */
@@ -2902,8 +2914,10 @@ function chooseModal(message, opts){
 }
 
 /* 通用空状态（审查 T3：统一空状态文案与样式，避免散落硬编码）。
-   返回 .empty 块；icon 为 emoji/SVG，text 为主文案，sub 为次要说明，actionHtml 为可选操作按钮。 */
+   返回 .empty 块；icon 为 emoji/SVG，text 为主文案，sub 为次要说明，actionHtml 为可选操作按钮。
+   兼容历史 3 参调用（第三参传的是按钮 HTML 而非说明文字）——按是否含标签自动判别，避免旧调用点把按钮当小字说明渲染。 */
 function emptyState(icon, text, sub, actionHtml){
+  if(sub && sub.indexOf("<")>=0 && !actionHtml){ actionHtml=sub; sub=""; }
   return '<div class="empty"><div class="empty-ic">'+esc(icon||"📭")+'</div><div>'+esc(text||"暂无数据")+
     (sub?'<br><small style="color:var(--sub);font-weight:400;display:inline-block;margin-top:6px;">'+esc(sub)+'</small>':'')+
     '</div>'+(actionHtml||'')+'</div>';
@@ -4286,10 +4300,9 @@ function ctrlHtml(wid,isCustom,hideEdit){
     +edit+del+'</span></span></span>';
 }
 
-/* O13：统一空状态模板（图标 + 说明 + 可选操作按钮），消除多视图语气/结构不一致 */
-function emptyState(icon, text, actionHtml){
-  return '<div class="empty"><div class="empty-ic">'+icon+'</div><div>'+text+'</div>'+(actionHtml?actionHtml:'')+'</div>';
-}
+/* O13：统一空状态模板（图标 + 说明 + 可选操作按钮），消除多视图语气/结构不一致。
+   原本此处还有一个 3 参版本（无 sub），与上面 2918 的 4 参版本**同作用域重复定义**，
+   后者覆盖前者 → 4 参的 sub 能力实际从未生效，且 text 未转义。已删除本处重复定义，统一用 4 参版。 */
 function renderCustomCard(w, S){
   const wid="c:"+w.id; let body="";
   if(w.type==="func") body='<div class="card-body">'+funcBody(w, S)+'</div>';
@@ -4494,7 +4507,7 @@ function todayItemHtml(i, compact, ov){
   const extra=_bd.extra;
   const barColor = ov ? "var(--danger)" : priColor(p);
   const ibd = (!compact && i.task.desc) ? `<div class="ibd">${esc(i.task.desc)}</div>` : "";
-  return `<div class="today-item ${ov?'overdue':''} ${itDone?'done':''} ${isDrop?'dropped no-count':''}" data-open="${i.task.id}" data-open-date="${ymd(i.date)}">
+  return `<div class="today-item ${ov?'overdue':''} ${itDone?'done':''} ${isDrop?'dropped no-count':''}" role="button" tabindex="0" aria-label="${esc(i.task.title)}" data-open="${i.task.id}" data-open-date="${ymd(i.date)}">
     <div class="bar" style="background:${barColor}"></div>
     <div class="meta">
       <div class="t">${esc(i.task.title)}</div>
@@ -5404,7 +5417,7 @@ function renderMonth(){
         const ovMark = overdue ? '⚠️ ' : '';
         const dpMark = isDrop ? '🚫 ' : '';
         const daMark = isDone(i) ? ' · '+doneAtMark(i.task, i.date, false) : '';
-        chips+=`<div class="chip${ovCls}${isDrop?' dropped':''}" data-id="${i.task.id}" data-date="${k}" style="background:${col};${done}" title="${dpMark}${ovMark}${ttl}（${fmtRange(i.start,i.end)}）${isDrop?' · 不补做':''}${daMark}"><span class="ct">${fmtTime(i.start)}</span><span class="cb">${dpMark}${ovMark}${ttl}${subBadge(i.task,k)}${daMark}</span></div>`;
+        chips+=`<div class="chip${ovCls}${isDrop?' dropped':''}" role="button" tabindex="0" aria-label="${esc(i.task.title)} ${fmtRange(i.start,i.end)}" data-id="${i.task.id}" data-date="${k}" style="background:${col};${done}" title="${dpMark}${ovMark}${ttl}（${fmtRange(i.start,i.end)}）${isDrop?' · 不补做':''}${daMark}"><span class="ct">${fmtTime(i.start)}</span><span class="cb">${dpMark}${ovMark}${ttl}${subBadge(i.task,k)}${daMark}</span></div>`;
       }
       const more=(byDay[k]||[]).length-arr.length;
       if(more>0) chips+=`<div class="more" data-more="${k}" title="查看当日全部任务">+${more} 项</div>`;
@@ -5470,6 +5483,14 @@ function renderTimeline(days){
   const rangeStart=startOfDay(days[0]), rangeEnd=endOfDay(days[days.length-1]);
   const insts=filterInsts(getInstances(rangeStart, rangeEnd));
   const all=insts.concat(krInstances(rangeStart, rangeEnd));
+  /* P2-5：日/周视图此前完全没有空态（直接出 24h 网格），对比今日/收件箱/统计/甘特都有。
+     整天/整周无安排时给出引导，而不是让用户对着一张空网格猜是不是没加载出来。 */
+  if(!all.length){
+    const isRange=days.length>1;
+    document.getElementById("view").innerHTML=emptyState("🗓", isRange?"这一周还没有安排。":"这一天还没有安排。",
+      "在日程视图里点任意时间格即可新建任务；也可以从「今日」把待办拖到这一天。");
+    return;
+  }
   const gutter='<div class="tgutter"><div class="ghead"></div>'+Array.from({length:24},(_,h)=>`<div class="ghr">${String(h).padStart(2,"0")}</div>`).join("")+'</div>';
   let cols="";
   for(const d of days){
@@ -5515,7 +5536,7 @@ function renderTimeline(days){
         etHtml += ` <span style="opacity:.85;font-size:11px;">${shortMark}</span>`;
       }
       const edStyle = edHtml ? '' : 'display:none;';
-      body+=`<div class="ev${isDrop?' dropped':''}" style="${posStyle}top:${top}px;height:${hh}px;background:${col};${isDrop?'opacity:.4':(done?'opacity:.55':'')};justify-content:${justify};" data-id="${i.task.id}" data-date="${ymd(i.date)}">
+      body+=`<div class="ev${isDrop?' dropped':''}" role="button" tabindex="0" aria-label="${esc(i.task.title)} ${rangeTxt}" style="${posStyle}top:${top}px;height:${hh}px;background:${col};${isDrop?'opacity:.4':(done?'opacity:.55':'')};justify-content:${justify};" data-id="${i.task.id}" data-date="${ymd(i.date)}">
         <div class="et">${etHtml}</div><div class="ed" style="${edStyle}">${edHtml}</div></div>`;
     });
     const hrs=Array.from({length:24},()=>`<div class="hrline"></div>`).join("");
@@ -10091,9 +10112,24 @@ function bindKrToday(){ document.querySelectorAll("#todayList .kr-today-item[dat
 
 /* ===== 键盘快捷键 ===== */
 function inField(){ const a=document.activeElement; return a && (a.tagName==="INPUT"||a.tagName==="TEXTAREA"||a.tagName==="SELECT"||a.isContentEditable); }
+/* P1-12：任一弹层（含嵌套确认框/详情/顶菜单）是否打开。用于屏蔽全局单键快捷键，
+   避免在弹窗里按 N / 1~9 / U 静默丢弃编辑内容或改状态。Esc 不受此影响（由各自的 Esc 链处理）。 */
+function modalAnyOpen(){
+  if(document.querySelector(".mask.show")) return true;
+  if(document.getElementById("detailMask") && document.getElementById("detailMask").classList.contains("show")) return true;
+  if(document.getElementById("topMenu") && document.getElementById("topMenu").classList.contains("show")) return true;
+  return false;
+}
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape"){ const ms=["helpMask","okrMask","projMask"]; for(const id of ms){ const m=document.getElementById(id); if(m&&m.classList.contains("show")) m.classList.remove("show"); } return; }
   if(inField() || e.ctrlKey || e.metaKey || e.altKey) return;
+  /* P1-12：弹窗打开时屏蔽全局快捷键。此前只看 inField()，焦点落在弹窗内**按钮**上时 inField() 为 false，
+     按 N 会 openModal(null,null) 静默丢弃当前编辑（脏检查拦不住，它只挂在 Esc/遮罩路径）；
+     按 1~9 会在弹窗背后切视图；按 U 直接替换 state.tasks 而表单仍显示旧值，随后保存又把撤销后的数据写回。 */
+  if(modalAnyOpen()) return;
+  /* P1-12：←/→ 在 #seg 已 preventDefault（切换视图内周期）后，全局 handler 仍会再 nav() 一次 →
+     "切视图的同时跳周期"双触发。已处理过的事件不再响应。 */
+  if(e.defaultPrevented) return;
   const k=e.key.toLowerCase();
   if(k==="n"){ e.preventDefault(); openModal(null,null); }
   /* ：任何视图下 `/` 都唤起全局命令面板（可搜任务/媒体/习惯/清单/命令），
