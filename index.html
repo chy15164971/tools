@@ -192,6 +192,7 @@
   .today-item.dropped{opacity:.5;background:var(--bg);}
   .today-item.dropped .t{text-decoration:line-through;}
   .badge.drop{background:var(--line);color:var(--muted);border:1px solid var(--line);}
+  .badge.rec{background:transparent;color:var(--sub);border:1px solid var(--line);padding:1px 4px;opacity:.8;}
   .btn-quiet{background:var(--card);border:1px solid var(--line);color:var(--muted);font-size:12px;padding:3px 9px;border-radius:6px;cursor:pointer;}
   .btn-quiet:hover{background:var(--bg2);color:var(--text);}
   .inbox-item.dropped .ibt{text-decoration:line-through;}
@@ -257,6 +258,14 @@
   .today-page .tp-head h2{margin:0;font-size:19px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:8px;}
   .today-page .tp-head h2::before{content:"";width:4px;height:18px;border-radius:3px;background:var(--pri);flex:none;}
   .today-page .tp-prog{font-size:13px;color:var(--sub);}
+  /* 整页进度条：widget 有进度环，空间更大的整页原先反而只有文字 —— 这里补横向条 */
+  .tp-bar{height:5px;border-radius:99px;background:var(--bg2);overflow:hidden;margin:2px 0 4px;}
+  .tp-bar>i{display:block;height:100%;background:var(--pri);border-radius:99px;transition:width .25s;}
+  /* 快速添加行：今日页自带新建入口，避免"记一条"要滚回顶部 */
+  .today-qa{margin:2px 0 8px;}
+  .qa-input{width:100%;min-height:38px;padding:8px 12px;border:1px dashed var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;font-size:13.5px;}
+  .qa-input::placeholder{color:var(--muted);}
+  .qa-input:focus{outline:none;border-style:solid;border-color:var(--pri);background:var(--card);}
   .today-page .tp-prog b{font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;}
   .today-page .today-items{display:flex;flex-direction:column;gap:8px;}
   .today-page .today-item{width:100%;}                 /* 整页宽度，不再受 widget 列宽限制 */
@@ -1583,6 +1592,8 @@
      不会被上面的 .btn-sm 规则覆盖）→ 手机端主操作仅 26px，误点「不补做」直接改数据代价最高 */
   .today-acts .btn-sm{min-height:40px;}
   .today-sec-act{min-height:36px;padding:5px 10px;font-size:12px;}   /* 批量顺延是高频操作，移动端保证可点 */
+  .qa-input{min-height:44px;font-size:16px;padding:10px 12px;}   /* C-5 iOS 聚焦缩放兜底 + 44px 触控 */
+  .tp-bar{height:7px;}   /* 细条在手机上不易辨认，加高到 7px */
   .today-act{width:40px;height:40px;min-height:40px;min-width:40px;font-size:16px;}
 }
 
@@ -3527,8 +3538,15 @@ function parseNL(text){
   const tags=[];
   s=s.replace(/#([^\s#@]+)/g, (m,g)=>{ const t=g.replace(/[,，;；]+$/,"").trim(); if(t) tags.push(t); return " "; });
   let prio=null;
-  const pm2=s.match(/(^|[\s,，])p([0-3])\b/i);
-  if(pm2){ prio="p"+pm2[2]; s=s.replace(pm2[0],(pm2[1]||" ")); }
+  const pm2=s.match(/(^|[\s,，])([pP][0-3])(?![^\s,，])/);
+  if(pm2){
+    /* 必须匹配到**实际存在的优先级名**再回填 —— pris 是用户自定义的（可能是「高/中/低」而非 P0~P3），
+       硬塞 "p1" 会产生游离值：不在筛选选项里、优先级统计也统计不到。匹配不到就当普通文字。 */
+    const want=pm2[2].toUpperCase();
+    const hit=pris.find(x=>String(x&&x.name).toUpperCase()===want)
+           || pris.find(x=>String(x&&x.name).toUpperCase().replace(/\s+/g,"")===want);
+    if(hit){ prio=hit.name; s=s.replace(pm2[0],(pm2[1]||" ")); }
+  }
   let ctx="";
   const cm=s.match(/(^|[\s,，])@([^\s#@]+)/);
   if(cm){ ctx=cm[2].replace(/[,，;；]+$/,"").trim(); s=s.replace(cm[0],(cm[1]||" ")); }
@@ -4493,11 +4511,18 @@ applyWidgetLayout();
 /* ===== 渲染：今天要处理 ===== */
 /* 信息密度与分组：逾期 / 今天到期 / 已完成 三段分组；已完成默认折叠；
    紧凑密度默认隐藏描述与次要徽标；头部提供「简/详」密度切换与「最大化」聚焦。 */
+/* ===== 今日页视图偏好持久化 =====
+   与 wb_today_subopen_v1 同一思路：属纯 UI 偏好，**刻意不进云同步**（否则多设备的展开态会互相打架）。
+   此前密度/折叠/最大化三个都是内存变量，刷新即丢；而子任务展开态却是持久的 —— 同一页面内不一致。 */
+const TODAY_UI_KEY="wb_today_ui_v1";
+function todayUiGet(k, dflt){ try{ const o=JSON.parse(localStorage.getItem(TODAY_UI_KEY)||"{}"); return (o&&k in o)?o[k]:dflt; }catch(e){ return dflt; } }
+function todayUiSet(k, v){ try{ const o=JSON.parse(localStorage.getItem(TODAY_UI_KEY)||"{}"); o[k]=v; localStorage.setItem(TODAY_UI_KEY, JSON.stringify(o)); }catch(e){} }
+
 /* 已完成区默认**折叠**：用户不使用任务管理台写日志 →「今天做完了什么」没有回看场景，
    默认展开只会把待办区挤下去、让今日页失焦。仍可随时点开回看/撤销。 */
-let todayDoneExpanded=false;   // 已完成区默认折叠（可手动展开）
-let todayDensity="compact";      // "compact" | "detail"
-let todayMax=false;              // 是否临时最大化占满整行
+let todayDoneExpanded=todayUiGet("done", false);   // 已完成区默认折叠（可手动展开，且刷新后保持）
+let todayDensity=todayUiGet("dens", "compact");     // "compact" | "detail"
+let todayMax=todayUiGet("max", false);              // 是否临时最大化占满整行
 let subOpenIds=new Set();        // 今日面板里已展开子任务勾选区的任务 id
 /* 展开态是 UI 偏好，持久化到独立本地键（不进云同步，避免多设备互相干扰）；坏数据兜底跳过 */
 try{ (JSON.parse(localStorage.getItem("wb_today_subopen_v1")||"[]")||[]).forEach(id=>{ if(id) subOpenIds.add(id); }); }catch(_){}
@@ -4563,15 +4588,20 @@ function todayItemHtml(i, compact, ov){
   const sub=hasSub?`<button type="button" class="s subtoggle" data-subopen="${i.task.id}" aria-expanded="${subOpen}" title="展开/收起子任务勾选">子任务 ${subBadge(i.task,dk).trim()} ${subOpen?"▲":"▼"}</button>`:"";
   const _bd=taskBadges(i.task, {compact, ctx:false});   // 卡片不显示「情境」，仅详情弹窗显示
   const extra=_bd.extra;
+  /* 重复规则标识：用户常问「为什么今天有 3 条一样的」——recLabel 的信息压缩成一个 🔁，
+     完整规则（含 daysOfWeek / until）放 title。recLabel 是函数声明，提升可用。 */
+  const isRec = !!(i.task.recurrence && i.task.recurrence.freq!=="none");
+  const recTag = isRec ? `<span class="badge rec" title="${esc(recLabel(i.task.recurrence))}" aria-label="重复任务：${esc(recLabel(i.task.recurrence))}">🔁</span>` : "";
   const barColor = ov ? "var(--danger)" : priColor(p);
   const ibd = (!compact && i.task.desc) ? `<div class="ibd">${esc(i.task.desc)}</div>` : "";
-  return `<div class="today-item ${ov?'overdue':''} ${itDone?'done':''} ${isDrop?'dropped no-count':''}" role="button" tabindex="0" aria-label="${esc(i.task.title)}" data-open="${i.task.id}" data-open-date="${ymd(i.date)}">
+  return `<div class="today-item ${ov?'overdue':''} ${itDone?'done':''} ${isDrop?'dropped no-count':''}" role="button" tabindex="0" aria-label="${esc(i.task.title)}，${esc(when)}${ov?"，已逾期":""}${itDone?"，已完成":""}${isDrop?"，已标记不补做":""}" data-open="${i.task.id}" data-open-date="${ymd(i.date)}">
     <div class="bar" style="background:${barColor}"></div>
     <div class="meta">
       <div class="t">${esc(i.task.title)}</div>
       ${ibd}
       <div class="ibs">
         <span class="s when ${ov?'over':''}">${when}${ov?' · 待补做':''}</span>
+        ${recTag}
         ${isDrop?`<span class="badge drop">不补做</span>`:""}
         ${_bd.base.join("")}
         ${sub}${tagsHtml(i.task)}${extra.join("")}${itDone?`<span class="badge done-at" style="${DONE_AT_CSS}">${doneAtMark(i.task, i.date, true)}</span>`:""}
@@ -4668,7 +4698,7 @@ function handleTodayClick(e, rerender){
     document.getElementById("fClear").style.display="inline-flex";
     renderAll(); return;
   }
-  const ds=el.closest("[data-donesec]");     if(ds){ todayDoneExpanded=!todayDoneExpanded; rerender(); return; }
+  const ds=el.closest("[data-donesec]");     if(ds){ todayDoneExpanded=!todayDoneExpanded; todayUiSet("done",todayDoneExpanded); rerender(); return; }
   const op=el.closest("[data-open]");
   if(op && !el.closest(".today-acts,.subtoggle,[data-subtick],.tagchip")){ openTaskDetail(op.dataset.open, op.dataset.openDate); }
 }
@@ -4697,13 +4727,66 @@ function todaySecAriaReset(root){ if(root) root.querySelectorAll(".btn-sec").for
 /* 顶部 widget 头部的「密度 / 最大化」：空态也必须绑定，否则首次进入空列表时按钮是死的 */
 function bindTodayHeader(){
   const densBtn=document.getElementById("todayDensityBtn");
-  if(densBtn){ densBtn.textContent = todayDensity==="compact" ? "简" : "详"; densBtn.onclick=()=>{ todayDensity = todayDensity==="compact"?"detail":"compact"; renderToday(); }; }
+  if(densBtn){ densBtn.textContent = todayDensity==="compact" ? "简" : "详"; densBtn.onclick=()=>{ todayDensity = todayDensity==="compact"?"detail":"compact"; todayUiSet("dens",todayDensity); renderToday(); }; }
   const maxBtn=document.getElementById("todayMaxBtn");
-  if(maxBtn){ maxBtn.onclick=()=>{ todayMax=!todayMax; const p=document.querySelector('.toppanel[data-wid="today"]'); if(p) p.classList.toggle('today-max', todayMax); renderToday(); }; }
+  if(maxBtn){ maxBtn.onclick=()=>{ todayMax=!todayMax; todayUiSet("max",todayMax); const p=document.querySelector('.toppanel[data-wid="today"]'); if(p) p.classList.toggle('today-max', todayMax); renderToday(); }; }
 }
 /* ===== 今日页分区主体：顶部 widget 与底部整页**共用同一份渲染** =====
    此前 renderToday / renderTodayPage 各自写了一遍「逾期 / 今天 / 已完成」的拼接、空态判断与空态文案，
    改一处忘另一处就会出不一致（本文件已因 emptyState 重复定义、formDirtyTask 漏字段踩过同类坑）。 */
+/* ===== 今日页内嵌「快速添加」 =====
+   此前今日页自身没有任何新建入口，空态文案却让用户「点上方『新建任务』」——
+   在底部整页要滚回顶部才能建任务，而"随手记一条"恰恰是每天最频繁的动作。
+   输入走 parseNL：`明天9点 #求职 p1 @电脑` 一行录入，回车即建。 */
+function quickAddTask(raw){
+  const text=String(raw||"").trim();
+  if(!text) return false;
+  const r=parseNL(text);
+  const d0=startOfDay(new Date());
+  const base=new Date(d0.getTime()+9*3600000);      // 未指定时间时默认 09:00–10:00
+  const t={
+    id:newId("t"),
+    title:(r&&r.title) ? r.title : text,
+    start:(r&&r.start) ? r.start : toStr(base),
+    end:(r&&r.end) ? r.end : toStr(new Date(base.getTime()+3600000)),
+    status:"todo", doneDates:[], doneAt:{},
+    recurrence:(r&&r.rec) ? r.rec : {freq:"none"},
+    cat:defCat(), priority:defPri(), tags:[], gw:"next", ctx:"", energy:"", est:0,
+    subtasks:[], subDone:{}, createdAt:Date.now(), updated:Date.now()
+  };
+  if(r){
+    if(r.tags&&r.tags.length) t.tags=r.tags;
+    if(r.priority) t.priority=r.priority;
+    if(r.ctx) t.ctx=r.ctx;
+  }
+  snapshot();
+  state.tasks.push(t);
+  save(); renderAll();
+  const bits=[];
+  if(r&&r.start) bits.push("时间");
+  if(r&&r.rec) bits.push("重复");
+  if(r&&r.tags&&r.tags.length) bits.push("标签");
+  if(r&&r.priority) bits.push("优先级");
+  if(r&&r.ctx) bits.push("情境");
+  toastUndo("已添加「"+t.title+"」"+(bits.length?(" · 识别 "+bits.join(" · ")):""));
+  return true;
+}
+/* 输入框回车提交（keydown 而非 form submit：少一个活动部件，且委托到两个常驻容器即可） */
+function bindQuickAdd(root){
+  if(!root) return;
+  const inp=root.querySelector("[data-qa-input]");
+  if(!inp || inp.__qaBound) return;
+  inp.__qaBound=true;
+  inp.addEventListener("keydown", e=>{
+    if(e.key!=="Enter") return;
+    e.preventDefault();
+    if(quickAddTask(inp.value)) inp.value="";
+  });
+}
+function todayQuickAddHtml(){
+  return '<div class="today-qa"><input type="text" data-qa-input class="qa-input" autocomplete="off" spellcheck="false"'
+    +' placeholder="＋ 想到什么就记下来，回车创建（支持「明天9点 #标签 p1 @电脑」）" aria-label="快速添加任务"></div>';
+}
 function todayEmptyHtml(){
   return '<div class="empty"><div class="empty-ic">🎉</div><div>今天没有待处理任务<br>把收件箱里的想法安排进来，或点上方「新建任务」添加一个</div></div>';
 }
@@ -4732,12 +4815,14 @@ function renderToday(){
   const list=document.getElementById("todayList");
   const krHtml=renderTodayKrHtml();
   bindTodayHeader();   // 空态也要绑，否则首次进入空列表时密度/最大化按钮无响应
-  if(!urgent.length && !done){ list.innerHTML=todayEmptyHtml()+krHtml+hintHtml(); renderRing(0,0); bindKrToday(); return; }
+  const qa=todayQuickAddHtml();
+  if(!urgent.length && !done){ list.innerHTML=qa+todayEmptyHtml()+krHtml+hintHtml(); bindQuickAdd(list); renderRing(0,0); bindKrToday(); return; }
 
   const compact = todayDensity==="compact";
   const ovSet=new Set(overdue);   // 避免 overdue.includes(i) 的 O(n^2)
   const itemHtml=(i)=> todayItemHtml(i, compact, ovSet.has(i));
-  list.innerHTML = todaySectionsHtml(m, itemHtml) + krHtml + hintHtml();
+  list.innerHTML = qa + todaySectionsHtml(m, itemHtml) + krHtml + hintHtml();
+  bindQuickAdd(list);
   renderRing(done,total);
   bindKrToday();
   bindTodayDelegation();
@@ -4755,26 +4840,30 @@ function renderTodayPage(){
   if(!view) return;
   const krHtml=renderTodayKrHtml();
   const densLabel = todayDensity==="compact" ? "简" : "详";
-  const bindDens=()=>{ const b=document.getElementById("todayPageDensity"); if(b){ b.onclick=()=>{ todayDensity = todayDensity==="compact"?"detail":"compact"; renderAll(); }; } };
+  const bindDens=()=>{ const b=document.getElementById("todayPageDensity"); if(b){ b.onclick=()=>{ todayDensity = todayDensity==="compact"?"detail":"compact"; todayUiSet("dens",todayDensity); renderAll(); }; } };
   // 空态也保留标题栏（含密度切换），与有条目时结构一致，避免空态下按钮失效
+  const pct = total? Math.round(done/total*100) : 0;
   const head=`<div class="tp-head">
       <h2>今日要处理</h2>
       <span class="tp-prog">今天 <b>${done}</b>/<b>${total}</b> 已完成</span>
       <span class="spacer" style="flex:1"></span>
       <button class="btn btn-ghost btn-sm" id="todayPageDensity" title="切换紧凑 / 详细密度">${densLabel}</button>
-    </div>`;
+    </div>
+    <div class="tp-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="今日完成进度"><i style="width:${pct}%"></i></div>`;
   if(!urgent.length && !done){
-    view.innerHTML=`<div class="today-page">${head}${todayEmptyHtml()}${krHtml}${hintHtml()}</div>`;
-    bindKrToday(); bindDens();
+    view.innerHTML=`<div class="today-page">${head}${todayQuickAddHtml()}${todayEmptyHtml()}${krHtml}${hintHtml()}</div>`;
+    bindQuickAdd(view); bindKrToday(); bindDens();
     return;
   }
   const compact = todayDensity==="compact";
   const ovSet=new Set(overdue);
   const itemHtml=(i)=> todayItemHtml(i, compact, ovSet.has(i));
   view.innerHTML = `<div class="today-page">${head}
+    ${todayQuickAddHtml()}
     <div class="today-items">${todaySectionsHtml(m, itemHtml)}</div>
     ${krHtml}
   </div>`;
+  bindQuickAdd(view);
   bindKrToday();
   bindTodayDelegation();
   todaySecAriaReset(view);
