@@ -2052,21 +2052,21 @@
     <div id="dateFields">
     <div class="row2">
       <div class="field">
-        <label>开始日期</label>
+        <label title="Defer：这一天之前不会出现在「今日」；推迟任务改的就是这一栏">开始日期</label>
         <input id="f_sdate" type="date">
       </div>
       <div class="field">
-        <label>开始时间</label>
+        <label title="与「截止」一起构成时间窗，可跨天">开始时间</label>
         <input id="f_stime" type="time" value="09:00">
       </div>
     </div>
     <div class="full-only row2">
       <div class="field">
-        <label>结束日期</label>
+        <label title="Due：最晚必须完成的时点；「逾期」与逾期待补做都看它">截止日期</label>
         <input id="f_edate" type="date">
       </div>
       <div class="field">
-        <label>结束时间</label>
+        <label title="与「开始」一起构成时间窗，可跨天">截止时间</label>
         <input id="f_etime" type="time" value="10:00">
       </div>
     </div>
@@ -2086,7 +2086,7 @@
         <input id="f_interval" type="number" min="1" value="1">
       </div>
       <div class="field">
-        <label>结束于（可选）</label>
+        <label title="重复在此日期之后不再生成实例；之前未完成的会进「逾期待补做」">重复截止于（可选）</label>
         <input id="f_runtil" type="date">
       </div>
     </div>
@@ -3320,7 +3320,7 @@ function getInstances(rangeStart, rangeEnd){
               if(ov.start){
                 const os=parseLocal(ov.start);
                 const off=Math.round((startOfDay(oe)-startOfDay(os))/DAY);
-                if(off>0) e=addDays(e,off);   // 跨天实例：保留「结束比开始晚 N 天」的跨度
+                if(off>0) e=addDays(e,off);   // 跨天实例：保留「截止比开始晚 N 天」的跨度
               }
             }
             if(ov.title || ov.desc!=null || ov.cat || ov.priority || (ov.tags&&ov.tags.length)){
@@ -7822,7 +7822,7 @@ function saveTask(){
       /* ：统一行为——自动让结束跟随开始，不打断录入；仅全屏模式额外轻提示，不再弹错阻断 */
       end=sdate+"T"+stime;
       try{ document.getElementById("f_edate").value=sdate; document.getElementById("f_etime").value=stime; }catch(_){}
-      if(document.body.classList.contains("modal-full")) toast("结束时间已自动跟随开始时间");
+      if(document.body.classList.contains("modal-full")) toast("截止时间已自动跟随开始时间");
     }
   }
   const rec=nodate?{freq:"none"}:{freq:document.getElementById("f_rec").value};   // 无日期任务不保留重复规则
@@ -7954,7 +7954,7 @@ function shiftTaskByDays(n, mode){
   const newS = ymd(ns);
   if(ed.value){
     const curE = startOfDay(parseLocal(ed.value+"T"+(et.value||"00:00")));
-    if(startOfDay(addDays(curE, n)) < ns){ toast("推迟后结束日会早于开始日，请改用更小的幅度"); return; }
+    if(startOfDay(addDays(curE, n)) < ns){ toast("推迟后截止日会早于开始日，请改用更小的幅度"); return; }
   }
   sd.value = newS; st.value = newSt;
   if(ed.value){
