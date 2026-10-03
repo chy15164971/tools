@@ -3531,6 +3531,7 @@ function attachEvDrag(ev, isWeek){
       ev.style.transform="";
       if(!moved) return;
       ev._suppressClick=true;
+      snapshot();   // P1-6：日/周视图拖拽改期此前不可撤销
       const dy=ev2.clientY-sy, dx=ev2.clientX-sx;
       const dm=Math.round(dy/44*60/15)*15; // 吸附 15 分钟
       let deltaDays=0;
@@ -3587,6 +3588,7 @@ function attachChipDrag(ch){
 }
 function applyDayShift(id, deltaDays, orig){
   const t=state.tasks.find(x=>x.id===id); if(!t) return;
+  snapshot();   // P1-6：拖拽改期此前不可撤销（界面却写"可 Ctrl+Z"）
   const rec=t.recurrence&&t.recurrence.freq!=="none";
   const shift=deltaDays*DAY;
   if(rec){ moveRecInstance(t, parseLocal(orig+"T00:00"), deltaDays); }
@@ -3702,6 +3704,12 @@ async function restoreFullBackup(idx){
   habits=sn.habits||[]; lists=sn.lists||[];
   state.projects=sn.projects||[]; state.okrs=sn.okrs||[];
   if(Array.isArray(sn.tagTree)) tagTree=sn.tagTree;
+  /* P1-8：恢复不清墓碑 → 刚恢复回来的任务会被下一轮云同步按墓碑 ts>t.updated 再删一次
+     （A 设备删任务写墓碑并同步，B 设备用备份恢复 → 本地墓碑仍在 → 恢复项再次消失） */
+  { const alive=new Set((state.tasks||[]).map(t=>String(t&&t.id)));
+    const before=deletedIds.length;
+    deletedIds=deletedIds.filter(d=>!alive.has(String((d&&d.id)||d)));
+    if(deletedIds.length!==before) deletedIdsSave(); }
   try{ save(); }catch(e){}
   try{ mediaSave(); }catch(e){}
   try{ if(typeof listsSave==="function") listsSave(); }catch(e){}
@@ -6728,7 +6736,13 @@ function renderProjects(){
   const pa=v.querySelector("#projArchiveAll"); if(pa) pa.onclick=archiveDoneProjects;
   if(selMode) selBind([{label:"归档",cls:"btn-pri",fn:batchProjArchive},{label:"删除",cls:"btn-danger",fn:batchProjDelete}]);
   v.querySelectorAll("[data-projedit]").forEach(b=>b.onclick=()=>projOpen(b.dataset.projedit));
-  v.querySelectorAll("[data-projdel]").forEach(b=>b.onclick=async()=>{ if(await confirmDialog("删除该项目？（其下任务仍保留，只是不再归集）",{danger:true})){ snapshot(); state.projects=state.projects.filter(x=>x.id!==b.dataset.projdel); projectsSave(); renderAll(); } });
+  /* P1-5：视图入口统一走 detachProject —— 此前只过滤数组、不清任务上的 t.project、也不 save() */
+  v.querySelectorAll("[data-projdel]").forEach(b=>b.onclick=async()=>{
+    const pid=b.dataset.projdel; const p=(state.projects||[]).find(x=>x.id===pid);
+    const n=(state.tasks||[]).filter(t=>t&&t.project===pid).length;
+    const msg="删除项目「"+((p&&p.name)||"")+"」？"+(n?"\n其下 "+n+" 个任务会解除归属（任务本身保留，仅不再归集到该项目）。":"");
+    if(await confirmDialog(msg,{danger:true})){ snapshot(); const k=detachProject(pid); state.projects=state.projects.filter(x=>x.id!==pid); projectsSave(); renderAll(); toast(k?"已删除项目，并解除 "+k+" 个任务的归属":"已删除项目"); }
+  });
   v.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>openModal(b.dataset.open,null));
   v.querySelectorAll("[data-openkr]").forEach(b=>b.onclick=()=>okrOpenKR(b.dataset.openkr));
   /* 「📊 甘特图」：跳到甘特图视图并只显示该项目的任务（不再在项目卡里另起一套甘特图） */
@@ -6758,8 +6772,9 @@ async function batchProjDelete(){
   const ids=Array.from(selIds); if(!ids.length){ toast("请先勾选项目"); return; }
   if(!(await confirmDialog("删除选中的 "+ids.length+" 个项目？（其下任务仍保留）",{danger:true}))) return;
   snapshot();
+  let freed=0; for(const id of ids) freed+=detachProject(id);   // P1-5：批量删除同样清理悬空引用
   state.projects=state.projects.filter(x=>!selIds.has(x.id));
-  projectsSave(); selClear(); renderAll(); toast("已删除 "+ids.length+" 个项目");
+  projectsSave(); selClear(); renderAll(); toast("已删除 "+ids.length+" 个项目"+(freed?"，解除 "+freed+" 个任务的归属":""));
 }
 
 /* ===== OKR 视图（P1，打磨：折叠 / 过滤 / 风险脉冲 / 趋势占位 / 检查点备注） ===== */
@@ -6849,10 +6864,29 @@ function renderOkr(){
   v.querySelectorAll("[data-objtoggle]").forEach(b=>b.onclick=()=>{ const id=b.dataset.objtoggle; if(okrCollapsed.has(id)) okrCollapsed.delete(id); else okrCollapsed.add(id); renderOkr(); });
   v.querySelectorAll("[data-objedit]").forEach(b=>b.onclick=()=>okrOpen(b.dataset.objedit,null));
   v.querySelectorAll("[data-objadd]").forEach(b=>b.onclick=()=>okrOpen(b.dataset.objadd,null,true));
-  v.querySelectorAll("[data-objdel]").forEach(b=>b.onclick=async()=>{ if(await confirmDialog("删除该目标及其 KR？",{danger:true})){ state.okrs=state.okrs.filter(x=>x.id!==b.dataset.objdel); okrsSave(); renderAll(); } });
+  /* P1-5：目标删除补齐 snapshot()（此前无撤销）并清理其下 KR 的悬空任务引用 */
+  v.querySelectorAll("[data-objdel]").forEach(b=>b.onclick=async()=>{
+    const oid=b.dataset.objdel;
+    const o=(state.okrs||[]).find(x=>x.id===oid); const ids=new Set(((o&&o.krs)||[]).map(k=>k&&k.id));
+    const cnt=(state.tasks||[]).filter(t=>t&&t.krId&&ids.has(t.krId)).length;   // 先算数量用于提示：真正清理放在确认后，取消时不留副作用
+    const msg="删除该目标及其 KR？"+(cnt?"\n"+cnt+" 个已关联任务将解除关联（任务本身保留）。":"");
+    if(await confirmDialog(msg,{danger:true})){ snapshot(); const k=detachObjective(oid); state.okrs=state.okrs.filter(x=>x.id!==oid); okrsSave(); renderAll(); toast(k?"已删除目标，并解除 "+k+" 个任务的关联":"已删除目标"); }
+  });
   v.querySelectorAll("[data-kredit]").forEach(b=>b.onclick=()=>okrOpenKR(b.dataset.kredit));
-  v.querySelectorAll("[data-krdel]").forEach(b=>b.onclick=()=>{
-    const id=b.dataset.krdel; for(const o of state.okrs){ const ix=o.krs.findIndex(x=>x.id===id); if(ix>=0){ o.krs.splice(ix,1); break; } } okrsSave(); renderAll();
+  /* P0-5：KR 删除原本无确认、无快照、不进回收站、且不清 t.krId；按钮紧邻「编辑」，极易误点 */
+  v.querySelectorAll("[data-krdel]").forEach(b=>b.onclick=async()=>{
+    const id=b.dataset.krdel;
+    let kr=null, owner=null;
+    for(const o of state.okrs){ const k=(o.krs||[]).find(x=>x.id===id); if(k){ kr=k; owner=o; break; } }
+    if(!kr) return;
+    const n=countTasksOnKr(id);
+    const msg="删除关键结果「"+(kr.title||"")+"」？"+(n?"\n其下 "+n+" 个关联任务将解除关联（任务本身保留）。":"")
+      +"\n删除后可用 Ctrl+Z 撤销。";
+    if(!(await confirmDialog(msg,{danger:true}))) return;
+    snapshot();
+    const k=detachKr(id);
+    for(const o of state.okrs){ const ix=(o.krs||[]).findIndex(x=>x.id===id); if(ix>=0){ o.krs.splice(ix,1); break; } }
+    okrsSave(); renderAll(); toast(k?"已删除 KR，并解除 "+k+" 个任务的关联":"已删除 KR");
   });
   v.querySelectorAll("[data-krnote]").forEach(b=>b.onclick=async ()=>{
     const id=b.dataset.krnote; const txt=await promptModal("添加进度备注",{title:"添加进度备注",placeholder:"例如：8/20 完成初稿"}); if(txt===null||!txt.trim()) return;
@@ -7071,14 +7105,38 @@ function pjDeferApply(n){
 async function projDelete(){
   const id=document.getElementById("pj_id").value; if(!id) return;
   if(!(await confirmDialog("删除该项目？",{danger:true}))) return;
+  snapshot();                                  // P1-5：弹窗入口此前也无撤销
   state.projects=state.projects.filter(x=>x.id!==id); projectsSave();
-  // ：清理被删项目下任务的悬空引用，并独立落盘（任务 key 独立于项目 key，必须显式 save 才持久化）
-  for(const t of state.tasks){ if(t.project===id) t.project=""; }
-  save();
+  detachProject(id);                           // P1-5：统一走级联清理出口（含独立落盘）
   document.getElementById("projMask").classList.remove("show"); renderAll();
 }
 function projectsSave(){ try{ localStorage.setItem("wb_taskhub_projects_v1", JSON.stringify(state.projects)); }catch(e){} markLocalSave(); }
 function okrsSave(){ try{ localStorage.setItem("wb_taskhub_okrs_v1", JSON.stringify(state.okrs)); }catch(e){} recordOkrTrend(); markLocalSave(); }
+/* ===== P1-5：删除「项目 / KR / 目标」的级联清理统一出口 =====
+   此前两个入口两套行为：弹窗内删会清悬空引用并 save()，视图卡片上的删除只过滤数组、不清引用也不 save()。
+   悬空的 t.project / t.krId 会让甘特归入「未归属项目」、项目视图看不到、OKR 自动汇总漏计，
+   且悬空值随 syncPayload 上云污染其他设备。三个入口统一走这里。 */
+function detachProject(pid){    // 解除任务对项目的引用（任务本身保留），返回受影响任务数
+  let n=0;
+  for(const t of state.tasks){ if(t && t.project===pid){ t.project=""; t.updated=Date.now(); n++; } }
+  if(n) save();
+  return n;
+}
+function detachKr(krId){        // 解除任务对关键结果的引用（任务本身保留）
+  let n=0;
+  for(const t of state.tasks){ if(t && t.krId===krId){ t.krId=""; t.updated=Date.now(); n++; } }
+  if(n) save();
+  return n;
+}
+function detachObjective(objId){  // 解除该目标下全部 KR 的任务引用
+  let n=0;
+  const o=(state.okrs||[]).find(x=>x.id===objId);
+  const ids=new Set(((o&&o.krs)||[]).map(k=>k&&k.id));
+  for(const t of state.tasks){ if(t && t.krId && ids.has(t.krId)){ t.krId=""; t.updated=Date.now(); n++; } }
+  if(n) save();
+  return n;
+}
+function countTasksOnKr(krId){ return (state.tasks||[]).filter(t=>t&&t.krId===krId).length; }
 function projectsLoad(){ try{ const r=localStorage.getItem("wb_taskhub_projects_v1"); if(r){ const a=JSON.parse(r); if(Array.isArray(a)){ state.projects=a; for(const p of state.projects){ if(p.krId!==undefined && !p.krIds){ p.krIds=p.krId?[p.krId]:[]; } else if(!p.krIds){ p.krIds=[]; } if(p.archived===undefined) p.archived=false; } } } }catch(e){} }
 function okrsLoad(){ try{ const r=localStorage.getItem("wb_taskhub_okrs_v1"); if(r){ const a=JSON.parse(r); if(Array.isArray(a)){ state.okrs=a; for(const o of state.okrs){ if(o.parent===undefined)o.parent=""; if(o.level===undefined)o.level="normal"; for(const k of (o.krs||[])){ if(k.start===undefined)k.start=""; if(k.end===undefined)k.end=""; if(k.weight===undefined)k.weight=1; if(k.auto===undefined)k.auto=false; } } } } }catch(e){} }
 function okrOpen(objId, krId, newKr){
@@ -7149,15 +7207,19 @@ function okrSave(){
 async function okrDelete(){
   const mode=document.getElementById("okr_mode").value;
   const objId=document.getElementById("okr_objId").value, krId=document.getElementById("okr_krId").value;
+  snapshot();                                  // P1-5：弹窗入口此前也无撤销
   if(mode==="kr"){
     for(const o of state.okrs){ const ix=o.krs.findIndex(x=>x.id===krId); if(ix>=0){ o.krs.splice(ix,1); break; } }
-    for(const t of state.tasks){ if(t.krId===krId) t.krId=""; }   // 清理指向该 KR 的任务引用
+    detachKr(krId);                            // P1-5：统一走级联清理出口
   }
   else {
     if(!(await confirmDialog("删除该目标及其所有 KR？",{danger:true}))) return;
     state.okrs=state.okrs.filter(x=>x.id!==objId);
     for(const c of state.okrs){ if(c.parent===objId) c.parent=""; }   // ：重置子目标的孤儿父引用
-    for(const t of state.tasks){ if(t.krId && !state.okrs.flatMap(x=>x.krs).some(k=>k.id===t.krId)) t.krId=""; }
+    detachObjective(objId);                    // P1-5：统一走级联清理出口
+    // 兜底：清理历史上已指向不存在 KR 的悬空引用（如外部导入数据）
+    const alive=new Set(state.okrs.flatMap(x=>(x.krs||[]).map(k=>k&&k.id)));
+    for(const t of state.tasks){ if(t.krId && !alive.has(t.krId)){ t.krId=""; t.updated=Date.now(); } }
   }
   save();   // 任务引用变更需独立落盘（ 关联修复）
   okrsSave(); document.getElementById("okrMask").classList.remove("show"); renderAll();
@@ -7465,6 +7527,7 @@ function openModal(id, date, scope){
   renderTagPicker();
   renderDoneAtField();   // 完成时间：编辑已有任务时显示，新建时隐藏
   document.getElementById("mask").classList.add("show");
+  _formSnap=formSnapshot();   // P0-2：表单填完后再取脏检查基线（toggleRecOpts 会改写默认值）
 }
 function setWeekChecks(arr){
   document.querySelectorAll("#weekDays input").forEach(cb=>cb.checked=arr&&arr.includes(+cb.value));
@@ -7492,7 +7555,7 @@ function applyScopeUI(){
   ["f_rec","f_interval","f_runtil"].forEach(id=>{ const el=document.getElementById(id); if(el) el.disabled=once; });
   document.querySelectorAll("#weekDays input").forEach(cb=>cb.disabled=once);
 }
-function closeModal(){ document.getElementById("mask").classList.remove("show"); editingId=null; editingDate=null; editingScope="once"; editingDateAuto=false; }
+function closeModal(){ document.getElementById("mask").classList.remove("show"); editingId=null; editingDate=null; editingScope="once"; editingDateAuto=false; _formSnap=null; }   // P0-2：清空脏检查基线
 /* 把「当前 editingDate 对应的那一次」填充进表单：
    - 先恢复整组模板的随日字段（标题/说明/分类/优先级/标签/起止时间）
    - 若处于「仅此一次」且该天有 override，则叠加覆盖
@@ -7539,12 +7602,26 @@ function onEditDateChange(){
   }
   editingDate=v;
   applyEditingDate();
+  _formSnap=formSnapshot();   // P0-2：切换编辑日期会重填表单，基线需同步刷新，避免误判为脏
   toast("已切换到 "+v.slice(5).replace("-","/")+" 的这次");
 }
-function formDirtyTask(){
-  const g=id=>document.getElementById(id);
-  return !!( (g("f_title")&&g("f_title").value.trim()) || (g("f_desc")&&g("f_desc").value.trim()) || (g("f_tags")&&g("f_tags").value.trim()) );
+/* P0-2：全字段表单快照 —— 旧脏检查只看 title/desc/tags，
+   「只改开始日期 / 优先级 / 所属项目 / 关联 KR / 子任务 / 重复规则」后关闭会静默丢弃改动。
+   改为 openModal 时存快照、关闭/放弃时全字段比对（含周重复勾选与子任务列表）。 */
+let _formSnap=null;
+const FORM_TEXT_FIELDS=["f_title","f_desc","f_tags","f_sdate","f_stime","f_edate","f_etime",
+  "f_cat","f_priority","f_project","f_gw","f_ctx","f_energy","f_est","f_kr","f_rec","f_interval","f_runtil",
+  "f_done_date","f_done_time"];
+const FORM_CHECK_FIELDS=["f_nodate","f_skipMissed","f_skip"];
+function formSnapshot(){
+  const o={}; const g=id=>document.getElementById(id);
+  FORM_TEXT_FIELDS.forEach(k=>{ const el=g(k); if(el) o[k]=String(el.value==null?"":el.value); });
+  FORM_CHECK_FIELDS.forEach(k=>{ const el=g(k); if(el) o[k]=!!el.checked; });
+  o.__week=Array.from(document.querySelectorAll("#weekDays input")).map(cb=>cb.checked?"1":"0").join("");
+  o.__subs=JSON.stringify((typeof curSubtasks!=="undefined"&&Array.isArray(curSubtasks)?curSubtasks:[]).map(s=>({t:s&&s.title,d:!!(s&&s.done)})));
+  return JSON.stringify(o);
 }
+function formDirtyTask(){ return !_formSnap || formSnapshot()!==_formSnap; }
 // 「不指定日期时间」开关：勾选则隐藏日期区（任务进入收件箱）
 function toggleNoDate(){
   const cb=document.getElementById("f_nodate");
@@ -7603,6 +7680,7 @@ document.addEventListener("click",e=>{ const m=document.getElementById("tplMenu"
 function saveTask(){
   const title=document.getElementById("f_title").value.trim();
   if(!title){ toast("请填写标题"); return; }
+  snapshot();   // P0-3：编辑保存此前不进撤销栈（删除/完成/批量都有，唯独最高频的保存没有），校验通过后才入栈
   const nodate=document.getElementById("f_nodate").checked;
   let start="", end="";
   if(nodate){
@@ -8524,6 +8602,7 @@ function renderMedia(){
 // 卡内快捷加减：±1 后就地更新该卡与平均进度，不整页重渲染（避免进度条每次从头动画）
 function stepMedia(id, kind, d){
   const it=(media[kind]||[]).find(x=>x.id===id); if(!it) return;
+  snapshot();   // P1-6：媒体进度 ±1 此前不可撤销
   const wasDone=mediaDone(it); const oldCur=it.current;
   const isPct=!!it.percent;
   const maxv = isPct ? 100 : it.total;
@@ -9548,8 +9627,13 @@ function snapshotObj(){
     habits:JSON.parse(JSON.stringify(habits||[])),
     lists:JSON.parse(JSON.stringify(lists||[])),
     tagTree:JSON.parse(JSON.stringify(tagTree||[])),
+    /* P0-4：项目 / 目标 / 纪念日此前不入快照 —— 界面明写「可 Ctrl+Z 撤销」却不恢复，
+       更糟的是会连带把 tasks/media/habits 整体回滚（删了项目再撤销：项目没回来、之后完成的任务反被回滚） */
+    projects:JSON.parse(JSON.stringify(state.projects||[])),
+    okrs:JSON.parse(JSON.stringify(state.okrs||[])),
+    anniv:JSON.parse(JSON.stringify(state.anniv||[])),
     deleted:JSON.parse(JSON.stringify(deletedIds||[]))}; }   // 墓碑一并入快照：撤销「删除」必须同时撤掉墓碑，否则下轮合并又把该条抹掉
-  catch(e){ return {t:Date.now(),tasks:[],media:{books:[],tvs:[],auds:[]},habits:[],lists:[],tagTree:[],deleted:[]}; }
+  catch(e){ return {t:Date.now(),tasks:[],media:{books:[],tvs:[],auds:[]},habits:[],lists:[],tagTree:[],projects:[],okrs:[],anniv:[],deleted:[]}; }
 }
 function undoPersist(){
   try{ localStorage.setItem(UNDO_KEY, JSON.stringify(undoStack.slice(-UNDO_MAX))); }
@@ -9565,7 +9649,10 @@ function snapshot(){
         && JSON.stringify(top.media)===JSON.stringify(media||{books:[],tvs:[],auds:[]})
         && JSON.stringify(top.habits)===JSON.stringify(habits||[])
         && JSON.stringify(top.lists)===JSON.stringify(lists||[])
-        && JSON.stringify(top.tagTree)===JSON.stringify(tagTree||[]);
+        && JSON.stringify(top.tagTree)===JSON.stringify(tagTree||[])
+        && JSON.stringify(top.projects)===JSON.stringify(state.projects||[])
+        && JSON.stringify(top.okrs)===JSON.stringify(state.okrs||[])
+        && JSON.stringify(top.anniv)===JSON.stringify(state.anniv||[]);   // P0-4：去重比较同步扩域，否则项目/目标/纪念日的改动会被判为"无变化"而不入栈
       if(same) return;
     }
     undoStack.push(snapshotObj());
@@ -9584,6 +9671,10 @@ function applyUndo(s){
   if(Array.isArray(s.deleted)){ deletedIds = s.deleted.map(normTomb); deletedIdsSave(); }  // 旧快照无此字段 → 保持现状
   if(Array.isArray(s.histDrop)) restoreHistory(s.histDrop);   // 删除连带清掉的完成流水一并还回
   if(Array.isArray(s.tagTree)){ tagTree=s.tagTree; saveTags(); refreshTagFilter(); }
+  /* P0-4：项目 / 目标 / 纪念日还原（旧快照无这些字段 → 保持现状，不清空） */
+  if(Array.isArray(s.projects)){ state.projects=s.projects; projectsSave(); }
+  if(Array.isArray(s.okrs)){ state.okrs=s.okrs; okrsSave(); }
+  if(Array.isArray(s.anniv)){ state.anniv=s.anniv; annivSave(); }
   save(); mediaSave(); habitSave(); listsSave(); renderAll(); toast("已撤销");
 }
 function undo(){
@@ -10187,6 +10278,7 @@ async function habitQuick(id){
     {value:"2",label:"清空本周",desc:"清除本周已打的卡"}
   ],value:"1"});
   if(act===null) return;
+  snapshot();   // P1-6：「本周目标日全完成 / 清空本周」是破坏性批量，此前不可撤销
   h.days=h.days||[];
   if(act==="1"){
     const tg=habitWeekTargetDays(h);
