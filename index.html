@@ -498,8 +498,14 @@
   .hint{font-size:11px;color:var(--sub);margin-top:4px;}
 
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0;}
-  .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px) + var(--kb,0px));transform:translateX(-50%) translateY(16px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:11px;font-size:13px;opacity:0;transition:opacity .25s, transform .25s;pointer-events:none;z-index:80;}
+  .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px) + var(--kb,0px));transform:translateX(-50%) translateY(16px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:11px;font-size:13px;opacity:0;transition:opacity .25s, transform .25s;pointer-events:none;z-index:80;
+    display:flex;align-items:center;gap:12px;max-width:min(92vw,420px);}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  /* toast 内的撤销按钮：容器 pointer-events:none 会连带屏蔽按钮，需显式放开（仅按钮，容器仍不挡页面） */
+  .toast-undo{pointer-events:auto;flex:none;background:rgba(255,255,255,.22);border:0;color:inherit;font:inherit;font-weight:600;padding:5px 12px;border-radius:8px;cursor:pointer;min-height:30px;}
+  .toast-undo:hover{background:rgba(255,255,255,.34);}
+  .toast-undo:focus-visible{outline:2px solid var(--white);outline-offset:2px;}
+  .toast-msg{min-width:0;flex:1;}
   .toast.success{background:var(--ok);color:var(--white);} .toast.danger{background:var(--danger);color:var(--white);} .toast.warn{background:var(--warn);color:var(--ink-strong);}
   /*  云同步防重入：请求飞行期间的忙态指示（spinner 用纯 CSS border 实现，零依赖、离线可用） */
   @keyframes wbspin{to{transform:rotate(360deg)}}
@@ -2755,12 +2761,28 @@ async function gistErrText(res){
 
 function safeUrl(u){ u=(u||"").trim(); if(!u) return "#"; if(/^(https?:|mailto:|tel:)/i.test(u)) return esc(u); try{ var _p=new URL(u,location.href); if(_p.protocol==="http:"||_p.protocol==="https:") return esc(u); }catch(e){} return "#"; }
 
-function toast(msg, kind){
+/* toast 支持第三个参数 undoFn：渲染一个「撤销」按钮（对标 Todoist 的 Undo toast）。
+   此前所有撤销只能靠 Ctrl+Z，移动端完全没有入口；而界面文案却到处写「可 Ctrl+Z 撤销」，
+   手机用户看到这句话却无路可走。带撤销按钮时展示时长延长到 4.8s（够点中），且按钮不吃容器的
+   pointer-events:none（容器仍不挡页面点击）。 */
+function toast(msg, kind, undoFn){
   const t=document.getElementById("toast");
-  t.textContent=msg;
+  if(undoFn){
+    t.innerHTML='<span class="toast-msg">'+esc(msg)+'</span>'
+      +'<button class="toast-undo" type="button">撤销</button>';
+    const b=t.querySelector(".toast-undo");
+    b.onclick=()=>{ t.classList.remove("show"); clearTimeout(t._timer); try{ undoFn(); }catch(e){} };
+  }else{
+    t.innerHTML='<span class="toast-msg">'+esc(msg)+'</span>';
+  }
   t.className="toast"+(kind?(" "+kind):"");
-  t.classList.add("show"); clearTimeout(t._timer); t._timer=setTimeout(()=>t.classList.remove("show"),1800);
+  t.classList.add("show");
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>t.classList.remove("show"), undoFn?4800:1800);
 }
+/* 快捷方式：带「撤销」按钮的提示。撤销语义与 Ctrl+Z 完全一致（弹栈顶快照并还原），
+   因此每个调用点都必须已在改数据前 snapshot() —— 这一点由第二批统一补齐后才可用。 */
+function toastUndo(msg, kind){ toast(msg, kind, ()=>{ try{ undo(); }catch(e){ toast("撤销失败"); } }); }
 
 /* ---------- 无障碍增强（D4 B+） ---------- */
 
@@ -3495,7 +3517,28 @@ function parseNL(text){
   else { const dm=s.match(/(\d+)\s*分\s*钟/); if(dm){ durationMin=+dm[1]; s=s.replace(dm[0],""); } }
   const deadline=/截\s*止|交\s*付|交\s*稿|deadline|due/i.test(text);
 
-  if(!date && !times.length) return null;
+  /* ---- 标签 / 优先级 / 情境（对标 Todoist：`明天9点 #求职 p1 @电脑` 一次录入）----
+     原实现只解析日期/时间/时长/重复，这三类回填字段被白白浪费。 */
+  const tags=[];
+  s=s.replace(/#([^\s#@]+)/g, (m,g)=>{ const t=g.replace(/[,，;；]+$/,"").trim(); if(t) tags.push(t); return " "; });
+  let prio=null;
+  const pm2=s.match(/(^|[\s,，])p([0-3])\b/i);
+  if(pm2){ prio="p"+pm2[2]; s=s.replace(pm2[0],(pm2[1]||" ")); }
+  let ctx="";
+  const cm=s.match(/(^|[\s,，])@([^\s#@]+)/);
+  if(cm){ ctx=cm[2].replace(/[,，;；]+$/,"").trim(); s=s.replace(cm[0],(cm[1]||" ")); }
+
+  // 无日期无时间时：只有解析出了标签/优先级/情境才继续（否则维持旧行为：返回 null 不打扰用户）
+  if(!date && !times.length && !tags.length && !prio && !ctx) return null;
+  if(!date && !times.length){
+    const title0=s.replace(/\s{2,}/g," ").replace(/^[-–—、，,\s]+|[-–—、，,\s]+$/g,"").trim();
+    if(!title0) return null;
+    const o0={title:title0};
+    if(tags.length) o0.tags=tags;
+    if(prio) o0.priority=prio;
+    if(ctx) o0.ctx=ctx;
+    return o0;   // 无日期 → 调用方按"纯属性输入"处理（不填日期区）
+  }
   if(!date) date=new Date(now);
   let sh, sm, eh, em;
   if(times.length>=1){
@@ -3512,6 +3555,9 @@ function parseNL(text){
   if(!title) return null;
   const out={title, start:toStr(start), end:toStr(end)};
   if(rec) out.rec=rec;
+  if(tags.length) out.tags=tags;
+  if(prio) out.priority=prio;
+  if(ctx) out.ctx=ctx;
   return out;
 }
 
@@ -4377,7 +4423,9 @@ function computeFuncSummary(){
   const tasks=state.tasks||[]; const today0=startOfDay(new Date()); const ws=addDays(today0,-7);
   const catMap={}; let active=0;
   const weekDone=tasks.filter(t=>doneInWindow(t,ws)).length;
-  const overdue=tasks.filter(t=>!noDate(t)&&!isTaskDoneNow(t)&&!t.skipMissed&&parseLocal(t.end)<today0);
+  /* P1-4：改用统一逾期口径（collectOverdueSet 一次展开实例），不再直接比模板 t.end */
+  const _ovdSet=collectOverdueSet(today0);
+  const overdue=tasks.filter(t=>!noDate(t)&&!isTaskDoneNow(t)&&!t.skipMissed&&_ovdSet.has(t.id));
   const dueToday=tasks.filter(t=>!isTaskDoneNow(t)&&!noDate(t)&&(()=>{const e=parseLocal(t.end);return e>=today0&&e<addDays(today0,1);})());
   const trend=[]; for(let i=6;i>=0;i--){ const d=addDays(today0,-i); const k=ymd(d); const c=tasks.filter(t=>doneOnDate(t,k)).length; trend.push({d,c}); }
   tasks.forEach(t=>{ if(!isTaskDoneNow(t) && !t.dropped && !isDropped(t, ymd(today0))) active++; const c=(t.cat&&t.cat.name)||t.cat||"未分类"; catMap[c]=(catMap[c]||0)+1; });
@@ -4468,9 +4516,12 @@ function buildTodayModel(){
   overdue.sort((a,b)=> parseLocal(b.end)-parseLocal(a.end) );
   const urgent=overdue.concat(due);
   window.__todayStats={pending:urgent.length, overdue:overdue.length};
-  const todayAll=insts.filter(i=>sameDay(i.date,d0) && !i.dropped);
+  const todayAll=insts.filter(i=>sameDay(i.date,d0) && !i.dropped && i.start<=endOfDay(d0));
   const done=todayAll.filter(isDone).length, total=todayAll.length;
-  return {d0, now, insts, overdue, due, urgent, todayAll, done, total};
+  /* defer 语义落地（对标 OmniFocus）：把任务推迟到今天之后，就不该再出现在「今日」。
+     此前 overdue/due 都不判 start，跨日推迟的任务会同时出现在今日区与逾期待补做里；
+     todayAll 的 i.start 守卫（上一行）保证「今日待办 / 进度分母」也不把它算进来。 */
+  return {d0, now, insts, overdue, due, urgent, todayAll, done, total, deferred: insts.filter(i=>!i.dropped && i.start>endOfDay(d0)).length};
 }
 
 /* 任务徽章拼装（今日卡片与详情弹窗共用，避免两处各写一遍优先级/分类/GTD/精力/耗时） */
@@ -5333,6 +5384,50 @@ function doneOnDate(t, k){   // 趋势柱状图按天判断：重复看 doneDate
   const x=parseLocal(self); return x instanceof Date && !isNaN(x) && ymd(x)===k;
 }
 
+/* ===== P1-4：统一的「是否逾期」判定 =====
+   此前 4 处统计（功能卡概览 / 回顾页 / 导出周报 / 项目卡徽标）都直接读**任务模板的 t.end**：
+   对每天重复的任务，t.end 是「创建当天」的时刻（如 2026-06-01T10:00），
+   今天没打卡就恒满足 t.end < today → 成批误判「逾期」（只有 skipMissed=true 的任务被排除，
+   历史/导入的 skipMissed=false 任务全部误报）。而 buildTodayModel 用的是**实例** i.end，是正确的。
+   口径统一为：取该任务「最近一个已到期且未完成」的实例判定期限。
+   为避免逐条任务展开实例导致 O(任务数 × 实例数)，提供两种形态：
+     - taskOverdueNow(t)  单条判定（内部按需展开）
+     - collectOverdueSet() 批量判定，返回 Set（一次展开，供 4 处统计共用） */
+function taskOverdueNow(t, refDay){
+  if(!t || !t.end) return false;
+  const today=refDay||startOfDay(new Date());
+  const isRec=!!(t.recurrence && t.recurrence.freq!=="none");
+  if(!isRec) return parseLocal(t.end) < today;
+  // 重复任务：取最近一个已到期、未完成、且未被标记不补做的实例
+  const insts=filterInsts(getInstances(addDays(today,-90), today));
+  let worst=null;
+  for(const i of insts){
+    if(i.task && i.task.id!==t.id) continue;
+    if(isDropped(i.task, i.date)) continue;
+    if(isDone(i)) continue;
+    if(i.end < today){ if(!worst || i.end < worst.end) worst=i; }
+  }
+  return !!worst;
+}
+/* 批量版：一次实例展开，供多视图统计共用（避免 4 处各展开一遍） */
+function collectOverdueSet(refDay){
+  const today=refDay||startOfDay(new Date());
+  const set=new Set();
+  for(const t of (state.tasks||[])){
+    if(!t || !t.end) continue;
+    const isRec=!!(t.recurrence && t.recurrence.freq!=="none");
+    if(!isRec){ if(parseLocal(t.end) < today) set.add(t.id); }
+  }
+  const insts=filterInsts(getInstances(addDays(today,-90), today));
+  for(const i of insts){
+    if(!i.task || !i.task.id) continue;
+    if(!i.task.recurrence || i.task.recurrence.freq==="none") continue;   // 非重复已在上循环处理
+    if(isDropped(i.task, i.date) || isDone(i)) continue;
+    if(i.end < today) set.add(i.task.id);
+  }
+  return set;
+}
+
 /* 已标记不补做：软态，保留数据、可恢复、仍在列表中（灰显 + 「不补做」徽标），不计入进行中/活跃，但逾期清单仍如实展示（带标注）。
    重复任务标记某日不补做 → 落在 overrides[date].skip；普通任务 → t.dropped。 */
 function isDropped(t, date){
@@ -6021,7 +6116,7 @@ function applyBatchProps(){
     touchTask(t); n++;
   });
   save(); renderAll(); closeBatchProps(); selClear();
-  toast("已批量修改 "+n+" 项（可 Ctrl+Z 撤销）");
+  toastUndo("已批量修改 "+n+" 项");
 }
 function batchInboxClearDone(){
   const done=state.tasks.filter(t=>t.status==="done" && noDate(t));
@@ -6472,7 +6567,9 @@ function recordOkrTrend(){
   try{
     let trend={}; try{ trend=JSON.parse(localStorage.getItem("wb_taskhub_okr_trend_v1")||"{}"); }catch(e){}
     const wk=weekKey(new Date()); const snap={};
-    for(const o of state.okrs){ for(const k of o.krs){ const e=krEffective(k); const pct=e.target?Math.min(100,Math.round(e.current/e.target*100)):0; snap[k.id]=pct; } }
+    /* 存 {pct,current,target} 而非裸百分比 —— 只存百分比无法回答"上周是 8/30 还是 12/30"，
+       调 target 时也无法还原历史基数。krSpark 读取时做了旧格式（纯数字）兼容。 */
+    for(const o of state.okrs){ for(const k of o.krs){ const e=krEffective(k); const pct=e.target?Math.min(100,Math.round(e.current/e.target*100)):0; snap[k.id]={pct:pct, current:e.current, target:e.target}; } }
     trend[wk]=snap;
     const keys=Object.keys(trend).sort();
     if(keys.length>26){ for(const k of keys.slice(0,keys.length-26)) delete trend[k]; }
@@ -6484,11 +6581,18 @@ function krSpark(krId){
   try{
     const trend=JSON.parse(localStorage.getItem("wb_taskhub_okr_trend_v1")||"{}");
     const weeks=Object.keys(trend).sort();
-    const data=weeks.map(w=>trend[w][krId]);
-    if(data.length<2 || data.some(x=>x===undefined||x===null)) return '';
-    const w=72,h=20,n=data.length,max=100;
-    const pts=data.map((v,i)=>`${(i/(n-1)*w).toFixed(1)},${(h-v/max*h).toFixed(1)}`).join(" ");
-    return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts}" fill="none" stroke="#7c5cff" stroke-width="1.5"/></svg><span class="spark-n">${data[0]}→${data[data.length-1]}</span>`;
+    // 兼容两种历史格式：新版 {pct,current,target}，旧版裸百分比数字
+    const raw=weeks.map(w=>trend[w][krId]);
+    if(raw.length<2 || raw.some(x=>x===undefined||x===null)) return '';
+    const pct=raw.map(x=>(typeof x==="object"&&x!==null)?(+x.pct||0):(+x||0));
+    const hasNew=raw.some(x=>typeof x==="object"&&x!==null);
+    const w=72,h=20,n=pct.length,max=100;
+    const pts=pct.map((v,i)=>`${(i/(n-1)*w).toFixed(1)},${(h-v/max*h).toFixed(1)}`).join(" ");
+    // 标题：本周 vs 上周的真实数值（而非百分比），这正是旧格式回答不了的问题
+    const cur=raw[n-1], prev=raw[n-2];
+    const txt=(x)=> hasNew && x && typeof x==="object" ? (x.current+"/"+x.target) : String(x)+"%";
+    const tip="KR 进度趋势："+txt(prev)+" → "+txt(cur)+"（最近 "+n+" 周）";
+    return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(tip)}"><polyline points="${pts}" fill="none" stroke="#7c5cff" stroke-width="1.5"/></svg><span class="spark-n" title="${esc(tip)}">${pct[0]}→${pct[n-1]}%</span>`;
   }catch(e){ return ''; }
 }
 function projProgress(p){
@@ -6948,8 +7052,9 @@ function renderReview(){
   if(snap){
     inboxTasks=[]; overdue=[]; waiting=[]; someday=[]; stalled=[]; doneWeek=snap.metrics.doneWeek;
   } else {
+    const _ovd=collectOverdueSet();   // P1-4 统一逾期口径（一次展开实例，供本页多处统计共用）
     inboxTasks=state.tasks.filter(t=>noDate(t) && !isTaskDone(t));
-    overdue=state.tasks.filter(t=>!noDate(t) && !isTaskDoneNow(t) && !t.skipMissed && parseLocal(t.end)<startOfDay(new Date()));
+    overdue=state.tasks.filter(t=>!noDate(t) && !isTaskDoneNow(t) && !t.skipMissed && _ovd.has(t.id));   // P1-4 统一口径
     waiting=state.tasks.filter(t=>(t.gw||"next")==="waiting" && !isTaskDoneNow(t));
     someday=state.tasks.filter(t=>(t.gw||"next")==="someday" && !isTaskDoneNow(t));
     stalled=state.tasks.filter(t=>{ if(isTaskDone(t)) return false; const age=(Date.now()-(t.createdAt||Date.now()))/86400000; return age>14 && (t.gw||"next")!=="waiting"; });
@@ -7043,7 +7148,8 @@ function exportReview(){
   try{
     const wk=weekKey(new Date());
     const inboxTasks=state.tasks.filter(t=>noDate(t) && !isTaskDone(t));
-    const overdue=state.tasks.filter(t=>!noDate(t) && !isTaskDoneNow(t) && !t.skipMissed && parseLocal(t.end)<startOfDay(new Date()));
+    const _ovd=collectOverdueSet();   // P1-4 统一口径
+    const overdue=state.tasks.filter(t=>!noDate(t) && !isTaskDoneNow(t) && !t.skipMissed && _ovd.has(t.id));
     const waiting=state.tasks.filter(t=>(t.gw||"next")==="waiting" && !isTaskDoneNow(t));
     const someday=state.tasks.filter(t=>(t.gw||"next")==="someday" && !isTaskDoneNow(t));
     const stalled=state.tasks.filter(t=>{ if(isTaskDone(t)) return false; const age=(Date.now()-(t.createdAt||Date.now()))/86400000; return age>14 && (t.gw||"next")!=="waiting"; });
@@ -7912,13 +8018,13 @@ async function deleteTask(){
         et.recurrence=et.recurrence||{};
         et.recurrence.until=_last;            // 截断排期：之后不再生成未完成实例，已完成日期历史保留
         touchTask(et);
-        save(); closeModal(); renderAll(); toast("已停止该重复，保留 "+_dd.length+" 个已完成日期（可 Ctrl+Z 撤销）"); return;
+        save(); closeModal(); renderAll(); toastUndo("已停止该重复，保留 "+_dd.length+" 个已完成日期"); return;
       }
       if(!(await confirmDialog("该重复任务没有完成记录，确定删除整个重复任务？（所有日期一并删除）",{danger:true}))) return;
       snapshot();
       deleteTasksWithHistory([et]);   // 墓碑 + 回收站 + 完成流水
       trashRefresh();
-      save(); closeModal(); renderAll(); toast("已删除整个重复任务（可 Ctrl+Z 撤销）"); return;
+      save(); closeModal(); renderAll(); toastUndo("已删除整个重复任务"); return;
     }
     if(r!==true) return;   // 取消 / Esc
     snapshot();
@@ -7927,13 +8033,13 @@ async function deleteTask(){
     const _dk=ovKeyD(editingDate);
     et.overrides[_dk] = Object.assign({}, et.overrides[_dk]||{}, {skip:true, hard:true});
     clearInstanceProgress(et, editingDate);   // 真删除 → 清空该次实例进度（与「不补做」保留勾选不同）
-    save(); closeModal(); renderAll(); toast("已删除该日（整组保留，可 Ctrl+Z 撤销）"); return;
+    save(); closeModal(); renderAll(); toastUndo("已删除该日（整组保留）"); return;
   }
   if(!(await confirmDialog("确定删除该任务？",{danger:true}))) return;
   snapshot();
   deleteTasksWithHistory([state.tasks.find(x=>x.id===editingId)]);   // 墓碑 + 回收站 + 完成流水
   trashRefresh();
-  save(); closeModal(); renderAll(); toast("已删除（可 Ctrl+Z 撤销）");
+  save(); closeModal(); renderAll(); toastUndo("已删除");
 }
 
 /* ===== 分类 / 优先级 管理 ===== */
@@ -8458,7 +8564,7 @@ function importJSON(file){
 async function clearAll(){
   if(!(await confirmDialog("将清空全部任务（含示例）。已删除的内容可用 Ctrl+Z 撤销，建议先导出备份。确认清空？",{danger:true}))) return;
   snapshot();
-  state.tasks=[]; save(); renderAll(); toast("已清空（可 Ctrl+Z 撤销）");
+  state.tasks=[]; save(); renderAll(); toastUndo("已清空全部任务");
 }
 
 /* ===== 媒体进度看板（可编辑） ===== */
@@ -8728,7 +8834,7 @@ async function delMedia(id, kind){
   const ix=arr.findIndex(x=>x.id===id);
   if(ix>=0) arr.splice(ix,1);
   pushKindTomb("media", id);   // 墓碑：防云端/其他设备仍持有的该条被并集并回（否则表现为「删不掉」）
-  mediaSave(); renderAll(); toast("已删除（可 Ctrl+Z 撤销）");
+  mediaSave(); renderAll(); toastUndo("已删除");
 }
 function closeMedia(){ document.getElementById("mediaMask").classList.remove("show"); mediaEditId=null; mediaEditKind=null; }
 
@@ -9264,7 +9370,7 @@ function delItem(lid,iid){
   snapshot();
   l.items=l.items.filter(x=>x.id!==iid);
   l.updated=Date.now();
-  listsSave(); renderAll(); toast("已删除（可 Ctrl+Z 撤销）");
+  listsSave(); renderAll(); toastUndo("已删除");
 }
 
 /* 清单项：拖拽重排（插入到 toId 之前） */
@@ -9906,6 +10012,20 @@ function applyNL(){
   const raw=inp.value.trim(); if(!raw) return;
   const r=parseNL(raw); if(!r) return;
   inp.value=r.title;
+  /* 标签 / 优先级 / 情境（parseNL 新增，Todoist 式 `#求职 p1 @电脑`）——回填时并入已有值，不覆盖用户手填的 */
+  const noted=[];
+  if(r.tags&&r.tags.length){
+    const g=document.getElementById("f_tags");
+    if(g){
+      const cur=g.value.split(/[,，\s]+/).map(x=>x.trim()).filter(Boolean);
+      const add=r.tags.filter(t=>!cur.includes(t));
+      if(add.length){ g.value=cur.concat(add).join(", "); renderTagPicker(); noted.push(add.length+" 个标签"); }
+    }
+  }
+  if(r.priority){ const p=document.getElementById("f_priority"); if(p){ p.value=r.priority; noted.push("优先级"); } }
+  if(r.ctx){ const c=document.getElementById("f_ctx"); if(c){ c.value=r.ctx; noted.push("情境"); } }
+  /* 纯属性输入（无日期）：只回填标签/优先级/情境，不动日期区 —— 否则会给"收件箱任务"硬塞一个今天 */
+  if(!r.start){ if(noted.length) toast("已智能识别："+noted.join(" · ")+" ✓"); return; }
   document.getElementById("f_sdate").value=ymd(parseLocal(r.start));
   document.getElementById("f_stime").value=fmtTime(parseLocal(r.start));
   document.getElementById("f_edate").value=ymd(parseLocal(r.end));
@@ -9913,9 +10033,9 @@ function applyNL(){
   if(r.rec){
     const frec=document.getElementById("f_rec"); frec.value=r.rec.freq; toggleRecOpts();
     if(r.rec.freq==="weekly" && r.rec.day!=null) setWeekChecks([r.rec.day]);
-    toast("已智能识别时间 + 重复 ✓");
+    toast("已智能识别时间 + 重复"+(noted.length?(" + "+noted.join(" · ")):"")+" ✓");
   } else {
-    toast("已智能识别时间 ✓");
+    toast("已智能识别时间"+(noted.length?(" + "+noted.join(" · ")):"")+" ✓");
   }
 }
 document.getElementById("f_title").addEventListener("blur", applyNL);
@@ -10583,7 +10703,7 @@ async function delHabit(){
   snapshot();
   habits=habits.filter(x=>x.id!==habitEditId);
   pushKindTomb("habit", habitEditId);   // 墓碑：防云端/其他设备仍持有的该习惯被并集并回
-  habitSave(); closeHabit(); renderAll(); toast("已删除习惯（可 Ctrl+Z 撤销）");
+  habitSave(); closeHabit(); renderAll(); toastUndo("已删除习惯");
 }
 function closeHabit(){ document.getElementById("habitMask").classList.remove("show"); habitEditId=null; }
 function pauseHabit(){
