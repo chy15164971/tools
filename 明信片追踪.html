@@ -1895,6 +1895,8 @@ let actKindList=ACT_KIND_DEFAULT.map(o=>({...o}));
 function actKindLabel(k){ const x=actKindList.find(o=>o.key===k); return x?x.label:(k||"其他"); }
 function actKindProgress(k){ const x=actKindList.find(o=>o.key===k); return x?!!x.progress:false; }
 const ACT_KIND_COLOR=["#f5a623","#a06bff","#4aa3ff","#22b07d","#ea580c","#ff6b6b","#9aa3b2"];
+/* R2-1：活动状态白名单，供 sanitizeArr 校验用（与 ACT_STATUS 的键一致，避免手抄漂移） */
+const ACT_STATUS_ORDER=Object.keys(ACT_STATUS);
 const LINK_LABEL={sent:"寄出",received:"收到",proxy:"代寄"};
 const ACT_STATUS={     // P2-2：同 PROXY_STATUS，ink 供 badge 文字（对比度），color 供色点/图表
   ongoing:{label:"进行中", color:"#4aa3ff", ink:"#0b5fa5"},
@@ -1944,7 +1946,24 @@ let optsKind="platform", optsReturn=null;
 
 // 脏数据兜底：导入/云端合并都可能把 null 或原始值塞进数组，
 // 一旦入表，后续 `p.status` 之类访问会直接抛 TypeError 导致整页白屏。
-function cleanArr(v){ return Array.isArray(v) ? v.filter(x=>x && typeof x==="object") : []; }
+/* R2-1（治P1-3）：sanitizeArr 是「记录入数组」的唯一入口，取代原先只做 filter 的 cleanArr。
+   原实现有两个问题：
+   ① **不补 id** —— 从 JSON 导入的记录若缺 id（手写备份、早期版本、或手工编辑过），findRec/delRec/edit 一律按 id 找不到
+      → 点「编辑」提示未找到、点「删除」没反应，且它们会被 mergeById 当「新记录」与云端并成两条（数据翻倍）。
+   ② **不校验 status** —— 脏 status 会让 transitDays/proxyStatusOf 的分支全走错。
+   load() / importJSON() / mergeById() 三处必须统一走这里，避免第三次分叉。 */
+function sanitizeArr(v, opts){
+  opts=opts||{};
+  if(!Array.isArray(v)) return [];
+  const allowStatus=opts.statusKeys;   // 可选的 status 白名单（如 STATUS_ORDER）
+  return v.filter(x=>x && typeof x==="object" && !Array.isArray(x)).map(x=>{
+    if(!x.id) x.id=uid();               // 补 id —— 缺 id 是「不可编辑不可删 + 跨设备变两条」的共同根因
+    if(typeof x.updatedAt!=="number") x.updatedAt=0;   // 统一为数字，mergeById 的比较才可靠
+    if(allowStatus && allowStatus.indexOf(x.status)<0) x.status=opts.fallbackStatus||allowStatus[0];
+    return x;
+  });
+}
+const cleanArr=v=>sanitizeArr(v);   // 旧名保留兼容（两文件不用，但改调用点风险大时可用）
 function load(){
   platList=PLAT_DEFAULT.slice(); typeList=TYPE_DEFAULT.slice(); countryList=COUNTRY_DEFAULT.slice();
   try{
@@ -1953,10 +1972,10 @@ function load(){
       const a=JSON.parse(r);
       if(Array.isArray(a)){ a.forEach(function(it){ if(!it || typeof it!=="object" || Array.isArray(it)) return; if(!it.id) it.id=uid(); if(it.dir==="received") received.push(it); else postcards.push(it); }); }
       else if(a && typeof a==="object"){
-        postcards=cleanArr(a.postcards);
-        received=cleanArr(a.received);
-        proxies=cleanArr(a.proxies);
-        activities=cleanArr(a.activities);
+        postcards=sanitizeArr(a.postcards,{statusKeys:STATUS_ORDER,fallbackStatus:"unwritten"});
+        received=sanitizeArr(a.received,{statusKeys:RECV_STATUS_ORDER,fallbackStatus:"transit"});
+        proxies=sanitizeArr(a.proxies);
+        activities=sanitizeArr(a.activities,{statusKeys:ACT_STATUS_ORDER,fallbackStatus:"ongoing"});
         if(Array.isArray(a.actKindList)&&a.actKindList.length) actKindList=a.actKindList.map(o=>({...o}));
         if(Array.isArray(a.platList)&&a.platList.length) platList=a.platList;
         if(Array.isArray(a.typeList)&&a.typeList.length) typeList=a.typeList;
@@ -3732,6 +3751,9 @@ function convertRecord(dir, id, target){
     otherArr.forEach(o=>{ if(o.pairId===pid) delete o.pairId; });
   }
   delete out.pairId;
+  /* R2-2：源数组的这份要打"移动墓碑"，否则其他设备会把云端那条当新记录追加回来 → 复活成两条。
+     out.id 与 rec.id 相同（mapToTarget 保留 id），所以按 id 打标记即可。 */
+  pushMoveTomb(rec.id, target);
   srcArr.splice(idx,1);
   const tgtArr = target==="sent"?postcards: target==="received"?received: proxies;
   tgtArr.unshift(out);
@@ -3844,23 +3866,61 @@ function tombLoad(){ try{ const r=localStorage.getItem(TOMB_KEY); if(r){ const a
 function tombSave(){ storageSet(TOMB_KEY, JSON.stringify(deletedIds)); }
 function pushTomb(id){ const s=String(id||""); if(!s) return; const i=deletedIds.findIndex(d=>d.id===s); const t={id:s, ts:Date.now()}; if(i>=0) deletedIds[i]=t; else deletedIds.push(t); if(deletedIds.length>TOMB_MAX) deletedIds=deletedIds.slice(-TOMB_MAX); }
 
+/* R2-2（治 P1-2）移动墓碑：记录在数组间移动（如「寄出→收到」转换）时，**原数组那份必须也留个删除标记**。
+   原实现只从源数组 splice，云端/其他设备上那条记录仍然存在 → 下次拉取会被当作"云端独有"追加回来，
+   于是同一条记录在两个数组里各一份 = 跨设备"复活成两条"。删除墓碑已有同样问题（pushTomb 只对 delete 有效，
+   但移动场景语义上就是删除原位置），故复用同一张表并加 op 标记语义。 */
+function pushMoveTomb(id, to){
+  pushTomb(id);
+  const s=String(id||""); if(!s) return;
+  const t=deletedIds.find(d=>d.id===s);
+  if(t){ t.op="move"; t.to=to||""; }   // 标记为「移动」而非「删除」，便于将来做撤销/追踪
+  tombSave();
+}
+
 // 把「本地墓碑 ∪ 云端墓碑」合成一张 id→ts 表，供各数组共用
 function tombMap(cloudDeleted){
   const del=new Map();
-  const add=(o)=>{ const t=normTomb(o); if(t.id){ const cur=del.get(t.id); if(cur===undefined||t.ts>cur) del.set(t.id, t.ts); } };
+  /* R2-2：id → 目标数组名（move 墓碑专用）。Map 是对象可直接挂属性，mergeById 通过 del.moved 读取。 */
+  const moved={};
+  del.moved=moved;
+  const add=(o)=>{
+    const t=normTomb(o);
+    if(!t.id) return;
+    const cur=del.get(t.id);
+    if(cur===undefined||t.ts>cur) del.set(t.id, t.ts);
+    // R2-2：op==="move" 的墓碑额外登记目标数组，供 mergeById 区分"原位置该删/新位置该留"
+    if(o && o.op==="move") moved[t.id]=String(o.to||"");
+  };
   (deletedIds||[]).forEach(add); (cloudDeleted||[]).forEach(add);
   return del;
 }
 // 按 id 合并：云端独有的追加；两者都有的，按 updatedAt 取「最后修改者」覆盖（last-writer-wins），解决编辑已有记录无法同步的问题
 let _mergeChanged=0;
-function mergeById(local, incoming, del){
+/* R2-2（治 P1-2）：dir 是本数组对应的归类名（sent/received/proxy/activity）。
+   移动墓碑（op==="move"）只在**原数组**生效：记录被"寄出→收到"转换后，原数组那份要删，
+   但目标数组里的同 id 记录是**转换后的新记录**、必须保留。不传dir 时退化为旧的"一律按墓碑删"行为。 */
+function mergeById(local, incoming, del, dir){
   if(!Array.isArray(local)) local=[];
+  // 移动墓碑表：id → 目标数组名（= "这条在别的数组里，不属于当前 dir"）
+  const movedOut = (dir && del && del.moved) ? del.moved : null;   // tombMap 挂在 Map 上
+  const tombHit=(id)=>{
+    if(!del || !del.has(id)) return null;
+    /* movedOut 是普通对象（tombMap 用字面量 {} 创建并挂在 Map 上），故用 hasOwnProperty / [] 而非 has/get。
+       语义：moved[id] = 目标数组名（记录被移动**到**哪里）。
+       当前数组 dir 与目标不同 ⇒ 当前是**原位置**，墓碑生效要删；相同 ⇒ 当前是目标位置，这条是转换后的新记录，必须留。 */
+    if(movedOut && Object.prototype.hasOwnProperty.call(movedOut,id))
+      return movedOut[id]===dir ? {skip:true} : {ts:del.get(id)};
+    return {ts:del.get(id)};
+  };
   const out=[];
   local.forEach(x=>{
     if(!x){ return; }
     if(!x.id){ out.push(x); return; }
-    if(del && del.has(x.id)){
-      const dts=del.get(x.id);
+    const hit=tombHit(x.id);
+    if(hit){
+      if(hit.skip){ out.push(x); return; }// 移动墓碑指向别的数组 → 本数组这条是转换后的新记录，保留
+      const dts=hit.ts;
       const remove = dts>0 ? ((Number(x.updatedAt)||0) < dts)   // 带时间戳：记录更旧才删
                    : (!x.updatedAt);                             // 旧墓碑：仅删从未编辑过的
       if(remove){ _mergeChanged++; return; }                     // 墓碑胜出 → 删除
@@ -3872,7 +3932,8 @@ function mergeById(local, incoming, del){
   out.forEach(x=>{ if(x && x.id) map.set(x.id, x); });
   (Array.isArray(incoming)?incoming:[]).forEach(x=>{
     if(!x || !x.id) return;
-    if(del && del.has(x.id)) return;                             // 已删记录：云端不得复活
+    const ihit=tombHit(x.id);
+    if(ihit && !ihit.skip) return;                // 已删记录：云端不得复活（移动到本数组的应放行）
     const ex=map.get(x.id);
     if(!ex){ out.push(x); map.set(x.id,x); _mergeChanged++; }    // 云端独有 → 追加
     else {
@@ -3897,6 +3958,16 @@ function mergeById(local, incoming, del){
    这是 pagehide 场景的取舍：宁可覆盖一次（下次拉取会按 updatedAt 合并），也不要丢掉这次改动。 */
 const CLOUD_KEEPALIVE_MAX=60000;   // 留 4KB 余量给 JSON 结构
 async function cloudUpload(silent, keepalive){
+  /* R4：自锁下沉到函数内部。原先只靠调用方（withBusy / cloudAutoUpload）检查 _cloudBusy，
+     而 pagehide 补传、冲突自愈里的 cloudPull(true)→save()→cloudAutoUpload 等路径**不经过 withBusy**，
+     于是「30s 轮询的上传」与「pagehide 的补传」可同时在飞：后写的整包覆盖先写的，两边的改动都丢一部分。
+     这里加自锁，_cloudBusy 由本函数自己置起/释放，withBusy 退化为纯 UI 反馈。 */
+  if(_cloudBusy){ _pendingUpload=true; return false; }
+  if(!keepalive) _cloudBusy=true;
+  try{ return await _cloudUploadInner(silent, keepalive); }
+  finally{ if(!keepalive) _cloudBusy=false; }
+}
+async function _cloudUploadInner(silent, keepalive){
   if(!cloud.token||!cloud.gist){ if(!silent) setCloudStatus("请先填写 Token 与 Gist ID", true); return false; }
   const localSavedAt=Number(localStorage.getItem(SAVED_AT)||0);
   // 冲突检测：云端有比本地更新的保存时，不应静默覆盖（多标签/多设备场景防数据丢失）
@@ -3948,7 +4019,16 @@ async function cloudUpload(silent, keepalive){
 // 拉取云端并合并到本地（silent=true 用于自动同步，不弹确认；false 用于手动「下载合并」按钮）
 // 返回值约定：false = 拉取失败；"cancel" = 用户取消；true = 已合并/已是最新
 async function cloudPull(silent){
+  /* R4：同 cloudUpload —— 自锁下沉到函数内部，与上传互斥。
+     原先只有 cloudAutoDownload 查_pullBusy，手动「立即同步」、冲突自愈里的 cloudPull(true) 都不查，
+     两条pull 可并行读到同一份云端、各自 merge 一次 → _mergeChanged 重复计数。 */
   window.__pullOk=false;
+  if(_cloudBusy||_pullBusy) return false;
+  _pullBusy=true;
+  try{ return await _cloudPullInner(silent); }
+  finally{ _pullBusy=false; }
+}
+async function _cloudPullInner(silent){
   if(!cloud.token||!cloud.gist){ if(!silent) setCloudStatus("请先填写 Token 与 Gist ID", true); return false; }
   /* P0-3：把「有弹窗打开时不拉取」的守卫从 cloudAutoDownload 下沉到这里。
      原先只有自动轮询那一条路径检查，另外三条都没有 —— 其中 `cloudUpload` 的冲突自愈
@@ -3978,10 +4058,10 @@ async function cloudPull(silent){
     _mergeChanged=0;
     const beforeLists=JSON.stringify([platList,typeList,countryList,actKindList]);
     const del=tombMap(obj.deleted);                 // 本地墓碑 ∪ 云端墓碑
-    postcards=mergeById(postcards, obj.postcards, del);
-    received=mergeById(received, obj.received, del);
-    proxies=mergeById(proxies, obj.proxies, del);
-    activities=mergeById(activities, obj.activities, del);
+    postcards=mergeById(postcards, obj.postcards, del, "sent");
+    received=mergeById(received, obj.received, del, "received");
+    proxies=mergeById(proxies, obj.proxies, del, "proxy");
+    activities=mergeById(activities, obj.activities, del, "activity");   // R2-2：dir 供移动墓碑判定"原位置该删/新位置该留"
     deletedIds=Array.from(del.entries()).map(([id,ts])=>({id, ts})); tombSave();
     if(Array.isArray(obj.platList)) platList=unionArr(platList, obj.platList);
     if(Array.isArray(obj.typeList)) typeList=unionArr(typeList, obj.typeList);
@@ -4090,16 +4170,20 @@ function cloudFlush(){
    下次触发会补上，绝不并发。目的：避免重复点击触发并发请求，导致后发先至的旧数据覆盖新数据。
    注意：按钮内含 SVG 图标，故只切换 disabled/class，不用 textContent 覆盖（会抹掉 SVG）。 */
 let _cloudBusy=false;
+async /* R4：withBusy 退化为「纯 UI 反馈 + 收尾补传」，**不再自己置 _cloudBusy**。
+   原实现它既置锁、又由被它包裹的 cloudPull/cloudUpload 各自置锁（现在锁已下沉到这两个函数内部），
+   两者叠加会让手动「立即同步」在进入 fn 的第一行就被自己的锁挡掉 → 点按钮没反应。
+   锁的唯一责任现在在 cloudUpload/_cloudPull 内部，withBusy 只管按钮的转圈与恢复。 */
 async function withBusy(btn, fn){
-  if(_cloudBusy){ toast("云同步正在进行中，请稍候","warn"); return; }
+  if(_cloudBusy||_pullBusy){ toast("云同步正在进行中，请稍候","warn"); return; }
   const b=(typeof btn==="string"?document.getElementById(btn):btn);
-  _cloudBusy=true;
   if(b){ try{ b.disabled=true; b.classList.add("is-busy"); b.setAttribute("aria-busy","true"); }catch(_){} }
   try{ return await fn(); }
   finally{
-    _cloudBusy=false;
     if(b){ try{ b.disabled=false; b.classList.remove("is-busy"); b.removeAttribute("aria-busy"); }catch(_){} }
-    if(_pendingUpload){ _pendingUpload=false; cloudAutoUpload(); }   // P1-3：上一轮上传因忙被跳过，此刻补上，避免修改永不同步到其它设备
+    /* 补传：这一轮同步期间产生的改动（被自锁挡下、置了 _pendingUpload）此刻补上，
+       否则用户改动会永远滞留在本地。手动同步与自动同步两条路径都要覆盖，故放在这里统一收尾。 */
+    if(_pendingUpload){ _pendingUpload=false; cloudAutoUpload(); }   // P1-3：上一轮上传因忙被跳过，此刻补上
   }
 }
 
@@ -4308,10 +4392,10 @@ function importJSON(file){
       // 数组为旧格式：确认文案已承诺「覆盖」，这里必须先清空再灌入，否则变成追加导致数据翻倍
       if(Array.isArray(a)){ postcards=[]; received=[]; a.forEach(function(it){ if(!it || typeof it!=="object" || Array.isArray(it)) return; if(!it.id) it.id=uid(); if(it.dir==="received") received.push(it); else postcards.push(it); }); }
       else {
-        postcards=cleanArr(a.postcards);
-        received=cleanArr(a.received);
-        proxies=cleanArr(a.proxies);
-        activities=cleanArr(a.activities);
+        postcards=sanitizeArr(a.postcards,{statusKeys:STATUS_ORDER,fallbackStatus:"unwritten"});
+        received=sanitizeArr(a.received,{statusKeys:RECV_STATUS_ORDER,fallbackStatus:"transit"});
+        proxies=sanitizeArr(a.proxies);
+        activities=sanitizeArr(a.activities,{statusKeys:ACT_STATUS_ORDER,fallbackStatus:"ongoing"});
         if(Array.isArray(a.platList)&&a.platList.length) platList=a.platList;
         if(Array.isArray(a.typeList)&&a.typeList.length) typeList=a.typeList;
         if(Array.isArray(a.countryList)&&a.countryList.length) countryList=a.countryList;
