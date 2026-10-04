@@ -1436,6 +1436,18 @@ var _emojiRe=null;
 
 const PAGE_SIZE=100;
 const _pg={}, _pgSig={}, _pgGo={};
+/* P0-4（2026-10-04 紧急修复）：补回 pgSig —— 此前**只有调用、零定义**（_pgSig 是下面 pgSlice 内部的 Map，不是这个函数），
+   明信片的 renderTable 四分支与分页条都调它 → 一进 renderAll 就抛 ReferenceError 中断整个 script（页面只剩静态 HTML）。
+   作用：给当前列表算「数据指纹」传给 pgSlice —— 指纹变了（筛掉了 / 换视图 / 数据变了）就把页码重置回第 1 页，
+   否则删到第 2 页再改筛选条件，会停在空白页上（"我明明还有数据"）。
+   ⚠️ 本函数依赖各文件宿主的 view / postcards / received / proxies / activities / filter / rfilter / pfilter / afilter / sort，
+      在 shared.js 里以宿主全局变量引用（两文件均有这些变量，故可共用）。 */
+function pgSig(){
+  var src = view==="sent" ? postcards : view==="received" ? received : view==="proxy" ? proxies : activities;
+  var flt = view==="sent" ? filter : view==="received" ? rfilter : view==="proxy" ? pfilter : afilter;
+  var mx=0; (src||[]).forEach(function(x){ var u=Number(x&&x.updatedAt); if(u>mx) mx=u; });
+  return view+"|"+(src?src.length:0)+"|"+JSON.stringify(flt)+"|"+((sort&&sort[view])||"")+"|"+mx;
+}
 
 function pgSlice(list,key,sig){
   const n=Array.isArray(list)?list.length:0;
@@ -1934,7 +1946,7 @@ let proxies=[];
 let activities=[];
 let actEditingLinks=[]; // 活动弹窗中临时维护的关联明信片列表
 let view="sent";
-let filter={status:"all", country:"", platform:"", type:"", q:""};
+let filter={status:"all", country:"", platform:"", type:"", channel:"", q:""};   // P0-4：channel 键补齐（此前 filter.channel 恒 undefined，渠道筛选形同虚设）
 let rfilter={status:"all", country:"", platform:"", type:"", q:""};
 let pfilter={status:"all", country:"", platform:"", type:"", q:""};
 let afilter={kind:"all", status:"ongoing", q:""}; // 活动：默认只看「进行中」
@@ -2659,6 +2671,56 @@ function renderChipGroup(viewKey, i){
   renderChipsGeneric(c.id, c.entries(), c.cur(), c.all, c.attr, v=>{ c.pick(v); renderChipGroup(viewKey, i); renderTable(); });
 }
 /* P3-1：renderChips 已删（薄封装，无调用方） */
+
+/* P0-4（2026-10-04 紧急修复）：补回 filteredSent / filteredRecv / filteredActivities。
+   **这三个函数此前只有调用、零定义**，而 renderTable 的四个分支与exportCSV 都调它们
+   → `renderAll()` 一跑到 renderTable 就抛 ReferenceError，整个 script 中断，
+     页面只剩 HTML 里写死的静态部分（标签栏/统计卡/表格全空），与 TDZ 那次白屏症状完全一样。
+   为什么一直没被发现：node --check 只做语法检查，运行期 ReferenceError 查不出；
+   而此前的断言只验证「函数体存在与否」，没验证「**被调用的函数是否都有定义**」。
+   口径与下方 filteredProxy 保持一致（status/country/platform/type/关键词 + applySort）。 */
+function filteredSent(){
+  const list=postcards.filter(p=>{
+    if(!p) return false;
+    if(filter.status!=="all" && p.status!==filter.status) return false;
+    if(filter.country && p.country!==filter.country) return false;
+    if(filter.platform && p.platform!==filter.platform) return false;
+    if(filter.type && p.type!==filter.type) return false;
+    if(filter.channel && p.channel!==filter.channel) return false;
+    if(filter.q){ const q=filter.q.toLowerCase();
+      const hay=[p.recipient,p.country,p.city,p.platform,p.type,p.channel,p.trackingNo,p.note].filter(Boolean).join(" ").toLowerCase();
+      if(!hay.includes(q)) return false; }
+    return true;
+  });
+  return applySort(list, "sent");
+}
+function filteredRecv(){
+  const list=received.filter(p=>{
+    if(!p) return false;
+    if(rfilter.status!=="all" && p.status!==rfilter.status) return false;
+    if(rfilter.country && p.country!==rfilter.country) return false;
+    if(rfilter.platform && p.platform!==rfilter.platform) return false;
+    if(rfilter.type && p.type!==rfilter.type) return false;
+    if(rfilter.q){ const q=rfilter.q.toLowerCase();
+      const hay=[p.sender,p.country,p.city,p.platform,p.type,p.note].filter(Boolean).join(" ").toLowerCase();
+      if(!hay.includes(q)) return false; }
+    return true;
+  });
+  return applySort(list, "received");
+}
+function filteredActivities(){
+  const list=activities.filter(a=>{
+    if(!a) return false;
+    if(afilter.kind!=="all" && a.kind!==afilter.kind) return false;
+    if(afilter.status!=="all" && a.status!==afilter.status) return false;
+    if(afilter.q){ const q=afilter.q.toLowerCase();
+      const hay=[a.title,a.platform,a.type||"",a.note].filter(Boolean).join(" ").toLowerCase();
+      if(!hay.includes(q)) return false; }
+    return true;
+  });
+  // 活动排序键与代寄共用 sort.proxy（活动表无独立排序键，历史如此）
+  return applySort(list, "proxy");
+}
 function filteredProxy(){
   const list=proxies.filter(p=>{
     if(pfilter.status!=="all" && proxyStatusOf(p)!==pfilter.status) return false;
@@ -3452,6 +3514,12 @@ function fillKindSelect(){
   sel.innerHTML=actKindList.map(o=>`<option value="${esc(o.key)}" ${o.key===val?"selected":""}>${esc(o.label)}</option>`).join("");
 }
 function openActKinds(){ renderActKindList(); document.getElementById("maskActKinds").classList.add("show"); try{document.getElementById("actKindNew").focus();}catch(e){} }
+/* P0-4（2026-10-04 紧急修复）：补回 renderActiveChips。此前被调用 4 次、零定义
+   → 在「活动类型」弹窗里改标签名/删除类型后���ReferenceError，整个 script 中断（白屏）。
+   语义：重渲染活动筛选栏里的「类型」chip 组（与 renderChipGroup("activity",0) 等价，此处保留独立名以匹配既有调用点）。 */
+function renderActiveChips(){
+  try{ renderChipGroup("activity", 0); renderChipGroup("activity", 1); }catch(e){}
+}
 function renderActKindList(){
   const el=document.getElementById("actKindList"); if(!el) return;
   el.innerHTML=actKindList.map((o,i)=>`<div class="opt-row"><input class="opt-in" data-i="${i}" value="${esc(o.label)}"><label class="ak-prog" style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:12px;color:var(--muted)"><input type="checkbox" class="ak-pc" data-i="${i}" ${o.progress?"checked":""}>跟踪进度</label><button aria-label="删除" type="button" class="opt-del" data-i="${i}" title="删除">✕</button></div>`).join("");

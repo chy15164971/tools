@@ -29,6 +29,18 @@
 
 const PAGE_SIZE=100;
 const _pg={}, _pgSig={}, _pgGo={};
+/* P0-4（2026-10-04 紧急修复）：补回 pgSig —— 此前**只有调用、零定义**（_pgSig 是下面 pgSlice 内部的 Map，不是这个函数），
+   明信片的 renderTable 四分支与分页条都调它 → 一进 renderAll 就抛 ReferenceError 中断整个 script（页面只剩静态 HTML）。
+   作用：给当前列表算「数据指纹」传给 pgSlice —— 指纹变了（筛掉了 / 换视图 / 数据变了）就把页码重置回第 1 页，
+   否则删到第 2 页再改筛选条件，会停在空白页上（"我明明还有数据"）。
+   ⚠️ 本函数依赖各文件宿主的 view / postcards / received / proxies / activities / filter / rfilter / pfilter / afilter / sort，
+      在 shared.js 里以宿主全局变量引用（两文件均有这些变量，故可共用）。 */
+function pgSig(){
+  var src = view==="sent" ? postcards : view==="received" ? received : view==="proxy" ? proxies : activities;
+  var flt = view==="sent" ? filter : view==="received" ? rfilter : view==="proxy" ? pfilter : afilter;
+  var mx=0; (src||[]).forEach(function(x){ var u=Number(x&&x.updatedAt); if(u>mx) mx=u; });
+  return view+"|"+(src?src.length:0)+"|"+JSON.stringify(flt)+"|"+((sort&&sort[view])||"")+"|"+mx;
+}
 
 function pgSlice(list,key,sig){
   const n=Array.isArray(list)?list.length:0;
