@@ -346,7 +346,7 @@
   .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:6px;}
   .hint{font-size:12px;color:var(--sub);margin-top:4px;}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0;}
-  .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px) + var(--kb,0px)); /* M-13：补底部手势条安全区 */transform:translateX(-50%) translateY(16px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:11px;font-size:13.5px;opacity:0;transition:opacity .25s, transform .25s;z-index:120;pointer-events:none;}
+  .toast{position:fixed;left:50%;max-width:min(92vw,460px);text-align:center;bottom:calc(24px + env(safe-area-inset-bottom,0px) + var(--kb,0px));   /* P2-13：原先无 max-width，62 字的配额警告两端溢出屏幕 */ /* M-13：补底部手势条安全区 */transform:translateX(-50%) translateY(16px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:11px;font-size:13.5px;opacity:0;transition:opacity .25s, transform .25s;z-index:120;pointer-events:none;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   .toast.success{background:var(--ok);color:var(--white);}
   .toast.danger{background:var(--danger);color:var(--white);}
@@ -1490,6 +1490,26 @@ function setCloudPill(state){
   else { el.innerHTML=ic+" 仅本地"; el.className="cloudpill off"; }
 }
 
+/* ---------- HTTP 错误翻译（P2-10） ----------
+ * 原先各处直接抛「下载失败：HTTP 404· Not Found」，用户完全不知道该改什么；
+ * 而找回弹窗却专门特判了 401 —— 自相矛盾。GitHub API 的状态码含义固定，故在此收口一次。
+ * 最常见的是 401（Token 过期/填错）与 404（Gist ID 打错或已删除），两者都是「配置问题」而非「网络问题」，
+ * 提示必须指向「改配置」这个具体动作，否则用户只会反复重试。 */
+function explainHttp(status, what){
+  var w = what || "同步";
+  var map = {
+    401: "Token 无效或已过期。请在设置里重新复制粘贴 Token（GitHub → Settings → Developer settings → Personal access tokens，需勾选 gist 权限）",
+    403: "没有访问权限。可能是 Token 权限不足、被限流，或该 Gist 不属于当前 Token 的账号",
+    404: "找不到这个 Gist。请检查 Gist ID 是否输错（只粘 ID、别带 URL），或该 Gist 已被删除",
+    422: "GitHub 无法处理这个请求。通常是 Gist ID 格式不对",
+    409: "存在冲突。请稍后重试"
+  };
+  if(map[status]) return w+"失败：HTTP "+status+" —— "+map[status];
+  if(status>=500) return w+"失败：HTTP "+status+" —— GitHub 服务器暂时不可用，稍后会自动重试，本机数据未受影响";
+  if(status>=400) return w+"失败：HTTP "+status;
+  return w+"失败：HTTP "+status;
+}
+
 /* P2-11（2026-10-03）：显式 kind（syncing/ok/warn/err/info）取代「靠中文字符串正则猜状态」。
    起因：最有价值的「同步完成 ✓ 合并了 N 项」不匹配任何分支，被渲染成灰色中性卡片，绿色成功态从不出现；
    「同步中」又被归到 warn 显示成黄色警告。第二参 err 保留兼容旧调用点，kind 缺省时才退回正则猜测。 */
@@ -2138,7 +2158,7 @@ const TAB_DEFAULT={ sent:"寄出追踪", received:"收到收藏", proxy:"代寄"
 const TAB_KEY="wb_postcard_tabs_v1";
 function tabLabels(){ try{ return Object.assign({}, TAB_DEFAULT, JSON.parse(localStorage.getItem(TAB_KEY)||"{}")); }catch(e){ return Object.assign({}, TAB_DEFAULT); } }
 function tabLabel(v){ return tabLabels()[v] || TAB_DEFAULT[v]; }
-function saveTabLabel(v,txt){ const m=tabLabels(); m[v]=(txt&&txt.trim())?txt.trim():TAB_DEFAULT[v]; localStorage.setItem(TAB_KEY, JSON.stringify(m)); touchCfg(); cloudAutoUpload(); }
+function saveTabLabel(v,txt){ const m=tabLabels(); m[v]=(txt&&txt.trim())?txt.trim():TAB_DEFAULT[v]; storageSet(TAB_KEY, JSON.stringify(m)); touchCfg(); cloudAutoUpload(); }   // P2-15：走 storageSet，配额满时不再静默丢标签名
 function tabIcon(v){
   const map={
     sent:`<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>`,
@@ -2200,6 +2220,7 @@ function updateEditButton(){
 // F3 修复：代寄 5 态标签此前在 renderStats 与 currentWidgetWids 各写一份（长短不一致），
 // wid 永不匹配 → 统计卡排序/上移下移不持久。两处必须共用本常量。
 const PROXY_STAT_LABELS={ready:"准备中", sent:"寄出在途（我寄出 / 对方寄出待我收）", proxyRecv:"第一步已收（对方收 / 我收）", proxyBack:"回寄在途（对方写回 / 我写回）", gotBack:"回片已到（我收到 / 对方收到）"};
+let _renderedAutoWids=null;   // 最近一次 renderStats 实际产出的自动卡wid 列表（P2-17：供 currentWidgetWids 反推）
 function renderStats(){
   const el=document.getElementById("stats");
   el.className="stats"+(widgetEditMode?" editing":"");
@@ -2284,6 +2305,10 @@ function renderStats(){
       auto.push({n:c, l:o.label+" 活动", c:ACT_KIND_COLOR[i%ACT_KIND_COLOR.length], ratio:totalA?c/totalA:0});
     });
   }
+  // P2-17：把本次实际产出的 wid 列表记到模块级，供 currentWidgetWids 反推。
+  // 该卡排序上移/下移/拖拽在列表对不上时会被 syncOrder 先过滤掉、moveWidget 里 i<0 直接 return —— 表现为「点了没反应」。
+  // 这个分叉已复发三次（代寄 5 态短标签、漏「可能丢失张数」、本批漏 sent 的「可能丢失」），故改为单一事实源。
+  _renderedAutoWids=auto.map(c=>"stat:"+view+":"+c.l);
   const autoCards=auto.map(c=>({wid:"stat:"+view+":"+c.l, kind:"auto", c}));
   const customCards=widgetCfg.custom.filter(widgetInScope).map(w=>({wid:"c:"+w.id, kind:"custom", w}));
   const all=autoCards.concat(customCards);
@@ -2358,8 +2383,18 @@ function bindWidgetCtrls(el){
   });
 }
 function currentWidgetWids(){
-  const auto = view==="sent" ? ["总计","未写","未寄","在途","已到","在途均天数"] : view==="received" ? ["总计","在途","已收","国家/地区","平台数","有图"] : view==="activity" ? ["活动总数","进行中","已结束","已关闭"].concat(actKindList.map(o=>o.label+" 活动")) : ["总张数","在途张数","对方代寄在途张数","可能丢失张数"].concat(Object.values(PROXY_STAT_LABELS)); // F3 修复：与 renderStats 标签对齐（原短标签永不匹配，另补漏「可能丢失张数」）
-  return auto.map(l=>"stat:"+view+":"+l).concat(widgetCfg.custom.filter(widgetInScope).map(w=>"c:"+w.id));
+  /* P2-17：直接反推 renderStats 的真实产出，而不是再手写一份标签列表。
+     手写列表与 renderStats 的 auto 数组是两份数据，此前三次分叉（代寄 5 态短标签 / 漏「可能丢失张数」/ 漏 sent 的「可能丢失」）
+     每次都让对应卡的排序操作静默失效。_renderedAutoWids 为 null（renderStats 还没跑过，如 syncOrder 在启动早期被调）时
+     退回上一版的手写列表兜底，保证首次调用也能工作。 */
+  const auto = (_renderedAutoWids && _renderedAutoWids.length)
+    ? _renderedAutoWids
+    : (view==="sent" ? ["总计","未写","未寄","在途","已到","在途均天数","可能丢失"]
+      : view==="received" ? ["总计","在途","已收","国家/地区","平台数","有图"]
+      : view==="activity" ? ["活动总数","进行中","已结束","已关闭"].concat(actKindList.map(o=>o.label+" 活动"))
+      : ["总张数","在途张数","对方代寄在途张数","可能丢失张数"].concat(Object.values(PROXY_STAT_LABELS)))
+      .map(l=>"stat:"+view+":"+l);
+  return auto.concat(widgetCfg.custom.filter(widgetInScope).map(w=>"c:"+w.id));
 }
 function syncOrder(){
   const cur=currentWidgetWids();
@@ -2423,7 +2458,7 @@ function saveWidgetModal(){
   const url=document.getElementById("wUrl").value.trim();
   const num=document.getElementById("wNum").value.trim();
   const scope=document.getElementById("wScope").value||view;
-  if(!title){ toast("请填写标题"); return; }
+  if(!title){ fieldError("wTitle","请填写标题"); return; }   // P2-13：聚焦+红字，不再只弹 toast
   if(editingWid){
     const id=editingWid.slice(2); const w=widgetCfg.custom.find(x=>x.id===id);
     if(w){ w.type=type; w.title=title; w.text=text; w.url=url; w.num=num; w.scope=scope; }
@@ -3126,6 +3161,31 @@ function openRecModal(dir, id){
 }
 function closeRecModal(dir){ document.getElementById(REC_DEFS[dir].maskId).classList.remove("show"); recSnapshot=null; }
 /* P2-5：统一「关闭前脏检查」入口。此前「取消」按钮直接 closeRecModal（绕过检查），而 Esc 路径会弹确认 —— 同一操作两个行为，改了内容点取消静默丢失。recSnapshot 在关闭时清空，否则下次打开空白表单会被误判为「已修改」 */
+/* P2-13：字段级校验反馈。原先只有底部 toast：既不 focus 也不高亮，用户不知道该改哪个字段；
+   toast 还固定在底部、会盖住弹窗底部按钮。本函数给输入框加红框 + 就地红字说明并聚焦。 */
+function clearFieldError(id){
+  const el=document.getElementById(id); if(!el) return;
+  el.removeAttribute("aria-invalid");
+  el.style.removeProperty("border-color");
+  const box=el.closest(".field")||el.parentElement;
+  if(box){ const e=box.querySelector(".field-err"); if(e) e.remove(); }
+}
+function fieldError(id, msg){
+  const el=document.getElementById(id); if(!el) { toast(msg,"danger"); return false; }
+  clearFieldError(id);
+  el.setAttribute("aria-invalid","true");
+  el.style.borderColor="var(--danger)";
+  const box=el.closest(".field")||el.parentElement;
+  if(box){
+    const e=document.createElement("div");
+    e.className="field-err"; e.setAttribute("role","alert");
+    e.style.cssText="color:var(--danger);font-size:12px;margin-top:4px;line-height:1.4;";
+    e.textContent=msg; box.appendChild(e);
+  }
+  try{ el.focus(); }catch(_){}
+  toast(msg,"danger");
+  return false;
+}
 async function tryCloseRec(dir){
   if(formDirty(dir) && !(await confirmDialog("内容尚未保存，确定关闭吗？"))) return false;
   closeRecModal(dir); return true;
@@ -3141,7 +3201,7 @@ async function tryCloseAct(){
 function saveRecModal(dir){
   const def=REC_DEFS[dir];
   const nameVal=document.getElementById(def.focusId).value.trim();
-  if(!nameVal){ toast("请填写"+def.nameLabel, "danger"); return; }
+  if(!nameVal){ fieldError(def.focusId,"请填写"+def.nameLabel); return; }   // P2-13：focusId 即姓名输入框（REC_DEFS 无 nameId）
   const id=document.getElementById(def.idId).value;
   const data=readForm(dir);
   normalizeRecDates(data, dir);   // 补填 + 回退清退，保证状态与日期自洽
@@ -3198,7 +3258,8 @@ function openLinkModal(dir, id){
   const tgtArr = tgtDir==="proxy"? proxies : REC_DEFS[tgtDir].arr();
   const nameField = dir==="proxy"? "proxy" : REC_DEFS[dir].nameField;
   const tgtNameField = tgtDir==="proxy"? "proxy" : REC_DEFS[tgtDir].nameField;
-  const cands = tgtArr.filter(x=>x.id!==id && !(dir==="proxy" && x.pairId)); // 代寄只连尚未成对的
+  // P2-12：代寄候选须与源腿「同模式」（单向代寄 vs 往返互寄的字段与步进完全不同，混配出来的pair 无法正确推进）
+  const cands = tgtArr.filter(x=>x.id!==id && !(dir==="proxy" && (x.pairId || x.proxyMode!==src.proxyMode)));
   const listEl=document.getElementById("linkPickList");
   document.getElementById("linkHint").textContent = "选择要与此记录绑定的对方（"+esc(src[nameField]||"未命名")+"）";
   if(!cands.length){ listEl.innerHTML=`<div class="hint" style="padding:10px 0;">没有可关联的对方记录。请先在「${tabLabel(tgtDir)}」新建一条。</div>`; }
@@ -3215,6 +3276,15 @@ function bindLink(dir, id, tgtDir, cid){
   if(!src||!tgt){ toast("关联失败", "danger"); return; }
   const pid = src.pairId || tgt.pairId || ("pr_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
   src.pairId=pid; tgt.pairId=pid;
+  /* P2-12：代寄两条腿必须方向相反。此前两条腿都保持自己的direction（新建时默认都是 me），
+     而 renderProxyPairStepper 会按 direction 给其中一条套 PROXY_STEPS_THEM 的文案 → UI 文案与数据相反；
+     更要紧的是核心 KPI「对方代寄在途张数」要求 direction==="them"，这类互寄对**永久漏计**。
+     参照 saveProxyModal 生成镜像腿的做法（mirrorDir 取反）保持一致。旧数据可能没有 direction，按 me 兜底。 */
+  if(dir==="proxy"){
+    const sd=src.direction||PDIR.ME;
+    tgt.direction = sd===PDIR.THEM ? PDIR.ME : PDIR.THEM;
+    touch(tgt);
+  }
   if(dir==="proxy"){ syncMutualMeta(pid, src); closeProxyModal(); } else { closeRecModal(dir); }  // D8 合并：互寄两条腿描述字段对齐 + 按来源关对应弹窗
   document.getElementById("linkModal").classList.remove("show");
   renderAll(); saveAndToast("已关联到对方记录");
@@ -3367,9 +3437,11 @@ function updateActProgressVisibility(){
   if(maxLbl) maxLbl.textContent = isTag? "需 tag 张数" : "满员人数";
   const hint=document.getElementById("aProgHint");
   if(hint) hint.textContent = isTag? "进度（已 tag / 需 tag 张数）" : "进度（当前 / 满员人数）";
-  const subH=document.getElementById("aCur").closest(".sub-h");
-  const row=document.getElementById("aCur").closest(".row2");
-  if(subH) subH.style.display = show? "" : "none";
+  // P2-18：原用 aCur.closest(".sub-h") 找兄弟标题 —— closest 只在**祖先链**上找，而 sub-h 是 aCur 的**前置兄弟**（1139 行是独立 id），
+  // 故恒为 null，「进度（当前/满员）」标题在「交换/其他」类型下永不禁用，留下一个没有输入框的标题。
+  // 标题有独立 id 直接取；输入行仍需closest(".row2")（那个确实是祖先）。
+  if(hint) hint.style.display = show? "" : "none";
+  const curEl=document.getElementById("aCur"), row=curEl&&curEl.closest(".row2");
   if(row) row.style.display = show? "" : "none";
 }
 function closeActivityModal(){ document.getElementById("maskActivity").classList.remove("show"); actSnapshot=null; }
@@ -3428,7 +3500,7 @@ function saveActivityModal(){
     for(let j=1;j<seq.length;j++){ if(seq[j][1] < seq[j-1][1]) rotWarn.push("R"+(i+1)+" "+seq[j-1][0]+"晚于"+seq[j][0]); }
   });
   if(rotWarn.length) toast("注意："+rotWarn.length+" 轮日期先后异常（"+rotWarn.slice(0,3).join("、")+"），已保存请核对", "warn");
-  if(!data.title){ toast("请填写活动名称", "danger"); return; }
+  if(!data.title){ fieldError("aTitle","请填写活动名称"); return; }   // P2-13
   if(id){
     const a=activities.find(x=>x.id===id);
     if(!a){ toast("未找到该活动", "danger"); return; }
@@ -3570,7 +3642,7 @@ function saveProxyModal(){
     note: document.getElementById("pNote").value.trim(),
     proxyMode: mode
   };
-  if(!data.proxy){ toast("请填写对方（代寄人）", "danger"); return; }
+  if(!data.proxy){ fieldError("pProxy","请填写对方（代寄人）"); return; }   // P2-13
   // 单向代寄：用到 对方寄出(envSent) + 我收(envRecv) + 我写回寄出(sent) + 完成(gotBack)，清空写回步骤并强制 direction=me
   if(mode==="oneway"){ data.proxyRecv=""; data.proxyBack=""; data.direction=PDIR.ME; }
   else { data.envSent=""; data.envRecv=""; } // 往返模式不携带单向信封字段
@@ -3652,13 +3724,15 @@ function mapToTarget(rec, fromDir, target){
     out.proxyRecv=""; out.proxyBack=""; out.gotBack=""; out.cardCount=1;
     // 互寄/交换关联在重新归类后不再适用，统一清除
   }else if(target==="sent"){
-    out.recipient=name; out.country=country; out.city=city; out.channel=""; out.platform=platform; out.type=type; out.exchange=exchange; out.note=note;
+    out.recipient=name; out.country=country; out.city=city; out.channel=rec.channel||""; out.platform=platform; out.type=type; out.exchange=exchange; out.note=note;   // P2-20：原写死""，收到转寄出会静默丢渠道（渠道决定「可能丢失」阈值 LOST_DAYS）
+    out.trackingNo=rec.trackingNo||""; out.image=rec.image||"";   // P2-20：运单号与图片一并保留（寄出侧字段，received 无）
     out.sent = rec.sent || (fromDir==="received"?(rec.received||""):"");
     out.arrived = fromDir==="proxy"?(rec.gotBack||""):(rec.received||"");
     if(fromDir==="proxy") out.status = rec.gotBack?"arrived":((rec.proxyRecv||rec.proxyBack||rec.sent)?"transit":"unwritten");
     else out.status = rec.received?"arrived":"transit";
   }else if(target==="received"){
-    out.sender=name; out.country=country; out.city=city; out.platform=platform; out.type=type; out.exchange=exchange; out.note=note; out.image="";
+    out.sender=name; out.country=country; out.city=city; out.platform=platform; out.type=type; out.exchange=exchange; out.note=note;
+    out.image=rec.image||"";   // P2-20：原写死""，寄出转收到会静默丢图片（明信片的核心信息，且不可逆）
     out.received = rec.received || (fromDir==="proxy"?(rec.gotBack||""):"");
     if(fromDir==="proxy") out.status = rec.gotBack?"received":"transit";
     else out.status = rec.received?"received":"transit";
@@ -3702,6 +3776,13 @@ function closeConvertModal(){ document.getElementById("maskConvert").classList.r
 function confirmConvert(){
   const target=document.getElementById("convTarget").value;
   if(convCtx.dir===target){ toast("请选择不同的归类", "danger"); return; }
+  // P2-20：转换是**移动**（原记录被删除），归类字段变了就必然丢弃。原先确认文案一句不提，用户以为无损。
+  // 把会丢的东西如实列出（代寄步进日期/寄出日按目标归类重新推导，互寄关联按设计清除）。
+  const loss=[];
+  if(target==="proxy"||convCtx.dir==="proxy") loss.push("代寄往返各步日期");
+  loss.push("互寄/交换关联");
+  if(target==="sent" && convCtx.dir!=="sent") loss.push("寄出日/到达日将按新归类重新推导");
+  if(!confirm("转换会移动这条记录（原地记录将被删除），以下内容不会保留：\n· "+loss.join("\n· ")+"\n\n确认继续？")) return;
   if(convertRecord(convCtx.dir, convCtx.id, target)){
     save(); closeConvertModal(); renderAll();
     toast(`已转换到「${tabLabel(target)}」`);
@@ -3747,12 +3828,12 @@ function syncPayload(){ return {postcards, received, proxies, activities, platLi
 // 应用云端同步过来的「设置类」数据（标签名、自定义卡片配置），按 cfgSavedAt 做最后写入者胜出
 function applyCloudSettings(obj){
   if(!obj || typeof obj!=="object" || !obj.cfgSavedAt || obj.cfgSavedAt<=cfgSavedAt) return false;
-  if(obj.tabLabels && typeof obj.tabLabels==="object"){ try{ localStorage.setItem(TAB_KEY, JSON.stringify(obj.tabLabels)); }catch(e){} }
+  if(obj.tabLabels && typeof obj.tabLabels==="object"){ storageSet(TAB_KEY, JSON.stringify(obj.tabLabels)); }   // P2-15：走 storageSet（内部已 try/catch，配额满会给告警）
   if(obj.widgetCfg && typeof obj.widgetCfg==="object"){
     widgetCfg={order:obj.widgetCfg.order||[],hidden:obj.widgetCfg.hidden||[],custom:obj.widgetCfg.custom||[],autoRename:(obj.widgetCfg.autoRename&&typeof obj.widgetCfg.autoRename==="object")?obj.widgetCfg.autoRename:{}};
-    try{ localStorage.setItem(WKEY, JSON.stringify(widgetCfg)); }catch(e){}  // 直接落盘，不触发上传（避免拉取后再回传形成抖动）
+    storageSet(WKEY, JSON.stringify(widgetCfg));  // P2-15：走 storageSet；直接落盘不触发上传（避免拉取后再回传形成抖动）
   }
-  cfgSavedAt=obj.cfgSavedAt; try{ localStorage.setItem(CFG_SAVED_KEY, String(cfgSavedAt)); }catch(e){}
+  cfgSavedAt=obj.cfgSavedAt; storageSet(CFG_SAVED_KEY, String(cfgSavedAt));   // P2-15：走 storageSet
   return true;
 }
 
@@ -3824,12 +3905,18 @@ function mergeById(local, incoming, del){
   return out;
 }
 // 返回值约定：false = 本次未成功且可重试；true = 已处理/无需重试
-async function cloudUpload(silent){
+/* keepalive（pagehide/visibilitychange 补传用）：页面卸载后普通 fetch 会被浏览器取消，"手机改完电脑看不到"的残余成因。
+   浏览器对 keepalive 请求体有 64KB 上限，超限会直接失败 —— 故超限时先落盘并明确提示，而不是静默丢弃。
+   注意：走keepalive 时不能先 await cloudPeekSavedAt（卸载期没有时间做两次往返），故跳过冲突检测直接覆盖，
+   这是 pagehide 场景的取舍：宁可覆盖一次（下次拉取会按 updatedAt 合并），也不要丢掉这次改动。 */
+const CLOUD_KEEPALIVE_MAX=60000;   // 留 4KB 余量给 JSON 结构
+async function cloudUpload(silent, keepalive){
   if(!cloud.token||!cloud.gist){ if(!silent) setCloudStatus("请先填写 Token 与 Gist ID", true); return false; }
   const localSavedAt=Number(localStorage.getItem(SAVED_AT)||0);
   // 冲突检测：云端有比本地更新的保存时，不应静默覆盖（多标签/多设备场景防数据丢失）
   // H1 修复：读云端失败 → 放弃本次上传，绝不拿「可能过旧的本地整包」覆盖云端（此前"数据消失"的共同机理）
-  const peek=await cloudPeekSavedAt();
+  // keepalive 模式：卸载期只能发一次请求，跳过 peek（两次往返来不及），直接覆盖。
+  const peek=keepalive?{err:false,empty:false,savedAt:null}:await cloudPeekSavedAt();
   if(peek.err){
     setCloudPill("err");
     if(!silent) setCloudStatus("无法读取云端状态，已放弃上传以避免覆盖云端数据，请稍后重试", true);
@@ -3848,17 +3935,26 @@ async function cloudUpload(silent){
   if(!silent) setCloudStatus("上传中…");
   setCloudPill("syncing");
   try{
+    const content=JSON.stringify(syncPayload(),null,2);
+    if(keepalive && content.length>CLOUD_KEEPALIVE_MAX){
+      // 超 keepalive 上限：数据已在本地存好（save 已落盘），只是这次补传发不出去。明确告知，不静默失败。
+      try{ toast("本地数据已保存，但内容超过 "+Math.round(CLOUD_KEEPALIVE_MAX/1024)+"KB，补传被浏览器限制拦下；下次打开本页会自动同步。","warn",6000); }catch(_){}
+      return false;
+    }
     const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{
       method:"PATCH",
       headers:{"Authorization":authHeader(),"Content-Type":"application/json"},
-      body:JSON.stringify({files:{"postcards.json":{content:JSON.stringify(syncPayload(),null,2)}}})
+      keepalive:!!keepalive,   // P2-14：让请求在页面卸载后仍能完成
+      body:JSON.stringify({files:{"postcards.json":{content:content}}})
     }, 15000);
-    if(!res.ok){ let d="HTTP "+res.status; try{ const ej=await res.json(); if(ej&&ej.message) d+=" · "+ej.message; }catch(_){} throw new Error(d); }
+    if(!res.ok){ let d="HTTP "+res.status; try{ const ej=await res.json(); if(ej&&ej.message) d+=" · "+ej.message; }catch(_){}
+      // P2-10：把 status 挂到错误对象上，调用方才能用 explainHttp 翻成可行动文案（原先只拼进message，只能显示原始串）
+      const err=new Error(d); err.status=res.status; throw err; }
     if(!silent) setCloudStatus("上传成功 ✓ "+new Date().toLocaleTimeString(), false, "ok");
     setCloudPill("ok"); markSynced(); cloudRetryReset();   // 成功 → 记最后同步时间并清除重试链
     return true;
   }catch(e){
-    if(!silent) setCloudStatus("上传失败："+(e&&e.message?e.message:e), true);
+    if(!silent) setCloudStatus((e&&e.status)? explainHttp(e.status,"上传") : ("上传失败："+(e&&e.message?e.message:e)), true);   // P2-10：401/404 翻成可行动文案
     setCloudPill("err");
     return false;   // 可重试
   }
@@ -3885,7 +3981,9 @@ async function cloudPull(silent){
   setCloudPill("syncing");
   try{
     const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 15000);
-    if(!res.ok){ let d="HTTP "+res.status; try{ const ej=await res.json(); if(ej&&ej.message) d+=" · "+ej.message; }catch(_){} throw new Error(d); }
+    if(!res.ok){ let d="HTTP "+res.status; try{ const ej=await res.json(); if(ej&&ej.message) d+=" · "+ej.message; }catch(_){}
+      // P2-10：把 status 挂到错误对象上，调用方才能用 explainHttp 翻成可行动文案（原先只拼进message，只能显示原始串）
+      const err=new Error(d); err.status=res.status; throw err; }
     const data=await res.json();
     const f=data.files&&data.files["postcards.json"];
     if(!f||!f.content) throw new Error("云端无 postcards.json");
@@ -3910,7 +4008,7 @@ async function cloudPull(silent){
     const listChanged=(beforeLists!==afterLists);
     const changed=_mergeChanged+(listChanged?1:0);  // 既统计「新增」，也统计「编辑已有记录带来的覆盖更新」
     if(changed>0 || settingsApplied){ save(); renderAll(); } // 有变化才落盘/回传/重绘，避免 30s 轮询空写与表格抖动
-    if(remote) localStorage.setItem(SAVED_AT, String(Math.max(Date.now(), remote))); // 抬平 savedAt，避免拉取后被冲突检测误暂停
+    if(remote) storageSet(SAVED_AT, String(Math.max(Date.now(), remote))); // 抬平 savedAt，避免拉取后被冲突检测误暂停（P2-15：走 storageSet，配额满时不再静默丢时间戳）
     setCloudStatus((changed>0||settingsApplied) ? ("同步完成 ✓ 新增/更新 "+(changed+(settingsApplied?1:0))+" 项（"+new Date().toLocaleString()+"）") : ("已是最新（"+new Date().toLocaleString()+"）"), false, "ok");   // P2-11：显式标成功（原先不匹配任何正则分支，绿色成功态从不出现）
     setCloudPill("ok"); window.__pullOk=true; markSynced();   // 拉取成功 → 标记成功并记最后同步时间
     /* P1-5：原本此处还有一句**无条件** renderAll()，而上一行已按 changed/settingsApplied 条件渲染过 →
@@ -3921,7 +4019,7 @@ async function cloudPull(silent){
        本批补删：上一行已在同一条件下渲染过，这里是同条件的**第二次**渲染，纯属重复（筛选栏被重建两次）。 */
     returntrue;
   }catch(e){
-    if(!silent) setCloudStatus("下载失败："+(e&&e.message?e.message:e), true);
+    if(!silent) setCloudStatus((e&&e.status)? explainHttp(e.status,"下载") : ("下载失败："+(e&&e.message?e.message:e)), true);   // P2-10
     setCloudPill("err");
     return false;
   }
@@ -3993,7 +4091,8 @@ function cloudFlush(){
   if(_cloudBusy) return;
   if(_upTimer){
     clearTimeout(_upTimer); _upTimer=null;
-    cloudUpload(true).then(ok=>{ if(ok===false) scheduleCloudRetry(); });
+    // P2-14：卸载/切后台时走 keepalive，页面销毁后请求仍能完成（原来普通 fetch 会被浏览器取消 → 补传基本无效）
+    cloudUpload(true, true).then(ok=>{ if(ok===false) scheduleCloudRetry(); });
   }
 }
 
@@ -4058,15 +4157,22 @@ const RECOVER_DEFS=[
     score:(a,b)=>(a.updatedAt||0)-(b.updatedAt||0),
     restore:x=>{ touch(x); activities.push(x); deletedIds=deletedIds.filter(t=>t.id!==x.id); tombSave(); save(); }}
 ];
+/* P2-16：防重入。此函数要扫 Gist 全部 commits（每批 5 个并发），历史版本多时十几秒；
+   原先无自锁，用户等不及再点一次 → 两条扫描并发、互相覆盖 list.innerHTML，最后绑定的按钮指向已清空的 DOM → 恢复按钮点不动。 */
+let _recoverBusy=false;
 async function openRecoverModal(){
+  if(_recoverBusy){ toast("正在扫描 Gist 历史，请稍候…","warn"); return; }
   if(!cloud.token||!cloud.gist){ toast("请先在设置中填写 Token 与 Gist ID","warn"); return; }
   const mask=document.getElementById("recoverMask");
   const list=document.getElementById("recoverList");
   const status=document.getElementById("recoverStatus");
   if(!mask||!list) return;
   mask.classList.add("show");
-  list.innerHTML='<div class="mrec-empty">正在扫描 Gist 历史版本…</div>';
-  if(status) status.textContent="";
+  _recoverBusy=true;
+  const btn=document.getElementById("csRecover"); if(btn){ btn.disabled=true; btn.classList.add("is-busy"); }
+  list.innerHTML='<div class="mrec-empty" id="recoverProgress">正在扫描 Gist 历史版本…（0/0）</div>';
+  if(status) status.textContent="正在扫描…";
+  const done=()=>{ _recoverBusy=false; const b2=document.getElementById("csRecover"); if(b2){ b2.disabled=false; b2.classList.remove("is-busy"); } };
   const localIds={}; RECOVER_DEFS.forEach(d=>{ localIds[d.key]=new Set((d.local()||[]).map(x=>x&&x.id).filter(Boolean)); });
   const found={}; RECOVER_DEFS.forEach(d=>found[d.key]=new Map());
   let scanned=0, parseErr=0, fetchFail=0;
@@ -4074,12 +4180,14 @@ async function openRecoverModal(){
     const accept={Authorization:authHeader(), Accept:"application/vnd.github+json"};
     const base="https://api.github.com/gists/"+encodeURIComponent(cloud.gist);
     const revRes=await fetchWithTimeout(base+"/commits",{headers:accept},15000);
-    if(!revRes.ok){ list.innerHTML='<div class="mrec-empty">获取 Gist 历史失败：HTTP '+revRes.status+(revRes.status===401?"（Token 无效或无权限）":"")+'</div>'; return; }
+    if(!revRes.ok){ list.innerHTML='<div class="mrec-empty">'+esc(explainHttp(revRes.status,"获取 Gist 历史"))+'</div>'; done(); return; }   // P2-10 + P2-16
     const revs=await revRes.json();
     // 并发扫描历史版本（每批 5 个），历史版本多时不再串行逐条等待
     const revArr=(revs||[]).filter(Boolean);
     for(let bi=0; bi<revArr.length; bi+=5){
       const batch=revArr.slice(bi, bi+5);
+      const pg=document.getElementById("recoverProgress");   // P2-16：扫描期间给进度，长任务不再像卡死
+      if(pg) pg.textContent="正在扫描 Gist 历史版本…（"+Math.min(bi+5,revArr.length)+"/"+revArr.length+"）";
       const results=await Promise.all(batch.map(r=>fetchWithTimeout(base+"/"+r.version,{headers:accept},12000).then(res=>({r,res})).catch(()=>({r,res:null}))));
       for(const {r,res} of results){
         if(!res||!res.ok){ fetchFail++; continue; }
@@ -4104,7 +4212,7 @@ async function openRecoverModal(){
     if(!total){
       list.innerHTML='<div class="mrec-empty">在 '+scanned+' 个历史版本中，没有找到本地缺失的记录。'+(parseErr?('（'+parseErr+' 个版本解析失败）'):'')+(fetchFail?('（'+fetchFail+' 个版本读取失败）'):'')+'</div>';
       if(status) status.textContent="扫描完成：无缺失记录";
-      return;
+      done(); return;
     }
     list.innerHTML=groups.map(g=>{
       const head='<div class="mrec-group-head"><span>'+g.def.icon+'</span>'+esc(g.def.label)+'<span class="cnt" aria-hidden="true">'+g.items.length+'</span></div>';
@@ -4137,6 +4245,7 @@ async function openRecoverModal(){
   }catch(e){
     list.innerHTML='<div class="mrec-empty">扫描失败：'+(e&&e.message?e.message:e)+'</div>';
   }
+  done();   // P2-16：无论成功/失败/提前返回都要解锁，否则按钮永久禁用
 }
 
 function applyTheme(t){ document.documentElement.dataset.theme=t; try{ localStorage.setItem("wb_theme_v1", t); try{ localStorage.setItem("wb_postcards_theme", t); }catch(_){} }catch(e){} const tb=document.getElementById("btnTheme"); if(tb) tb.setAttribute("aria-pressed", t==="dark"?"true":"false"); }
@@ -4185,7 +4294,9 @@ function exportCSV(){
     rows.push(["对方","国家","城市","平台","类型","方向","张数","对方寄出","我收","我写回寄出","对方收","对方写回","我收到","状态","备注"]);
     filteredProxy().forEach(p=>rows.push([p.proxy,p.country,p.city,p.platform,p.type,p.direction||"me",p.cardCount||1,p.envSent||"",p.envRecv||"",p.sent,p.proxyRecv,p.proxyBack,p.gotBack,proxyStatusText(p),p.note]));
   }
-  const escC=v=>`"${String(v==null?"":v).replace(/"/g,'""')}"`;
+  /* P3-3：防公式注入。备注/国家/平台等是用户自由输入，以 = + - @ 或制表符开头时 Excel/Sheets 会当公式执行
+     （=HYPERLINK(...) 可外泄、=cmd| 之类在旧版可执行）。前置单引号即可 neutralize，Excel 显示时自动隐藏。 */
+  const escC=v=>{ let t=String(v==null?"":v); if(/^[=+\-@\t\r]/.test(t)) t="'"+t; return `"${t.replace(/"/g,'""')}"`; };
   const csv="﻿"+rows.map(r=>r.map(escC).join(",")).join("\r\n");
   const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name+".csv"; a.click();
@@ -4210,10 +4321,10 @@ function importJSON(file){
         if(Array.isArray(a.countryList)&&a.countryList.length) countryList=a.countryList;
         if(Array.isArray(a.actKindList)&&a.actKindList.length) actKindList=a.actKindList.map(o=>({...o}));
         if(Array.isArray(a.links)&&a.links.length){ linkList=a.links.filter(x=>x&&x.url).map(x=>({emoji:x.emoji||"", name:x.name||"", url:x.url})); saveLinks(); renderLinkBar(); }
-        if(a.tabLabels && typeof a.tabLabels==="object"){ try{ localStorage.setItem(TAB_KEY, JSON.stringify(a.tabLabels)); }catch(e){} }
+        if(a.tabLabels && typeof a.tabLabels==="object"){ storageSet(TAB_KEY, JSON.stringify(a.tabLabels)); }   // P2-15
         if(a.widgetCfg && typeof a.widgetCfg==="object"){  // F2 修复：恢复自定义统计卡配置（与云同步 applyCloudSettings 同口径）
           widgetCfg={order:a.widgetCfg.order||[],hidden:a.widgetCfg.hidden||[],custom:a.widgetCfg.custom||[],autoRename:(a.widgetCfg.autoRename&&typeof a.widgetCfg.autoRename==="object")?a.widgetCfg.autoRename:{}};
-          try{ localStorage.setItem(WKEY, JSON.stringify(widgetCfg)); }catch(e){}
+          storageSet(WKEY, JSON.stringify(widgetCfg));   // P2-15
         }
         deletedIds=Array.isArray(a.deleted)?a.deleted.map(normTomb).filter(t=>t.id):[]; tombSave();
       }

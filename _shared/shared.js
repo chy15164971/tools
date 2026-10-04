@@ -110,6 +110,26 @@ function setCloudPill(state){
   else { el.innerHTML=ic+" 仅本地"; el.className="cloudpill off"; }
 }
 
+/* ---------- HTTP 错误翻译（P2-10） ----------
+ * 原先各处直接抛「下载失败：HTTP 404· Not Found」，用户完全不知道该改什么；
+ * 而找回弹窗却专门特判了 401 —— 自相矛盾。GitHub API 的状态码含义固定，故在此收口一次。
+ * 最常见的是 401（Token 过期/填错）与 404（Gist ID 打错或已删除），两者都是「配置问题」而非「网络问题」，
+ * 提示必须指向「改配置」这个具体动作，否则用户只会反复重试。 */
+function explainHttp(status, what){
+  var w = what || "同步";
+  var map = {
+    401: "Token 无效或已过期。请在设置里重新复制粘贴 Token（GitHub → Settings → Developer settings → Personal access tokens，需勾选 gist 权限）",
+    403: "没有访问权限。可能是 Token 权限不足、被限流，或该 Gist 不属于当前 Token 的账号",
+    404: "找不到这个 Gist。请检查 Gist ID 是否输错（只粘 ID、别带 URL），或该 Gist 已被删除",
+    422: "GitHub 无法处理这个请求。通常是 Gist ID 格式不对",
+    409: "存在冲突。请稍后重试"
+  };
+  if(map[status]) return w+"失败：HTTP "+status+" —— "+map[status];
+  if(status>=500) return w+"失败：HTTP "+status+" —— GitHub 服务器暂时不可用，稍后会自动重试，本机数据未受影响";
+  if(status>=400) return w+"失败：HTTP "+status;
+  return w+"失败：HTTP "+status;
+}
+
 /* P2-11（2026-10-03）：显式 kind（syncing/ok/warn/err/info）取代「靠中文字符串正则猜状态」。
    起因：最有价值的「同步完成 ✓ 合并了 N 项」不匹配任何分支，被渲染成灰色中性卡片，绿色成功态从不出现；
    「同步中」又被归到 warn 显示成黄色警告。第二参 err 保留兼容旧调用点，kind 缺省时才退回正则猜测。 */
