@@ -210,12 +210,15 @@
   .today-act:focus-visible{outline:2px solid var(--pri);outline-offset:1px;}
   /* 桌面端：次要动作默认隐形，指针进入该任务行 / 键盘聚焦时才淡入（元素仍在 DOM 内、可被 Tab 聚焦；隐藏态用 aria-hidden 避免读屏误读，不改变布局） */
   @media (hover:hover){
-    .today-acts .btn-sec{opacity:0;transition:opacity .14s ease;}
+    /* 桌面态：次要动作（不补做🚫 / 推迟⏰）默认隐形且不可点；仅悬停 / 键盘聚焦该行才显现可点。
+       隐藏态必须 pointer-events:none：否则在「报告 (hover:hover) 却带触屏」的混合设备（部分 Android / 触控笔记本）上，
+       按钮隐形却仍可被误触 → 胖手指误点「不补做」直接把任务移出今日。 */
+    .today-acts .btn-sec{opacity:0;pointer-events:none;transition:opacity .14s ease;}
     .today-item:hover .today-acts .btn-sec,
     .today-item:focus-within .today-acts .btn-sec,
-    .today-acts .btn-sec:focus-visible{opacity:1;}
+    .today-acts .btn-sec:focus-visible{opacity:1;pointer-events:auto;}
   }
-  @media (hover:none){ .today-acts .btn-sec{opacity:1;} }   /* 触屏无悬停：常显，保证一定点得到 */
+  @media (hover:none){ .today-acts .btn-sec{opacity:1;pointer-events:auto;} }   /* 触屏无悬停：常显且可点 */
   .today-acts .btn-doneact .ico{display:none;}   /* 默认显示文字；仅 ≤360px 切纯图标 */
   @media(max-width:360px){
     .today-acts .btn-doneact .lbl{display:none;}
@@ -1461,7 +1464,7 @@
     .today-item .btn-sm{padding:6px 9px;min-height:44px;font-size:12.5px;} /* M-8：主操作提至 44px（iOS HIG） */
     /* 图标化次要动作：触屏放宽到 44×44 触控区，并常显（无悬停可用） */
     .today-acts .today-act{width:44px;height:44px;min-height:44px;min-width:44px;font-size:15px;}
-    .today-acts .btn-sec{opacity:1;}
+    .today-acts .btn-sec{opacity:1;pointer-events:auto;}
     /* 面板标题右侧图标按钮适度缩小 */
     .toppanel h3 .ring{width:42px;height:42px;}
     .panel.collapsible .ptoggle{min-width:36px;min-height:36px;width:36px;height:36px;}
@@ -1657,7 +1660,7 @@
 @media (hover:none) and (pointer:coarse) and (min-width:768px){
   .today-item .btn-sm{padding:6px 12px;min-height:44px;font-size:13px;}
   .today-acts .today-act{width:44px;height:44px;min-height:44px;min-width:44px;font-size:15px;}
-  .today-acts .btn-sec{opacity:1;}
+  .today-acts .btn-sec{opacity:1;pointer-events:auto;}
 }
 
 </style>
@@ -3880,11 +3883,11 @@ function pushTomb(id){ const s=String(id||""); if(!s) return; const i=deletedIds
 function deletedIdsLoad(){ try{ const r=localStorage.getItem("wb_taskhub_deleted_v1"); if(r){ const a=JSON.parse(r)||[]; deletedIds=a.map(normTomb); } }catch(e){ deletedIds=[]; } }
 function deletedIdsSave(){ try{ localStorage.setItem("wb_taskhub_deleted_v1", JSON.stringify(deletedIds)); }catch(e){} }
 /* ===== 次级集合的删除传播（媒体 / 习惯 / 清单）=====
-   任务有墓碑可传播删除，但这三类走的是「按 id 求并集」的合并（mediaMergeKeep / mergeHabits / union）：
-   并集只增不减，本地删掉的条目一旦云端或另一台设备仍持有，下次拉取就被并回本地
-   → 表现为「删了好几次都删不掉」（示例数据 三体（广播剧）即此因）。
-   复用同一份 deletedIds（已被 payload.deleted 同步 / 导出 / 导入），但加**种类前缀**，
-   避免与任务 id 相撞（媒体种子 id 是 b1/t1/a1，任务 id 以 t 或 s 开头，历史上存在同形风险）。 */
+   任务有墓碑可传播删除，媒体 / 习惯 / 清单三类同样走墓碑：各自合并函数（mediaMergeNewer / mergeHabits / union）
+   末尾都经 dropTombed(kind, …, deleted) 过滤——本地或云端任一端持有该 id 的墓碑，即将其从合并结果剔除，
+   从而「删了就不会被另一端并回来」（历史上「三体（广播剧）删不掉」正是缺这层墓碑过滤所致，现已闭合）。
+   墓碑随 payload.deleted 同步 / 导出 / 导入；撤销删除时快照一并回滚 deletedIds，不会误杀刚恢复的条目。
+   复用同一份 deletedIds，但加**种类前缀**，避免与任务 id 相撞（媒体种子 id 是 b1/t1/a1，任务 id 以 t 或 s 开头）。 */
 const TOMB_NS={media:"media:",habit:"habit:",list:"list:",habitday:"habitday:"};
 function pushKindTomb(kind,id){
   const p=TOMB_NS[kind]; const s=String(id||"");
