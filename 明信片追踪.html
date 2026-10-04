@@ -1895,14 +1895,17 @@ let actKindList=ACT_KIND_DEFAULT.map(o=>({...o}));
 function actKindLabel(k){ const x=actKindList.find(o=>o.key===k); return x?x.label:(k||"其他"); }
 function actKindProgress(k){ const x=actKindList.find(o=>o.key===k); return x?!!x.progress:false; }
 const ACT_KIND_COLOR=["#f5a623","#a06bff","#4aa3ff","#22b07d","#ea580c","#ff6b6b","#9aa3b2"];
-/* R2-1：活动状态白名单，供 sanitizeArr 校验用（与 ACT_STATUS 的键一致，避免手抄漂移） */
-const ACT_STATUS_ORDER=Object.keys(ACT_STATUS);
 const LINK_LABEL={sent:"寄出",received:"收到",proxy:"代寄"};
 const ACT_STATUS={     // P2-2：同 PROXY_STATUS，ink 供 badge 文字（对比度），color 供色点/图表
   ongoing:{label:"进行中", color:"#4aa3ff", ink:"#0b5fa5"},
   done:   {label:"已结束", color:"#22b07d", ink:"#0a7a53"},
   closed: {label:"已关闭", color:"#9aa3b2", ink:"#5b6472"}
 };
+/* R2-1：活动状态白名单，供 sanitizeArr 校验用。
+   ⚠️ 必须声明在 ACT_STATUS **之后** —— const 有暂时性死区，写在前面会让 Object.keys(ACT_STATUS)
+   在模块求值时抛 ReferenceError，整个 script 挂掉（页面只剩静态 HTML：标签栏与表格全空）。
+   这个坑与「派生常量必须晚于源常量」是同一条铁律，派生一律放源后面。 */
+const ACT_STATUS_ORDER=Object.keys(ACT_STATUS);
 // 状态由「首个未完成步骤索引 firstUndone」派生，而非裸计数：跳过中间节点直接勾第 3/4 步时，
 // 状态/计数与步进条（firstUndone 驱动）保持一致，不会出现「中间空却显示已完成」的自相矛盾
 function proxyStatusOf(p){
@@ -4170,10 +4173,14 @@ function cloudFlush(){
    下次触发会补上，绝不并发。目的：避免重复点击触发并发请求，导致后发先至的旧数据覆盖新数据。
    注意：按钮内含 SVG 图标，故只切换 disabled/class，不用 textContent 覆盖（会抹掉 SVG）。 */
 let _cloudBusy=false;
-async /* R4：withBusy 退化为「纯 UI 反馈 + 收尾补传」，**不再自己置 _cloudBusy**。
+/* R4：withBusy 退化为「纯 UI 反馈 + 收尾补传」，**不再自己置 _cloudBusy**。
    原实现它既置锁、又由被它包裹的 cloudPull/cloudUpload 各自置锁（现在锁已下沉到这两个函数内部），
    两者叠加会让手动「立即同步」在进入 fn 的第一行就被自己的锁挡掉 → 点按钮没反应。
-   锁的唯一责任现在在 cloudUpload/_cloudPull 内部，withBusy 只管按钮的转圈与恢复。 */
+   锁的唯一责任现在在 cloudUpload/_cloudPull 内部，withBusy 只管按钮的转圈与恢复。
+
+   ⚠️ 本注释必须放在 async **之前**。若写成「async + 换行注释 + function f(){}」，解析器会把 async 当成标签语句、
+      后面的 function 声明为普通函数，于是函数体里的 await 报"await is only valid in async functions"；
+      而单文件语法检查（把整块存成 .js 再 check）走的是脚本模式，查不出这个差异 —— 必须用 new Function 整块解析。 */
 async function withBusy(btn, fn){
   if(_cloudBusy||_pullBusy){ toast("云同步正在进行中，请稍候","warn"); return; }
   const b=(typeof btn==="string"?document.getElementById(btn):btn);
