@@ -8740,38 +8740,35 @@ async function clearAll(){
 let media = { books:[], tvs:[], auds:[] };
 const MEDIA_KEY = "wb_taskhub_mediaboard_v1";
 function mediaNorm(){ if(!Array.isArray(media.books)) media.books=[]; if(!Array.isArray(media.tvs)) media.tvs=[]; if(!Array.isArray(media.auds)) media.auds=[]; }
-// 云端整包采纳时的防洗白：按 id 与本地做「并集」——云端缺的本地条目保留，云端独有的加入。
-// 旧实现是整包替换（只保护 auds），会导致「某次同步拿到的云端快照少了某条剧集」时把该条整体覆盖掉。
-// 改为并集后与习惯/清单一致：单条目不会因某次快照不完整而丢失。（同 9/5 习惯打卡被覆盖教训）
+// 媒体合并统一走「按 updated 取较新者」：单条进度以最后一次编辑时间为准，云端与本地谁新用谁，
+// 彻底消除此前「无版本号 → 最后上传方用陈旧本地值回退 Gist → 另一端拉取跟着回退」的剧集进度丢失。
+// 无 updated（升级前旧条目或种子）按 0 处理；同新则保留本地（稳定、少破坏）。
+function mediaMergeNewer(locArr, cloudArr, deleted){
+  const m=new Map();
+  (locArr||[]).forEach(x=>{ if(x&&x.id) m.set(x.id, x); });
+  (cloudArr||[]).forEach(x=>{
+    if(!x||!x.id) return;
+    const cur=m.get(x.id);
+    if(!cur){ m.set(x.id, x); return; }
+    if(+(x.updated||0) > +(cur.updated||0)) m.set(x.id, x); // 云端较新 → 采用云端
+  });
+  return dropTombed("media", Array.from(m.values()), deleted);
+}
 function mediaMergeKeep(incoming, cloudDeleted){
   if(!incoming || typeof incoming!=="object") return media;
-  const uid=(loc,cloud)=>{
-    const m=new Map();
-    (loc||[]).forEach(x=>{ if(x&&x.id) m.set(x.id,x); });
-    (cloud||[]).forEach(x=>{ if(x&&x.id && !m.has(x.id)) m.set(x.id,x); });
-    return Array.from(m.values());
-  };
-  // 删除传播：已墓碑的条目不再并回（本地侧也要滤，否则另一台设备删掉的条目会被本端重新上传回云端）
   return {
-    books: dropTombed("media", uid(media.books, incoming.books), cloudDeleted),
-    tvs:   dropTombed("media", uid(media.tvs,   incoming.tvs),   cloudDeleted),
-    auds:  dropTombed("media", uid(media.auds,  incoming.auds),  cloudDeleted)
+    books: mediaMergeNewer(media.books, incoming.books, cloudDeleted),
+    tvs:   mediaMergeNewer(media.tvs,   incoming.tvs,   cloudDeleted),
+    auds:  mediaMergeNewer(media.auds,  incoming.auds,  cloudDeleted)
   };
 }
-// 云端优先合并（用于「云端优先」分支 applyCloudSecondary）：同 id 直接用云端字段覆盖本地（解决手机端进度面板看不到电脑端更新的进度），
-// 仅保留本地独有 id，并滤除墓碑。与 lists/okrs/projects 等次级集合在情形 4 的「整体采用云端」语义对齐。
 function mediaAdoptCloud(incoming, cloudDeleted){
   if(!incoming || typeof incoming!=="object") return media;
-  const uid=(loc,cloud)=>{
-    const m=new Map();
-    (cloud||[]).forEach(x=>{ if(x&&x.id) m.set(x.id,x); });               // ① 云端优先
-    (loc||[]).forEach(x=>{ if(x&&x.id && !m.has(x.id)) m.set(x.id,x); }); // ② 本地独有补回
-    return Array.from(m.values());
-  };
+  // 与 mediaMergeKeep 同语义（按 updated 取较新者），不再无脑云端优先 —— 否则云端陈旧快照会回退本地较新进度
   return {
-    books: dropTombed("media", uid(media.books, incoming.books), cloudDeleted),
-    tvs:   dropTombed("media", uid(media.tvs,   incoming.tvs),   cloudDeleted),
-    auds:  dropTombed("media", uid(media.auds,  incoming.auds),  cloudDeleted)
+    books: mediaMergeNewer(media.books, incoming.books, cloudDeleted),
+    tvs:   mediaMergeNewer(media.tvs,   incoming.tvs,   cloudDeleted),
+    auds:  mediaMergeNewer(media.auds,  incoming.auds,  cloudDeleted)
   };
 }
 function mediaSave(){ storageSetSafe(MEDIA_KEY, JSON.stringify(media)); markLocalSave(); cloudAutoUpload(); }
@@ -8794,6 +8791,7 @@ function mediaFinish(id, kind){
   it.prevCurrent = it.current;
   if(it.total>0) it.current = it.total;
   it.done = true;
+  it.updated=Date.now();
   mediaSave(); renderMedia(); toast("已标记完成 · 进度 100%");
 }
 function mediaUndoFinish(id, kind){
@@ -8803,6 +8801,7 @@ function mediaUndoFinish(id, kind){
   it.current = (typeof it.prevCurrent==="number") ? it.prevCurrent : Math.max(0, (Number(it.total)||1)-1);
   delete it.prevCurrent;
   it.done = false;
+  it.updated=Date.now();
   mediaSave(); renderMedia(); toast("已撤销完成");
 }
 const M_KINDS={books:{cls:"",verb:"已读",unit:"章"},tvs:{cls:"tv",verb:"已看",unit:"集"},auds:{cls:"aud",verb:"已听",unit:"集"}};
@@ -8905,6 +8904,7 @@ function stepMedia(id, kind, d){
   const nv=Math.min(maxv, Math.max(0, it.current+d));
   if(nv===it.current){ if(it.current>=maxv&&d>0) toast(isPct?"已达到 100%":"已达到总量"); return; }
   it.current=nv;
+  it.updated=Date.now();
   if(it.total>0){ it.done = it.current>=it.total; if(!wasDone && it.done) it.prevCurrent=oldCur; }
   mediaSave();
   if(mediaDone(it)!==wasDone){ renderMedia(); return; }
@@ -8981,6 +8981,7 @@ function saveMedia(){
     const it = oldArr.find(x=>x.id===mediaEditId);
     if(it){
       it.title=title; it.type=typeLabel; it.current=cur; it.total=tot; it.unit=unit; it.percent=percent; it.platform=platform;
+      it.updated=Date.now();
       if(tot>0){ it.done = (cur>=tot); if(it.done){ if(typeof it.prevCurrent!=="number") it.prevCurrent=Math.max(0,tot-1); } else delete it.prevCurrent; }
       if(kind!==mediaEditKind){ // 编辑时换了类型 → 从旧分组搬到新分组（保留 id 与数据）
         const ix=oldArr.indexOf(it); if(ix>=0) oldArr.splice(ix,1);
@@ -8991,6 +8992,7 @@ function saveMedia(){
     media[kind].push({
       id:"m"+Date.now().toString(36)+Math.random().toString(36).slice(2,4),
       title, type:typeLabel, current:cur, total:tot, unit, percent, platform, done:(tot>0&&cur>=tot),
+      updated:Date.now(),
       prevCurrent: (tot>0&&cur>=tot) ? Math.max(0,tot-1) : undefined   // 新建即完成时也能安全撤销
     });
   }
@@ -9025,7 +9027,7 @@ const RECOVER_DEFS=[
     name:x=>(x&&x.title!=null)?String(x.title):"(无名称)",
     meta:x=>{ const k=M_KINDS[x.__kind]||M_KINDS.books; if(x.percent) return (x.current||0)+"%"+(x.platform?" · "+x.platform:""); return k.verb+" "+(x.current||0)+"/"+(x.total||0)+(x.platform?" · "+x.platform:""); },
     score:(a,b)=>(a.current||0)-(b.current||0),
-    restore:x=>{ const k=x.__kind||"books"; delete x.__kind; (media[k]||(media[k]=[])).push(x); clearKindTomb("media",x.id); mediaSave(); }},
+    restore:x=>{ const k=x.__kind||"books"; delete x.__kind; if(!x.updated) x.updated=Date.now(); (media[k]||(media[k]=[])).push(x); clearKindTomb("media",x.id); mediaSave(); }},
   {key:"habits",label:"习惯",icon:"✓",
     collect:o=>Array.isArray(o.habits)?o.habits:[],
     local:()=>habits,
@@ -11168,7 +11170,7 @@ function applyCloudObj(obj){
 }
 // 仅采用云端的「次级集合」(项目/目标/清单/习惯/媒体/分类/标签)，不动任务（任务已由 mergeTasksIntoLocal 逐条合并）
 function applyCloudSecondary(obj){
-  if(obj.media) media=mediaAdoptCloud(obj.media, obj.deleted);   // 云端优先分支：采用云端进度，与其他次级集合语义对齐（修复手机端进度面板不同步）
+  if(obj.media) media=mediaAdoptCloud(obj.media, obj.deleted);   // 媒体按 updated 取较新者：不再无脑云端优先，既防回退本地较新进度，也让手机端能看到电脑端更新
   if(Array.isArray(obj.habits)) habits=mergeHabits(habits, obj.habits, obj.deleted);
   if(Array.isArray(obj.lists)) lists=dropTombed("list", obj.lists, obj.deleted);
   if(Array.isArray(obj.cats)) cats=obj.cats;
