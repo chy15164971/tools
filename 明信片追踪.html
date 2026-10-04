@@ -22,7 +22,10 @@
   /* === SHARED TOKENS START === */
   :root{
     --bg:#f5f7fb; --card:#ffffff; --ink:#1f2430; --text:#1f2430; --sub:#6b7280; --line:#e7ebf2;
-    --pri:#4F7CFF; --pri-soft:#eaf0ff; --ok:#22b07d; --warn:#ff8a3d; --danger:#ef4444;
+    --pri:#4F7CFF; --pri-ink:#2F5FE0; --pri-soft:#eaf0ff; --ok:#22b07d; --warn:#ff8a3d; --danger:#ef4444;
+    /* P2-2：--pri-ink 是「主色作小字/链接文字」专用 token。--pri #4F7CFF 作前景色只有 3.71:1，低于 AA 4.5:1，
+       站内每个行内链接、页签选中态、图标按钮都受影响。--pri-ink 亮色 5.53:1 / 暗色 7.4:1。
+       注意：按钮**底色**仍用 --pri（白字压色，对比度是另一回事），只替换「作为文字色」的地方。 */
     /* 数据色（c4 媒体剧集在用；c1~c3、c5 已删——无任何 var() 引用，分类/优先级用用户自定义色） */
     --c4:#ff5c8a; --c6:#9b6bff; --c7:#2bb3c0;
     --radius:12px; --radius-sm:8px; --radius-lg:16px; --shadow:0 2px 10px rgba(31,36,48,.06);
@@ -31,7 +34,7 @@
   --warnbg:#ffeaea; --white:#fff; --ink-strong:#1f2430; }
   [data-theme="dark"]{
     --bg:#0f1320; --card:#171c2b; --ink:#e8ecf5; --text:#e8ecf5; --sub:#9aa3b5; --line:#262d40;
-    --pri:#5b86ff; --pri-soft:#1c2540; --hover:#1d2233; --bg2:#0f1320; --muted:#9aa3b5;
+    --pri:#5b86ff; --pri-ink:#8FABFF; --pri-soft:#1c2540; --hover:#1d2233; --bg2:#0f1320; --muted:#9aa3b5;
     --ok:#2bd99a; --warn:#ff9a4d; --danger:#ff6b6b;
   --warnbg:#3a1f1f; }
 
@@ -43,7 +46,7 @@
   [data-theme="dark"] .badge.badge-duesoon{ background:rgba(255,154,77,.16); color:var(--warn); }
   [data-theme="dark"] .sp-node{ border-color:var(--line); color:var(--muted); }
   [data-theme="dark"] .sp-node.done{ border-color:var(--pri); color:var(--white); }
-  [data-theme="dark"] .sp-node.cur{ border-color:var(--pri); color:var(--pri); }
+  [data-theme="dark"] .sp-node.cur{ border-color:var(--pri); color:var(--pri-ink); }
   /* 暗色组件级覆盖：与任务台对齐的基础集（输入框 / 占位符 / 滚动条 / 卡片 / 弹窗 / 提示），仅用本文件已定义的暗色变量 */
   [data-theme="dark"] input,
   [data-theme="dark"] select,
@@ -142,7 +145,7 @@
   
   /* 关联应用跳转链接（顶栏 ghost 风格，点击新标签打开对方页面） */
   .sib-link{display:inline-flex;align-items:center;gap:6px;height:38px;min-height:38px;box-sizing:border-box;padding:0 12px;border-radius:var(--radius-sm);border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:13.5px;font-weight:600;text-decoration:none;cursor:pointer;font-family:inherit;white-space:nowrap;}
-  .sib-link:hover{background:var(--hover);border-color:var(--pri);color:var(--pri);}
+  .sib-link:hover{background:var(--hover);border-color:var(--pri);color:var(--pri-ink);}
   .sib-link svg{width:16px;height:16px;margin-right:6px;}
   .menu-wrap{position:relative;}
   .menu{position:absolute;right:0;top:calc(100% + 6px);min-width:176px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(20,30,60,.16);padding:6px;display:none;z-index:60;}
@@ -160,10 +163,10 @@
   .linkbar.collapsed .lb-list{display:none;}
   .lb-title{cursor:pointer;user-select:none;}
   .seg-sep{width:1px;height:20px;background:var(--line);margin:0 4px;flex:none;}
-  .lb-edit:hover{border-color:var(--pri);color:var(--pri);}
+  .lb-edit:hover{border-color:var(--pri);color:var(--pri-ink);}
   .lb-list{display:flex;flex-wrap:wrap;gap:8px;}
   .lb-item{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--line);border-radius:999px;background:var(--bg);color:var(--ink);font-size:13px;font-weight:600;text-decoration:none;transition:.15s;max-width:100%;}
-  .lb-item:hover{border-color:var(--pri);color:var(--pri);background:var(--hover);}
+  .lb-item:hover{border-color:var(--pri);color:var(--pri-ink);background:var(--hover);}
   .lb-item .lb-e{font-size:14px;line-height:1;flex:none;}
   .lb-item .lb-n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px;}
   .lb-item .lb-a{opacity:.4;font-size:11px;flex:none;}
@@ -178,8 +181,8 @@
   .segtabs{display:inline-flex;background:var(--bg2);border:1px solid var(--line);border-radius:999px;padding:4px;gap:4px;margin-bottom:0;}
   .seg{display:inline-flex;align-items:center;gap:6px;border:none;background:none;padding:7px 14px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--sub);cursor:pointer;font-family:inherit;transition:.15s;white-space:nowrap;min-height:36px;}
   .seg .tab-icon{width:16px;height:16px;flex:none;stroke-width:2;margin-right:5px;}
-  .seg.active{background:var(--card);color:var(--pri);box-shadow:var(--shadow);}
-  .seg.active .tab-icon{color:var(--pri);}
+  .seg.active{background:var(--card);color:var(--pri-ink);box-shadow:var(--shadow);}
+  .seg.active .tab-icon{color:var(--pri-ink);}
   /* 标签页名称可双击编辑 */
   .seg .tab-label{outline:none;border-radius:6px;padding:1px 5px;display:inline-block;min-width:2ch;line-height:1.5;transition:.12s;}
   .seg .tab-label:hover{box-shadow:inset 0 0 0 1px var(--line);}
@@ -203,9 +206,9 @@
   .filters .search{flex:1;min-width:0;width:100%;}
   .search-wrap{flex:1;min-width:140px;position:relative;display:flex;}
   .search-clear{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:none;color:var(--sub);cursor:pointer;font-size:14px;padding:4px 6px;line-height:1;}
-  .search-clear:hover{color:var(--pri);}
+  .search-clear:hover{color:var(--pri-ink);}
   .btn-reset{border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:var(--radius-sm);padding:7px 11px;font-size:13px;cursor:pointer;font-family:inherit;white-space:nowrap;}
-  .btn-reset:hover{border-color:var(--pri);color:var(--pri);}
+  .btn-reset:hover{border-color:var(--pri);color:var(--pri-ink);}
   .menu .mitem.danger{color:var(--danger);}
   .menu .mitem.danger:hover{background:var(--warnbg);}
   .menu .msep{height:1px;background:var(--line);margin:4px 6px;}
@@ -242,7 +245,7 @@
   .col-act{text-align:right;white-space:normal;box-sizing:border-box;vertical-align:middle;}
   /* 表格单元格：内容超长省略；不与 word-break 冲突（用 inline-clamp） */
   .row-act{display:inline-flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:6px;white-space:nowrap;vertical-align:middle;}
-  .linkbtn{border:none;background:none;color:var(--pri);cursor:pointer;font-size:12.5px;font-family:inherit;padding:2px 6px;border-radius:6px;white-space:nowrap;line-height:1.4;}
+  .linkbtn{border:none;background:none;color:var(--pri-ink);cursor:pointer;font-size:12.5px;font-family:inherit;padding:2px 6px;border-radius:6px;white-space:nowrap;line-height:1.4;}
   .linkbtn:hover{background:var(--pri-soft);}
   .linkbtn.danger{color:var(--danger);}
   .linkbtn.danger:hover{background:var(--warnbg);}
@@ -309,7 +312,7 @@
   .sel-row{display:flex;gap:7px;align-items:center;}
   .sel-row select{flex:1;width:auto;min-width:0;}
   .mini{border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:var(--radius-sm);width:38px;height:38px;flex:none;cursor:pointer;font-size:15px;line-height:1;font-family:inherit;}
-  .mini:hover{background:var(--hover);color:var(--pri);}
+  .mini:hover{background:var(--hover);color:var(--pri-ink);}
   .opt-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
   /* 代寄模式切换（往返 write-back / 单向代寄） */
   .seg-mode{display:flex;gap:6px;flex-wrap:wrap;}
@@ -320,13 +323,13 @@
   /* 代寄：4 节点往返步骤条（.stepper 旧版 9 条规则已删——实际渲染只用 .stepper-pair/.sp-*，D6 死代码） */
   .sp-node{width:24px;height:24px;border-radius:50%;border:2px solid #c5ccdb;background:var(--card);color:#aab2c2;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:none;}
   .sp-node.done{background:var(--pri);border-color:var(--pri);color:var(--white);}
-  .sp-node.cur{border-color:var(--pri);color:var(--pri);box-shadow:0 0 0 3px rgba(79,124,255,.16);box-shadow:0 0 0 3px color-mix(in srgb, var(--pri) 16%, transparent);}
+  .sp-node.cur{border-color:var(--pri);color:var(--pri-ink);box-shadow:0 0 0 3px rgba(79,124,255,.16);box-shadow:0 0 0 3px color-mix(in srgb, var(--pri) 16%, transparent);}
   .sp-node.empty{border-style:dashed;opacity:.45;}
   .sp-node.clickable{cursor:pointer;}
   .sp-node.clickable:hover{filter:brightness(1.06);}
   .stepper-pair{display:flex;flex-direction:column;gap:6px;width:100%;}
   .sp-caps{display:flex;justify-content:space-between;font-size:11px;font-weight:600;margin-bottom:1px;}
-  .sp-cap.me{color:var(--pri);}
+  .sp-cap.me{color:var(--pri-ink);}
   .sp-cap.them{color:var(--ink);}
   .sp-grid{display:grid;grid-template-columns:repeat(4,1fr);column-gap:10px;row-gap:3px;}
   .sp-grid.single{gap:3px 10px;}
@@ -370,7 +373,7 @@
   .stat.drop-before{box-shadow:0 -3px 0 var(--pri);}
   .stat.drop-after{box-shadow:0 3px 0 var(--pri);}
   .stat .w-body{margin-top:3px;font-size:12.5px;color:var(--ink);word-break:break-word;line-height:1.45;}
-  .stat .w-body.link a{color:var(--pri);text-decoration:none;font-weight:600;}
+  .stat .w-body.link a{color:var(--pri-ink);text-decoration:none;font-weight:600;}
   .stat .w-body.link a:hover{text-decoration:underline;}
   .stat .w-title{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:5px;}
   /* 仅本页显示的自定义卡：标题后加轻标记，避免用户以为卡片丢失 */
@@ -379,8 +382,8 @@
   /* 手动数字卡与自动统计卡同构：数字在上(.n) + 标题在下(.l)，字体沿用 .n/.l 定义 */
   .w-actions{margin:0 0 14px;display:flex;align-items:center;gap:10px;}
   #btnAddWidget{border:1px dashed var(--line);background:var(--card);color:var(--sub);border-radius:var(--radius);padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit;}
-  #btnAddWidget:hover{border-color:var(--pri);color:var(--pri);}
-  .w-showhidden{font-size:12.5px;color:var(--pri);background:none;border:none;cursor:pointer;font-family:inherit;}
+  #btnAddWidget:hover{border-color:var(--pri);color:var(--pri-ink);}
+  .w-showhidden{font-size:12.5px;color:var(--pri-ink);background:none;border:none;cursor:pointer;font-family:inherit;}
   #widgetModal .row{margin-bottom:12px;}
   #widgetModal label{display:block;font-size:12.5px;color:var(--sub);margin-bottom:5px;}
   #widgetModal input, #widgetModal textarea, #widgetModal select{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:16px;background:var(--card);color:var(--ink);}
@@ -424,7 +427,7 @@
 .pg-info{font-size:12.5px;color:var(--sub);}
 .pg-nums{display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
 .pgbtn{min-width:30px;height:30px;padding:0 8px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;font-size:13px;cursor:pointer;line-height:1;}
-.pgbtn:hover:not(:disabled){border-color:var(--pri);color:var(--pri);}
+.pgbtn:hover:not(:disabled){border-color:var(--pri);color:var(--pri-ink);}
 .pgbtn.cur{background:var(--pri);border-color:var(--pri);color:#fff;}
 .pgbtn:disabled{opacity:.4;cursor:not-allowed;}
 .pgdots{color:var(--sub);padding:0 2px;}
@@ -479,6 +482,10 @@
     table{table-layout:auto !important; /* 窄屏改自动布局，允许列收缩换行 */}
     /* 561–980px 窄桌面窗口：8 列表格可能溢出，加横向滚动兜底（≤560 卡片式会覆盖回 visible） */
     .tablecard{overflow-x:auto;}
+    /* P2-3：平台/类型/渠道三列在 ≤980 已随 .hide-sm 隐藏，必须在同档并入 .m-extra 合并行，
+       否则 iPad（768px）上这三列既不显示也不并入 → 核心检索维度凭空消失（筛选栏却仍能筛，割裂）。
+       原先 .m-extra 只在 ≤560 开启，与 .hide-sm 的 980 断点不匹配。 */
+    .m-extra{display:block;}
   }
 
 /* [5/12] (max-width:560px) */
@@ -505,7 +512,6 @@
     /* P0：移动端强制显示缩略图（明信片核心信息），放大并左对齐 */
     .col-thumb{display:flex !important;justify-content:flex-start;align-items:center; /* 缩略图列小屏强制 flex 对齐 */}
     .col-thumb .thumb{width:48px;height:48px;}
-    .m-extra{display:block;}
     /* === 移动端 UI 统一优化 === */
     /* 顶栏：更紧凑 */
     .wrap{padding:12px 12px 0;}
@@ -522,7 +528,7 @@
     .segtabs{width:100%;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);padding:6px;box-shadow:var(--shadow);}
     .seg{flex-direction:column;justify-content:center;align-items:center;gap:5px;padding:10px 4px;border-radius:var(--radius-sm);font-size:11.5px;font-weight:600;line-height:1.25;min-height:64px;white-space:normal;}
     .seg .tab-icon{width:22px;height:22px;}
-    .seg.active{background:var(--pri-soft);color:var(--pri);box-shadow:inset 0 0 0 1px var(--pri);}
+    .seg.active{background:var(--pri-soft);color:var(--pri-ink);box-shadow:inset 0 0 0 1px var(--pri);}
     .seg-sep{display:none !important; /* 小屏隐藏分段器分隔符 */}
     #btnAdd{width:100%;margin-left:0 !important;min-height:44px;justify-content:center; /* 小屏按钮满宽、清除左间距 */}
     /* 统计卡片 */
@@ -600,8 +606,16 @@
 /* [8/12] (hover:none) */
 @media (hover:none){
   /* C-1 触控端不残留 hover 态 */
-  .topbar a:hover,.cloudpill:hover,.stat.widget:hover,.w-ctrl button:hover,.tag:hover,
-  .chip:hover,.btn:hover,.act-more summary:hover{background:initial;color:initial;filter:none;}
+  /* P3-7：原为 background:initial —— initial 即 transparent，会一并清掉 .btn-ghost{background:var(--card)} 的底色，
+     触屏「点住」时按钮凭空消失。改为只复位 filter，并按控件各自显式还原底色（不能用一个 initial 一刀切）。 */
+  .topbar a:hover,.cloudpill:hover,.stat.widget:hover,.w-ctrl button:hover,.tag:hover{filter:none;}
+  .btn:hover{filter:none;}
+  .btn-ghost:hover{background:var(--card);color:var(--ink);border-color:var(--line);}
+  .btn:not(.btn-ghost):not(.btn-danger):hover{background:var(--pri);color:var(--white);}
+  .btn-danger:hover{background:#fff5f5;color:var(--danger);border-color:var(--danger);}   /* btn-danger 是白底红字红框，不是红底 */
+  .chip:hover{background:var(--card);color:var(--sub);border-color:var(--line);}
+  .chip.active:hover{background:var(--pri);color:var(--white);border-color:var(--pri);}
+  .act-more summary:hover{background:none;}
   /* C-2 触控端也默认隐藏 widget 控件；编辑模式下紧凑显示，避免溢出卡片 */
   .stats.editing .stat.widget{padding-top:30px;}
   .w-ctrl{max-width:calc(100% - 12px);}
@@ -613,6 +627,27 @@
   /* M-7：系统高亮已关闭，需自定义 :active 给出明确按下反馈 */
   .btn:active,.btn-sm:active,.chip:active,.tag:active,.thumb:active,.w-ctrl button:active,
   .pgbtn:active,.lb-close:active{transform:scale(.97);filter:brightness(.95);}
+
+  /* P1-8 触控尺寸（Apple HIG / WCAG 2.5.8 建议最小 44×44 CSS px）。
+     背景：上一轮只覆盖 ≤480/≤560 两档，而 iPad（561–980）命中的档位没有任何触控尺寸规则；
+     实测行内「编辑/转换/删除」.linkbtn ≈22px、搜索清除 ✕ ≈22px、chip ✕ ≈16px、弹窗 ✕ ≈25px、
+     分页 30×30、状态下拉 ≈32px、筛选 chip ≈31px、页签 36px —— 在 iPad 上误触率明显高于手机（手指更粗、屏幕更大）。
+     特别：.rot-ops .mini 特异性 (0,2,0) 高于 480/560 档的 .mini (0,1,0)，上一轮修复漏了它，RR 行内按钮在**手机上也仍是 24×28**，本档一并修。
+     选择器用 (hover:none),(pointer:coarse) 逗号并列：触控板 iPad 接鼠标时若上报 hover:hover，靠 pointer:coarse 仍能命中。 */
+  .linkbtn{min-height:44px;display:inline-flex;align-items:center;padding:0 10px;}
+  .rot-ops .mini{width:44px;height:44px;font-size:15px;}
+  .mini{width:44px;height:44px;}
+  .pgbtn{min-width:44px;min-height:44px;}
+  .search-clear{min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;padding:0;font-size:17px;}
+  .link-chip .x{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:0 8px;}
+  .opt-x{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:0 12px;}
+  .st-sel{min-height:44px;padding:6px 10px;}
+  .chip{min-height:44px;display:inline-flex;align-items:center;}
+  .seg{min-height:44px;}
+  .w-ctrl button{width:40px;height:40px;font-size:16px;border-radius:8px;}
+  .lb-close{width:48px;height:48px;font-size:26px;top:12px;right:12px;}
+  /* 触控端行高给足，避免 44px 容器内文字被挤 */
+  tbody td{padding-top:10px;padding-bottom:10px;}
 }
 
 /* [9/12] max-width:700px) */
@@ -917,7 +952,7 @@
     </div>
 
     <div class="dtab-panel" data-dtab="cloud">
-      <div class="cloud-status-card" id="csStatus">
+      <div class="cloud-status-card" id="csStatus" role="status" aria-live="polite">
         <div class="cloud-status-icon" id="csStatusIcon"></div>
         <div class="cloud-status-body">
           <div class="cloud-status-title" id="csStatusTitle">未配置</div>
@@ -1455,16 +1490,23 @@ function setCloudPill(state){
   else { el.innerHTML=ic+" 仅本地"; el.className="cloudpill off"; }
 }
 
-function setCloudStatus(msg, err){
+/* P2-11（2026-10-03）：显式 kind（syncing/ok/warn/err/info）取代「靠中文字符串正则猜状态」。
+   起因：最有价值的「同步完成 ✓ 合并了 N 项」不匹配任何分支，被渲染成灰色中性卡片，绿色成功态从不出现；
+   「同步中」又被归到 warn 显示成黄色警告。第二参 err 保留兼容旧调用点，kind 缺省时才退回正则猜测。 */
+function setCloudStatus(msg, err, kind){
   const card=document.getElementById("csStatus"); if(!card) return;
   const iconEl=document.getElementById("csStatusIcon");
   const titleEl=document.getElementById("csStatusTitle");
   const descEl=document.getElementById("csStatusDesc");
-  let type=err?"err":"info", title="提示", desc=msg||"";
-  if(!msg){ type="info"; title="未配置"; desc="在上方填入 Gist ID 与 Token 即可开始同步"; }
-  else if(/同步中|拉取中|上传中|下载中|正在/.test(msg)){ type="warn"; title="同步中…"; desc=msg; }
-  else if(/已同步|已是最新|已复制|已从剪贴板|已覆盖|成功/.test(msg)){ type="ok"; title="成功"; desc=msg; }
-  else if(/失败|错误|无法|不支持|请|没找到|缺少/.test(msg)){ type=err?"err":"warn"; title=err?"同步失败":"注意"; desc=msg; }
+  let type=kind, title="", desc=msg||"";
+  if(type){
+    title = type==="ok"?"成功" : type==="err"?"同步失败" : type==="syncing"?"同步中…" : type==="warn"?"注意":"提示";
+  } else if(!msg){ type="info"; title="未配置"; desc="在上方填入 Gist ID 与 Token 即可开始同步"; }
+  else if(err){ type="err"; title="同步失败"; }
+  else if(/同步中|拉取中|上传中|下载中|正在|已配置/.test(msg)){ type="syncing"; title="同步中…"; }
+  else if(/同步完成|已同步|已是最新|上传成功|已复制|已从剪贴板|已覆盖|已取消|成功/.test(msg)){ type="ok"; title="成功"; }
+  else if(/失败|错误|无法|不支持|请|没找到|缺少/.test(msg)){ type="warn"; title="注意"; }
+  else { type=err?"err":"info"; title="提示"; }
   card.className="cloud-status-card "+type;
   const icons={
     ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
@@ -1494,23 +1536,28 @@ function fetchWithTimeout(url, opts, ms){
 
 function safeUrl(u){ u=(u||"").trim(); if(!u) return "#"; if(/^(https?:|mailto:|tel:)/i.test(u)) return esc(u); try{ var _p=new URL(u,location.href); if(_p.protocol==="http:"||_p.protocol==="https:") return esc(u); }catch(e){} return "#"; }
 
+/* P0-1（2026-10-03）：第三参ms 是必需的 —— 配额/保存失败这类提示有62 字，1.8s 根本读不完；
+   且 toast 固定底部、会盖住弹窗底部按钮，失败提示必须给足时长。省略时按字数自适应。
+   hover 暂停：读长文案时能按住不放。 */
 function toast(msg, kind, ms){
   const t=document.getElementById("toast");
   t.textContent=msg;
   t.className="toast"+(kind?(" "+kind):"");
   t.classList.add("show"); clearTimeout(t._timer);
-  t._timer=setTimeout(()=>t.classList.remove("show"), ms || 1800);
+  var n=String(msg==null?"":msg).length;
+  var dur = ms || (n>60?7000 : n>30?5000 : n>14?3200 : 1800);
+  t._timer=setTimeout(function(){ t.classList.remove("show"); }, dur);
 }
-/* ===== P0-1 保存收口 =====
-   storageSet() 捕获配额异常后已弹 danger 并 return false，但全文件 32 处 save() 调用原本都忽略返回值，
-   紧随其后的成功 toast 又会把那条 danger 覆盖掉（toast 是单元素复用）→ 用户点「已添加 ✓」、刷新后数据消失。
-   saveAndToast()：保存失败时改为给出**可行动**的长提示并 return false；成功才弹 okMsg。
-   失败文案要长到能读完，所以显式给 7000ms。 */
-const SAVE_FAIL_TXT="未能保存到本地（浏览器存储空间已满）。请先用「导出备份」备份，再删除部分记录或图片后重试。";
-function saveAndToast(okMsg, kind){
-  if(save()){ if(okMsg) toast(okMsg, kind); return true; }
-  toast("⚠️ "+(okMsg||"本次修改")+" "+SAVE_FAIL_TXT, "danger", 7000);
-  return false;
+/* P0-1：保存失败时的统一可行动文案。此前 save() 的返回值被全链路丢弃，
+   配额满/隐私模式导致写盘失败时仍弹「已保存」成功提示 —— 用户以为存上了，实则数据在内存里。 */
+var SAVE_FAIL_TXT="保存失败：浏览器存储空间已满或被禁用（无痕模式？）。请先导出备份，再清理浏览器数据腾出空间。改动仍在本页内存中，刷新会丢失。";
+/* P0-1：所有「用户可见的写操作 + 成功提示」都走这里，成功才提示，失败必给可行动告警。
+   不要在调用点写 `save(); toast("已保存")` —— 那是本次静默丢数据的根因。 */
+function saveAndToast(okMsg){
+  var ok = save();
+  if(ok===false){ toast("⚠️ "+SAVE_FAIL_TXT, "danger", 7000); return false; }
+  if(okMsg) toast(okMsg);
+  return true;
 }
 
 /* ---------- 无障碍增强（D4 B+） ---------- */
@@ -1702,6 +1749,7 @@ function emptyState(icon, text, sub, actionHtml){
   obs.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class']});
   document.addEventListener('keydown',function(e){
     if(e.key!=='Tab') return;
+    if(e.target && e.target.tagName==='TEXTAREA') return;   /* 多行文本域内应自由用 Tab 缩进，陷阱只在真正到边界时才接管 */
     var root=topModal(); if(!root) return;
     var f=fmap(root); if(!f.length) return;
     var first=f[0], last=f[f.length-1];
@@ -1781,14 +1829,18 @@ function proxyStepsOf(p){
   if(p && p.direction===PDIR.THEM) return PROXY_STEPS_THEM;
   return PROXY_STEPS;
 }
+/* P2-2：每个状态补ink =「同色系的深色版」，专供 badge 文字使用。
+   原先 badge 直接拿 color 当文字色（`background:${c}22;color:${c}`），而这些色是按「色块」选的：
+   寄出在途 #f5a623 在白底上只有 2.03:1、对方已寄出 #fb923c 2.32:1、对方已收 #4aa3ff 2.64:1，全部远低于 AA 4.5:1。
+   color 保持不变继续用于色点/进度条/图表（那里是大面积填充，对比度要求不同），只有小字标签改用 ink。 */
 const PROXY_STATUS={
-  ready:    {label:"准备中",     color:"#9aa3b2"},
-  envSent:  {label:"对方已寄出", color:"#fb923c"},
-  envRecv:  {label:"我已收", color:"#4aa3ff"},
-  sent:     {label:"寄出在途",   color:"#f5a623"},
-  proxyRecv:{label:"对方已收",   color:"#4aa3ff"},
-  proxyBack:{label:"对方寄回中", color:"#a06bff"},
-  gotBack:  {label:"已收到", color:"#22b07d"}
+  ready:    {label:"准备中",     color:"#9aa3b2", ink:"#5b6472"},
+  envSent:  {label:"对方已寄出", color:"#fb923c", ink:"#9a4a08"},
+  envRecv:  {label:"我已收", color:"#4aa3ff", ink:"#0b5fa5"},
+  sent:     {label:"寄出在途",   color:"#f5a623", ink:"#8a5200"},
+  proxyRecv:{label:"对方已收",   color:"#4aa3ff", ink:"#0b5fa5"},
+  proxyBack:{label:"对方寄回中", color:"#a06bff", ink:"#6a2fd0"},
+  gotBack:  {label:"已收到", color:"#22b07d", ink:"#0a7a53"}
 };
 // 进行中活动：RR（未满员）/ TAG（未tag完）/ 交换（进行中）等参与型活动
 const ACT_KIND_DEFAULT=[{key:"rr",label:"RR",progress:true},{key:"tag",label:"TAG",progress:true},{key:"exchange",label:"交换",progress:false},{key:"other",label:"其他",progress:false}];
@@ -1797,10 +1849,10 @@ function actKindLabel(k){ const x=actKindList.find(o=>o.key===k); return x?x.lab
 function actKindProgress(k){ const x=actKindList.find(o=>o.key===k); return x?!!x.progress:false; }
 const ACT_KIND_COLOR=["#f5a623","#a06bff","#4aa3ff","#22b07d","#ea580c","#ff6b6b","#9aa3b2"];
 const LINK_LABEL={sent:"寄出",received:"收到",proxy:"代寄"};
-const ACT_STATUS={
-  ongoing:{label:"进行中", color:"#4aa3ff"},
-  done:   {label:"已结束", color:"#22b07d"},
-  closed: {label:"已关闭", color:"#9aa3b2"}
+const ACT_STATUS={     // P2-2：同 PROXY_STATUS，ink 供 badge 文字（对比度），color 供色点/图表
+  ongoing:{label:"进行中", color:"#4aa3ff", ink:"#0b5fa5"},
+  done:   {label:"已结束", color:"#22b07d", ink:"#0a7a53"},
+  closed: {label:"已关闭", color:"#9aa3b2", ink:"#5b6472"}
 };
 // 状态由「首个未完成步骤索引 firstUndone」派生，而非裸计数：跳过中间节点直接勾第 3/4 步时，
 // 状态/计数与步进条（firstUndone 驱动）保持一致，不会出现「中间空却显示已完成」的自相矛盾
@@ -1944,7 +1996,8 @@ function transitDays(p){
   const s=new Date(p.sent+"T00:00:00");
   if(isNaN(s)) return null;   // P1-5：脏日期串（如云同步/导入带入）防护，返回 null 让显示层走「—」分支，避免渲染 NaN 天
   let v;
-  if(p.status==="arrived" && p.arrived){ const a=new Date(p.arrived+"T00:00:00"); if(isNaN(a)) return null; v=daysBetween(s,a); }
+  // P2-19：把「已到」终态判断提到外层—— 状态已 arrived 但到达日被清空时，原逻辑落进在途分支，天数每天无限增长（"已完成"卡片却显示在途 300 天）
+  if(p.status==="arrived"){ if(!p.arrived) return null; const a=new Date(p.arrived+"T00:00:00"); if(isNaN(a)) return null; v=daysBetween(s,a); }
   else v=daysBetween(s, new Date());
   return v<0?0:v; // 到达日若填成未来日期，归零避免显示负天数
 }
@@ -2248,7 +2301,7 @@ function renderStats(){
     const sc=(w.scope&&w.scope!=="all")?` data-scope="${esc(w.scope)}" title="仅显示在${VIEW_NAME[w.scope]||"本"}页"`:"";
     /* 手动数字卡：与自动统计卡同构 —— 数字在上(.n)，标题在下(.l)，字体完全一致 */
     if(w.type==="num") return `<div class="stat widget"${sc} data-wid="${esc(x.wid)}" draggable="true">${statCtrl(x.wid,true)}
-      <div class="n" style="color:var(--pri)">${esc(w.num||"—")}</div><div class="l">${esc(w.title||"未命名")}</div></div>`;
+      <div class="n" style="color:var(--pri-ink)">${esc(w.num||"—")}</div><div class="l">${esc(w.title||"未命名")}</div></div>`;
     let body="";
     if(w.type==="link"){ const _u=/^https?:\/\//i.test((w.url||"").trim())?w.url:"#"; body=`<div class="w-body link"><a href="${esc(_u)}" target="_blank" rel="noopener">${esc(w.url||"")}</a></div>`; }
     else body=`<div class="w-body">${esc(w.text||"")}</div>`;
@@ -2660,11 +2713,12 @@ function proxyPairStatus(me, them){
   const done=p=> p? firstUndone(p)===-1 : false;
   const started=p=> p? firstUndone(p)!==0 : false;
   const dm=done(me), dt=done(them);
-  if(dm && dt) return {label:"双方已收", color:"#22b07d"};
-  if(dm) return {label:"我方已收·对方进行中", color:"#f5a623"};
-  if(dt) return {label:"对方已收·我方进行中", color:"#f5a623"};
-  if(!started(me) && !started(them)) return {label:"均未寄出", color:"#9aa3b2"};
-  return {label:"互寄进行中", color:"#4aa3ff"};
+  // P2-2：ink 供 badge 文字（对比度达AA），color 供色点/图表
+  if(dm && dt) return {label:"双方已收", color:"#22b07d", ink:"#0a7a53"};
+  if(dm) return {label:"我方已收·对方进行中", color:"#f5a623", ink:"#8a5200"};
+  if(dt) return {label:"对方已收·我方进行中", color:"#f5a623", ink:"#8a5200"};
+  if(!started(me) && !started(them)) return {label:"均未寄出", color:"#9aa3b2", ink:"#5b6472"};
+  return {label:"互寄进行中", color:"#4aa3ff", ink:"#0b5fa5"};
 }
 // 把互寄对（共享 pairId 的两条腿）合并为「代寄视图」的一个展示单元；无 pairId 的单条各自独立
 // src 缺省取 filteredProxy()（表格用，随筛选变化）；统计传入全量 proxies 以反映全部数据
@@ -2700,7 +2754,7 @@ function renderProxySingleRow(p, isDone){
   return `<tr class="${isDone?"row-done":""}">
     ${proxyBaseCells(p, st.color)}
     <td data-label="往返步骤">${renderProxySingleStepper(p)}</td>
-    <td data-label="状态">${lostBadge("proxy",p)}<span class="badge" style="background:${st.color}22;color:${st.color}">${stLabel}</span></td>
+    <td data-label="状态">${lostBadge("proxy",p)}<span class="badge" style="background:${st.color}22;color:${st.ink||st.color}">${stLabel}</span></td>
     <td data-label="往返天数">${rd==null?"—":rd+" 天"}</td>
     <td class="col-act" data-label="操作"><div class="row-act"><button class="linkbtn act-primary" data-pedit="${p.id}">编辑</button><button class="linkbtn act-secondary" data-conv="proxy:${p.id}">转换</button><button class="linkbtn danger act-primary" data-pdel="${p.id}">删除</button><details class="act-more"><summary class="linkbtn">⋯</summary><div class="act-more-body"><button class="linkbtn act-secondary" data-conv="proxy:${p.id}">转换</button></div></details></div></td>
   </tr>`;
@@ -2715,7 +2769,7 @@ function renderProxyPairRow(u, isDone){
   return `<tr class="${isDone?"row-done":""}">
     ${proxyBaseCells(base, st.color)}
     <td data-label="往返步骤">${renderProxyPairStepper(me, them)}</td>
-    <td data-label="状态">${lostPair?`<span class="badge" style="background:rgba(239,68,68,.14);color:var(--danger);margin-right:6px;">⚠️ 可能丢失</span>`:""}<span class="badge" style="background:${st.color}22;color:${st.color}">${st.label}</span></td>
+    <td data-label="状态">${lostPair?`<span class="badge" style="background:rgba(239,68,68,.14);color:var(--danger);margin-right:6px;">⚠️ 可能丢失</span>`:""}<span class="badge" style="background:${st.color}22;color:${st.ink||st.color}">${st.label}</span></td>
     <td data-label="往返天数">${rd==null?"—":rd+" 天"}</td>
     <td class="col-act" data-label="操作"><div class="row-act"><button class="linkbtn act-primary" data-pedit="${convId}">编辑</button><button class="linkbtn act-secondary" data-conv="proxy:${convId}">转换</button><button class="linkbtn act-secondary" data-pair="proxy" data-pid="${pairId}" data-cur="${convId}">↔ 互寄</button><button class="linkbtn danger act-primary" data-ppair="${pairId}">删除</button><details class="act-more"><summary class="linkbtn">⋯</summary><div class="act-more-body"><button class="linkbtn act-secondary" data-conv="proxy:${convId}">转换</button><button class="linkbtn act-secondary" data-pair="proxy" data-pid="${pairId}" data-cur="${convId}">↔ 互寄</button></div></details></div></td>
   </tr>`;
@@ -3032,12 +3086,19 @@ function unlinkFromActivities(id){
   });
   return n;
 }
+/* P2-7：删掉一条互寄腿后，若该 pairId 组只剩 ≤1 条，解除残留的 pairId，否则另一腿仍显示「↔ 对方」而点击报「未找到关联」。原先只有 delProxy 有此修复，delRec 缺失。
+   注意：寄出↔收到的pairId 是**跨数组**的（counterpart 落在另一个数组），故须扫全四个数组，只查 proxies 会漏。 */
+function unlinkPartnerIfOrphan(pid){
+  if(!pid) return;
+  const rest=REC_DEFS.sent.arr().concat(REC_DEFS.received.arr(), proxies).filter(x=>x && x.pairId===pid);
+  if(rest.length<=1) rest.forEach(p=>{ delete p.pairId; touch(p); });
+}
 async function delRec(dir, id){
   const p=findRec(dir,id); if(!p) return;
   const nm=p[REC_DEFS[dir].nameField]||"未命名";
   if(!(await confirmDialog("删除「"+nm+"」这张"+(dir==="sent"?"寄出":"收到")+"记录？",{danger:true}))) return;
   const arr=REC_DEFS[dir].arr(); const idx=arr.findIndex(x=>x.id===id);
-  if(idx>=0){ arr.splice(idx,1); unlinkFromActivities(id); pushTomb(id); tombSave(); }   // 墓碑：让删除能跨设备传播
+  if(idx>=0){ arr.splice(idx,1); unlinkFromActivities(id); unlinkPartnerIfOrphan(p.pairId); pushTomb(id); tombSave(); }   // 墓碑：让删除能跨设备传播
   renderAll(); saveAndToast("已删除");
 }
 // D8：图片输入框 → 预览图绑定（有值显示、点击放大），sent/received 共用
@@ -3063,7 +3124,20 @@ function openRecModal(dir, id){
   document.getElementById(def.maskId).classList.add("show");
   try{ document.getElementById(def.focusId).focus(); }catch(e){}
 }
-function closeRecModal(dir){ document.getElementById(REC_DEFS[dir].maskId).classList.remove("show"); }
+function closeRecModal(dir){ document.getElementById(REC_DEFS[dir].maskId).classList.remove("show"); recSnapshot=null; }
+/* P2-5：统一「关闭前脏检查」入口。此前「取消」按钮直接 closeRecModal（绕过检查），而 Esc 路径会弹确认 —— 同一操作两个行为，改了内容点取消静默丢失。recSnapshot 在关闭时清空，否则下次打开空白表单会被误判为「已修改」 */
+async function tryCloseRec(dir){
+  if(formDirty(dir) && !(await confirmDialog("内容尚未保存，确定关闭吗？"))) return false;
+  closeRecModal(dir); return true;
+}
+async function tryCloseProxy(){
+  if(proxyDirty() && !(await confirmDialog("内容尚未保存，确定关闭吗？"))) return false;
+  closeProxyModal(); return true;
+}
+async function tryCloseAct(){
+  if(actDirty() && !(await confirmDialog("内容尚未保存，确定关闭吗？"))) return false;
+  closeActivityModal(); return true;
+}
 function saveRecModal(dir){
   const def=REC_DEFS[dir];
   const nameVal=document.getElementById(def.focusId).value.trim();
@@ -3463,7 +3537,8 @@ function closeProxyModal(){ document.getElementById("maskProxy").classList.remov
 // 互寄对：编辑任一条腿时，把共享描述字段同步写回 pairId 相同的另一条腿（日期各腿独立，不覆盖）
 function syncMutualMeta(pairId, from){
   if(!pairId) return;
-  const keys=["proxy","country","city","platform","type","exchange","cardCount","note"];
+  // P2-8：note 从共享字段中移除 —— 备注是各自腿的私有内容，此前编辑一腿会无提示覆盖另一腿并立即同步到所有设备（静默丢数据）
+  const keys=["proxy","country","city","platform","type","exchange","cardCount"];
   proxies.forEach(o=>{ if(o.id!==from.id && o.pairId===pairId){ keys.forEach(k=>{ o[k]=from[k]; }); touch(o); } });
 }
 // 互寄两条腿共享的描述性字段（不含日期，日期各腿独立填写）；日期显式置空保持数据形状一致
@@ -3764,11 +3839,11 @@ async function cloudUpload(silent){
   if(remote && remote>localSavedAt+2000){
     if(silent){
       // 自动上传遇到云端更新：不静默暂停，改为自动拉取合并（自愈），避免「数据不同步」且不再卡在错误态
-      setCloudPill("syncing"); setCloudStatus("检测到云端有更新，自动拉取合并…");
+      setCloudPill("syncing"); setCloudStatus("检测到云端有更新，自动拉取合并…", false, "syncing");
       await cloudPull(true);   // 拉取合并后本地 save() 会重新排队上传，无需本层重试
       return true;
     }
-    if(!(await confirmDialog("云端数据比本地更新（"+new Date(remote).toLocaleString()+"），上传将用本地覆盖云端，继续？",{danger:true,ok:"仍上传"}))){ setCloudStatus("已取消上传"); return true; }   // 用户主动取消，不重试
+    if(!(await confirmDialog("云端数据比本地更新（"+new Date(remote).toLocaleString()+"），上传将用本地覆盖云端，继续？",{danger:true,ok:"仍上传"}))){ setCloudStatus("已取消上传", false, "warn"); return true; }   // 用户主动取消，不重试
   }
   if(!silent) setCloudStatus("上传中…");
   setCloudPill("syncing");
@@ -3779,7 +3854,7 @@ async function cloudUpload(silent){
       body:JSON.stringify({files:{"postcards.json":{content:JSON.stringify(syncPayload(),null,2)}}})
     }, 15000);
     if(!res.ok){ let d="HTTP "+res.status; try{ const ej=await res.json(); if(ej&&ej.message) d+=" · "+ej.message; }catch(_){} throw new Error(d); }
-    if(!silent) setCloudStatus("上传成功 ✓ "+new Date().toLocaleTimeString());
+    if(!silent) setCloudStatus("上传成功 ✓ "+new Date().toLocaleTimeString(), false, "ok");
     setCloudPill("ok"); markSynced(); cloudRetryReset();   // 成功 → 记最后同步时间并清除重试链
     return true;
   }catch(e){
@@ -3804,7 +3879,7 @@ async function cloudPull(silent){
     return false;
   }
   if(!silent){
-    if(!(await confirmDialog("将把云端数据合并到本地（按 id 合并：云端更新的记录覆盖本地旧版本；本地新增/更新的记录保留），确认？",{}))){ setCloudStatus("已取消下载"); return "cancel"; }
+    if(!(await confirmDialog("将把云端数据合并到本地（按 id 合并：云端更新的记录覆盖本地旧版本；本地新增/更新的记录保留），确认？",{}))){ setCloudStatus("已取消下载", false, "warn"); return "cancel"; }
   }
   if(!silent) setCloudStatus("下载中…");
   setCloudPill("syncing");
@@ -3834,17 +3909,17 @@ async function cloudPull(silent){
     const afterLists=JSON.stringify([platList,typeList,countryList,actKindList]);
     const listChanged=(beforeLists!==afterLists);
     const changed=_mergeChanged+(listChanged?1:0);  // 既统计「新增」，也统计「编辑已有记录带来的覆盖更新」
-    if(changed>0 || settingsApplied){ save(); renderAll(); } // 有变化才落盘/回传/重绘，避免 60s 轮询空写与表格抖动
+    if(changed>0 || settingsApplied){ save(); renderAll(); } // 有变化才落盘/回传/重绘，避免 30s 轮询空写与表格抖动
     if(remote) localStorage.setItem(SAVED_AT, String(Math.max(Date.now(), remote))); // 抬平 savedAt，避免拉取后被冲突检测误暂停
-    setCloudStatus((changed>0||settingsApplied) ? ("同步完成 ✓ 新增/更新 "+(changed+(settingsApplied?1:0))+" 项（"+new Date().toLocaleString()+"）") : ("已是最新（"+new Date().toLocaleString()+"）"));
+    setCloudStatus((changed>0||settingsApplied) ? ("同步完成 ✓ 新增/更新 "+(changed+(settingsApplied?1:0))+" 项（"+new Date().toLocaleString()+"）") : ("已是最新（"+new Date().toLocaleString()+"）"), false, "ok");   // P2-11：显式标成功（原先不匹配任何正则分支，绿色成功态从不出现）
     setCloudPill("ok"); window.__pullOk=true; markSynced();   // 拉取成功 → 标记成功并记最后同步时间
     /* P1-5：原本此处还有一句**无条件** renderAll()，而上一行已按 changed/settingsApplied 条件渲染过 →
        ① 云端无变化时每 15s 仍全量重绘；② 有变化时同一轮渲染两遍；
        ③ 更要命：renderAll → renderFilters → buildFilterBar 会 wrap.innerHTML 重建整条筛选栏 ——
           用户正在搜索框打字时光标与已输入内容被冲掉（debounce 挂在已脱离文档的旧节点上）、
-          iOS 上正展开的下拉被强制收起。改为与 3753 同一条件，合并成一次渲染。 */
-    if(changed>0 || settingsApplied) renderAll();
-    return true;
+          iOS 上正展开的下拉被强制收起。
+       本批补删：上一行已在同一条件下渲染过，这里是同条件的**第二次**渲染，纯属重复（筛选栏被重建两次）。 */
+    returntrue;
   }catch(e){
     if(!silent) setCloudStatus("下载失败："+(e&&e.message?e.message:e), true);
     setCloudPill("err");
@@ -4152,7 +4227,8 @@ function importJSON(file){
   r.readAsText(file);
 }
 async function fillSample(){
-  if((postcards.length+received.length) && !(await confirmDialog("将追加示例数据到现有记录？",{ok:"追加"}))) return;
+  // P2-21：与 clearAll 的同类漏判对齐 —— 原先只看寄出+收到，只有代寄/活动数据时无确认直接追加示例
+  if(postcards.length+received.length+proxies.length+activities.length && !(await confirmDialog("将追加示例数据到现有记录？",{ok:"追加"}))) return;
   const today=new Date(); const d=n=>{ const x=new Date(today); x.setDate(x.getDate()+n); return rotDstr(x); };   // P1-7：原 toISOString 会把负偏移算到昨天
   const sent=[
     {recipient:"Anna（笔友）", country:"德国", city:"柏林", channel:"平邮", platform:"Postcrossing", type:"交换", status:"transit", sent:d(-9), note:"风景明信片交换"},
@@ -4191,12 +4267,12 @@ async function clearAll(){
 }
 
 /* ===== 事件绑定 ===== */
-document.getElementById("btnCancel").onclick=()=>closeRecModal("sent");
+document.getElementById("btnCancel").onclick=()=>tryCloseRec("sent");   // P2-5：与 Esc 路径统一走脏检查
 document.getElementById("btnSave").onclick=()=>saveRecModal("sent");
 // 点遮罩不再关闭弹窗，避免误触别处丢失未保存内容（关闭请用 ✕ 或取消按钮）
 document.getElementById("btnRecvCancel").onclick=()=>closeRecModal("received");
 document.getElementById("btnRecvSave").onclick=()=>saveRecModal("received");
-document.getElementById("btnProxyCancel").onclick=()=>closeProxyModal();
+document.getElementById("btnProxyCancel").onclick=()=>tryCloseProxy();
 document.getElementById("btnProxySave").onclick=()=>saveProxyModal();
 // 代寄模式切换：更新弹窗 UI（标签/可见节点/对方字段/互寄可用性），并即时同步标题
 document.querySelectorAll("#proxyModeSeg .seg-opt").forEach(b=>{
@@ -4209,7 +4285,7 @@ document.querySelectorAll("#proxyModeSeg .seg-opt").forEach(b=>{
     document.getElementById("proxyModalTitle").textContent=(isEdit?"编辑代寄":"新建代寄")+(mode==="oneway"?"（单向代寄）":"（write-back）");
   };
 });
-document.getElementById("btnActCancel").onclick=()=>closeActivityModal();
+document.getElementById("btnActCancel").onclick=()=>tryCloseAct();
 document.getElementById("btnActSave").onclick=()=>saveActivityModal();
 document.getElementById("aKind").onchange=()=>updateActProgressVisibility();
 document.getElementById("aKindManage").onclick=()=>openActKinds();
@@ -4307,7 +4383,7 @@ document.getElementById("recoverClose").onclick=closeRecoverModal;
 { const mr=document.getElementById("recoverMask"); if(mr) mr.addEventListener("click", e=>{ if(e.target===mr) closeRecoverModal(); }); }
 document.getElementById("csCopy").onclick=()=>{ try{ const _ti=document.getElementById("csToken"), _gi=document.getElementById("csGist"); const _t=((_ti&&_ti.value)||"").trim(), _g=((_gi&&_gi.value)||"").trim(); if(_t) cloud.token=_t; if(_g) cloud.gist=_g; if(_t||_g) cloudSave(); if(!cloud.gist&&!cloud.token){ setCloudStatus("本机尚未配置 Gist ID / Token，没有可复制的配置", true); toast("本机尚未配置，无配置可复制","warn"); return; } const txt="Gist ID: "+(cloud.gist||"")+"\nToken: "+(cloud.token||""); if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(()=>{ setCloudStatus("已复制同步配置，可粘贴到另一台设备 ✓"); toast("已复制同步配置，可粘贴到另一台设备 ✓","success"); }, ()=>{ setCloudStatus("复制失败，请手动复制"); toast("复制失败，请手动复制","danger"); }); } else { setCloudStatus("当前浏览器不支持自动复制，请手动复制"); toast("当前浏览器不支持自动复制，请手动复制","warn"); } }catch(e){ const _m="复制失败："+(e&&e.message?e.message:e); setCloudStatus(_m); toast(_m,"danger"); } };
 document.getElementById("csPaste").onclick=async()=>{ try{ if(!(navigator.clipboard&&navigator.clipboard.readText)){ setCloudStatus("当前浏览器不支持自动读取剪贴板，请手动把配置粘贴到上方两个输入框", true); toast("当前浏览器不支持自动读取剪贴板，请手动粘贴配置","warn"); return; } const txt=await navigator.clipboard.readText(); const cfg=parseConfig(txt); if(!cfg.gist&&!cfg.token){ setCloudStatus("剪贴板里没找到 Gist ID / Token，请确认先从另一台设备点过「复制配置」", true); toast("剪贴板里没有有效的同步配置，请先从另一台设备复制","warn"); return; } document.getElementById("csToken").value=cfg.token||""; document.getElementById("csGist").value=cfg.gist||""; cloud.token=cfg.token||""; cloud.gist=cfg.gist||""; cloudSave(); setCloudStatus("已从剪贴板填入配置，正在拉取云端数据…"); toast("已从剪贴板填入配置，正在拉取云端数据…"); await cloudPull(true); }catch(e){ setCloudStatus("粘贴失败："+(e&&e.message?e.message:e)+"（可手动把配置粘贴到上方输入框）", true); toast("粘贴失败："+(e&&e.message?e.message:e),"danger"); } };
-document.getElementById("csSync").onclick=async()=>{ cloud.token=document.getElementById("csToken").value.trim(); cloud.gist=document.getElementById("csGist").value.trim(); cloudSave(); if(!cloud.token||!cloud.gist){ setCloudStatus("请先在上方填写 Token 与 Gist ID", true); return; } setCloudStatus("同步中…"); const r=await withBusy("csSync", ()=>cloudPull(true)); if(r===true) setCloudStatus("已同步 ✓ "+new Date().toLocaleTimeString()); else if(r==="cancel") setCloudStatus("已取消同步"); else setCloudStatus("同步失败：无法读取云端（网络受限，或 Token / Gist ID 有误），已保留本机数据，稍后会自动重试", true); };
+document.getElementById("csSync").onclick=async()=>{ cloud.token=document.getElementById("csToken").value.trim(); cloud.gist=document.getElementById("csGist").value.trim(); cloudSave(); if(!cloud.token||!cloud.gist){ setCloudStatus("请先在上方填写 Token 与 Gist ID", true); return; } setCloudStatus("同步中…"); const r=await withBusy("csSync", ()=>cloudPull(true)); if(r===true) setCloudStatus("已同步 ✓ "+new Date().toLocaleTimeString(), false, "ok"); else if(r==="cancel") setCloudStatus("已取消同步", false, "warn"); else setCloudStatus("同步失败：无法读取云端（网络受限，或 Token / Gist ID 有误），已保留本机数据，稍后会自动重试", true); };
 document.getElementById("csExport").onclick=()=>{ exportJSON(); };
 document.getElementById("csImport").onclick=()=>{ document.getElementById("fileInput").click(); };
 document.addEventListener("click",e=>{ const m=document.getElementById("menu"); if(m.classList.contains("show") && !e.target.closest(".menu-wrap")) m.classList.remove("show"); });
@@ -4319,14 +4395,14 @@ document.addEventListener("keydown",async e=>{ if(e.key!=="Escape") return;
   if(document.getElementById("lightbox").classList.contains("show")){ closeLightbox(); return; }
   if(document.getElementById("maskActKinds").classList.contains("show")){ closeActKinds(); return; }
   if(document.getElementById("maskOpts").classList.contains("show")){ closeOpts(); return; }
+  if(document.getElementById("linkModal").classList.contains("show")){ closeLinkModal(); return; }   // P2-4：关联对方弹窗此前 Esc 完全无响应（12 个弹窗独缺它），须排在 mask 之前
   if(document.getElementById("maskLinks").classList.contains("show")){ closeLinkEditor(); return; }
-  if(document.getElementById("maskActivity").classList.contains("show")){ if(actDirty() && !(await confirmDialog("内容尚未保存，确定关闭吗？"))) return; closeActivityModal(); return; }  // F9：活动弹窗此前 Esc 完全无响应
-  if(document.getElementById("maskProxy").classList.contains("show")){ if(proxyDirty() && !(await confirmDialog("内容尚未保存，确定关闭吗？"))) return; closeProxyModal(); return; }  // F9：脏检查对齐寄出/收到弹窗
+  if(document.getElementById("maskActivity").classList.contains("show")){ await tryCloseAct(); return; }  // F9：活动弹窗此前 Esc 完全无响应
+  if(document.getElementById("maskProxy").classList.contains("show")){ await tryCloseProxy(); return; }  // F9：脏检查对齐寄出/收到弹窗
   if(document.getElementById("maskConvert").classList.contains("show")){ closeConvertModal(); return; }
   if(document.getElementById("recoverMask") && document.getElementById("recoverMask").classList.contains("show")){ closeRecoverModal(); return; }
-  if(document.getElementById("mask").classList.contains("show") && formDirty("sent") && !(await confirmDialog("内容尚未保存，确定关闭吗？"))) return;
-  if(document.getElementById("maskReceived").classList.contains("show") && formDirty("received") && !(await confirmDialog("内容尚未保存，确定关闭吗？"))) return;
-  closeRecModal("sent"); closeRecModal("received"); document.getElementById("cloudMask").classList.remove("show");
+  if(document.getElementById("mask").classList.contains("show") || document.getElementById("maskReceived").classList.contains("show")){ await tryCloseRec(document.getElementById("mask").classList.contains("show")?"sent":"received"); return; }   // P2-5：Esc 与「取消」共用同一入口
+  document.getElementById("cloudMask").classList.remove("show");
 } );
 
 //  / ：键盘可达——带 role="button" 的非原生元素支持 Enter / Space 触发
@@ -4364,7 +4440,9 @@ fillSelect("aPlatform","platform","");
 renderAll();
 // 打开即拉取云端最新（手机端更新 → 电脑端打开即见）；并启动轻量轮询，长开页面也能及时同步
 cloudAutoDownload();
-setInterval(cloudAutoDownload, 15000);   // 15s（仅前台时真正发起）；Gist 方案的下限，秒级实时需服务端推送
+// P1-5：15s → 30s。Gist 是整文件 JSON 覆盖写，秒级实时无意义；而每次拉取都要过一次 merge + 可能的重绘，
+// 间隔越短冲突弹窗（"云端比本地更新，是否覆盖"）触发越频繁。切回前台/聚焦仍会立即拉取，不影响体感。
+setInterval(cloudAutoDownload, 30000);   // 30s（仅前台时真正发起）
 
 /* ===== 无障碍增强（D4 B+）：N1 弹窗补 dialog 语义 + N3 tablist 方向键 ===== */
 (function(){
@@ -4382,36 +4460,11 @@ setInterval(cloudAutoDownload, 15000);   // 15s（仅前台时真正发起）；
   bindTablistKeys();
 })();
 })();
-/*  焦点陷阱：弹窗(.mask/[role=dialog])打开时 Tab 焦点锁定在弹窗内，关闭后焦点回归触发元素 */
-(function(){
-  const F='a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
-  function currentModal(){ return Array.from(document.querySelectorAll('.mask,[role="dialog"]')).find(e=>e.classList.contains('show')); }
-  let lastTrigger=null;
-  const obs=new MutationObserver(muts=>{
-    muts.forEach(m=>{
-      if(m.attributeName!=='class') return;
-      const el=m.target, now=el.classList.contains('show'), was=el.__trapOpen;
-      el.__trapOpen=now;
-      if(now && !was){
-        lastTrigger=document.activeElement;
-        requestAnimationFrame(()=>{ const f=el.querySelectorAll(F); if(f.length) f[0].focus(); else { el.setAttribute('tabindex','-1'); el.focus(); } });
-      } else if(!now && was){
-        if(lastTrigger && lastTrigger.focus){ try{ lastTrigger.focus(); }catch(e){} }
-        lastTrigger=null;
-      }
-    });
-  });
-  document.querySelectorAll('.mask,[role="dialog"]').forEach(el=>{ el.__trapOpen=el.classList.contains('show'); obs.observe(el,{attributes:true,attributeFilter:['class']}); });
-  document.addEventListener('keydown',e=>{
-    if(e.key!=='Tab' || e.target.tagName==='TEXTAREA') return;
-    const m=currentModal(); if(!m) return;
-    const f=Array.from(m.querySelectorAll(F)).filter(x=>x.offsetParent!==null);
-    if(!f.length) return;
-    const first=f[0], last=f[f.length-1];
-    if(e.shiftKey){ if(document.activeElement===first || !m.contains(document.activeElement)){ e.preventDefault(); last.focus(); } }
-    else { if(document.activeElement===last || !m.contains(document.activeElement)){ e.preventDefault(); first.focus(); } }
-  }, true);
-})();
+/* P2-1：此处原有第二份焦点陷阱 IIFE，已删除。
+   原因：SHARED 块（L1686 topModal / L346 keydown）已提供同一能力且实现更正确——它取**最后一个** .mask.show（嵌套弹窗时是顶层），
+   而这份用 .find() 取**第一个**（背景弹窗）且监听器 capture:true 先执行 → 嵌套弹窗（如「代寄弹窗内再开选项管理」）里按 Tab，
+   焦点被两份逻辑互相打架，甩到背景弹窗。SHARED 版还顺带管了 body 滚动锁，本文件末尾那份没管。
+   已给 SHARED 版补 e.target.tagName==='TEXTAREA' 保护（多行文本域内 Tab 应缩进而非跳焦点）。 */
 </script>
 </body>
 </html>

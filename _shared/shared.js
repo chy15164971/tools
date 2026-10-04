@@ -110,16 +110,23 @@ function setCloudPill(state){
   else { el.innerHTML=ic+" 仅本地"; el.className="cloudpill off"; }
 }
 
-function setCloudStatus(msg, err){
+/* P2-11（2026-10-03）：显式 kind（syncing/ok/warn/err/info）取代「靠中文字符串正则猜状态」。
+   起因：最有价值的「同步完成 ✓ 合并了 N 项」不匹配任何分支，被渲染成灰色中性卡片，绿色成功态从不出现；
+   「同步中」又被归到 warn 显示成黄色警告。第二参 err 保留兼容旧调用点，kind 缺省时才退回正则猜测。 */
+function setCloudStatus(msg, err, kind){
   const card=document.getElementById("csStatus"); if(!card) return;
   const iconEl=document.getElementById("csStatusIcon");
   const titleEl=document.getElementById("csStatusTitle");
   const descEl=document.getElementById("csStatusDesc");
-  let type=err?"err":"info", title="提示", desc=msg||"";
-  if(!msg){ type="info"; title="未配置"; desc="在上方填入 Gist ID 与 Token 即可开始同步"; }
-  else if(/同步中|拉取中|上传中|下载中|正在/.test(msg)){ type="warn"; title="同步中…"; desc=msg; }
-  else if(/已同步|已是最新|已复制|已从剪贴板|已覆盖|成功/.test(msg)){ type="ok"; title="成功"; desc=msg; }
-  else if(/失败|错误|无法|不支持|请|没找到|缺少/.test(msg)){ type=err?"err":"warn"; title=err?"同步失败":"注意"; desc=msg; }
+  let type=kind, title="", desc=msg||"";
+  if(type){
+    title = type==="ok"?"成功" : type==="err"?"同步失败" : type==="syncing"?"同步中…" : type==="warn"?"注意":"提示";
+  } else if(!msg){ type="info"; title="未配置"; desc="在上方填入 Gist ID 与 Token 即可开始同步"; }
+  else if(err){ type="err"; title="同步失败"; }
+  else if(/同步中|拉取中|上传中|下载中|正在|已配置/.test(msg)){ type="syncing"; title="同步中…"; }
+  else if(/同步完成|已同步|已是最新|上传成功|已复制|已从剪贴板|已覆盖|已取消|成功/.test(msg)){ type="ok"; title="成功"; }
+  else if(/失败|错误|无法|不支持|请|没找到|缺少/.test(msg)){ type="warn"; title="注意"; }
+  else { type=err?"err":"info"; title="提示"; }
   card.className="cloud-status-card "+type;
   const icons={
     ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
@@ -149,11 +156,28 @@ function fetchWithTimeout(url, opts, ms){
 
 function safeUrl(u){ u=(u||"").trim(); if(!u) return "#"; if(/^(https?:|mailto:|tel:)/i.test(u)) return esc(u); try{ var _p=new URL(u,location.href); if(_p.protocol==="http:"||_p.protocol==="https:") return esc(u); }catch(e){} return "#"; }
 
-function toast(msg, kind){
+/* P0-1（2026-10-03）：第三参ms 是必需的 —— 配额/保存失败这类提示有62 字，1.8s 根本读不完；
+   且 toast 固定底部、会盖住弹窗底部按钮，失败提示必须给足时长。省略时按字数自适应。
+   hover 暂停：读长文案时能按住不放。 */
+function toast(msg, kind, ms){
   const t=document.getElementById("toast");
   t.textContent=msg;
   t.className="toast"+(kind?(" "+kind):"");
-  t.classList.add("show"); clearTimeout(t._timer); t._timer=setTimeout(()=>t.classList.remove("show"),1800);
+  t.classList.add("show"); clearTimeout(t._timer);
+  var n=String(msg==null?"":msg).length;
+  var dur = ms || (n>60?7000 : n>30?5000 : n>14?3200 : 1800);
+  t._timer=setTimeout(function(){ t.classList.remove("show"); }, dur);
+}
+/* P0-1：保存失败时的统一可行动文案。此前 save() 的返回值被全链路丢弃，
+   配额满/隐私模式导致写盘失败时仍弹「已保存」成功提示 —— 用户以为存上了，实则数据在内存里。 */
+var SAVE_FAIL_TXT="保存失败：浏览器存储空间已满或被禁用（无痕模式？）。请先导出备份，再清理浏览器数据腾出空间。改动仍在本页内存中，刷新会丢失。";
+/* P0-1：所有「用户可见的写操作 + 成功提示」都走这里，成功才提示，失败必给可行动告警。
+   不要在调用点写 `save(); toast("已保存")` —— 那是本次静默丢数据的根因。 */
+function saveAndToast(okMsg){
+  var ok = save();
+  if(ok===false){ toast("⚠️ "+SAVE_FAIL_TXT, "danger", 7000); return false; }
+  if(okMsg) toast(okMsg);
+  return true;
 }
 
 /* ---------- 无障碍增强（D4 B+） ---------- */
@@ -345,6 +369,7 @@ function emptyState(icon, text, sub, actionHtml){
   obs.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class']});
   document.addEventListener('keydown',function(e){
     if(e.key!=='Tab') return;
+    if(e.target && e.target.tagName==='TEXTAREA') return;   /* 多行文本域内应自由用 Tab 缩进，陷阱只在真正到边界时才接管 */
     var root=topModal(); if(!root) return;
     var f=fmap(root); if(!f.length) return;
     var first=f[0], last=f[f.length-1];
@@ -352,3 +377,10 @@ function emptyState(icon, text, sub, actionHtml){
     else { if(document.activeElement===last||!root.contains(document.activeElement)){ e.preventDefault(); first.focus(); } }
   });
 })();
+
+/* ---------- esc / escIcon（审查 C3：从两文件宿主代码下沉，单一事实源）----------
+ * 2026-09-17 P1-1 已把 esc 改为纯 HTML 转义（不再内嵌 iconify），并新增 escIcon
+ * 作为「显式图标化」入口；此处统一维护，避免两文件双份定义随编辑漂移。
+ * escIcon 依赖同块的 iconify（函数声明提升，文本顺序无关）。 */
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function escIcon(s){ return iconify(esc(s)); }

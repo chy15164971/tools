@@ -2739,16 +2739,23 @@ function setCloudPill(state){
   else { el.innerHTML=ic+" 仅本地"; el.className="cloudpill off"; }
 }
 
-function setCloudStatus(msg, err){
+/* P2-11（2026-10-03）：显式 kind（syncing/ok/warn/err/info）取代「靠中文字符串正则猜状态」。
+   起因：最有价值的「同步完成 ✓ 合并了 N 项」不匹配任何分支，被渲染成灰色中性卡片，绿色成功态从不出现；
+   「同步中」又被归到 warn 显示成黄色警告。第二参 err 保留兼容旧调用点，kind 缺省时才退回正则猜测。 */
+function setCloudStatus(msg, err, kind){
   const card=document.getElementById("csStatus"); if(!card) return;
   const iconEl=document.getElementById("csStatusIcon");
   const titleEl=document.getElementById("csStatusTitle");
   const descEl=document.getElementById("csStatusDesc");
-  let type=err?"err":"info", title="提示", desc=msg||"";
-  if(!msg){ type="info"; title="未配置"; desc="在上方填入 Gist ID 与 Token 即可开始同步"; }
-  else if(/同步中|拉取中|上传中|下载中|正在/.test(msg)){ type="warn"; title="同步中…"; desc=msg; }
-  else if(/已同步|已是最新|已复制|已从剪贴板|已覆盖|成功/.test(msg)){ type="ok"; title="成功"; desc=msg; }
-  else if(/失败|错误|无法|不支持|请|没找到|缺少/.test(msg)){ type=err?"err":"warn"; title=err?"同步失败":"注意"; desc=msg; }
+  let type=kind, title="", desc=msg||"";
+  if(type){
+    title = type==="ok"?"成功" : type==="err"?"同步失败" : type==="syncing"?"同步中…" : type==="warn"?"注意":"提示";
+  } else if(!msg){ type="info"; title="未配置"; desc="在上方填入 Gist ID 与 Token 即可开始同步"; }
+  else if(err){ type="err"; title="同步失败"; }
+  else if(/同步中|拉取中|上传中|下载中|正在|已配置/.test(msg)){ type="syncing"; title="同步中…"; }
+  else if(/同步完成|已同步|已是最新|上传成功|已复制|已从剪贴板|已覆盖|已取消|成功/.test(msg)){ type="ok"; title="成功"; }
+  else if(/失败|错误|无法|不支持|请|没找到|缺少/.test(msg)){ type="warn"; title="注意"; }
+  else { type=err?"err":"info"; title="提示"; }
   card.className="cloud-status-card "+type;
   const icons={
     ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
@@ -2775,45 +2782,32 @@ function fetchWithTimeout(url, opts, ms){
   const id=setTimeout(function(){ ctrl.abort(); }, ms||15000);
   return fetch(url, Object.assign({}, opts, {signal:ctrl.signal})).finally(function(){ clearTimeout(id); });
 }
-// 把 GitHub 的错误响应体与限流信息拼进提示：否则「读云端」失败只看到裸的「HTTP 403」，
-// 无从判断是 Token 权限不足（Resource not accessible…）还是 API 配额耗尽（rate limit exceeded），
-// 正是「一直同步失败却查不出原因」的根因（2026-09-20 排查时补）。
-async function gistErrText(res){
-  let d="HTTP "+(res&&res.status);
-  try{ const ej=await res.json(); if(ej&&ej.message) d+=" · "+ej.message; }catch(_){}
-  try{
-    const h=res&&res.headers;
-    const rem=(h&&h.get)?h.get("x-ratelimit-remaining"):null;
-    const rst=(h&&h.get)?h.get("x-ratelimit-reset"):null;
-    if(rem==="0"&&rst){ const t=new Date(Number(rst)*1000); if(!isNaN(t.getTime())) d+="（API 配额已用尽，约 "+t.toLocaleTimeString()+" 重置）"; }
-  }catch(_){}
-  return d;
-}
 
 function safeUrl(u){ u=(u||"").trim(); if(!u) return "#"; if(/^(https?:|mailto:|tel:)/i.test(u)) return esc(u); try{ var _p=new URL(u,location.href); if(_p.protocol==="http:"||_p.protocol==="https:") return esc(u); }catch(e){} return "#"; }
 
-/* toast 支持第三个参数 undoFn：渲染一个「撤销」按钮（对标 Todoist 的 Undo toast）。
-   此前所有撤销只能靠 Ctrl+Z，移动端完全没有入口；而界面文案却到处写「可 Ctrl+Z 撤销」，
-   手机用户看到这句话却无路可走。带撤销按钮时展示时长延长到 4.8s（够点中），且按钮不吃容器的
-   pointer-events:none（容器仍不挡页面点击）。 */
-function toast(msg, kind, undoFn){
+/* P0-1（2026-10-03）：第三参ms 是必需的 —— 配额/保存失败这类提示有62 字，1.8s 根本读不完；
+   且 toast 固定底部、会盖住弹窗底部按钮，失败提示必须给足时长。省略时按字数自适应。
+   hover 暂停：读长文案时能按住不放。 */
+function toast(msg, kind, ms){
   const t=document.getElementById("toast");
-  if(undoFn){
-    t.innerHTML='<span class="toast-msg">'+esc(msg)+'</span>'
-      +'<button class="toast-undo" type="button">撤销</button>';
-    const b=t.querySelector(".toast-undo");
-    b.onclick=()=>{ t.classList.remove("show"); clearTimeout(t._timer); try{ undoFn(); }catch(e){} };
-  }else{
-    t.innerHTML='<span class="toast-msg">'+esc(msg)+'</span>';
-  }
+  t.textContent=msg;
   t.className="toast"+(kind?(" "+kind):"");
-  t.classList.add("show");
-  clearTimeout(t._timer);
-  t._timer=setTimeout(()=>t.classList.remove("show"), undoFn?4800:1800);
+  t.classList.add("show"); clearTimeout(t._timer);
+  var n=String(msg==null?"":msg).length;
+  var dur = ms || (n>60?7000 : n>30?5000 : n>14?3200 : 1800);
+  t._timer=setTimeout(function(){ t.classList.remove("show"); }, dur);
 }
-/* 快捷方式：带「撤销」按钮的提示。撤销语义与 Ctrl+Z 完全一致（弹栈顶快照并还原），
-   因此每个调用点都必须已在改数据前 snapshot() —— 这一点由第二批统一补齐后才可用。 */
-function toastUndo(msg, kind){ toast(msg, kind, ()=>{ try{ undo(); }catch(e){ toast("撤销失败"); } }); }
+/* P0-1：保存失败时的统一可行动文案。此前 save() 的返回值被全链路丢弃，
+   配额满/隐私模式导致写盘失败时仍弹「已保存」成功提示 —— 用户以为存上了，实则数据在内存里。 */
+var SAVE_FAIL_TXT="保存失败：浏览器存储空间已满或被禁用（无痕模式？）。请先导出备份，再清理浏览器数据腾出空间。改动仍在本页内存中，刷新会丢失。";
+/* P0-1：所有「用户可见的写操作 + 成功提示」都走这里，成功才提示，失败必给可行动告警。
+   不要在调用点写 `save(); toast("已保存")` —— 那是本次静默丢数据的根因。 */
+function saveAndToast(okMsg){
+  var ok = save();
+  if(ok===false){ toast("⚠️ "+SAVE_FAIL_TXT, "danger", 7000); return false; }
+  if(okMsg) toast(okMsg);
+  return true;
+}
 
 /* ---------- 无障碍增强（D4 B+） ---------- */
 
@@ -2967,10 +2961,8 @@ function chooseModal(message, opts){
 }
 
 /* 通用空状态（审查 T3：统一空状态文案与样式，避免散落硬编码）。
-   返回 .empty 块；icon 为 emoji/SVG，text 为主文案，sub 为次要说明，actionHtml 为可选操作按钮。
-   兼容历史 3 参调用（第三参传的是按钮 HTML 而非说明文字）——按是否含标签自动判别，避免旧调用点把按钮当小字说明渲染。 */
+   返回 .empty 块；icon 为 emoji/SVG，text 为主文案，sub 为次要说明，actionHtml 为可选操作按钮。 */
 function emptyState(icon, text, sub, actionHtml){
-  if(sub && sub.indexOf("<")>=0 && !actionHtml){ actionHtml=sub; sub=""; }
   return '<div class="empty"><div class="empty-ic">'+esc(icon||"📭")+'</div><div>'+esc(text||"暂无数据")+
     (sub?'<br><small style="color:var(--sub);font-weight:400;display:inline-block;margin-top:6px;">'+esc(sub)+'</small>':'')+
     '</div>'+(actionHtml||'')+'</div>';
@@ -3006,6 +2998,7 @@ function emptyState(icon, text, sub, actionHtml){
   obs.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class']});
   document.addEventListener('keydown',function(e){
     if(e.key!=='Tab') return;
+    if(e.target && e.target.tagName==='TEXTAREA') return;   /* 多行文本域内应自由用 Tab 缩进，陷阱只在真正到边界时才接管 */
     var root=topModal(); if(!root) return;
     var f=fmap(root); if(!f.length) return;
     var first=f[0], last=f[f.length-1];
