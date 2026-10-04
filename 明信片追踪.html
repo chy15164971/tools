@@ -1,10 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh-CN" data-theme="light">
 <head>
-<script>var DEBUG=(location.search||"").indexOf("debug=1")>=0;try{var _t=localStorage.getItem("wb_theme_v1")||localStorage.getItem("wb_postcards_theme");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}/* M-1 软键盘感知：visualViewport 与布局视口的高度差即键盘高度，写入 --kb 供固定元素避让 */(function(){var vv=window.visualViewport;if(!vv)return;var root=document.documentElement,last=-1;function upd(){var h=Math.round(Math.max(0,window.innerHeight-vv.height-vv.offsetTop));if(h===last)return;last=h;root.style.setProperty('--kb',h+'px');root.classList.toggle('kb-open',h>0);}vv.addEventListener('resize',upd);vv.addEventListener('scroll',upd);window.addEventListener('orientationchange',function(){setTimeout(upd,250);});/* 聚焦输入控件时滚到可视区中部，避免被键盘吃掉 */document.addEventListener('focusin',function(e){var el=e.target;if(!el||!/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))return;setTimeout(function(){if(root.classList.contains('kb-open')){try{el.scrollIntoView({block:'center',behavior:'smooth'});}catch(_){el.scrollIntoView(false);}}},300);});upd();})();</script>
+<script>var DEBUG=(location.search||"").indexOf("debug=1")>=0;try{var _t=localStorage.getItem("wb_theme_v1")||localStorage.getItem("wb_postcards_theme");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}/* P3-6：prefers-reduced-motion 的 JS 侧判断（缓存结果）。CSS 的 @media 拦得住 transition/animation，
+   但拦不住 JS 显式传入的 behavior:'smooth' —— 必须在 JS 里也问一次。 */
+var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);}catch(_){return false;}};
+/* M-1 软键盘感知：visualViewport 与布局视口的高度差即键盘高度，写入 --kb 供固定元素避让 */(function(){var vv=window.visualViewport;if(!vv)return;var root=document.documentElement,last=-1;function upd(){var h=Math.round(Math.max(0,window.innerHeight-vv.height-vv.offsetTop));if(h===last)return;last=h;root.style.setProperty('--kb',h+'px');root.classList.toggle('kb-open',h>0);}vv.addEventListener('resize',upd);vv.addEventListener('scroll',upd);window.addEventListener('orientationchange',function(){setTimeout(upd,250);});/* 聚焦输入控件时滚到可视区中部，避免被键盘吃掉 */document.addEventListener('focusin',function(e){var el=e.target;if(!el||!/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))return;setTimeout(function(){if(root.classList.contains('kb-open')){var smooth=!_rmReduce();/* P3-6：JS 显式 behavior 会覆盖 CSS 的 prefers-reduced-motion（CSS 拦不住显式入参），故须在JS 里也判断一次 */try{el.scrollIntoView({block:'center',behavior:smooth?'smooth':'auto'});}catch(_){el.scrollIntoView(false);}}},300);});upd();})();</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#4F7CFF">
+<meta name="theme-color" content="#f5f7fb">   <!-- P3-5：原为 #4F7CFF（主色），暗色下 iOS 状态栏亮蓝与页面割裂；applyTheme() 会按当前主题覆写 -->
 <link rel="manifest" href="manifest-postcard.json">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
@@ -28,7 +31,8 @@
        注意：按钮**底色**仍用 --pri（白字压色，对比度是另一回事），只替换「作为文字色」的地方。 */
     /* 数据色（c4 媒体剧集在用；c1~c3、c5 已删——无任何 var() 引用，分类/优先级用用户自定义色） */
     --c4:#ff5c8a; --c6:#9b6bff; --c7:#2bb3c0;
-    --radius:12px; --radius-sm:8px; --radius-lg:16px; --shadow:0 2px 10px rgba(31,36,48,.06);
+    --radius:12px; --radius-sm:8px; --radius-lg:16px;
+    --rot-cols:32px minmax(64px,1fr) minmax(88px,1.1fr) 116px 116px 116px 116px 80px;   /* P2-9：RR 轮次表头/行共用列宽 */ --shadow:0 2px 10px rgba(31,36,48,.06);
     /* cloudpill / 菜单 hover 此前引用未定义值导致样式退化，统一补全 */
     --bg2:#f5f7fb; --muted:#6b7280; --hover:#f4f6fb;
   --warnbg:#ffeaea; --white:#fff; --ink-strong:#1f2430; }
@@ -51,7 +55,7 @@
   [data-theme="dark"] input,
   [data-theme="dark"] select,
   [data-theme="dark"] textarea{ background:var(--bg2); color:var(--ink); border-color:var(--line); }
-  [data-theme="dark"] ::placeholder{ color:#6b7488; }
+  [data-theme="dark"] ::placeholder{ color:var(--sub); }   /* P3-5：原 #6b7488 对 --bg2 仅 3.95:1，低于 AA；--sub 已随主题定义 */
   [data-theme="dark"] .field{ background:var(--bg2); color:var(--ink); border-color:var(--line); }
   [data-theme="dark"] .toast{ background:var(--line); color:var(--ink); }
   [data-theme="dark"] .btn-ghost{ background:transparent; border-color:var(--line); color:var(--ink); }
@@ -115,7 +119,8 @@
   /* 弹窗/遮罩内的控件同样需要焦点环（继承上面的规则，此处仅保证层级不被裁切） */
   .mask :focus-visible{ outline-offset:1px; }
 .dtab:focus-visible{outline:2px solid var(--pri);outline-offset:-2px;}
-  .dtab-panel[style*="display:none"]{display:none;}
+  /* P3-8：原用 [style*="display:none"] 属性子串选择器，依赖浏览器序列化格式（有的会输出 display: none 带空格、有的是 none），极脆。改用 [hidden] 属性。 */
+  .dtab-panel[hidden]{display:none !important;}
   .cloud-modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;}
   .cloud-modal-head h3{margin:0;display:flex;align-items:center;gap:8px;font-size:16px;}
   .cloud-modal-close{width:32px;height:32px;border-radius:50%;border:none;background:transparent;color:var(--sub);font-size:22px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:.15s;margin-right:-6px;}
@@ -268,6 +273,9 @@
   .link-add select{min-height:38px;}
 
   .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;}
+  /* P3-9：全站缺 tabular-nums。30s 轮询会重绘统计卡，普通比例数字宽度随值变化 → 数字左右抖动。
+     数字类元素统一等宽数字。半像素字号（11.5/12.5/13.5）保留不动 —— 收敛会改变现有视觉密度，风险大于收益。 */
+  .stat .n,.pg-info,.badge,.rot-no,.lb-item b,td .dot+span,.w-showhidden{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";}
   .badge.ok{background:rgba(34,176,125,.12);color:var(--ok);font-weight:700;}
   .badge.badge-overdue{background:rgba(239,68,68,.16);color:var(--danger);font-weight:700;}
   .badge.badge-duesoon{background:rgba(245,166,35,.18);color:#c4760a;font-weight:700;}
@@ -285,8 +293,7 @@
   .lb-close:hover{background:rgba(255,255,255,.28);}
   .lb-hint{position:absolute;bottom:16px;left:0;right:0;text-align:center;color:rgba(255,255,255,.7);font-size:12px;pointer-events:none;}
 
-  .empty{padding:48px 16px;text-align:center;color:var(--sub);}
-  .empty .e-ic{font-size:34px;margin-bottom:8px;}
+  .empty .e-ic,.empty .empty-ic{font-size:34px;margin-bottom:8px;}
 
   /* 弹窗 */
   .mask{position:fixed;inset:0;background:rgba(20,28,48,.42);display:none;align-items:flex-start;justify-content:center;padding:6vh 14px;padding:6dvh 14px calc(6dvh + var(--kb,0px));z-index:80;overflow:auto;overscroll-behavior:contain; /* M-9：防滚动穿透 */}
@@ -319,7 +326,6 @@
   .seg-opt{border:1.5px solid var(--border);background:var(--card);color:var(--text);border-radius:9px;padding:7px 11px;font-size:13px;cursor:pointer;transition:.15s;font-weight:600;}
   .seg-opt:hover{border-color:var(--pri);}
   .seg-opt.active{background:var(--pri);border-color:var(--pri);color:#fff;}
-  .muted{color:var(--muted);}
   /* 代寄：4 节点往返步骤条（.stepper 旧版 9 条规则已删——实际渲染只用 .stepper-pair/.sp-*，D6 死代码） */
   .sp-node{width:24px;height:24px;border-radius:50%;border:2px solid #c5ccdb;background:var(--card);color:#aab2c2;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:none;}
   .sp-node.done{background:var(--pri);border-color:var(--pri);color:var(--white);}
@@ -402,8 +408,16 @@
   .rot-cfg label{font-size:12.5px;color:var(--sub);}
   .rot-cfg input{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:var(--radius-sm);padding:8px 10px;font-size:16px;font-family:inherit;min-height:38px;}
   .rot-cfg input[type=number]{width:68px;}
-  .rot-list{overflow-x:auto;-webkit-overflow-scrolling:touch;}.rot-head{display:grid;grid-template-columns:32px minmax(64px,1fr) minmax(88px,1.1fr) 116px 116px 116px 116px 80px;gap:6px;font-size:12px;color:var(--sub);margin-bottom:4px;}
-  .rot-row{display:grid;grid-template-columns:32px minmax(64px,1fr) minmax(88px,1.1fr) 116px 116px 116px 116px 80px;gap:6px;align-items:center;margin-bottom:6px;}
+  /* P2-9：滚动容器包住表头+行。--rot-cols 单一来源，表头与行共用，杜绝两处grid 模板漂移。
+     min-width:770px 保证 8 列不被压扁（4 个日期输入在窄屏会被挤到不可用）。 */
+  .rot-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;}
+  .rot-list{overflow-x:visible;}
+  .rot-head,.rot-row{display:grid;grid-template-columns:var(--rot-cols);min-width:770px;gap:6px;}
+  .rot-head{font-size:12px;color:var(--sub);margin-bottom:4px;}
+  .rot-row{align-items:center;margin-bottom:6px;}
+  /* 每个字段用 label 包住输入框：宽屏隐藏标签（保持 8 列对齐），窄屏退化为卡片时显示标签 */
+  .rot-f{display:block;min-width:0;}
+  .rot-f>span{display:none;font-size:11.5px;color:var(--sub);margin-bottom:2px;line-height:1.2;}
   .rot-row input{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:var(--radius-sm);padding:7px 6px;font-size:16px;font-family:inherit;width:100%;min-width:0;min-height:38px;box-sizing:border-box;}
   .rot-no{font-size:12.5px;color:var(--sub);text-align:center;}
   .rot-ops{display:flex;gap:4px;}
@@ -652,9 +666,17 @@
 
 /* [9/12] max-width:700px) */
 @media(max-width:700px){
-    .rot-head{display:grid;font-size:11px;}
-    .rot-row{grid-template-columns:32px minmax(64px,1fr) minmax(88px,1.1fr) 116px 116px 116px 116px 80px;gap:5px;padding:8px 0;border-bottom:1px solid var(--line);}
-    .rot-list{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+    /* P2-9：≤700px 退化为「每轮一张卡片」。原方案是 8 列横滚（最小 770px），
+       手机上要横着拖看日期、且横滚后表头与行错位。改为单列卡片后每个字段都带可见标签，
+       表头整体隐藏（.rot-head{display:none}）—— 这正是 renderRotEditor 里 .rot-f>span 存在的原因。 */
+    .rot-scroll{overflow-x:visible;}
+    .rot-head{display:none;}
+    .rot-row{grid-template-columns:1fr 1fr;min-width:0;gap:8px 10px;padding:12px;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:10px;background:var(--bg2);}
+    .rot-row>.rot-no{grid-column:1 / -1;text-align:left;font-weight:600;font-size:13px;color:var(--ink);}
+    .rot-f>span{display:block;}
+    .rot-f:nth-of-type(6),.rot-f:nth-of-type(7){grid-column:1 / -1;}   /* 尺寸要求占整行，避免长文本挤成一条 */
+    .rot-row>.rot-ops{grid-column:1 / -1;display:flex;gap:8px;justify-content:flex-end;}
+    .rot-row input{min-height:44px;}
     .rot-no{text-align:center;font-weight:600;}
   }
 
@@ -1174,8 +1196,13 @@
       <textarea id="aRotBulk" rows="4" placeholder="一行一轮，首个词为收件人，其余为尺寸要求：&#10;@Cafejunky A5 双面写&#10;@holmes9139 A4"></textarea>
       <button type="button" class="btn btn-ghost btn-sm" id="aRotBulkBtn">导入为轮次</button>
     </details>
-    <div class="rot-head"><span>轮次</span><span>收件人</span><span>尺寸要求</span><span>截止日</span><span>已写完</span><span>已寄出</span><span>已收到</span><span>操作</span></div>
-    <div id="aRotList" class="rot-list"></div>
+    <!-- P2-9：表头与数据行原是**兄弟**，只有 .rot-list 有 overflow-x:auto。8 列 grid 最小内容宽约 770px，
+         手机 350px 容器里只有 3 列在屏内；横滚后表头留在原地、数据行在滚 → 两者完全错位，对不上是哪一列。
+         改为同一个 .rot-scroll 内一起横滚，列宽一致故始终对齐。 -->
+    <div class="rot-scroll">
+      <div class="rot-head"><span>轮次</span><span>收件人</span><span>尺寸要求</span><span>截止日</span><span>已写完</span><span>已寄出</span><span>已收到</span><span>操作</span></div>
+      <div id="aRotList" class="rot-list"></div>
+    </div>
     <button type="button" class="btn btn-ghost btn-sm" id="aRotAdd" style="margin-top:6px;">＋ 添加一轮</button>
     <input type="hidden" id="aRotation" value="[]">
     <div class="sub-h">关联明信片（可选，便于跳回对应记录）</div>
@@ -2609,59 +2636,7 @@ function renderChipGroup(viewKey, i){
   const c=CHIP_GROUPS[viewKey][i];
   renderChipsGeneric(c.id, c.entries(), c.cur(), c.all, c.attr, v=>{ c.pick(v); renderChipGroup(viewKey, i); renderTable(); });
 }
-function renderChips(){ renderChipGroup("sent", 0); }
-function renderRecvChips(){ renderChipGroup("received", 0); }
-function renderProxyChips(){ renderChipGroup("proxy", 0); }
-function renderActiveChips(){ renderChipGroup("activity", 0); }
-function renderActSChips(){ renderChipGroup("activity", 1); }
-function filteredActivities(){
-  return activities.filter(a=>{
-    if(afilter.kind!=="all" && a.kind!==afilter.kind) return false;
-    if(afilter.status!=="all" && a.status!==afilter.status) return false;
-    const q=afilter.q.trim().toLowerCase();
-    if(q){ const hay=(a.title+" "+(a.platform||"")+" "+(a.note||"")).toLowerCase(); if(!hay.includes(q)) return false; }
-    return true;
-  });
-}
-
-/* ===== 长列表分页内核（D5：阈值 100） =====
-   只在渲染出口切片，不改数据结构：统计、导出、批量选择仍基于全量数据。
-   页码按「视图/清单 key」各自记忆；筛选签名变化时自动回到第一页。 */
-
-/* 筛选签名：筛选条件变化时让对应列表回到第一页 */
-function pgSig(){
-  try{
-    /* P2-6：原来只纳入 filter(寄出) 与 afilter(活动)，漏了 rfilter(收到)、pfilter(代寄) 与 sort。
-       后果：「收到」页翻到第 3 页后改筛选 → 签名不变 → 页码不重置 → pgSlice clamp 到末页，
-       出现「第 38–40 条 / 共 40 条」这种明显错位的观感。 */
-    const f=(view==="received")?rfilter:(view==="proxy")?pfilter:(view==="activity")?afilter:filter;
-    return (view||"")+"|"+JSON.stringify(f||null)+"|"+JSON.stringify(sort||"")+"|"+PAGE_SIZE;
-  }catch(e){ return ""; }
-}
-
-/* ===== 渲染：表格 ===== */
-function filteredSent(){
-  const list=postcards.filter(p=>{
-    if(filter.status!=="all" && p.status!==filter.status) return false;
-    if(filter.country && p.country!==filter.country) return false;
-    if(filter.platform && p.platform!==filter.platform) return false;
-    if(filter.type && p.type!==filter.type) return false;
-    if(filter.q){ const q=filter.q.toLowerCase(); const hay=(p.recipient+" "+(p.country||"")+" "+(p.city||"")+" "+(p.platform||"")+" "+(p.type||"")+" "+(p.note||"")+" "+(p.trackingNo||"")+" "+(p.image||"")).toLowerCase(); if(!hay.includes(q)) return false; }
-    return true;
-  });
-  return applySort(list, "sent");
-}
-function filteredRecv(){
-  const list=received.filter(p=>{
-    if(rfilter.status!=="all" && p.status!==rfilter.status) return false;
-    if(rfilter.country && p.country!==rfilter.country) return false;
-    if(rfilter.platform && p.platform!==rfilter.platform) return false;
-    if(rfilter.type && p.type!==rfilter.type) return false;
-    if(rfilter.q){ const q=rfilter.q.toLowerCase(); const hay=(p.sender+" "+(p.country||"")+" "+(p.city||"")+" "+(p.platform||"")+" "+(p.type||"")+" "+(p.note||"")).toLowerCase(); if(!hay.includes(q)) return false; }
-    return true;
-  });
-  return applySort(list, "received");
-}
+/* P3-1：renderChips 已删（薄封装，无调用方） */
 function filteredProxy(){
   const list=proxies.filter(p=>{
     if(pfilter.status!=="all" && proxyStatusOf(p)!==pfilter.status) return false;
@@ -3085,9 +3060,9 @@ function readForm(dir){
    - 状态回退时【不再】清空已填日期；已到达→误改回在途，arrived 仍保留为历史轨迹。
    - 仅「未写」(unwritten) 视为彻底重置，才清空 sent/arrived（修复原「状态=未写却残留 arrived」污染）。
    - 正向补填保留：进入 transit 补 sent、进入 arrived 补 arrived、进入 received 补 received（为空才补）。
-   - 在途天数 transitDays 仅在 status==="arrived" 时取用 arrived，故保留历史日期不会污染在途/排序/CSV。
-   寄出链等级：未写0 < 未寄1 < 在途2 < 已到3；「退回」(4) 视同已寄出，保留 sent/arrived。 */
-const SENT_RANK={unwritten:0, unsent:1, transit:2, arrived:3, returned:4};
+   - 在途天数 transitDays 仅在 status==="arrived" 时取用 arrived，故保留历史日期不会污染在途/排序/CSV。 */
+/* P3-1：SENT_RANK 已删 —— 它声明了「寄出链等级 未写0<未寄1<在途2<已到3，退回4」，但 normalizeRecDates 从未引用；
+   声明与实现脱节，留着会让人误以为状态回退有等级比较逻辑。真正的回退规则就是上面那段注释。 */
 function normalizeRecDates(rec, dir){
   if(!rec) return rec;
   const today=todayStr();   // P1-7：原 toISOString() 取 UTC，东八区本地 00:00–08:00 会得到「昨天」
@@ -3317,14 +3292,18 @@ function renderRotEditor(){
     box.innerHTML='<div class="muted" style="font-size:12.5px;padding:6px 0;">还没有轮次。点「添加一轮」或批量粘贴，按顺序登记每轮收件人与对方要求的尺寸；可分别记录「已写完 / 已寄出 / 已收到」三个时间节点追踪进度。</div>';
     rotSyncInput(); return;
   }
+  /* P2-9：每列用 <label class="rot-f"> 包裹并带一个可见 <span> 标签。
+     宽屏时 span 隐藏（维持 8 列 grid 对齐）；≤700px 行退化为单列卡片时 span 显示，替代隐藏的表头。 */
+  const fld=(i,k,label,val,type,ph)=>'<label class="rot-f"><span>'+label+'</span>'
+    +'<input '+(type?'type="'+type+'" ':'')+'data-ri="'+i+'" data-rf="'+k+'" value="'+esc(val||"")+'" placeholder="'+ph+'" aria-label="第'+(i+1)+'轮'+label+'"></label>';
   box.innerHTML=actEditingRot.map((r,i)=>'<div class="rot-row">'
     +'<span class="rot-no">R'+(i+1)+'</span>'
-    +'<input data-ri="'+i+'" data-rf="to" value="'+esc(r.to||"")+'" placeholder="收件人" aria-label="第'+(i+1)+'轮收件人">'
-    +'<input data-ri="'+i+'" data-rf="size" value="'+esc(r.size||"")+'" placeholder="尺寸要求" aria-label="第'+(i+1)+'轮尺寸要求">'
-    +'<input type="date" data-ri="'+i+'" data-rf="due" value="'+esc(r.due||"")+'" aria-label="第'+(i+1)+'轮截止日">'
-    +'<input type="date" data-ri="'+i+'" data-rf="written" value="'+esc(r.written||"")+'" aria-label="第'+(i+1)+'轮已写完">'
-    +'<input type="date" data-ri="'+i+'" data-rf="sent" value="'+esc(r.sent||"")+'" aria-label="第'+(i+1)+'轮已寄出">'
-    +'<input type="date" data-ri="'+i+'" data-rf="received" value="'+esc(r.received||"")+'" aria-label="第'+(i+1)+'轮已收到">'
+    +fld(i,"to","收件人",r.to,"","收件人")
+    +fld(i,"size","尺寸要求",r.size,"","尺寸要求")
+    +fld(i,"due","截止日",r.due,"date","")
+    +fld(i,"written","已写完",r.written,"date","")
+    +fld(i,"sent","已寄出",r.sent,"date","")
+    +fld(i,"received","已收到",r.received,"date","")
     +'<span class="rot-ops">'
     +'<button type="button" class="mini" data-rup="'+i+'" title="上移" aria-label="上移">↑</button>'
     +'<button type="button" class="mini" data-rdn="'+i+'" title="下移" aria-label="下移">↓</button>'
@@ -3898,7 +3877,14 @@ function mergeById(local, incoming, del){
     if(!ex){ out.push(x); map.set(x.id,x); _mergeChanged++; }    // 云端独有 → 追加
     else {
       const lt=Number(ex.updatedAt||0), it=Number(x.updatedAt||0);
-      if(it>lt){ Object.assign(ex, x); _mergeChanged++; }        // 云端更新 → 覆盖本地旧版本
+      if(it>lt){
+        /* P3-10：原先 Object.assign(ex,x) 逐键直写 ex。若中途抛异常（x 里有 getter 抛错等），
+           前面的键已写入、后面的没写 → ex 处于"半合并态"，比不合并更难排查。
+           先算到一个局部变量再一次赋值，中间失败则 ex 保持原样。 */
+        const merged=Object.assign({}, ex, x);
+        Object.keys(merged).forEach(k=>{ ex[k]=merged[k]; });
+        _mergeChanged++;
+      }
       // 否则本地更新或相等 → 保留本地
     }
   });
@@ -4248,7 +4234,14 @@ async function openRecoverModal(){
   done();   // P2-16：无论成功/失败/提前返回都要解锁，否则按钮永久禁用
 }
 
-function applyTheme(t){ document.documentElement.dataset.theme=t; try{ localStorage.setItem("wb_theme_v1", t); try{ localStorage.setItem("wb_postcards_theme", t); }catch(_){} }catch(e){} const tb=document.getElementById("btnTheme"); if(tb) tb.setAttribute("aria-pressed", t==="dark"?"true":"false"); }
+function applyTheme(t){
+  document.documentElement.dataset.theme=t;
+  try{ localStorage.setItem("wb_theme_v1", t); try{ localStorage.setItem("wb_postcards_theme", t); }catch(_){} }catch(e){}
+  const tb=document.getElementById("btnTheme"); if(tb) tb.setAttribute("aria-pressed", t==="dark"?"true":"false");
+  /* P3-5：同步 <meta name="theme-color"> —— iPhone/iPad 暗色下状态栏仍是亮蓝，与页面割裂。
+     浅色取 --bg、深色取 --ink2（与 body 背景一致）。首屏 <head> 里的初值在 L7，需在读取 localStorage 后立即调用本函数覆盖。 */
+  try{ const m=document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute("content", t==="dark"?"#0f1320":"#f5f7fb"); }catch(_){}
+}
 /* 备份快照必须与 save()/syncPayload() 同字段，否则「导出备份 → 导入恢复」会静默丢数据。
    旧实现只导 4 个字段，漏掉 activities 与全部自定义列表（平台/类型/国家/活动类型/标签名）。 */
 function backupPayload(){
@@ -4265,7 +4258,10 @@ function backupPayload(){
 function exportJSON(){
   const blob=new Blob([JSON.stringify(backupPayload(),null,2)],{type:"application/json"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="postcards.json"; a.click();
-  URL.revokeObjectURL(a.href); toast("已导出完整备份");
+  /* P3-4：revoke 延后 1s —— 紧邻 a.click() 同步撤销，Firefox/Safari 上 blob 还没开始读就失效 → 下载失败。
+     setTimeout 让浏览器先取到数据；1s 后对象 URL 已用完，撤销无副作用。 */
+  setTimeout(function(){ try{ URL.revokeObjectURL(a.href); }catch(_){} }, 1000);
+  toast("已导出完整备份");
 }
 // F7 按当前视图导出 CSV（带 BOM，Excel 中文不乱码；字段按视图裁剪）
 function exportCSV(){
@@ -4471,7 +4467,7 @@ document.getElementById("fileInput").onchange=e=>{ if(e.target.files[0]) importJ
 document.getElementById("cloudPill").onclick=()=>openPostcardDataModal("cloud");
 function setPostcardDataTab(tab){
   document.querySelectorAll("#pcDataTabs .dtab").forEach(b=>{ const on=b.dataset.dtab===tab; b.classList.toggle("active",on); b.setAttribute("aria-selected",on?"true":"false"); });
-  document.querySelectorAll("#cloudMask .dtab-panel").forEach(p=>{ p.style.display = p.dataset.dtab===tab ? "" : "none"; });
+  document.querySelectorAll("#cloudMask .dtab-panel").forEach(p=>{ p.hidden = p.dataset.dtab!==tab; });   // P3-8：改用 hidden 属性，与CSS 的 [hidden] 规则配对
 }
 function openPostcardDataModal(tab){
   const m=document.getElementById("cloudMask"); if(!m) return;
