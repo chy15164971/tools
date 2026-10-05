@@ -1921,17 +1921,18 @@ const ACT_STATUS_ORDER=Object.keys(ACT_STATUS);
 // 状态由「首个未完成步骤索引 firstUndone」派生，而非裸计数：跳过中间节点直接勾第 3/4 步时，
 // 状态/计数与步进条（firstUndone 驱动）保持一致，不会出现「中间空却显示已完成」的自相矛盾
 function proxyStatusOf(p){
-  const i=firstUndone(p);
-  if(p && p.proxyMode===PMODE.ONEWAY) return [PSTEP.READY,PSTEP.ENV_SENT,PSTEP.ENV_RECV,PSTEP.SENT,PSTEP.GOT_BACK][i<0?4:i];
-  return [PSTEP.READY,PSTEP.SENT,PSTEP.PROXY_RECV,PSTEP.PROXY_BACK,PSTEP.GOT_BACK][i<0?4:i];
+  /* 2026-10-05：改用 highestDone（原 firstUndone 返回值当状态下标用，只完成第1步时被判成「我已收」）。
+     步进下标 +1 即状态链下标；全空（-1）落在 READY，全完成（3）落在 GOT_BACK，无需特判。 */
+  const i=highestDone(p)+1;
+  if(p && p.proxyMode===PMODE.ONEWAY) return [PSTEP.READY,PSTEP.ENV_SENT,PSTEP.ENV_RECV,PSTEP.SENT,PSTEP.GOT_BACK][i];
+  return [PSTEP.READY,PSTEP.SENT,PSTEP.PROXY_RECV,PSTEP.PROXY_BACK,PSTEP.GOT_BACK][i];
 }
 // 状态文字随模式/方向翻转；单向代寄为「对方寄出→我收→我写回寄出→对方收到」
 function proxyStatusText(p){
-  const i=firstUndone(p);
-  if(p && p.proxyMode===PMODE.ONEWAY){ const idx=i<0?4:i; return ["准备中","对方已寄出（待我收）","我已收（待我写回寄出）","我写回寄出在途","对方已收"][idx]||"准备中"; }
-  const idx=i<0?4:i;
-  if(p && p.direction===PDIR.THEM) return ["准备中","对方已寄出","我已收","我写回中","对方已收"][idx]||"准备中";
-  return ["准备中","我寄出在途","对方已收","对方寄回中","我已收"][idx]||"准备中";
+  const i=highestDone(p)+1;   // 2026-10-05：同 proxyStatusOf，改用 highestDone 消除「高亮与状态互相矛盾」
+  if(p && p.proxyMode===PMODE.ONEWAY) return ["准备中","对方已寄出（待我收）","我已收（待我写回寄出）","我写回寄出在途","对方已收"][i]||"准备中";
+  if(p && p.direction===PDIR.THEM) return ["准备中","对方已寄出","我已收","我写回中","对方已收"][i]||"准备中";
+  return ["准备中","我寄出在途","对方已收","对方寄回中","我已收"][i]||"准备中";
 }
 function proxyReturnDays(p){ // 我收到日 − 我寄出日
   if(!p||!p.sent||!p.gotBack) return null;
@@ -2751,6 +2752,28 @@ function applySort(arr, dir){
    改为从后向前扫：只要最后一个节点没填就还没完成；最后一个填了即视为已完成（跳步不再产生矛盾状态）。
    （保存时的顺序补齐 normalizeProxySteps 属治本项，本轮先止血。） */
 function firstUndone(p){ const steps=proxyStepsOf(p); for(let j=steps.length-1;j>=0;j--) if(!p[steps[j].k]) return j; return -1; }
+
+/* 步进口径分离（2026-10-05 修「圆圈高亮错位」）：
+   firstUndone 回答的是「是否全部完成」，返回**从后往前**第一个未完成的下标 —— 这是 P1-6 为治
+   「跳步时状态/丢失判定自相矛盾」故意改的，**不能动**（改了会让 ② isLostProxy ③ proxyUnitDone 回归）。
+   但它被两处当「下标」用，语义就错了：
+     ① proxyStepNode 里 `i===firstUndone(p)` 判定「当前步高亮」→ 只完成第1步时返回 3，
+        高亮落到**第 4 圈**上，而真正的下一步是第 2 圈（截图即此症状：第1圈✓、2/3灰、4圈蓝）；
+     ② proxyStatusOf / proxyStatusText 拿它当状态链下标 → 同一条记录被渲染成「我已收」，
+        统计（5 态计数 / 在途张数 / 筛选）随之错位。
+   highestDone 回答的是「已经走到第几步」= **从后往前**最后一个**已完成**的下标（全空 -1）。
+   由此统一派生，两个语义都对，且对跳步数据同样自洽：
+     全空 → -1 → 高亮第1圈 / 状态「准备中」
+     完成1 → 0 → 高亮第2圈 / 状态「我寄出在途」← 截图的期望
+     只勾第4步 → 3 → 无高亮 / 状态「我已收」（正是 P1-6 ① 期望的解）
+     全完成 → 3 → 无高亮 / 状态「我已收」
+   步进数组下标与状态链下标天然对齐（往返 me: sent→proxyRecv→proxyBack→gotBack；
+   单向: envSent→envRecv→sent→gotBack），故 +1 即状态链下标，无需再特判 i<0。 */
+function highestDone(p){
+  const steps=proxyStepsOf(p);
+  for(let j=steps.length-1;j>=0;j--) if(p[steps[j].k]) return j;
+  return -1;
+}
 /* 各视图「已完成/已到」判定：用于把这类行稳定沉底 + 弱化 */
 function isSentDone(p){ return p && p.status==="arrived"; }            // 寄出：已到
 function isRecvDone(p){ return p && p.status==="received"; }           // 收到：已收(=已到)
@@ -2779,7 +2802,9 @@ function toggleProxyStep(pid, idx){
 function proxyStepNode(p, i){
   const steps=proxyStepsOf(p); const s=steps[i];
   const done=!!p[s.k];
-  const cls=done?"done":(i===firstUndone(p)?"cur":"");
+  /* 2026-10-05：高亮「当前步」用 highestDone+1（原用 firstUndone，只完成第1步时它返回 3，
+     高亮会落到第 4 圈，而真正的下一步是第 2 圈）。全完成时无当前步，两种判定都返回 -1 → 不高亮。 */
+  const cls=done?"done":(i===highestDone(p)+1?"cur":"");
   const mark=done?"✓":(i+1);
   return `<div class="sp-node ${cls} clickable" role="button" tabindex="0" data-pid="${p.id}" data-pstep="${i}" title="点击切换「${s.label}」状态">${mark}</div>`;
 }
@@ -2803,9 +2828,12 @@ function renderProxySingleStepper(p){
 }
 // 互寄对整体状态：两条腿都完成 / 一方完成 / 均未寄出 / 进行中
 function proxyPairStatus(me, them){
-  // 用 firstUndone 判定每条腿「是否全部完成 / 是否尚未开始」，与单条状态口径一致
+  /* done 用 firstUndone（P1-6 语义：最后一个节点没填就未完成，跳步不产生矛盾），不动。
+     started 原用 firstUndone(p)!==0 —— 但全空时 firstUndone 从后往前扫返回 3（不是 0），
+     于是「均未寄出」这个状态**永远不出现**，截图里所有互寄对都显示「互寄进行中」即此症状。
+     2026-10-05 改用 highestDone(p)!==-1（真的一个节点都没填），与步进高亮同一口径。 */
   const done=p=> p? firstUndone(p)===-1 : false;
-  const started=p=> p? firstUndone(p)!==0 : false;
+  const started=p=> p? highestDone(p)!==-1 : false;
   const dm=done(me), dt=done(them);
   // P2-2：ink 供 badge 文字（对比度达AA），color 供色点/图表
   if(dm && dt) return {label:"双方已收", color:"#22b07d", ink:"#0a7a53"};
