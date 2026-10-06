@@ -11417,11 +11417,18 @@ window.addEventListener("focus", ()=>{ cloudSilentPull(); });   // 切回本窗�
     background:'var(--pri)',color:'#fff',fontSize:'13px',lineHeight:'44px',textAlign:'center',
     transition:'height .2s',zIndex:'40',pointerEvents:'none',whiteSpace:'nowrap'});
   document.body.appendChild(ptr);
-  let startY=0, pulling=false, active=false, dist=0; const TH=60, MAX=80, MARGIN=8;
+  let startY=0, pulling=false, active=false, dist=0; const TH=60, MAX=80, MARGIN=10, TOP_ZONE=110;
   const top=()=> (document.scrollingElement?document.scrollingElement.scrollTop:document.documentElement.scrollTop)||0;
   // 触摸起点若落在「可内部滚动且未到自身顶部」的容器内（如 .today-list），则这是内部滚动意图，不应触发下拉刷新，避免吞掉点按/内部滚动
   const inInnerScroll=(e)=>{ let el=e.target; while(el && el!==document.body){ const cs=getComputedStyle(el); if((cs.overflowY==='auto'||cs.overflowY==='scroll') && el.scrollTop>0){ return true; } el=el.parentElement; } return false; };
-  const onStart=(e)=>{ if(top()>0||document.querySelector('.mask.show')||inInnerScroll(e)){ pulling=false; return; } startY=e.touches[0].clientY; pulling=true; active=false; dist=0; };
+  const onStart=(e)=>{
+    if(top()>0||document.querySelector('.mask.show')||inInnerScroll(e)){ pulling=false; return; }
+    // 点按可交互元素（按钮/链接/输入框/带 data-* 的可点行）时不触发下拉刷新，彻底避免吞掉合成 click（2026-10-06 续修 10-04 移动端点不动）
+    if(e.target.closest && e.target.closest('button,a,input,select,textarea,[role="button"],[data-done],[data-open],[data-skip],[data-defer],[data-restore]')){ pulling=false; return; }
+    startY=e.touches[0].clientY;
+    if(startY>TOP_ZONE){ pulling=false; return; } // 仅页面最顶端(≤110px)的空白区可触发下拉刷新，列表项起点 y 更大→永不 armed→不再吞 click
+    pulling=true; active=false; dist=0;
+  };
   const onMove=(e)=>{
     if(!pulling) return;
     dist=e.touches[0].clientY-startY;
