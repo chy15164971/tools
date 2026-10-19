@@ -191,13 +191,21 @@ function safeUrl(u){ u=(u||"").trim(); if(!u) return "#"; if(/^(https?:|mailto:|
 /* P0-1（2026-10-03）：第三参ms 是必需的 —— 配额/保存失败这类提示有62 字，1.8s 根本读不完；
    且 toast 固定底部、会盖住弹窗底部按钮，失败提示必须给足时长。省略时按字数自适应。
    hover 暂停：读长文案时能按住不放。 */
-function toast(msg, kind, ms){
+function toast(msg, kind, ms, undoFn){
   const t=document.getElementById("toast");
-  t.textContent=msg;
+  /* 第四参 undoFn（2026-10-19 审查补回）：渲染「撤销」按钮（对标 Todoist Undo toast）。
+     该能力 fdc6c7c 引入、后被重构误删（toastUndo 11 处调用悬空）。按钮不吃容器 pointer-events:none（PITFALLS 533 样式仍在）。 */
+  if(typeof undoFn==="function"){
+    t.innerHTML='<span class="toast-msg">'+esc(msg)+'</span><button class="toast-undo" type="button">撤销</button>';
+    const b=t.querySelector(".toast-undo");
+    b.onclick=function(){ t.classList.remove("show"); clearTimeout(t._timer); try{ undoFn(); }catch(e){} };
+  }else{
+    t.textContent=msg;
+  }
   t.className="toast"+(kind?(" "+kind):"");
   t.classList.add("show"); clearTimeout(t._timer);
   var n=String(msg==null?"":msg).length;
-  var dur = ms || (n>60?7000 : n>30?5000 : n>14?3200 : 1800);
+  var dur = (typeof undoFn==="function") ? 4800 : (ms || (n>60?7000 : n>30?5000 : n>14?3200 : 1800));
   t._timer=setTimeout(function(){ t.classList.remove("show"); }, dur);
 }
 /* P0-1：保存失败时的统一可行动文案。此前 save() 的返回值被全链路丢弃，
