@@ -4253,11 +4253,9 @@ function cloudAutoDownload(){
   if(_pullFailN>1 && now-_lastPull < Math.min(120000, 10000*Math.pow(2,_pullFailN-2))) return; // 连续失败才退避 10→20→40→80→120s；首次失败不减速，下一次轮询即重试
   if(now-_lastPull < 8000) return;                 // 正常节流
   _lastPull=now;
-  _pullBusy=true;
   Promise.resolve(cloudPull(true))
     .then(()=>{ if(window.__pullOk){ _pullFailN=0; markSynced(); } else { _pullFailN=Math.min(6,_pullFailN+1); } })
-    .catch(()=>{ _pullFailN=Math.min(6,_pullFailN+1); })
-    .finally(()=>{ _pullBusy=false; });
+    .catch(()=>{ _pullFailN=Math.min(6,_pullFailN+1); });
 }
 // 待传兜底：页面隐藏/卸载时若还有待传，立即补传（移动端防丢上传）
 function cloudFlush(){
