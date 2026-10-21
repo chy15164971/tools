@@ -4247,7 +4247,7 @@ function renderAnniv(){
     +'<button class="btn btn-pri" id="btnNewAnniv">＋ 新建纪念日</button>'
     +'<div class="anniv-stat">共 '+list.length+' 个 · 即将到来 '+upcoming+' 个 · 7 天内 '+soon7+' 个</div>'
     +'</div>';
-  if(!list.length){ html+=emptyState("📅","还没有纪念日，点击「新建纪念日」记录生日、恋爱纪念、节日等",'<button class="btn btn-pri" id="btnNewAnniv2" style="margin-top:10px;">＋ 新建纪念日</button>'); }
+  if(!list.length){ html+=emptyState("📅","还没有纪念日，点击「新建纪念日」记录生日、恋爱纪念、节日等","",'<button class="btn btn-pri" id="btnNewAnniv2" style="margin-top:10px;">＋ 新建纪念日</button>'); }
   else { html+='<div class="anniv-list">'+list.map(annivRow).join("")+'</div>'; }
   box.innerHTML=html;
   const open=()=>openAnnivModal(null);
