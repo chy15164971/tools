@@ -2190,15 +2190,25 @@ function loadLinks(){
   // 只有「从未存过」才播种默认；存过（哪怕被删成空数组）一律尊重用户的取舍
   let v=null;
   try{ v=JSON.parse(localStorage.getItem(LKEY)||"null"); }catch(e){ v=null; }
-  if(Array.isArray(v)){
-    linkList = v.filter(x=>x&&x.url).map(x=>({emoji:x.emoji||"", name:x.name||"", url:x.url}));
+  const cleaned=normLinkList(v);
+  if(cleaned){
+    linkList = cleaned;
+    try{ if(JSON.stringify(cleaned)!==JSON.stringify(v)) saveLinks(); }catch(_){}   // 清洗有实效才回写，把脏数据从存储里洗掉
   }else{
     linkList = LINKS_DEFAULT.map(x=>({...x}));
     saveLinks();
   }
 }
 function saveLinks(){ storageSet(LKEY, JSON.stringify(linkList)); }
-function normUrl(u){ u=(u||"").trim(); if(!u) return ""; return /^https?:\/\//i.test(u)?u:"https://"+u; }
+function normUrl(u){ u=String(u==null?"":u).trim(); if(!u) return ""; return /^https?:\/\//i.test(u)?u:"https://"+u; }
+/* 2026-10-23 线上事故修复：links 里混入非字符串 url（历史/云同步脏数据）时 normUrl 的 .trim() 抛 TypeError，
+   且 renderLinkBar 处于 init 顶层调用链——一处异常炸掉整个主脚本初始化，页面只剩静态骨架（白屏）。
+   三层防护：① 入口统一清洗（normLinkList）② normUrl 类型兜底 ③ renderAllNow 分步隔离（单区失败不拖垮其它区域）。 */
+function normLinkList(v){
+  if(!Array.isArray(v)) return null;
+  return v.filter(x=>x && x.url!=null && String(x.url).trim())
+    .map(x=>({emoji:String(x.emoji==null?"":x.emoji).slice(0,4), name:String(x.name==null?"":x.name).slice(0,60), url:String(x.url).trim()}));
+}
 function renderLinkBar(){
   const el=document.getElementById("linkList"); if(!el) return;
   el.innerHTML=linkList.map(l=>{
@@ -3123,7 +3133,25 @@ function bindTableDelegation(){
   });
 }
 function renderAddBtn(){ const b=document.getElementById("btnAdd"); if(!b) return; const map={ sent:["新建寄出",()=>openRecModal("sent")], received:["新建收到",()=>openRecModal("received")], proxy:["新建代寄",()=>openProxyModal()], activity:["新建活动",()=>openActivityModal()] }; const c=map[view]||map.sent; b.textContent=c[0]; b.setAttribute('aria-label',c[0]); b.onclick=c[1]; }
-function renderAllNow(){ renderTabs(); renderStats(); renderFilters(); renderTable(); renderAddBtn(); }
+function renderAllNow(){
+  /* 2026-10-23 白屏事故修复：原先五个渲染步骤串行裸跑，任何一步抛异常（如脏数据触发 TypeError）
+     都会中断后续全部渲染 → 页面只剩静态骨架。改为分步隔离：单区失败只降级该区，其余照常渲染。 */
+  const steps=[["页签",renderTabs],["统计卡",renderStats],["筛选栏",renderFilters],["表格",renderTable],["操作按钮",renderAddBtn]];
+  for(const [nm,fn] of steps){
+    try{ fn(); }
+    catch(e){
+      if(DEBUG)console.error("[renderAllNow] 「"+nm+"」区域渲染失败：", e);
+      renderRegionWarn(nm);
+    }
+  }
+}
+let _regionWarnAt={};
+function renderRegionWarn(nm){
+  const now=Date.now();
+  if(now-(_regionWarnAt[nm]||0)<30000) return;   // 同区域 30s 节流
+  _regionWarnAt[nm]=now;
+  try{ toast("「"+nm+"」区域刷新出错，已跳过；其余区域正常。若持续出现请刷新页面","danger"); }catch(_){}
+}
 /*  重渲染合并：同一事件内的多次 renderAll 合并为 1–2 次实际渲染，且不丢最新状态
     （R4 移植，对齐任务台 7701：必须用 try/finally 释放刷新锁——此前 renderAllNow() 一旦抛异常
     （如某条脏数据的字段为 null），_raPending 会永久卡 true，之后所有 renderAll 全部静默失效，
@@ -4027,8 +4055,8 @@ function applyCloudSettings(obj){
     storageSet(WKEY, JSON.stringify(widgetCfg));  // P2-15：走 storageSet；直接落盘不触发上传（避免拉取后再回传形成抖动）
   }
   if(Array.isArray(obj.links)){   // P1-2：站点书签栏随云同步走 cfgSavedAt 最后写入者胜出
-    linkList=obj.links.filter(x=>x&&x.url).map(x=>({emoji:x.emoji||"",name:x.name||"",url:x.url}));
-    saveLinks(); renderLinkBar();
+    const cleaned=normLinkList(obj.links);   // 2026-10-23：清洗后再入列——云端脏 links 曾直接炸掉渲染（见 normLinkList 注释）
+    if(cleaned){ linkList=cleaned; saveLinks(); renderLinkBar(); }
   }
   cfgSavedAt=obj.cfgSavedAt; storageSet(CFG_SAVED_KEY, String(cfgSavedAt));   // P2-15：走 storageSet
   return true;
