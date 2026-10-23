@@ -32,7 +32,9 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
     /* 数据色（c4 媒体剧集在用；c1~c3、c5 已删——无任何 var() 引用，分类/优先级用用户自定义色） */
     --c4:#ff5c8a; --c6:#9b6bff; --c7:#2bb3c0;
     --radius:12px; --radius-sm:8px; --radius-lg:16px;
-    --rot-cols:32px minmax(64px,1fr) minmax(88px,1.1fr) 116px 116px 116px 116px 80px;   /* P2-9：RR 轮次表头/行共用列宽 */ --shadow:0 2px 10px rgba(31,36,48,.06);
+    /* P2-9：RR 轮次表头/行共用列宽。P2（2026-10-23）：原变量值+注释+--shadow 挤一行，后续加 token 易误写进行尾注释而失效，拆三行 */
+    --rot-cols:32px minmax(64px,1fr) minmax(88px,1.1fr) 116px 116px 116px 116px 80px;
+    --shadow:0 2px 10px rgba(31,36,48,.06);
     /* cloudpill / 菜单 hover 此前引用未定义值导致样式退化，统一补全 */
     --bg2:#f5f7fb; --muted:#6b7280; --hover:#f4f6fb;
   --warnbg:#ffeaea; --white:#fff; --ink-strong:#1f2430; }
@@ -100,7 +102,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   .cloudpill.ok{background:var(--ok);border-color:var(--ok);}
   .cloudpill.syncing{background:var(--warn);border-color:var(--warn);}
   .cloudpill.err{background:var(--danger);border-color:var(--danger);}
-  .cloudpill.off{background:#e9edf5;color:#6b7488;border-color:#e9edf5;box-shadow:none;}
+  .cloudpill.off{background:#e9edf5;color:var(--sub);border-color:#e9edf5;box-shadow:none;}
   .cloudpill .ic{margin-right:0;}
   .cloud-btns{display:flex;gap:10px;flex-wrap:wrap;}
   .cloud-modal{max-width:420px;padding:20px;}
@@ -325,7 +327,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   .opt-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
   /* 代寄模式切换（往返 write-back / 单向代寄） */
   .seg-mode{display:flex;gap:6px;flex-wrap:wrap;}
-  .seg-opt{border:1.5px solid var(--border);background:var(--card);color:var(--text);border-radius:9px;padding:7px 11px;font-size:13px;cursor:pointer;transition:.15s;font-weight:600;}
+  .seg-opt{border:1.5px solid var(--line);background:var(--card);color:var(--text);border-radius:9px;padding:7px 11px;font-size:13px;cursor:pointer;transition:.15s;font-weight:600;}
   .seg-opt:hover{border-color:var(--pri);}
   .seg-opt.active{background:var(--pri);border-color:var(--pri);color:#fff;}
   /* 代寄：4 节点往返步骤条（.stepper 旧版 9 条规则已删——实际渲染只用 .stepper-pair/.sp-*，D6 死代码） */
@@ -871,7 +873,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
     </div>
     <div class="field">
       <label>备注</label>
-      <textarea id="fNote" placeholder="如：风景明信片 / 约定的交换 / 生日祝福"></textarea>
+      <textarea id="fNote" maxlength="500" placeholder="如：风景明信片 / 约定的交换 / 生日祝福"></textarea>
     </div>
     <div class="field">
       <label>交换来源（可选）</label>
@@ -947,7 +949,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
     </div>
     <div class="field">
       <label>备注</label>
-      <textarea id="rNote" placeholder="如：风景明信片 / 对方写的中秋祝福"></textarea>
+      <textarea id="rNote" maxlength="500" placeholder="如：风景明信片 / 对方写的中秋祝福"></textarea>
     </div>
     <div class="field">
       <label>交换来源（可选）</label>
@@ -1123,7 +1125,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
     </div>
     <div class="field">
       <label>备注</label>
-      <textarea id="pNote" placeholder="如：请帮我盖当地邮戳后写回 / 约定的互换"></textarea>
+      <textarea id="pNote" maxlength="500" placeholder="如：请帮我盖当地邮戳后写回 / 约定的互换"></textarea>
     </div>
     <label class="chk"><input type="checkbox" id="pMutualChk"> 🔁 互相代寄（同时记录对方那张片，自动关联、共享信息预填）</label>
     <button type="button" class="btn btn-ghost btn-sm" id="pLinkBtn" style="margin-top:4px;display:none;">🔗 关联已有对方（事后绑定）</button>
@@ -1192,7 +1194,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
       <button type="button" class="btn btn-ghost btn-sm" id="aRotGen">推算各轮日期</button>
     </div>
     <details class="rot-bulk"><summary>批量粘贴名单（一行一轮）</summary>
-      <textarea id="aRotBulk" rows="4" placeholder="一行一轮，首个词为收件人，其余为尺寸要求：&#10;@Cafejunky A5 双面写&#10;@holmes9139 A4"></textarea>
+      <textarea id="aRotBulk" rows="4" maxlength="2000" placeholder="一行一轮，首个词为收件人，其余为尺寸要求：&#10;@Cafejunky A5 双面写&#10;@holmes9139 A4"></textarea>
       <button type="button" class="btn btn-ghost btn-sm" id="aRotBulkBtn">导入为轮次</button>
     </details>
     <!-- P2-9：表头与数据行原是**兄弟**，只有 .rot-list 有 overflow-x:auto。8 列 grid 最小内容宽约 770px，
@@ -1223,7 +1225,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
     </div>
     <div class="field">
       <label>备注</label>
-      <textarea id="aNote" placeholder="如：还差 3 人满员，满了就开抽"></textarea>
+      <textarea id="aNote" maxlength="500" placeholder="如：还差 3 人满员，满了就开抽"></textarea>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btnActCancel">取消</button>
@@ -1342,7 +1344,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
     </div>
     <div class="row" id="wRowText">
       <label>文字</label>
-      <textarea id="wText" placeholder="备忘内容…"></textarea>
+      <textarea id="wText" maxlength="500" placeholder="备忘内容…"></textarea>
     </div>
     <div class="row" id="wRowLink" style="display:none">
       <label>网址（https://…）</label>
@@ -1611,7 +1613,9 @@ function toast(msg, kind, ms, undoFn){
   t.className="toast"+(kind?(" "+kind):"");
   t.classList.add("show"); clearTimeout(t._timer);
   var n=String(msg==null?"":msg).length;
-  var dur = (typeof undoFn==="function") ? 4800 : (ms || (n>60?7000 : n>30?5000 : n>14?3200 : 1800));
+  /* 2026-10-23 撤销窗口修正：undo 分支此前硬编码 4800、无视调用方传的 ms，
+     明信片「删除 8s / 清空 12s」的撤销窗口因此无法生效。现 ms 优先，缺省仍 4800（两文件既有 toastUndo 调用行为不变）。 */
+  var dur = (ms || (typeof undoFn==="function" ? 4800 : (n>60?7000 : n>30?5000 : n>14?3200 : 1800)));
   t._timer=setTimeout(function(){ t.classList.remove("show"); }, dur);
 }
 /* P0-1：保存失败时的统一可行动文案。此前 save() 的返回值被全链路丢弃，
@@ -1620,7 +1624,12 @@ var SAVE_FAIL_TXT="保存失败：浏览器存储空间已满或被禁用（无�
 /* P0-1：所有「用户可见的写操作 + 成功提示」都走这里，成功才提示，失败必给可行动告警。
    不要在调用点写 `save(); toast("已保存")` —— 那是本次静默丢数据的根因。 */
 function saveAndToast(okMsg){
-  var ok = save();
+  var ok = save(okMsg);
+  /* 两种宿主实现，靠返回值区分：
+     · 返回 "__pending__" —— 宿主 save 是节流异步版（任务台），成功文案已被挂起，
+       将由 save() 在真正落盘后按 storageSetSafe 的真实结果决定是否弹出，此处不能再弹。
+     · 返回 true/false   —— 宿主 save 是同步版（明信片），直接按结果提示。 */
+  if(ok==="__pending__") return true;
   if(ok===false){ toast("⚠️ "+SAVE_FAIL_TXT, "danger", 7000); return false; }
   if(okMsg) toast(okMsg);
   return true;
@@ -2492,10 +2501,17 @@ function delWidget(wid){
   const id=wid.slice(2);
   confirmDialog("确定删除这张自定义卡片？", {danger:true, ok:"删除"}).then(ok=>{
     if(!ok) return;
+    /* 撤销：自定义卡片属于 widgetCfg（独立存储域），不走记录撤销栈，闭包捕获三份数组现场还原 */
+    const snap={custom:widgetCfg.custom.slice(), order:widgetCfg.order.slice(), hidden:widgetCfg.hidden.slice()};
     widgetCfg.custom=widgetCfg.custom.filter(w=>w.id!==id);
     widgetCfg.order=widgetCfg.order.filter(w=>w!=="c:"+id);
     widgetCfg.hidden=widgetCfg.hidden.filter(w=>w!=="c:"+id);
-    saveWidgets(); renderStats(); toast("已删除卡片");
+    saveWidgets(); renderStats();
+    toast("已删除卡片","",8000,function(){
+      widgetCfg.custom=snap.custom; widgetCfg.order=snap.order; widgetCfg.hidden=snap.hidden;
+      saveWidgets(); renderStats(); save();   // save() 会把还原后的 widgetCfg 推给云端
+      toast("已撤销");
+    });
   });
 }
 let editingWid=null;
@@ -3108,13 +3124,26 @@ function bindTableDelegation(){
 }
 function renderAddBtn(){ const b=document.getElementById("btnAdd"); if(!b) return; const map={ sent:["新建寄出",()=>openRecModal("sent")], received:["新建收到",()=>openRecModal("received")], proxy:["新建代寄",()=>openProxyModal()], activity:["新建活动",()=>openActivityModal()] }; const c=map[view]||map.sent; b.textContent=c[0]; b.setAttribute('aria-label',c[0]); b.onclick=c[1]; }
 function renderAllNow(){ renderTabs(); renderStats(); renderFilters(); renderTable(); renderAddBtn(); }
-/*  重渲染合并：同一事件内的多次 renderAll 合并为 1–2 次实际渲染，且不丢最新状态 */
-let _raPending=false, _raDirty=false;
+/*  重渲染合并：同一事件内的多次 renderAll 合并为 1–2 次实际渲染，且不丢最新状态
+    （R4 移植，对齐任务台 7701：必须用 try/finally 释放刷新锁——此前 renderAllNow() 一旦抛异常
+    （如某条脏数据的字段为 null），_raPending 会永久卡 true，之后所有 renderAll 全部静默失效，
+    界面定格且无任何报错，用户只能刷新页面。） */
+let _raPending=false, _raDirty=false, _raErrAt=0;
 function renderAll(){
   if(_raPending){ _raDirty=true; return; }
   _raPending=true; _raDirty=false;
-  renderAllNow();
-  queueMicrotask(()=>{ _raPending=false; if(_raDirty){ _raDirty=false; renderAll(); } });
+  try{
+    renderAllNow();
+  }catch(e){
+    if(DEBUG)console.error("[renderAll] 渲染异常，已释放刷新锁；界面可能未完全更新：", e);
+    const now=Date.now();
+    if(now-_raErrAt>30000){ // 同类告警 30s 内只提示一次，避免高频渲染刷屏
+      _raErrAt=now;
+      try{ toast("界面刷新出错，已自动恢复；若显示仍异常请刷新页面", "danger"); }catch(_){}
+    }
+  }finally{
+    queueMicrotask(()=>{ _raPending=false; if(_raDirty){ _raDirty=false; renderAll(); } });
+  }
 }
 
 /* ===== 操作：寄出 ===== */
@@ -3196,12 +3225,32 @@ function normalizeRecDates(rec, dir){
   }
   return rec;
 }
-function changeRecStatus(dir, id, status){
+/* P0（2026-10-23 修）：状态下拉改一下就即时落盘，此前存在两类静默问题——
+   ① 切「未写」会直接清空已填的寄出日/到达日，无任何确认也无回收；
+   ② 切「在途/已到」会自动把日期回填成今天，toast 只说「状态已更新」，用户不知道日期被动过。
+   现在：销毁已有数据前先确认；变更后在提示里如实列出所有被系统改动的字段。 */
+async function changeRecStatus(dir, id, status){
   const p=findRec(dir,id); if(!p) return;
+  const old=p.status;
+  if(old===status){ toast("状态未变化"); return; }
+  if(dir==="sent" && status==="unwritten" && (p.sent||p.arrived)){
+    if(!(await confirmDialog("切到「未写」会清空已填的寄出日/到达日，确定吗？",{danger:true}))){ renderAll(); return; }
+  }
   p.status=status;
+  const before={sent:p.sent||"", arrived:p.arrived||"", received:p.received||""};
   normalizeRecDates(p, dir);
+  const after={sent:p.sent||"", arrived:p.arrived||"", received:p.received||""};
+  const side=[];
+  if(before.sent && !after.sent) side.push("寄出日已清空");
+  if(before.arrived && !after.arrived) side.push("到达日已清空");
+  if(!before.sent && after.sent) side.push("寄出日已自动填今天 "+after.sent);
+  if(!before.arrived && after.arrived) side.push("到达日已自动填今天 "+after.arrived);
+  if(!before.received && after.received) side.push("收到日已自动填今天 "+after.received);
   touch(p);   // P1-1：全文件 22 处 touch() 唯独这条主路径漏了 → updatedAt 不更新，mergeById 判「云端更新」会把本地状态覆盖回去（状态自己跳回）
-  renderAll(); saveAndToast("状态已更新");
+  renderAll();
+  const dict=(dir==="sent")?STATUSES:RECV_STATUSES;
+  const label=(dict[status]&&dict[status].label)||status;
+  saveAndToast("已改为「"+label+"」"+(side.length?(" · "+side.join("，")):""));
 }
 // 删除记录后同步摘掉活动里的关联引用，避免死链长期累积并污染 CSV 导出（原先只显示「（关联已删）」）
 function unlinkFromActivities(id){
@@ -3226,14 +3275,25 @@ async function delRec(dir, id){
   const p=findRec(dir,id); if(!p) return;
   const nm=p[REC_DEFS[dir].nameField]||"未命名";
   if(!(await confirmDialog("删除「"+nm+"」这张"+(dir==="sent"?"寄出":"收到")+"记录？",{danger:true}))) return;
+  snapshot();   // 撤销栈：删除前留整份快照（含墓碑），8s 内可点提示条或 Ctrl+Z 还原
   const arr=REC_DEFS[dir].arr(); const idx=arr.findIndex(x=>x.id===id);
   if(idx>=0){ arr.splice(idx,1); unlinkFromActivities(id); unlinkPartnerIfOrphan(p.pairId); pushTomb(id); tombSave(); }   // 墓碑：让删除能跨设备传播
-  renderAll(); saveAndToast("已删除");
+  renderAll();
+  toastUndo("已删除「"+nm+"」", 8000, save()===false);
 }
 // D8：图片输入框 → 预览图绑定（有值显示、点击放大），sent/received 共用
 function bindImgPreview(inputId, prevId){
   const ri=document.getElementById(inputId), pv=document.getElementById(prevId);
-  const upd=()=>{ const v=ri.value.trim(); if(v){ pv.src=v; pv.style.display="block"; } else { pv.style.display="none"; } };
+  /* P2-1：外链失效时预览区只出破图图标没有任何解释。现在加载失败收起图片、在提示行说明原因，成功后恢复 */
+  const hint=()=>pv.parentElement.querySelector(".hint");
+  const upd=()=>{
+    const v=ri.value.trim();
+    if(v){
+      pv.onerror=()=>{ pv.style.display="none"; const h=hint(); if(h) h.textContent="⚠️ 图片加载失败，链接可能已失效或非 http(s) 地址"; };
+      pv.onload=()=>{ const h=hint(); if(h) h.textContent="有图时点击可放大"; };
+      pv.src=v; pv.style.display="block";
+    } else { pv.style.display="none"; const h=hint(); if(h) h.textContent="有图时点击可放大"; }
+  };
   ri.oninput=upd; upd(); pv.onclick=()=>openLightbox(pv.src);
 }
 function openRecModal(dir, id){
@@ -3628,16 +3688,18 @@ function changeActivityStatus(id, status){
 async function delActivity(id){
   const a=activities.find(x=>x.id===id); if(!a) return;
   if(!(await confirmDialog("确定删除活动「"+(a.title||"未命名")+"」？",{danger:true, ok:"删除"}))) return;
+  snapshot();   // 撤销栈：8s 窗口
   activities=activities.filter(x=>x.id!==id); pushTomb(id); tombSave();
-  renderAll(); saveAndToast("已删除");
+  renderAll();
+  toastUndo("已删除活动「"+(a.title||"未命名")+"」", 8000, save()===false);
 }
 function openActivityLink(id, idx){
   const a=activities.find(x=>x.id===id); if(!a||!Array.isArray(a.links)) return;
   const l = (idx!=null) ? a.links[idx] : a.links[0];
   if(!l) return;
-  if(l.type==="sent") openRecModal("sent", l.id);
-  else if(l.type==="received") openRecModal("received", l.id);
-  else if(l.type==="proxy") openProxyModal(l.id);
+  if(l.type==="sent"){ if(findRec("sent",l.id)) openRecModal("sent", l.id); else toast("关联的寄出记录已被删除","warn"); }
+  else if(l.type==="received"){ if(findRec("received",l.id)) openRecModal("received", l.id); else toast("关联的收到记录已被删除","warn"); }
+  else if(l.type==="proxy"){ if(proxies.some(x=>x.id===l.id)) openProxyModal(l.id); else toast("关联的代寄记录已被删除","warn"); }
 }
 /* ===== 操作：代寄 / write-back / 单向代寄 ===== */
 function openProxyModal(id){
@@ -3771,9 +3833,14 @@ function saveProxyModal(){
     if(!p){ toast("未找到该条代寄记录", "danger"); return; }
     Object.assign(p, data); touch(p);
     // 单向代寄从原互寄对切来 → 解绑镜像腿，避免悬空
+    // P1-3（2026-10-23）：原实现 forEach 内 splice 边遍历边删（多腿时会漏删）、不打墓碑
+    // （云端/其它设备上那条腿会被 mergeById 当「云端独有」追加回来 = 复活）、不解活动关联（孤儿死链）。
+    // 与 delRec/delProxy 的删除语义对齐：先收集 → unlink → pushTomb → 统一移除。
     if(mode==="oneway" && p.pairId){
       const pid=p.pairId; delete p.pairId;
-      proxies.forEach(o=>{ if(o.id!==p.id && o.pairId===pid) proxies.splice(proxies.indexOf(o),1); });
+      const mirrors=proxies.filter(o=>o.id!==p.id && o.pairId===pid);
+      mirrors.forEach(o=>{ unlinkFromActivities(o.id); pushTomb(o.id); });
+      if(mirrors.length){ proxies=proxies.filter(o=>!(o.id!==p.id && o.pairId===pid)); tombSave(); }
     }
     if(p.pairId) syncMutualMeta(p.pairId, p); // 仍是互寄对 → 同步共享字段到另一条腿
     // 事后补勾「互相代寄」：编辑旧条目时若用户勾上 mutual 且原条目无 pairId → 当下生成反向镜像腿
@@ -3814,6 +3881,7 @@ function saveProxyModal(){
 }
 async function delProxy(id){
   if(!(await confirmDialog("确定删除这条代寄记录？",{danger:true, ok:"删除"}))) return;
+  snapshot();   // 撤销栈：8s 窗口
   const gone=proxies.find(p=>p.id===id); const pid=gone&&gone.pairId;
   proxies=proxies.filter(p=>p.id!==id); unlinkFromActivities(id); pushTomb(id);
   if(pid){  // F6 修复：删单腿后若 pairId 组只剩自己，解除关联，避免另一腿留悬空 pairId
@@ -3821,15 +3889,18 @@ async function delProxy(id){
     if(rest.length<=1) rest.forEach(p=>{ delete p.pairId; touch(p); });
   }
   tombSave();
-  renderAll(); saveAndToast("已删除");
+  renderAll();
+  toastUndo("已删除代寄记录", 8000, save()===false);
 }
 // 删除整对互寄（双方各一条，共享 pairId 会一并清除，避免悬空）
 async function delProxyPair(pairId){
   const n=proxies.filter(p=>p.pairId===pairId).length;
   if(!(await confirmDialog(`确定删除这一对互寄记录（${n} 条）？`,{danger:true, ok:"删除整对"}))) return;
+  snapshot();   // 撤销栈：8s 窗口（整对腿 + 悬空 pairId 清理一并还原）
   proxies.filter(p=>p.pairId===pairId).forEach(p=>{ unlinkFromActivities(p.id); pushTomb(p.id); });  // 整对逐条打墓碑
   proxies=proxies.filter(p=>p.pairId!==pairId); tombSave();
-  renderAll(); saveAndToast("已删除互寄对");
+  renderAll();
+  toastUndo("已删除互寄对（"+n+" 条）", 8000, save()===false);
 }
 /* ===== 转换归类：将现有条目在 寄出/收到/代寄 之间重新归类 ===== */
 let convCtx={dir:null, id:null};
@@ -3946,7 +4017,7 @@ function cloudSave(){ try{ const s=JSON.stringify({token:cloud.token, gist:cloud
 // 从「复制配置」产生的文本中解析出 Gist ID 与 Token（容错：按行匹配，顺序/空白不敏感）
 
 // deleted 必须随负载上传，否则其他设备无法感知本机的删除
-function syncPayload(){ return {postcards, received, proxies, activities, platList, typeList, actKindList, countryList, tabLabels:tabLabels(), widgetCfg:{order:widgetCfg.order,hidden:widgetCfg.hidden,custom:widgetCfg.custom,autoRename:widgetCfg.autoRename}, cfgSavedAt, deleted:deletedIds, savedAt:Date.now()}; }
+function syncPayload(){ return {postcards, received, proxies, activities, platList, typeList, actKindList, countryList, tabLabels:tabLabels(), widgetCfg:{order:widgetCfg.order,hidden:widgetCfg.hidden,custom:widgetCfg.custom,autoRename:widgetCfg.autoRename}, links:linkList, cfgSavedAt, deleted:deletedIds, savedAt:Date.now()}; }   // P1-2：links（顶部站点书签栏）纳入云同步——此前备份负载里有、同步负载里没有，换设备从云端恢复后书签栏静默回默认
 // 应用云端同步过来的「设置类」数据（标签名、自定义卡片配置），按 cfgSavedAt 做最后写入者胜出
 function applyCloudSettings(obj){
   if(!obj || typeof obj!=="object" || !obj.cfgSavedAt || obj.cfgSavedAt<=cfgSavedAt) return false;
@@ -3954,6 +4025,10 @@ function applyCloudSettings(obj){
   if(obj.widgetCfg && typeof obj.widgetCfg==="object"){
     widgetCfg={order:obj.widgetCfg.order||[],hidden:obj.widgetCfg.hidden||[],custom:obj.widgetCfg.custom||[],autoRename:(obj.widgetCfg.autoRename&&typeof obj.widgetCfg.autoRename==="object")?obj.widgetCfg.autoRename:{}};
     storageSet(WKEY, JSON.stringify(widgetCfg));  // P2-15：走 storageSet；直接落盘不触发上传（避免拉取后再回传形成抖动）
+  }
+  if(Array.isArray(obj.links)){   // P1-2：站点书签栏随云同步走 cfgSavedAt 最后写入者胜出
+    linkList=obj.links.filter(x=>x&&x.url).map(x=>({emoji:x.emoji||"",name:x.name||"",url:x.url}));
+    saveLinks(); renderLinkBar();
   }
   cfgSavedAt=obj.cfgSavedAt; storageSet(CFG_SAVED_KEY, String(cfgSavedAt));   // P2-15：走 storageSet
   return true;
@@ -3998,6 +4073,70 @@ function pushMoveTomb(id, to){
   if(t){ t.op="move"; t.to=to||""; }   // 标记为「移动」而非「删除」，便于将来做撤销/追踪
   tombSave();
 }
+
+/* ===== 撤销栈（2026-10-23 P1 立项，对标任务台 snapshot/applyUndo/undo 三件套） =====
+   覆盖域 = 四个记录数组（寄出/收到/代寄/活动）+ 墓碑表：删除类操作恰好只动这些，
+   墓碑必须入快照 —— 否则撤销「删除」后墓碑还在，下轮云合并又把记录抹掉（任务台 P0-4 同款教训）。
+   ⚠️ 有意**不落盘**（与任务台不同）：撤销快照是整份记录 JSON，明信片记录量大，
+   常驻 20 份副本极易触发配额上限（本文件 storageSet 已有配额告警先例）。
+   会话内撤销 + toast 按钮（删除 8s / 清空 12s）已覆盖误删场景；刷新后走「Gist 历史找回」。 */
+let undoStack=[];
+const PC_UNDO_MAX=20;
+function pcSnapshotObj(){
+  try{ return {t:Date.now(),
+    postcards:JSON.parse(JSON.stringify(postcards||[])),
+    received:JSON.parse(JSON.stringify(received||[])),
+    proxies:JSON.parse(JSON.stringify(proxies||[])),
+    activities:JSON.parse(JSON.stringify(activities||[])),
+    deleted:JSON.parse(JSON.stringify(deletedIds||[]))}; }
+  catch(e){ return {t:Date.now(),postcards:[],received:[],proxies:[],activities:[],deleted:[]}; }
+}
+/* 写操作前调用：与栈顶做序列化比较，无实际变化不重复入栈（同任务台 O8 去重口径） */
+function snapshot(){
+  try{
+    const top=undoStack[undoStack.length-1];
+    if(top){
+      const same = JSON.stringify(top.postcards)===JSON.stringify(postcards||[])
+        && JSON.stringify(top.received)===JSON.stringify(received||[])
+        && JSON.stringify(top.proxies)===JSON.stringify(proxies||[])
+        && JSON.stringify(top.activities)===JSON.stringify(activities||[])
+        && JSON.stringify(top.deleted)===JSON.stringify(deletedIds||[]);
+      if(same) return;
+    }
+    undoStack.push(pcSnapshotObj());
+    if(undoStack.length>PC_UNDO_MAX) undoStack.shift();
+  }catch(e){}
+}
+function pcApplyUndo(s){
+  if(!s) return;
+  postcards = s.postcards || [];
+  received  = s.received || [];
+  proxies   = s.proxies || [];
+  activities= s.activities || [];
+  if(Array.isArray(s.deleted)){ deletedIds = s.deleted.map(normTomb).filter(t=>t.id); tombSave(); }   // 旧结构无此字段 → 保持现状
+  save(); renderAll();
+}
+function pcUndo(){
+  if(!undoStack.length){ toast("没有可撤销的操作"); return; }
+  pcApplyUndo(undoStack.pop());
+  toast("已撤销");
+}
+/* 带「撤销」按钮的提示：语义与 Ctrl+Z 一致（弹栈顶快照还原），调用点须已在改数据前 snapshot()。
+   ms = toast 停留时长（删除 8000 / 清空 12000；shared.js 已修复 undo 分支忽略 ms 的 bug）。
+   saveFailed 时退化：保存失败则不弹撤销按钮，改弹可行动告警（撤销的是内存态，落盘失败时优先告警）。 */
+function toastUndo(msg, ms, saveFailed){
+  if(saveFailed){ toast("⚠️ "+SAVE_FAIL_TXT, "danger", 7000); return; }
+  toast(msg, "", ms||0, function(){ try{ pcUndo(); }catch(e){ toast("撤销失败","danger"); } });
+}
+/* Ctrl/Cmd+Z：守卫口径与任务台一致（输入控件内交给浏览器原生文本撤销） */
+document.addEventListener("keydown",e=>{
+  if((e.ctrlKey||e.metaKey) && !e.shiftKey && e.key.toLowerCase()==="z"){
+    const tag=(e.target&&e.target.tagName)||"";
+    if(tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT"||(e.target&&e.target.isContentEditable)) return;
+    e.preventDefault(); pcUndo();
+  }
+});
+
 
 // 把「本地墓碑 ∪ 云端墓碑」合成一张 id→ts 表，供各数组共用
 function tombMap(cloudDeleted){
@@ -4573,18 +4712,20 @@ async function fillSample(){
 }
 async function clearAll(){
   if(!postcards.length && !received.length && !proxies.length && !activities.length) return;  // F4 修复：漏 activities 导致只剩活动时点清空无响应
-  if(!(await confirmDialog("确定清空全部记录（寄出 + 收到 + 代寄 + 活动）？此操作不可撤销。",{danger:true}))) return;
+  if(!(await confirmDialog("确定清空全部记录（寄出 + 收到 + 代寄 + 活动）？提示条停留的 12 秒内可点「撤销」或 Ctrl+Z 还原。",{danger:true}))) return;
+  snapshot();   // 撤销栈：12s 窗口（清空是覆盖面最大的破坏性操作，给最长窗口）
   // 清空也必须逐条打墓碑，否则云端还有这些记录，下次拉取会全部复活
   [].concat(postcards,received,proxies,activities).forEach(p=>{ if(p&&p.id) pushTomb(p.id); });
   postcards=[]; received=[]; proxies=[]; activities=[]; tombSave();
-  renderAll(); save(false) && toast("已清空");
+  renderAll();
+  toastUndo("已清空全部记录", 12000, save(false)===false);
 }
 
 /* ===== 事件绑定 ===== */
 document.getElementById("btnCancel").onclick=()=>tryCloseRec("sent");   // P2-5：与 Esc 路径统一走脏检查
 document.getElementById("btnSave").onclick=()=>saveRecModal("sent");
 // 点遮罩不再关闭弹窗，避免误触别处丢失未保存内容（关闭请用 ✕ 或取消按钮）
-document.getElementById("btnRecvCancel").onclick=()=>closeRecModal("received");
+document.getElementById("btnRecvCancel").onclick=()=>tryCloseRec("received");   // P0：与 Esc 路径统一，禁止绕过未保存检查
 document.getElementById("btnRecvSave").onclick=()=>saveRecModal("received");
 document.getElementById("btnProxyCancel").onclick=()=>tryCloseProxy();
 document.getElementById("btnProxySave").onclick=()=>saveProxyModal();
@@ -4773,12 +4914,27 @@ setInterval(cloudAutoDownload, 30000);   // 30s（仅前台时真正发起）
   // N3：tablist 键盘导航（←/→ 切页签、Home/End 首末）
   bindTablistKeys();
 })();
+/* 全局错误兜底（P1-6，2026-10-23）：单文件工具无构建无 Sentry，此前任何未捕获异常都静默丢失，
+   用户只能描述「坏了」却说不出原因。这里把 error / unhandledrejection 转成可见 toast，
+   给出可上报的报错信息。兜底自身绝不能再抛错。⚠️ 必须放在主 IIFE 内部 —— toast 是 IIFE 局部函数。 */
+(function(){
+  function _guardToast(msg){
+    try{ toast(msg, "danger", 6000); }
+    catch(_){ try{ console.error(msg); }catch(__){} }
+  }
+  window.addEventListener("error", function(e){
+    try{ _guardToast("页面出错："+((e&&e.message)||"未知")+"（详情见浏览器控制台）"); }catch(_){}
+  });
+  window.addEventListener("unhandledrejection", function(e){
+    var r=e&&e.reason; var m=(r&&r.message)?r.message:String(r||"未知");
+    try{ _guardToast("异步操作失败："+m+"（详情见浏览器控制台）"); }catch(_){}
+  });
+})();
 })();
 /* P2-1：此处原有第二份焦点陷阱 IIFE，已删除。
    原因：SHARED 块（L1686 topModal / L346 keydown）已提供同一能力且实现更正确——它取**最后一个** .mask.show（嵌套弹窗时是顶层），
    而这份用 .find() 取**第一个**（背景弹窗）且监听器 capture:true 先执行 → 嵌套弹窗（如「代寄弹窗内再开选项管理」）里按 Tab，
    焦点被两份逻辑互相打架，甩到背景弹窗。SHARED 版还顺带管了 body 滚动锁，本文件末尾那份没管。
    已给 SHARED 版补 e.target.tagName==='TEXTAREA' 保护（多行文本域内 Tab 应缩进而非跳焦点）。 */
-</script>
-</body>
-</html>
+
+

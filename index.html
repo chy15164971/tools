@@ -23,18 +23,26 @@
   /* === SHARED TOKENS START === */
   :root{
     --bg:#f5f7fb; --card:#ffffff; --ink:#1f2430; --text:#1f2430; --sub:#6b7280; --line:#e7ebf2;
+    /* --pri-ink：主色当**文字**用（#4F7CFF 白底仅 3.71:1 不达标）→ 5.48:1
+       --pri-deep：主色当**底色**、上面压白色小字（12.5–14px 不到大文本门槛）→ 4.73:1
+       纯填充（进度条/图标/色点）继续用 --pri，不受影响。 */
+    --pri-ink:#2F5FE0; --pri-deep:#3D68F0;
     --pri:#4F7CFF; --pri-soft:#eaf0ff; --ok:#22b07d; --ok-soft:#e7f6ec; --warn:#ff8a3d; --danger:#ef4444;
     /* 数据色（c4 媒体剧集 / c5 兜底灰在用；c1~c3 已删除，分类/优先级用用户自定义色） */
     --c4:#ff5c8a; --c5:#9aa0ab; --c6:#9b6bff;
+    --chip-bg:#6b7280;
     --radius:12px; --radius-sm:8px; --radius-lg:16px; --shadow:0 2px 10px rgba(31,36,48,.06);
     /* cloudpill / 菜单 hover 此前引用未定义值导致样式退化，统一补全 */
     --bg2:#f5f7fb; --muted:#6b7280; --hover:#f4f6fb; --soft:#f1f4f9;
   --accent:#7c5cff; --white:#fff; --ink-strong:#1f2430; }
   [data-theme="dark"]{
     --bg:#0f1320; --card:#171c2b; --ink:#e7ebf3; --text:#e7ebf3; --sub:#9aa3b2; --line:#262d3f;
+    --pri-ink:#8FABFF; --pri-deep:#3D68F0;
     --pri:#5b86ff; --pri-soft:#1c2740; --hover:#1c2236; --bg2:#11162a; --muted:#9aa3b2;
     --ok:#2dd4a0; --ok-soft:#10312a; --warn:#ff9a52; --danger:#ff5d5d;
     --c4:#ff7aa6; --c5:#5a6478;
+    /* 深色下 --muted 是浅灰（#9aa3b2），压白字只有 ~2.4:1 → chip 底色另给一个深灰 */
+    --chip-bg:#5a6478;
     --shadow:0 2px 10px rgba(0,0,0,.32);
     --soft:#1c2233;
   --accent:#9b8cff; }
@@ -49,7 +57,7 @@
     outline:2px solid var(--pri); outline-offset:2px; border-radius:6px;
   }
   /* 跳至主内容（）：默认移出视野，键盘聚焦时出现在左上角 */
-  .skip-link{position:absolute;left:-9999px;top:0;z-index:200;background:var(--pri);color:var(--white);
+  .skip-link{position:absolute;left:-9999px;top:0;z-index:200;background:var(--pri-deep);color:var(--white);
     padding:10px 16px;border-radius:0 0 10px 0;font-weight:600;font-size:14px;text-decoration:none;white-space:nowrap;}
   .skip-link:focus,.skip-link:focus-visible{left:0;outline:3px solid var(--white);outline-offset:-3px;}
   html,body{margin:0; padding:0;}
@@ -74,12 +82,12 @@
   .btn{display:inline-flex;align-items:center;gap:6px;border:none;border-radius:var(--radius);padding:10px 14px;font-size:14px;font-weight:600;cursor:pointer;min-height:44px;transition:.15s;}
   .btn svg{width:16px;height:16px;flex:none;}
   .ic{width:16px;height:16px;flex:none;vertical-align:-2px;margin-right:5px;}   /* 内联 SVG 图标统一尺寸（P2：替换 emoji）；默认与右侧文字留 5px 呼吸间距 */
-  .cloudpill{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;padding:5px 12px;border-radius:999px;background:var(--pri);color:var(--white);border:1px solid var(--pri);box-shadow:0 1px 3px rgba(79,124,255,.25);white-space:nowrap;cursor:pointer;}
+  .cloudpill{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;padding:5px 12px;border-radius:999px;background:var(--pri-deep);color:var(--white);border:1px solid var(--pri);box-shadow:0 1px 3px rgba(79,124,255,.25);white-space:nowrap;cursor:pointer;}
   .cloudpill .ic{width:14px;height:14px;margin-right:0;}
   .cloudpill.ok{background:var(--ok);border-color:var(--ok);box-shadow:0 1px 3px rgba(52,199,89,.25);}
   .cloudpill.syncing{background:var(--warn);border-color:var(--warn);box-shadow:0 1px 3px rgba(255,159,64,.25);}
   .cloudpill.err{background:var(--danger);border-color:var(--danger);box-shadow:0 1px 3px rgba(255,92,92,.25);}
-  .cloudpill.off{background:#e9edf5;color:#6b7488;border-color:#e9edf5;box-shadow:none;} /* 仅本地：中性灰底，不抢色 */
+  .cloudpill.off{background:#e9edf5;color:var(--sub);border-color:#e9edf5;box-shadow:none;} /* 仅本地：中性灰底，不抢色 */
   /* 云同步面板（与「明信片追踪」云弹窗统一样式，P0） */
   .cloud-status-card{display:flex;align-items:flex-start;gap:12px;padding:13px 14px;border-radius:var(--radius);border:0.5px solid var(--line);background:var(--bg);margin-bottom:14px;min-height:58px;}
   .cloud-status-card.ok{background:rgba(34,176,125,.08);border-color:rgba(34,176,125,.25);}
@@ -109,7 +117,7 @@
   
   /* 关联应用跳转链接（顶栏 ghost 风格，点击新标签打开对方页面） */
   .inbox-pill{position:relative;}
-  .btn-pri{background:var(--pri);color:var(--white);}
+  .btn-pri{background:var(--pri-deep);color:var(--white);}
   .btn-pri:active{transform:scale(.97);}
   .btn-ghost{background:var(--card);color:var(--ink);border:1px solid var(--line);}
   .btn-sm{padding:7px 11px;min-height:36px;font-size:13px;border-radius:var(--radius-sm);}
@@ -233,8 +241,9 @@
   .today-item .s{font-size:12px;color:var(--sub);}
   .today-item .s.when{color:var(--text);font-weight:600;}   /* 截止/逾期是核心信息：提到正文色并加粗 */
   .today-item .over{color:var(--danger);font-weight:600;}   /* 逾期仍优先用危险色（写在 .when 之后以生效） */
-  .badge{font-size:11px;padding:2px 7px;border-radius:999px;background:var(--pri-soft);color:var(--pri);font-weight:600;}
-  .badge.p0{background:#ffe9e9;color:var(--danger);} .badge.p1{background:#fff1e3;color:var(--warn);} .badge.p2{background:#eef0f3;color:#5a6472;}
+  .badge{font-size:11px;padding:2px 7px;border-radius:999px;background:var(--pri-soft);color:var(--pri-ink);font-weight:600;}
+  /* p0/p1 原用 --danger/--warn 作 11px 文字色（3.23 / 2.12 :1，均不达标）→ 换同色系深色版 */
+.badge.p0{background:#ffe9e9;color:#b91c1c;} .badge.p1{background:#fff1e3;color:#9a4a08;} .badge.p2{background:#eef0f3;color:#5a6472;}
   .ring{width:54px;height:54px;flex:none;}
 
   /* 今天要处理：分组区段标题 */
@@ -309,7 +318,7 @@
   .seg-group + .seg-group{margin-left:4px;padding-left:6px;border-left:1px solid var(--line);}
   .seg button{border:none;background:transparent;border-radius:9px;padding:9px 14px;font-size:14px;font-weight:600;color:var(--sub);cursor:pointer;min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:6px;line-height:1;flex:none;white-space:nowrap;}
   .seg button .ic{width:16px;height:16px;vertical-align:middle;flex:none;}
-  .seg button.on{background:var(--pri);color:var(--white);}
+  .seg button.on{background:var(--pri-deep);color:var(--white);}
   .seg button:focus-visible{outline:2px solid var(--pri);outline-offset:-2px;}
   
   .nav{display:flex;align-items:center;gap:6px;}
@@ -365,9 +374,9 @@
   .dnum{font-size:12px;font-weight:600;color:var(--ink);position:relative;z-index:1;cursor:pointer;}
   .dcell.out .dnum{color:#c2c8d2;}
   .dcell.today .dnum{color:var(--pri);font-weight:800;}
-  .today-tag{position:absolute;top:5px;right:6px;font-size:11px;font-weight:700;background:var(--pri);color:var(--white);padding:1px 6px;border-radius:8px;letter-spacing:.5px;}
+  .today-tag{position:absolute;top:5px;right:6px;font-size:11px;font-weight:700;background:var(--pri-deep);color:var(--white);padding:1px 6px;border-radius:8px;letter-spacing:.5px;}
   .chips{display:flex;flex-direction:column;gap:3px;margin-top:4px;}
-  .chip{display:flex;align-items:center;gap:5px;font-size:11px;line-height:1.35;border-radius:var(--radius-sm);background:var(--c5);color:var(--white);overflow:hidden;max-width:100%;cursor:pointer;}
+  .chip{display:flex;align-items:center;gap:5px;font-size:11px;line-height:1.35;border-radius:var(--radius-sm);background:var(--chip-bg);color:var(--white);overflow:hidden;max-width:100%;cursor:pointer;}
   .chip .ct{font-weight:700;background:rgba(255,255,255,.22);padding:1px 4px;border-radius:4px;flex:none;font-variant-numeric:tabular-nums;}
   .chip .cb{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:6px;}
   .more{font-size:11px;color:var(--sub);padding-left:3px;margin-top:1px;}
@@ -481,7 +490,7 @@
   .dtabs{display:flex;gap:4px;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:16px;}
   .dtab{flex:1;border:none;background:transparent;border-radius:9px;padding:9px 12px;font-size:14px;font-weight:600;color:var(--sub);cursor:pointer;font-family:inherit;min-height:40px;transition:.15s;}
   .dtab:hover{color:var(--ink);}
-  .dtab.active{background:var(--pri);color:var(--white);}
+  .dtab.active{background:var(--pri-deep);color:var(--white);}
   .dtab:focus-visible{outline:2px solid var(--pri);outline-offset:-2px;}
   .ring-list{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
   .ring-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius);background:var(--card);}
@@ -493,10 +502,10 @@
   /* 新建任务：快速/完整模式切换 */
   .mode-toggle{display:flex;align-items:center;gap:8px;margin:2px 0 16px;}
   .mode-toggle .mt-btn{font-size:13px;padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:var(--bg2);color:var(--sub);cursor:pointer;font-weight:600;transition:.15s;}
-  .mode-toggle .mt-btn.active{background:var(--pri);color:var(--white);border-color:var(--pri);box-shadow:0 1px 4px rgba(79,124,255,.3);}
+  .mode-toggle .mt-btn.active{background:var(--pri-deep);color:var(--white);border-color:var(--pri);box-shadow:0 1px 4px rgba(79,124,255,.3);}
   .mode-toggle .mt-hint{font-size:12px;color:var(--muted);margin-left:4px;}
   body:not(.modal-full) .full-only{display:none !important; /* 非全屏弹窗下隐藏「仅全屏显示」元素 */}
-  body.modal-full .mode-toggle .mt-btn[data-mode="full"]{background:var(--pri);color:var(--white);border-color:var(--pri);}
+  body.modal-full .mode-toggle .mt-btn[data-mode="full"]{background:var(--pri-deep);color:var(--white);border-color:var(--pri);}
   /* flex:1 1 auto + min-width + nowrap：按钮多时换行成两排，而不是把文字压成竖排一字一行 */
   .modal-actions .btn{flex:1 1 auto;min-width:88px;justify-content:center;white-space:nowrap;}
   /* 首次引导（审查 F1：轻量一次性浮层，localStorage 门控，不干扰既有流程） */
@@ -522,7 +531,7 @@
   .defer-pop button.dp-chip:hover{border-color:var(--pri);color:var(--pri);}
   .defer-pop .dp-custom{font-size:12px;color:var(--sub);display:flex;align-items:center;gap:6px;}
   .defer-pop .dp-custom input{border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:16px;font-family:inherit;background:var(--card);color:var(--ink);}
-  .defer-pop button.dp-go{font-size:13px;font-weight:600;padding:7px 13px;border-radius:999px;border:none;background:var(--pri);color:var(--white);cursor:pointer;}
+  .defer-pop button.dp-go{font-size:13px;font-weight:600;padding:7px 13px;border-radius:999px;border:none;background:var(--pri-deep);color:var(--white);cursor:pointer;}
   .hint{font-size:11px;color:var(--sub);margin-top:4px;}
 
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0;}
@@ -556,7 +565,7 @@
   @media (hover:hover) and (pointer:fine){ .ev{touch-action:none;} }
   .dcell.drop{outline:2px solid var(--pri);outline-offset:-2px;background:var(--pri-soft) !important; /* 拖放高亮必须压过行条纹/继承底色 */}
   .chip.dragging{z-index:20;box-shadow:0 4px 12px rgba(0,0,0,.18);}
-  .btn.on-remind{background:var(--pri);color:var(--white);border-color:var(--pri);}
+  .btn.on-remind{background:var(--pri-deep);color:var(--white);border-color:var(--pri);}
   /* 提醒关闭态：明确的"关闭"外观，避免与常规 ghost 按钮混淆，提示用户这是可切换开关 */
   .btn.btn-remind-off{background:var(--soft);color:var(--sub);border-color:var(--line);}
   /* 提醒关闭时，提前量下拉灰显且不可点，避免"死控件"观感 */
@@ -584,7 +593,7 @@
   .mcard.tv::before{background:var(--c4);}
   .mcard.aud::before{background:var(--c6);}
   .mcard .mtop{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
-  .mcard .mname{font-size:14.5px;font-weight:650;line-height:1.35;}
+  .mcard .mname{font-size:14.5px;font-weight:600;line-height:1.35;}
   .mcard .mright{display:flex;align-items:center;gap:6px;flex:none;flex-wrap:wrap;justify-content:flex-end;}
   .mcard .mbadge{flex:none;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--pri-soft);color:var(--pri);}
   .mcard.tv .mbadge{background:#ffe9f1;color:var(--c4);}
@@ -599,7 +608,7 @@
   .mcard.tv .fill{background:linear-gradient(90deg,var(--c4),#ff8fb3);}
   .mcard.aud .fill{background:linear-gradient(90deg,var(--c6),#c9a8ff);}
   .mcard .mpct{font-size:14px;font-weight:700;min-width:42px;text-align:right;}
-  .mcard .mhint{font-size:11px;color:var(--c5);margin-top:7px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .mcard .mhint{font-size:11px;color:var(--sub);margin-top:7px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
   /* 卡内快捷加减：不打开弹窗直接 +1/-1 集/章 */
   .mstep{display:inline-flex;gap:6px;flex:none;}
   .mstep button{width:26px;height:26px;border-radius:7px;border:1px solid var(--line);background:var(--card);color:var(--sub);font-size:15px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;}
@@ -696,7 +705,7 @@
   .lp-head{display:flex;align-items:center;gap:7px;padding:10px 11px;cursor:pointer;font-weight:600;color:var(--ink);}
   .lp-head .lp-emoji{font-size:15px;flex:none;}
   .lp-head .lp-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .lp-head .lp-badge{font-size:11px;color:var(--white);background:var(--pri);border-radius:999px;padding:1px 7px;flex:none;font-weight:700;}
+  .lp-head .lp-badge{font-size:11px;color:var(--white);background:var(--pri-deep);border-radius:999px;padding:1px 7px;flex:none;font-weight:700;}
   .lp-head .lp-badge.zero{background:var(--line);color:var(--sub);}
   .lp-head .lp-go{flex:none;color:var(--sub);font-size:12px;border:none;background:none;cursor:pointer;padding:0 2px;}
   .lp-head .lp-go:hover{color:var(--pri);}
@@ -840,14 +849,14 @@
   [data-theme="dark"] .gantt-row.head .gname,
   [data-theme="dark"] .gname{ background:#1d2435; }
   [data-theme="dark"] .gantt-row.head{ background:#1d2435; }
-  [data-theme="dark"] ::placeholder{ color:#6b7488; }
+  [data-theme="dark"] ::placeholder{ color:var(--sub); }
   /* =====  补漏：原先无 dark 覆盖的浅彩徽章 / hover / 胶囊 / 状态字 ===== */
   [data-theme="dark"] .cloudpill.off{ background:#232a3a; color:#8b94a3; border-color:#232a3a; }
   [data-theme="dark"] .btn-danger{ border-color:var(--line); }
   [data-theme="dark"] .menu .mitem.danger:hover{ background:#3a2024; }
   [data-theme="dark"] .filter-badge:hover{ background:#2a3a5e; }
-  [data-theme="dark"] .badge.p0{ background:rgba(255,93,93,.16); }
-  [data-theme="dark"] .badge.p1{ background:rgba(255,154,82,.16); }
+  [data-theme="dark"] .badge.p0{ background:rgba(255,93,93,.16); color:#ff9b9b; }
+  [data-theme="dark"] .badge.p1{ background:rgba(255,154,82,.16); color:#ffb27a; }
   [data-theme="dark"] .badge.p2{ background:var(--line); color:var(--sub); }
   [data-theme="dark"] .badge.gw{ background:rgba(255,154,82,.16); color:var(--warn); }
   [data-theme="dark"] .badge.ok{ background:rgba(45,212,160,.15); }
@@ -1080,7 +1089,7 @@
   .optrow .ob.merge:hover{color:var(--pri);border-color:var(--pri);}
   .stale-row .ob{border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:8px;height:32px;cursor:pointer;font-size:12px;flex:none;line-height:1;}
   .stale-row .ob.merge{width:auto;padding:0 10px;font-weight:600;color:var(--pri);border-color:var(--pri);}
-  .stale-row .ob.merge:hover{background:var(--pri);color:var(--white);}
+  .stale-row .ob.merge:hover{background:var(--pri-deep);color:var(--white);}
   .optadd{display:flex;gap:7px;align-items:center;}
   .optadd input[type=text]{flex:1;min-width:0;}
   .optadd input[type=color]{width:34px;height:34px;padding:2px;border:1px solid var(--line);border-radius:9px;background:var(--card);cursor:pointer;flex:none;}
@@ -1106,7 +1115,7 @@
   .tagpick{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
   .tp-chip{border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer;transition:.12s;}
   .tp-chip:hover{border-color:var(--pri);color:var(--ink);}
-  .tp-chip.on{background:var(--pri);border-color:var(--pri);color:var(--white);}
+  .tp-chip.on{background:var(--pri-deep);border-color:var(--pri);color:var(--white);}
 
   /* 命令面板 */
   .cmd-mask{background:rgba(15,20,35,.45);backdrop-filter:blur(2px);}
@@ -1122,7 +1131,7 @@
   .cmd-item .ci-ic{width:16px;height:16px;flex:none;color:var(--sub);}
   .cmd-item .ci-main{flex:1;min-width:0;}
   .cmd-item .ci-title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .cmd-item .ci-title mark,.cmd-item .ci-sub mark{background:var(--pri);color:#fff;border-radius:3px;padding:0 1px;}
+  .cmd-item .ci-title mark,.cmd-item .ci-sub mark{background:var(--pri-deep);color:#fff;border-radius:3px;padding:0 1px;}
   .cmd-item .ci-sub{font-size:12px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .cmd-item.active{background:var(--pri-soft);}
   .cmd-item .ci-tag{font-size:11px;color:var(--pri);background:var(--pri-soft);border-radius:6px;padding:1px 7px;flex:none;}
@@ -1194,7 +1203,7 @@
 .diag-label{font-size:13px;color:var(--sub);margin-bottom:6px;}
 .diag-items{display:flex;flex-direction:column;gap:3px;}
 .diag-open{cursor:pointer;font-size:13px;padding:3px 6px;border-radius:6px;background:var(--hover);}
-.diag-open:hover{background:var(--pri_bg);color:var(--pri);}
+.diag-open:hover{background:var(--pri-soft);color:var(--pri-ink);}
 .okr-mini{display:flex;justify-content:space-between;font-size:13px;padding:3px 0;}
 .okr-mini b{color:var(--pri);}
 .review-check{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
@@ -1225,7 +1234,7 @@
 
 /* ===== 甘特图增强 ===== */
 .gantt-ranges{display:flex;gap:6px;margin:0 0 8px;flex-wrap:wrap;align-items:center;}
-.gantt-ranges button.active{background:var(--pri);color:var(--white);border-color:var(--pri);}
+.gantt-ranges button.active{background:var(--pri-deep);color:var(--white);border-color:var(--pri);}
 /* ：工具条分组——桌面「定位组 + 显示组」同排，窄屏显示组折叠 */
 .gantt-ranges .gtools-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;min-width:0;}
 .gantt-ranges .gtools-toggle{display:none;}
@@ -1261,7 +1270,7 @@
 
 /* ===== 统计增强 ===== */
 .stats-ranges{display:flex;gap:6px;margin:0 0 10px;flex-wrap:wrap;}
-.stats-ranges button.active{background:var(--pri);color:var(--white);border-color:var(--pri);}
+.stats-ranges button.active{background:var(--pri-deep);color:var(--white);border-color:var(--pri);}
 .trend .col .num.rec{color:var(--sub);font-style:italic;}
 .trend .col .bar.norec{background:repeating-linear-gradient(45deg,var(--line),var(--line) 3px,transparent 3px,transparent 6px);}
 .habit-fit-bar{display:flex;align-items:center;gap:8px;}
@@ -1323,7 +1332,7 @@
 .checkpoint{font-size:11px;color:var(--sub);}
 .spark-empty{font-size:11px;color:var(--sub);font-style:italic;}
 .okr-filter{display:flex;gap:6px;margin:0 0 8px;}
-.okr-filter button.active{background:var(--pri);color:var(--white);border-color:var(--pri);}
+.okr-filter button.active{background:var(--pri-deep);color:var(--white);border-color:var(--pri);}
 
 /* ===== 回顾增强 ===== */
 .review-notes{margin:12px 0;}
@@ -1350,7 +1359,7 @@
 .pg-nums{display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
 .pgbtn{min-width:30px;height:30px;padding:0 8px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;font-size:13px;cursor:pointer;line-height:1;}
 .pgbtn:hover:not(:disabled){border-color:var(--pri);color:var(--pri);}
-.pgbtn.cur{background:var(--pri);border-color:var(--pri);color:#fff;}
+.pgbtn.cur{background:var(--pri-deep);border-color:var(--pri);color:#fff;}
 .pgbtn:disabled{opacity:.4;cursor:not-allowed;}
 .pgdots{color:var(--sub);padding:0 2px;}
 
@@ -1388,7 +1397,7 @@
 /* [1/33] max-width:860px) */
 @media(max-width:860px){
     #fabNew{display:flex;position:fixed;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px) + var(--kb,0px));z-index:40;
-      width:56px;height:56px;border-radius:50%;border:none;background:var(--pri);color:var(--white);
+      width:56px;height:56px;border-radius:50%;border:none;background:var(--pri-deep);color:var(--white);
       align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer;}
     #fabNew svg{width:26px;height:26px;}
     #fabNew:active{transform:scale(.94);}
@@ -2077,7 +2086,7 @@
     </div>
     <div class="full-only field">
       <label>描述</label>
-      <textarea id="f_desc" placeholder="可选备注"></textarea>
+      <textarea id="f_desc" maxlength="2000" placeholder="可选备注"></textarea>
     </div>
     <label class="full-only chkline" for="f_nodate">
       <input type="checkbox" id="f_nodate">
@@ -2159,7 +2168,7 @@
       <div class="sublist" id="subList"></div>
       <div class="subadd"><input id="subInput" placeholder="添加子任务，回车确认"><button class="btn btn-ghost btn-sm" id="subAddBtn" type="button">添加</button><button class="btn btn-ghost btn-sm" id="subBulkBtn" type="button">批量</button></div>
       <div id="subBulkWrap" style="display:none;margin-top:8px;">
-        <textarea id="subBulk" rows="5" placeholder="一行一个，批量添加（适合一次录入游戏日常清单）" style="width:100%;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:var(--radius);"></textarea>
+        <textarea id="subBulk" rows="5" maxlength="2000" placeholder="一行一个，批量添加（适合一次录入游戏日常清单）" style="width:100%;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:var(--radius);"></textarea>
         <div style="display:flex;gap:8px;margin-top:6px;"><button class="btn btn-pri btn-sm" id="subBulkOk" type="button">批量添加</button><button class="btn btn-ghost btn-sm" id="subBulkCancel" type="button">取消</button></div>
       </div>
     </div>
@@ -2232,7 +2241,7 @@
     <h2 id="pjTitle">新建项目</h2>
     <input id="pj_id" type="hidden">
     <div class="field"><label>项目名称</label><input id="pj_name" maxlength="40" placeholder="如：求职冲刺"></div>
-    <div class="field"><label>描述（可选）</label><textarea id="pj_desc" placeholder="项目目标 / 范围"></textarea></div>
+    <div class="field"><label>描述（可选）</label><textarea id="pj_desc" maxlength="2000" placeholder="项目目标 / 范围"></textarea></div>
     <div class="row2">
       <div class="field"><label>主题色</label><input id="pj_color" type="color" value="#ff7a59"></div>
       <div class="field"><label>状态</label><select id="pj_status"><option value="active">进行中</option><option value="done">已完成</option></select></div>
@@ -2242,7 +2251,7 @@
       <div class="field"><label>开始日期</label><input id="pj_start" type="date"></div>
       <div class="field"><label>结束日期</label><input id="pj_end" type="date"></div>
     </div>
-    <div class="field"><label title="每行一个：YYYY-MM-DD 描述">里程碑</label><textarea id="pj_ms" placeholder="2026-09-01 交付初稿&#10;2026-09-15 评审通过"></textarea></div>
+    <div class="field"><label title="每行一个：YYYY-MM-DD 描述">里程碑</label><textarea id="pj_ms" maxlength="2000" placeholder="2026-09-01 交付初稿&#10;2026-09-15 评审通过"></textarea></div>
     <div class="defer-pop" id="pjDeferPop" style="display:none;">
       <div class="dp-title">项目延期（只推截止日）</div>
       <button class="dp-chip" data-pjd="1">+1天</button>
@@ -2615,7 +2624,7 @@
       <option value="num">手动数字（标题 + 数字）</option>
     </select></div>
     <div id="wRowTitle" class="w-row"><label>标题</label><input id="wTitle" placeholder="例如：本月目标"></div>
-    <div id="wRowText" class="w-row"><label>内容</label><textarea id="wText" rows="3" placeholder="支持多行文字"></textarea></div>
+    <div id="wRowText" class="w-row"><label>内容</label><textarea id="wText" rows="3" maxlength="500" placeholder="支持多行文字"></textarea></div>
     <div id="wRowLink" class="w-row" style="display:none"><label>链接 URL</label><input id="wUrl" placeholder="https://…"></div>
     <div id="wRowNum" class="w-row" style="display:none"><label>数字</label><input id="wNum" placeholder="例如 8/10"></div>
     <div style="margin-top:16px;border-top:1px dashed var(--line);padding-top:14px">
@@ -2837,7 +2846,9 @@ function toast(msg, kind, ms, undoFn){
   t.className="toast"+(kind?(" "+kind):"");
   t.classList.add("show"); clearTimeout(t._timer);
   var n=String(msg==null?"":msg).length;
-  var dur = (typeof undoFn==="function") ? 4800 : (ms || (n>60?7000 : n>30?5000 : n>14?3200 : 1800));
+  /* 2026-10-23 撤销窗口修正：undo 分支此前硬编码 4800、无视调用方传的 ms，
+     明信片「删除 8s / 清空 12s」的撤销窗口因此无法生效。现 ms 优先，缺省仍 4800（两文件既有 toastUndo 调用行为不变）。 */
+  var dur = (ms || (typeof undoFn==="function" ? 4800 : (n>60?7000 : n>30?5000 : n>14?3200 : 1800)));
   t._timer=setTimeout(function(){ t.classList.remove("show"); }, dur);
 }
 /* P0-1：保存失败时的统一可行动文案。此前 save() 的返回值被全链路丢弃，
@@ -2846,7 +2857,12 @@ var SAVE_FAIL_TXT="保存失败：浏览器存储空间已满或被禁用（无�
 /* P0-1：所有「用户可见的写操作 + 成功提示」都走这里，成功才提示，失败必给可行动告警。
    不要在调用点写 `save(); toast("已保存")` —— 那是本次静默丢数据的根因。 */
 function saveAndToast(okMsg){
-  var ok = save();
+  var ok = save(okMsg);
+  /* 两种宿主实现，靠返回值区分：
+     · 返回 "__pending__" —— 宿主 save 是节流异步版（任务台），成功文案已被挂起，
+       将由 save() 在真正落盘后按 storageSetSafe 的真实结果决定是否弹出，此处不能再弹。
+     · 返回 true/false   —— 宿主 save 是同步版（明信片），直接按结果提示。 */
+  if(ok==="__pending__") return true;
   if(ok===false){ toast("⚠️ "+SAVE_FAIL_TXT, "danger", 7000); return false; }
   if(okMsg) toast(okMsg);
   return true;
@@ -3147,6 +3163,21 @@ function fillCatSelect(sel){
   sel.innerHTML=(ph?ph.outerHTML:"")+catSelectHtml();
 }
 function priColor(n){ const p=pris.find(x=>x.name===n); return p?p.color:"#9aa0ab"; }
+/* 把「色块专用色」自动加深为可作白底前景的文字色（WCAG AA 4.5:1）。
+   分类/优先级可由用户自定义，写死 ink 对照表必然漏配新增颜色 —— 这里按相对亮度循环加深。
+   例：#9aa0ab(2.63:1)→约 #6c7078；#ff9f45(1.79:1)→约 #9e6235。
+   ⚠️ 只用于文字色；色块背景/进度条/图标继续用原色（大面积填充的对比度要求不同）。 */
+function cssInk(hex){
+  var m=/^#?([0-9a-fA-F]{6})$/.exec(String(hex||"").trim());
+  var r0=109,g0=116,b0=130,r=r0,g=g0,b=b0;            // 解析失败时用中性深灰
+  if(m){ r0=r=parseInt(m[1].slice(0,2),16); g0=g=parseInt(m[1].slice(2,4),16); b0=b=parseInt(m[1].slice(4,6),16); }
+  function f(c){ c/=255; return c<=0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055,2.4); }
+  function cr(){ return 1.05/(0.2126*f(r)+0.7152*f(g)+0.0722*f(b)+0.05); }
+  var k=1;
+  while(cr()<4.5 && k>0.1){ k-=0.05; r=Math.round(r0*k); g=Math.round(g0*k); b=Math.round(b0*k); }
+  function hx(v){ var t=v.toString(16); return t.length<2?("0"+t):t; }
+  return "#"+hx(r)+hx(g)+hx(b);
+}
 function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim()||"#9aa0ab"; }
 function catNames(){ return cats.map(c=>c.name); }
 function priNames(){ return pris.map(p=>p.name); }
@@ -3664,7 +3695,7 @@ function attachEvDrag(ev, isWeek){
       ev.removeEventListener("pointermove",mv); ev.removeEventListener("pointerup",up);
       ev.style.transform="";
       if(!moved) return;
-      ev._suppressClick=true;
+      tlSuppressClick=true;   // P1-10：抑制标志改挂模块级变量（原 ev._suppressClick 随 DOM 重建即丢，且依赖逐元素 onclick 存在）
       snapshot();   // P1-6：日/周视图拖拽改期此前不可撤销
       const dy=ev2.clientY-sy, dx=ev2.clientX-sx;
       const dm=Math.round(dy/44*60/15)*15; // 吸附 15 分钟
@@ -3727,7 +3758,7 @@ function applyDayShift(id, deltaDays, orig){
   const shift=deltaDays*DAY;
   if(rec){ moveRecInstance(t, parseLocal(orig+"T00:00"), deltaDays); }
   else { t.start=toStr(new Date(parseLocal(t.start).getTime()+shift)); t.end=toStr(new Date(parseLocal(t.end).getTime()+shift)); }
-  touchTask(t); save(); renderAll(); toast("已移动 "+Math.abs(deltaDays)+" 天");
+  touchTask(t); saveAndToast("已移动 "+Math.abs(deltaDays)+" 天"); renderAll();
 }
 
 /* ===== 持久化 ===== */
@@ -3881,17 +3912,47 @@ function pruneTaskHistory(){
     return n;
   }catch(e){ return 0; }
 }
-function save(){
+/* P0（2026-10-23 修）：save() 曾因 400ms 节流丢掉返回值 → 写盘失败却照弹「已保存」。
+   正解：成功文案先挂起，等真正落盘后按 storageSetSafe 的真实结果决定弹绿提示还是 ⚠️。
+   ⚠️ 不可同步 `return _saveOk` —— 那是上一轮的结果，会首次漏报、二次误报。
+   失败提示由 storageSetSafe 自己弹（内部 30s 节流防刷屏），成功提示才在这里发。 */
+var _pendingSaveMsg=null;
+/* P2-5：数据版本号 —— save()/saveQuiet()/saveNow() 每次落盘自增。snapshot() 用它做短路：
+   自上次快照以来版本未变 ⇒ 数据必未变 ⇒ 跳过 16 次全量序列化（8 深克隆 + 8 stringify 比较）。
+   前提：所有数据变更最终都走这三个保存函数（现有写路径均满足）。 */
+var _dataVer=0, _lastSnapVer=-1;
+function save(okMsg){
+  _dataVer++;   // P2-5：数据版本号自增（变更已发生，落盘只是延迟 400ms）
+  if(typeof okMsg==="string" && okMsg) _pendingSaveMsg=okMsg;
   // 节流：连续多次保存合并为一次 localStorage 写入，降低大库主线程开销（B2）
   if(_saveTimer) clearTimeout(_saveTimer);
   _saveTimer=setTimeout(()=>{
     _saveTimer=null;
     pruneTaskHistory();
-    storageSetSafe(KEY, JSON.stringify(state.tasks));
+    const ok=storageSetSafe(KEY, JSON.stringify(state.tasks));
+    if(_pendingSaveMsg!==null){
+      const msg=_pendingSaveMsg; _pendingSaveMsg=null;
+      if(ok) toast(msg);        // 只有真的写成功才报成功
+    }
     markLocalSave(); maybeBackupHint();
     fullRingPush();   // M3：每次落盘顺手留一份全量快照
   }, 400);
   cloudAutoUpload();
+  // 有挂起文案时返回哨兵，让 saveAndToast 知道「提示由我稍后发」，避免与它重复弹一次
+  return (_pendingSaveMsg!==null) ? "__pending__" : undefined;
+}
+// 同步落盘：关闭页面 / 切后台 / 破坏性操作前用，返回真实写入结果（B2）
+function saveNow(){
+  _dataVer++;   // P2-5：与 save() 同口径（save 内部延迟落盘不影响版本号时机）
+  if(_saveTimer){ clearTimeout(_saveTimer); _saveTimer=null; }
+  pruneTaskHistory();
+  const ok=storageSetSafe(KEY, JSON.stringify(state.tasks));
+  if(_pendingSaveMsg!==null){
+    const msg=_pendingSaveMsg; _pendingSaveMsg=null;
+    if(ok) toast(msg);
+  }
+  markLocalSave();
+  return ok;
 }
 // ===== 云同步：逐任务合并基础设施 =====
 let deletedIds=[];
@@ -3979,7 +4040,7 @@ function restoreTrash(idx){
   restoreHistory(it.hist);   // 删除时一并清掉的完成流水，恢复任务时还回来
   deletedIds=deletedIds.filter(d=>String(d.id||d)!==String(it.task.id)); deletedIdsSave();
   a.splice(idx,1); trashSave(a);
-  save(); renderAll(); renderTrash(); toast("已恢复："+(it.task.title||"任务"));
+  saveAndToast("已恢复："+(it.task.title||"任务")); renderAll(); renderTrash();
 }
 function dropTrash(idx){ const a=trashLoad(); if(!a[idx]) return; a.splice(idx,1); trashSave(a); renderTrash(); }
 async function clearTrash(){
@@ -4051,11 +4112,11 @@ function trashRefresh(){
   else { const c=document.getElementById("trashCount"); if(c){ const n=trashLoad().length; c.textContent=n?("("+n+")"):""; } }
 }
 // 轻量落盘：写 localStorage + 刷新 savedAt，但不触发 cloudAutoUpload（合并后保存用，避免「合并→保存→自动上传→再合并」死循环）
-function saveQuiet(){ pruneTaskHistory(); try{ localStorage.setItem(KEY, JSON.stringify(state.tasks)); }catch(e){} markLocalSave(); }
+function saveQuiet(){ _dataVer++; pruneTaskHistory(); try{ localStorage.setItem(KEY, JSON.stringify(state.tasks)); }catch(e){} markLocalSave(); }
 // 给任务打「最近修改」时间戳：合并时按此判断谁更新（墙钟；单用户顺次编辑足够，并发同任务编辑极少见）
 function touchTask(t, ts){ if(!t) return t; const v=ts||Date.now(); if(!t.updated || t.updated<v) t.updated=v; return t; }
 function flushSave(){ // 关闭/切后台前强制落盘，避免 400ms 内未写入丢失（B2）
-  if(_saveTimer){ clearTimeout(_saveTimer); _saveTimer=null; pruneTaskHistory(); try{ localStorage.setItem(KEY, JSON.stringify(state.tasks)); }catch(e){} markLocalSave(); }
+  if(_saveTimer || _pendingSaveMsg!==null){ saveNow(); }
   // 关闭/切后台前，把待上传的云同步也立即触发（best-effort），避免 1.5s 防抖内未上传而丢数据（A）
   if(_upTimer){ clearTimeout(_upTimer); _upTimer=null; if(cloud.auto && cloud.token && cloud.gist && _bootSyncAllowed && !_cloudBusy) cloudUpload(true); }
 }
@@ -4612,8 +4673,8 @@ function taskBadges(t, opts){
   opts=opts||{};
   const p=t.priority, c=catColor(t.cat);
   const base=[
-    `<span class="badge" style="background:${hexA(priColor(p),.16)};color:${priColor(p)}">${esc(p)}</span>`,
-    `<span class="badge" style="background:${hexA(c,.16)};color:${c}">${esc(t.cat||"")}</span>`
+    `<span class="badge" style="background:${hexA(priColor(p),.16)};color:${cssInk(priColor(p))}">${esc(p)}</span>`,
+    `<span class="badge" style="background:${hexA(c,.16)};color:${cssInk(c)}">${esc(t.cat||"")}</span>`
   ];
   const extra=[];
   if(!opts.compact){
@@ -5053,12 +5114,12 @@ function toggleDone(id, date){
     const nd = (t.status==="done")?"todo":"done";
     goingDone = nd==="done";
     if(goingDone){ pushHistory(t, date); setDoneAt(t, date, markIso); }
-    else { setDoneAt(t, date, null); }
+    else { clearDoneState(t, date); }
     t.status = nd;
   } else{
     t.doneDates=t.doneDates||[];
     const k=date; const ix=t.doneDates.indexOf(k);
-    if(ix>=0){ t.doneDates.splice(ix,1); setDoneAt(t, k, null); }
+    if(ix>=0){ clearDoneState(t, k); }
     else { t.doneDates.push(k); setDoneAt(t, k, markIso); pushHistory(t, date); }
     goingDone = ix<0;
   }
@@ -5151,20 +5212,11 @@ function undoDoneBtn(){
   const wasDone = rec ? (t.doneDates||[]).includes(ctxDate) : t.status==="done";
   if(!wasDone){ toast("该任务尚未完成"); syncDoneBtn(); return; }
   snapshot();   // 撤销完成同样会改写子任务勾选
-  if(rec){
-    t.doneDates=(t.doneDates||[]).filter(x=>x!==ctxDate);
-    if(t.doneAt && t.doneAt[ctxDate]!==undefined) delete t.doneAt[ctxDate];
-    removeHistory(t, ctxDate);
-  } else {
-    t.status="todo";
-    if(t.doneAt && t.doneAt.self!==undefined) delete t.doneAt.self;
-    removeHistory(t, null);
-  }
+  clearDoneState(t, ctxDate);   // 收敛到唯一出口：doneDates/doneAt + 统计流水一起撤
   const subChanged = setAllSubsDone(t, ctxDate, false);   // 撤销完成 ⇒ 该次实例的子任务勾选一并清空（成对语义）
   syncFormSubsDone(t);
-  touchTask(t); save();
+  touchTask(t); saveAndToast("已撤销完成，任务恢复为未完成"+(subChanged?("，子任务已同步清空 "+subChanged+" 项"):""));
   renderDoneAtField(); syncDoneBtn(); refreshDerived(); renderAll();
-  toast("已撤销完成，任务恢复为未完成"+(subChanged?("，子任务已同步清空 "+subChanged+" 项"):""));
 }
 
 /* ===== 完成时间（补打卡 / 事后修正实际完成时刻）=====
@@ -5435,8 +5487,7 @@ function syncDoneFromSubtasks(t, date, beforeAll){
       pushHistory(t, d);
       if(typeof announce==="function") announce("子任务已全部完成，已自动标记为完成");
     } else if(!afterAll && before && nowDone){
-      t.doneDates = dd.filter(x=>x!==d);
-      setDoneAt(t, d, null);
+      clearDoneState(t, d);
     }
   } else {
     const nowDone = t.status==="done";
@@ -5446,8 +5497,7 @@ function syncDoneFromSubtasks(t, date, beforeAll){
       pushHistory(t, d);
       if(typeof announce==="function") announce("子任务已全部完成，已自动标记为完成");
     } else if(!afterAll && before && nowDone){
-      t.status="todo";
-      setDoneAt(t, d, null);
+      clearDoneState(t, d);
     }
   }
 }
@@ -5523,6 +5573,21 @@ function removeHistory(t, d){
   }
   if(idx<0) return;
   stats.history.splice(idx,1); saveStats();
+}
+/* 取消一次「完成」的唯一出口：doneDates/doneAt + 统计流水 四件套一起撤。
+   ⚠️ 此前 toggleDone / syncDoneFromSubtasks 的取消方向只清前两样、漏了 removeHistory，
+   导致 stats.history 永久虚高且撤销栈不含 stats（不可逆）。新增取消路径请一律走这里。
+   子任务勾选由调用方按 goingDone 用 setAllSubsDone 统一处理，此处不碰。 */
+function clearDoneState(t, date){
+  const rec = t.recurrence && t.recurrence.freq!=="none";
+  if(rec){
+    if(Array.isArray(t.doneDates)) t.doneDates = t.doneDates.filter(x=>x!==date);
+    setDoneAt(t, date, null);
+  }else{
+    t.status="todo";
+    setDoneAt(t, date, null);
+  }
+  removeHistory(t, rec?date:null);
 }
 /* ===== 完成口径：累计 vs 当前周期（2026-09-14）=====
    同一个「完成了吗」有两种口径，别混用：
@@ -5639,12 +5704,18 @@ function skipTask(id, date){
     const _sk=ovKeyD(date);
     // 只叠加软标记，别把该日已有的内容 override（改过时刻/标题等）整块覆盖掉
     t.overrides[_sk]=Object.assign({}, t.overrides[_sk]||{}, {skip:true});
+    // P2-2：卸完成态前把该日打卡记录（doneDates 成员 + doneAt 时刻）存进 override，
+    // restoreTask 摘标记时写回 —— 否则「不补做→恢复」会静默丢掉一次打卡（状态和统计都回不来）
+    const _dk=ovKeyD(date);
+    const _o=t.overrides[_sk];
+    if(Array.isArray(t.doneDates) && t.doneDates.indexOf(_dk)>=0) _o.savedDone=1;
+    if(t.doneAt && t.doneAt[_dk]!==undefined) _o.savedDoneAt=t.doneAt[_dk];
     // 「不补做」是标注、不是撤回：该次实例照常生成、原位灰显，所以已经勾过的子任务必须原样留着
     // （keepSubs）。只卸掉完成态 —— 标了不补做就不该再计入「已完成」统计。
     // 恢复时勾选仍在（见 restoreTask 的保留式摘标记）。
     clearInstanceProgress(t, date, {keepSubs:true});
-    save(); renderAll(); toast("已标记该日不补做（整组保留，可恢复）");
-  } else { t.dropped=true; touchTask(t); save(); renderAll(); toast("已标记为不补做（保留在列表，可恢复）"); }
+    saveAndToast("已标记该日不补做（整组保留，可恢复）"); renderAll();
+  } else { t.dropped=true; touchTask(t); saveAndToast("已标记为不补做（保留在列表，可恢复）"); renderAll(); }
 }
 function restoreTask(id, date){
   const t=state.tasks.find(x=>x.id===id); if(!t) return;
@@ -5655,9 +5726,13 @@ function restoreTask(id, date){
     const k=ovKeyD(date), o=(t.overrides||{})[k];
     if(o){
       const c=Object.assign({}, o); delete c.skip; delete c.hard;
+      // P2-2：写回「不补做」前保存的打卡记录（skipTask 里存进 override 的），别让恢复静默丢一次完成
+      if(c.savedDone){ t.doneDates=Array.isArray(t.doneDates)?t.doneDates:[]; if(t.doneDates.indexOf(k)<0) t.doneDates.push(k); }
+      if(c.savedDoneAt!==undefined){ t.doneAt=t.doneAt||{}; t.doneAt[k]=c.savedDoneAt; }
+      delete c.savedDone; delete c.savedDoneAt;   // 写回即清，避免残留旧值
       if(Object.keys(c).length) t.overrides[k]=c; else delete t.overrides[k];
     }
-    save(); renderAll(); toast("已恢复该日任务");
+    saveAndToast("已恢复该日任务"); renderAll();
   }
   else { t.dropped=false; touchTask(t); save(); renderAll(); toast("已恢复（重新计入逾期/进行中）"); }
 }
@@ -5831,13 +5906,36 @@ function renderTimeline(days){
   }
   document.getElementById("view").innerHTML=`<div class="timeline">${gutter}<div class="tcols">${cols}</div></div>`;
   const v=document.getElementById("view");
+  /* P1-10：日/周视图事件委托——此前每个 .ev / .tbody 每次渲染各绑一个 onclick 闭包；
+     现点击统一委托到 #view（.timeline 收口），只保留拖拽的逐元素 pointer 绑定
+     （setPointerCapture 必须落在事件块自身上，无法委托）。 */
+  bindTimelineDelegation();
   v.querySelectorAll(".tcol").forEach(col=>{
-    col.querySelectorAll(".ev").forEach(ev=>{
-      ev.onclick=e=>{ if(ev._suppressClick){ ev._suppressClick=false; e.stopPropagation(); return; } e.stopPropagation(); if(ev.dataset.kr) okrOpenKR(ev.dataset.kr); else openModal(ev.dataset.id, ev.dataset.date); };
-      if(!ev.dataset.kr) attachEvDrag(ev, state.view===VIEWS.WEEK);
-    });
-    col.querySelector(".tbody").onclick=()=>{ const dt=parseLocal(col.dataset.day+"T09:00"); openModal(null, ymd(dt)); };
+    col.querySelectorAll(".ev").forEach(ev=>{ if(!ev.dataset.kr) attachEvDrag(ev, state.view===VIEWS.WEEK); });
   });
+}
+/* 日/周视图委托处理器：.ev 优先（内含拖拽后的点击抑制），否则落到 .tbody 空白处新建 */
+let __tlDelegated=false;
+let tlSuppressClick=false;   // 拖拽改期后抑制紧接着的合成 click（原实现挂在 ev._suppressClick 上，随 DOM 重建丢弃）
+function handleTimelineClick(e){
+  const el=e.target; if(!el || !el.closest) return;
+  const ev=el.closest(".ev");
+  if(ev){
+    if(tlSuppressClick){ tlSuppressClick=false; return; }
+    if(ev.dataset.kr) okrOpenKR(ev.dataset.kr); else openModal(ev.dataset.id, ev.dataset.date);
+    return;
+  }
+  const tb=el.closest(".tbody");
+  if(tb){
+    const col=tb.closest(".tcol"); if(!col) return;
+    openModal(null, ymd(parseLocal(col.dataset.day+"T09:00")));
+  }
+}
+function bindTimelineDelegation(){
+  if(__tlDelegated) return;
+  const view=document.getElementById("view");
+  if(view) view.addEventListener("click", e=>{ if(!e.target.closest(".timeline")) return; handleTimelineClick(e); });
+  __tlDelegated=true;
 }
 function renderWeek(){
   const cur=startOfDay(state.cur); const dw=(cur.getDay()+6)%7;
@@ -6118,7 +6216,7 @@ function attachGanttDrag(bar, colW){
       bar.classList.remove("dragging"); bar.style.transform="";
       if(!moved){ openModal(id, bar.dataset.date); return; }
       const delta=Math.round((ev.clientX-startX)/cw);
-      if(delta!==0){ shiftTaskDates(id, delta, bar.dataset.date); save(); renderAll(); toast("已平移 "+Math.abs(delta)+" 天"); }
+      if(delta!==0){ shiftTaskDates(id, delta, bar.dataset.date); saveAndToast("已平移 "+Math.abs(delta)+" 天"); renderAll(); }
       else { openModal(id, bar.dataset.date); }
     };
     document.addEventListener("pointermove",move); document.addEventListener("pointerup",up);
@@ -6186,6 +6284,31 @@ function thPgSig(){
   }catch(e){ return ""; }
 }
 
+/* ===== 收件箱交互：事件委托（P1-10，对标「今日」视图 handleTodayClick 模式） =====
+   此前 renderInbox 每次渲染先 innerHTML 重建列表、再 forEach 逐行绑 4 个闭包：
+   每次 renderAll 新建 N 个闭包又丢弃（GC 压力），且绑定逻辑散在渲染函数里，
+   重建 DOM 后漏绑一次就静默失效。现改为：容器常驻只换 innerHTML，#view 上一次性委托，
+   用 .inbox-wrap 收口作用域（#view 里其他视图也有 data-done 等同名属性，防误触发）。 */
+let __inboxDelegated=false;
+function handleInboxClick(e){
+  const el=e.target; if(!el || !el.closest) return;
+  const add=el.closest("#inboxAdd");         if(add){ openInboxNew(); return; }
+  const sb=el.closest("#inboxSel");          if(sb){ selToggle("inbox"); return; }
+  if(selMode) return;   // 选择模式下整行不触发打开，避免误触（与原逐项绑定行为一致）
+  const rest=el.closest("[data-restore]");   if(rest){ restoreTask(rest.dataset.restore||rest.closest(".inbox-item").dataset.id); return; }
+  const row=el.closest(".inbox-item");       if(!row || !row.dataset.id) return;
+  const id=row.dataset.id;
+  if(el.closest("[data-edit]")){ openModal(id,null); return; }
+  if(el.closest("[data-done]")){ toggleDone(id, ymd(startOfDay(new Date()))); return; }
+  if(el.closest("[data-plan]")){ planInbox(id); return; }
+}
+function bindInboxDelegation(){
+  if(__inboxDelegated) return;
+  const view=document.getElementById("view");
+  if(view) view.addEventListener("click", e=>{ if(!e.target.closest(".inbox-wrap")) return; handleInboxClick(e); });
+  __inboxDelegated=true;
+}
+
 function renderInbox(){
   const v=document.getElementById("view");
   const list=inboxTasks();
@@ -6193,8 +6316,8 @@ function renderInbox(){
   if(!list.length){
     html+='<div style="display:flex;justify-content:flex-end;margin-bottom:10px;"><button class="btn btn-pri btn-sm" id="inboxAdd">+ 添加到收件箱</button></div>';
     html+=emptyState("✨","收件箱是空的。想到什么随手丢进来，之后再安排时间。");
-    v.innerHTML=html;
-    const a=v.querySelector("#inboxAdd"); if(a) a.onclick=()=>openInboxNew();
+    v.innerHTML='<div class="inbox-wrap">'+html+'</div>';
+    bindInboxDelegation();   // 空态也要绑：#inboxAdd 由委托接管，否则首次进入空列表时按钮是死的
     return;
   }
   html+=`<div style="display:flex;align-items:center;margin-bottom:10px;gap:8px;"><span class="hint" style="margin:0;">共 ${list.length} 项（未完成 ${list.filter(t=>t.status!=="done").length}）</span><span style="flex:1"></span><button class="btn btn-ghost btn-sm sel-toggle" id="inboxSel">${selMode?'退出选择':'选择'}</button><button class="btn btn-pri btn-sm" id="inboxAdd">+ 添加到收件箱</button></div>`;
@@ -6212,8 +6335,8 @@ function renderInbox(){
         <div class="ibt" data-edit>${esc(t.title)}</div>
         ${t.desc?`<div class="ibd">${esc(t.desc)}</div>`:""}
         <div class="ibs">
-          <span class="badge" style="background:${hexA(pc,.16)};color:${pc}">${esc(t.priority||"")}</span>
-          <span class="badge" style="background:${hexA(cc,.16)};color:${cc}">${esc(t.cat||"")}</span>${t.dropped?`<span class="badge drop">不补做</span>`:""}
+          <span class="badge" style="background:${hexA(pc,.16)};color:${cssInk(pc)}">${esc(t.priority||"")}</span>
+          <span class="badge" style="background:${hexA(cc,.16)};color:${cssInk(cc)}">${esc(t.cat||"")}</span>${t.dropped?`<span class="badge drop">不补做</span>`:""}
           ${sub}${tagsHtml(t)}${done?`<span class="badge done-at" style="${DONE_AT_CSS}">${doneAtMark(t, null, true)}</span>`:""}
         </div>
       </div>
@@ -6226,25 +6349,18 @@ function renderInbox(){
   html+='</div>';
   if(!selMode) html+=pgBar(list.length,"inbox",()=>renderInbox());
   html+=selMode?selBarHTML([{label:"完成",cls:"btn-pri",fn:()=>{ batchInboxDone(); }},{label:"改属性",cls:"btn-ghost",fn:()=>{ batchInboxProps(); }},{label:"标记不补做",cls:"btn-ghost",fn:()=>{ batchInboxSkip(); }},{label:"删除",cls:"btn-danger",fn:()=>{ batchInboxDelete(); }},{label:"清空已完成",cls:"btn-ghost",fn:()=>{ batchInboxClearDone(); }}]) : "";
-  v.innerHTML=html;
+  v.innerHTML='<div class="inbox-wrap">'+html+'</div>';
   pgBind();
-  const a=v.querySelector("#inboxAdd"); if(a) a.onclick=()=>openInboxNew();
-  const sb=v.querySelector("#inboxSel"); if(sb) sb.onclick=()=>selToggle("inbox");
-  v.querySelectorAll(".inbox-item").forEach(row=>{
-    const id=row.dataset.id;
-    if(selMode) return; // 选择模式下整行不触发打开，避免误触
-    row.querySelector("[data-edit]").onclick=()=>openModal(id,null);
-    row.querySelector("[data-done]").onclick=()=>{ toggleDone(id, ymd(startOfDay(new Date()))); };
-    row.querySelector("[data-plan]").onclick=()=>planInbox(id);
-    const rb=row.querySelector("[data-restore]"); if(rb) rb.onclick=()=>{ restoreTask(rb.dataset.restore); };
-  });
+  bindInboxDelegation();   // P1-10：列表条目的 编辑/完成/安排/恢复 全部走委托，不再逐行绑闭包
   if(selMode) selBind([{label:"完成",cls:"btn-pri",fn:batchInboxDone},{label:"改属性",cls:"btn-ghost",fn:batchInboxProps},{label:"标记不补做",cls:"btn-ghost",fn:batchInboxSkip},{label:"删除",cls:"btn-danger",fn:batchInboxDelete},{label:"清空已完成",cls:"btn-ghost",fn:batchInboxClearDone}]);
 }
 function batchInboxDone(){
   const ids=Array.from(selIds); if(!ids.length){ toast("请先勾选任务"); return; }
   snapshot();
-  for(const id of ids){ const t=state.tasks.find(x=>x.id===id); if(t && t.status!=="done"){ pushHistory(t); t.status="done"; setDoneAt(t, null, toStr(new Date())); setAllSubsDone(t, null, true); touchTask(t); } }
-  save(); selClear(); renderAll(); toast("已批量完成 "+ids.length+" 项（子任务一并勾选）");
+  let n=0;
+  for(const id of ids){ const t=state.tasks.find(x=>x.id===id); if(t && t.status!=="done" && !isRecTask(t)){ pushHistory(t); t.status="done"; setDoneAt(t, null, toStr(new Date())); setAllSubsDone(t, null, true); touchTask(t); n++; } }   // P2-1：重复任务走实例口径（isRecTask），批量直改 status 会绕过 overrides/doneDates 造成口径错乱；收件箱现仅收无日期任务打不中，守卫为框架兜底
+  if(n===0){ toast("选中的都已完成，无需重复打卡","warn"); selClear(); return; }
+  saveAndToast("已批量完成 "+n+" 项（子任务一并勾选）"); selClear(); renderAll();
 }
 async function batchInboxDelete(){
   const ids=Array.from(selIds); if(!ids.length){ toast("请先勾选任务"); return; }
@@ -6256,7 +6372,7 @@ async function batchInboxDelete(){
   snapshot();
   deleteTasksWithHistory(toDel);
   trashRefresh();
-  save(); selClear(); renderAll(); toast("已删除 "+toDel.length+" 项"+(completed.length?("，保留 "+completed.length+" 项已完成"):""));
+  saveAndToast("已删除 "+toDel.length+" 项"+(completed.length?("，保留 "+completed.length+" 项已完成"):"")); selClear(); renderAll();
 }
 // M8：批量改属性（分类/优先级/标签/日期）。只修改被勾选的属性行；日期用于把任务移到某一天。
 function batchInboxProps(){
@@ -6316,7 +6432,7 @@ function batchInboxClearDone(){
   snapshot();
   deleteTasksWithHistory(done);
   trashRefresh();
-  save(); renderAll(); toast("已清空 "+done.length+" 项已完成");
+  saveAndToast("已清空 "+done.length+" 项已完成"); renderAll();
 }
 // 批量标记不补做：普通任务 dropped=true（不计入收件箱未完成计数与进行中；逾期清单仍展示）；重复任务需逐日跳过，批量不适用。
 async function batchInboxSkip(){
@@ -6416,7 +6532,9 @@ function fitBarLabels(root){
     let w=Math.ceil(max)+1;
     if(max > med*2) w=Math.min(w, Math.max(Math.ceil(med*2), 72)); // 异常长名称不连坐其它行
     w=Math.min(w, cap);
-    labels.forEach(el=>{ el.style.width=w+"px"; });
+    /* P2-3：测量（强制布局）已不可避免，但最终写入推迟到下一帧 —— 避免同帧「写 max-content→读宽→写终值」
+       连环触发 2 次强制同步布局；rAF 闭包持有元素引用，即使当帧内 DOM 重建也只是空写、无害 */
+    requestAnimationFrame(()=>{ labels.forEach(el=>{ el.style.width=w+"px"; }); });
   });
 }
 function renderStats(){
@@ -6467,17 +6585,20 @@ function renderStats(){
   const staleCatSet=new Set(staleCats.map(x=>x.name)), stalePriSet=new Set(stalePris.map(x=>x.name));
   const catPct=c=>total? Math.round(catCount[c]/total*100):0;
   const priPct=p=>total? Math.round(priCount[p]/total*100):0;
+  /* P2-4：预建「日期→完成数」Map，趋势计算从 O(天数×流水) 降为 O(流水+天数)
+     （原先最坏 730 天 × 5000 条流水 × 2 遍 ≈ 730 万次字符串比较/每次渲染） */
+  const _dcount={}; if(Array.isArray(stats.history)) stats.history.forEach(h=>{ if(h&&h.d) _dcount[h.d]=(_dcount[h.d]||0)+1; });
   const days=statsRangeDays();
   /* ：区间超过 45 天时按「每 N 天一根柱」聚合，柱数恒定 ≤30，标签只保留起始日 */
   const bucket = days.length>45 ? Math.ceil(days.length/30) : 1;
   const trend=[];
   if(bucket===1){
-    days.forEach(d=>{ const n=doneOnDay(d); trend.push({k:ymd(d), n, has:stats.history.some(h=>h.d===ymd(d)), lab:(d.getMonth()+1)+"/"+d.getDate()}); });
+    days.forEach(d=>{ const n=_dcount[ymd(d)]||0; trend.push({k:ymd(d), n, has:n>0, lab:(d.getMonth()+1)+"/"+d.getDate()}); });
   }else{
     for(let i=0;i<days.length;i+=bucket){
       const seg=days.slice(i,i+bucket);
-      const segHas=seg.some(d=>stats.history.some(h=>h.d===ymd(d)));
-      const n=seg.reduce((s,d)=>s+doneOnDay(d),0);
+      const segHas=seg.some(d=>(_dcount[ymd(d)]||0)>0);
+      const n=seg.reduce((s,d)=>s+(_dcount[ymd(d)]||0),0);
       const a=seg[0], b=seg[seg.length-1];
       trend.push({k:ymd(a), n, has:segHas, lab:(a.getMonth()+1)+"/"+a.getDate()+(seg.length>1?"~"+(b.getMonth()+1)+"/"+b.getDate():"")});
     }
@@ -7227,11 +7348,25 @@ function diagCard(title,num,items){
 /* ===== 回顾：笔记 / 快照 / 自定义清单 存储 ===== */
 let reviewViewWeek=null;
 function reviewNotesGet(wk){ try{ return JSON.parse(localStorage.getItem("wb_taskhub_review_notes_v1")||"{}")[wk]||{summary:"",next:""}; }catch(e){ return {summary:"",next:""}; } }
-function reviewNotesSet(wk,summary,next){ let all={}; try{all=JSON.parse(localStorage.getItem("wb_taskhub_review_notes_v1")||"{}");}catch(e){} all[wk]={summary,next}; localStorage.setItem("wb_taskhub_review_notes_v1",JSON.stringify(all)); }
+/* P1-8（2026-10-23 修）：原裸 localStorage.setItem 有两个问题——
+   ① 绑在 oninput 上逐键全量 JSON 序列化 + 写盘，复盘文字长时可感卡顿；
+   ② 配额满时从 oninput 抛未捕获异常（此处不在任何 try 内），用户零反馈，刷新后内容全丢。
+   改为 300ms 去抖 + storageSetSafe（失败会弹可行动告警）。wk 由闭包捕获：去抖窗口内切周时，
+   写回的是「旧周在输入最后一刻的内容」，语义正确。 */
+var _reviewNotesTimer=null;
+function reviewNotesSet(wk,summary,next){
+  if(_reviewNotesTimer) clearTimeout(_reviewNotesTimer);
+  _reviewNotesTimer=setTimeout(function(){
+    _reviewNotesTimer=null;
+    let all={}; try{all=JSON.parse(localStorage.getItem("wb_taskhub_review_notes_v1")||"{}");}catch(e){}
+    all[wk]={summary,next};
+    storageSetSafe("wb_taskhub_review_notes_v1",JSON.stringify(all));
+  },300);
+}
 function reviewSnapsGet(){ try{ return JSON.parse(localStorage.getItem("wb_taskhub_review_snaps_v1")||"{}"); }catch(e){ return {}; } }
-function reviewSnapSave(wk,data){ const all=reviewSnapsGet(); all[wk]=data; localStorage.setItem("wb_taskhub_review_snaps_v1",JSON.stringify(all)); }
+function reviewSnapSave(wk,data){ const all=reviewSnapsGet(); all[wk]=data; storageSetSafe("wb_taskhub_review_snaps_v1",JSON.stringify(all)); }   // P1-8：原裸 setItem 配额满时未捕获异常零反馈
 function reviewTplGet(){ try{ return JSON.parse(localStorage.getItem("wb_taskhub_review_tpl_v1")||"[]"); }catch(e){ return []; } }
-function reviewTplSet(arr){ localStorage.setItem("wb_taskhub_review_tpl_v1",JSON.stringify(arr)); }
+function reviewTplSet(arr){ storageSetSafe("wb_taskhub_review_tpl_v1",JSON.stringify(arr)); }   // P1-8：原裸 setItem 配额满时未捕获异常零反馈
 
 function renderReview(){
   const v=document.getElementById("view");
@@ -7298,8 +7433,8 @@ function renderReview(){
     h+=`<div class="diag-card wide"><div class="diag-label">目标 OKR 总览</div>${okrHtml}</div>`;
   }
   h+=`</div>`;
-  h+=`<div class="review-notes"><h3>本周小结</h3><textarea id="rvSummary" placeholder="这周做了什么、有什么感悟…" ${viewingPast?'readonly':''}>${esc(notes.summary)}</textarea>
-    <h3>下周重点</h3><textarea id="rvNext" placeholder="下周最想推进的 1-3 件事…" ${viewingPast?'readonly':''}>${esc(notes.next)}</textarea></div>`;
+  h+=`<div class="review-notes"><h3>本周小结</h3><textarea id="rvSummary" maxlength="2000" placeholder="这周做了什么、有什么感悟…" ${viewingPast?'readonly':''}>${esc(notes.summary)}</textarea>
+    <h3>下周重点</h3><textarea id="rvNext" maxlength="2000" placeholder="下周最想推进的 1-3 件事…" ${viewingPast?'readonly':''}>${esc(notes.next)}</textarea></div>`;
   h+=`<div class="review-check"><h3>GTD 周回顾清单${viewingPast?'':' <button class="btn btn-ghost btn-sm" id="btnExportReview" style="float:right">📤 导出本周小结</button>'}</h3><div class="checks2">`;
   if(snap){
     snap.steps.forEach(s=>{
@@ -7957,8 +8092,8 @@ function duplicateTask(id){   // 复制：克隆所有字段，重置完成态�
   const t=state.tasks.find(x=>x.id===id); if(!t) return;
   const c=JSON.parse(JSON.stringify(t));
   c.id=newId("t"); c.doneDates=[]; c.doneAt={}; delete c._sync;
-  state.tasks.push(c); save();
-  openModal(c.id,null); toast("已复制任务");
+  state.tasks.push(c); saveAndToast("已复制任务");
+  openModal(c.id,null);
 }
 async function saveTemplateFromModal(){
   const t=state.tasks.find(x=>x.id===editingId); if(!t) return;
@@ -7992,7 +8127,7 @@ function newFromTemplate(tp){   // 用模板数据建一个新任务并打开（
     recurrence:d.recurrence||{freq:"none"}, project:d.project||"", gw:d.gw||"next", ctx:d.ctx||"",
     est:d.est||0, energy:d.energy||"", skipMissed:!!d.skipMissed, doneDates:[], doneAt:{},
     subtasks:(d.subtasks||[]).map(s=>({id:newId("s"),title:s.title,done:false})) };
-  state.tasks.push(task); save(); openModal(nid,null); toast("已从模板新建："+tp.name);
+  state.tasks.push(task); saveAndToast("已从模板新建："+tp.name); openModal(nid,null);
 }
 function toggleTplMenu(){ const m=document.getElementById("tplMenu"); if(!m) return; if(m.style.display==="block"){ m.style.display="none"; } else { renderTplMenu(); } }
 document.addEventListener("click",e=>{ const m=document.getElementById("tplMenu"); if(m && m.style.display==="block" && !m.contains(e.target) && e.target.id!=="btnTpl") m.style.display="none"; });
@@ -8072,13 +8207,17 @@ function saveTask(){
         tags: document.getElementById("f_tags").value.split(/[,，\s]+/).map(s=>s.trim()).filter(Boolean)
       };
     }
-    touchTask(et); save(); closeModal(); renderAll(); toast("已单独修改该日任务"); return;
+    touchTask(et); saveAndToast("已单独修改该日任务"); closeModal(); renderAll(); return;
   }
   let t;
   let _subBeforeAll=false;   // 保存前子任务是否已全勾（供 syncDoneFromSubtasks 判定回退）
   if(editingId){
     t=state.tasks.find(x=>x.id===editingId);
-    _subBeforeAll=(t.subtasks||[]).every(s=>subIsDone(t, s, editingDate));   // 与 syncDoneFromSubtasks 同口径：重复任务看发生日的 subDone，而非遗留的 s.done
+    if(!t){   // P0：编辑期间该任务被云端合并（墓碑胜出）抹掉了 → 降级为新建，不要在此崩溃丢表单
+      toast("该任务已在其它设备被删除，已按新任务保存","warn",6000);
+      editingId=null;
+    }
+    _subBeforeAll=t?(t.subtasks||[]).every(s=>subIsDone(t, s, editingDate)):true;   // 与 syncDoneFromSubtasks 同口径：重复任务看发生日的 subDone，而非遗留的 s.done
     Object.assign(t, data);
     if(rec.freq==="none"){
       // ：转非重复时保留最近一次打卡历史，而非清空（避免数据丢失 / 状态自相矛盾）
@@ -8103,7 +8242,7 @@ function saveTask(){
   }
   syncDoneFromSubtasks(t, editingDate, _subBeforeAll);
   touchTask(t);
-  save(); closeModal(); renderAll(); toast(editingId?"已保存修改":"已新建任务");
+  saveAndToast(editingId?"已保存修改":"已新建任务"); closeModal(); renderAll();
 }
 /* 任务「推迟 / 延期」：
    mode="both" 推迟：start/end 整体平移 n 天（保留时长），无日期任务则赋予从今天起的新日期
@@ -8409,7 +8548,7 @@ async function optReset(){
   pris=DEFAULT_PRIS.map(p=>Object.assign({},p));
   const catSet=new Set(catNames()), priSet=new Set(priNames());
   state.tasks.forEach(t=>{ if(!catSet.has(t.cat)) t.cat="其他"; if(!priSet.has(t.priority)) t.priority="P1"; });
-  catsSave(); prisSave(); save(); renderOptList(); rebuildCatPriSelects(); renderAll(); toast("已恢复默认");
+  catsSave(); prisSave(); saveAndToast("已恢复默认"); renderOptList(); rebuildCatPriSelects(); renderAll();
 }
 
 /* ===== 遗留值整理 =====
@@ -9398,7 +9537,7 @@ function renderLists(){
       <button class="btn btn-ghost btn-sm" data-newadd>添加</button>
       <button class="btn btn-ghost btn-sm" data-import title="多行批量导入">多行导入</button>
     </div>`;
-    detail+=`<div class="limport" id="lImport" style="display:none"><textarea data-importbox placeholder="每行一条，可粘贴多行文本批量导入"></textarea><button class="btn btn-pri btn-sm" data-importgo>导入</button> <span class="hint">每行生成一条条目</span></div>`;
+    detail+=`<div class="limport" id="lImport" style="display:none"><textarea data-importbox maxlength="2000" placeholder="每行一条，可粘贴多行文本批量导入"></textarea><button class="btn btn-pri btn-sm" data-importgo>导入</button> <span class="hint">每行生成一条条目</span></div>`;
     detail+=`</div>`;
   }
   detail+=`</div>`;
@@ -9807,16 +9946,18 @@ function escNoIcon(s){return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":
    下次触发会补上，绝不并发。目的：避免重复点击触发并发请求，导致后发先至的旧数据覆盖新数据。
    注意：按钮内含 SVG 图标，故只切换 disabled/class，不用 textContent 覆盖（会抹掉 SVG）。 */
 let _cloudBusy=false;
-function cloudIsBusy(){ return _cloudBusy; }
+/* R4 移植（对齐明信片 4316）：withBusy 退化为「纯 UI 反馈 + 收尾补传」，**不再自己置 _cloudBusy** ——
+   锁已下沉到 cloudUpload / cloudStartupPull / cloudDownload 内部。原先两层都置锁，被包裹的
+   cloudUpload 自锁化后会在第一行被 withBusy 的锁挡掉（手动上传点按钮没反应）。 */
 async function withBusy(btn, fn){
-  if(_cloudBusy){ toast("云同步正在进行中，请稍候","warn"); return; }
+  if(_cloudBusy||_pullBusy){ toast("云同步正在进行中，请稍候","warn"); return; }
   const b=(typeof btn==="string"?document.getElementById(btn):btn);
-  _cloudBusy=true;
   if(b){ try{ b.disabled=true; b.classList.add("is-busy"); b.setAttribute("aria-busy","true"); }catch(_){} }
   try{ return await fn(); }
   finally{
-    _cloudBusy=false;
     if(b){ try{ b.disabled=false; b.classList.remove("is-busy"); b.removeAttribute("aria-busy"); }catch(_){} }
+    /* 补传：这一轮同步期间被自锁挡下、置了 _pendingUpload 的改动，此刻补上（对齐明信片 4334） */
+    if(_pendingUpload){ _pendingUpload=false; cloudAutoUpload(); }
   }
 }
 
@@ -9963,6 +10104,9 @@ function undoPersist(){
 function undoLoad(){ try{ const a=JSON.parse(localStorage.getItem(UNDO_KEY)||"[]"); if(Array.isArray(a)) undoStack=a; }catch(e){} }
 function snapshot(){
   try{
+    // P2-5：版本号短路 —— 自上次快照以来没有任何保存路径触碰数据 ⇒ 与栈顶必然一致，
+    // 直接跳过下方 16 次全量序列化（原先每次编辑都要做 8 次深克隆 + 8 次 stringify 比较）
+    if(_dataVer===_lastSnapVer) return;
     // O8：与栈顶做一次序列化比较 —— 无实际变化则不重复入栈/落盘（如点击后数据未变/同一操作重复触发）
     const top=undoStack[undoStack.length-1];
     if(top){
@@ -9974,10 +10118,11 @@ function snapshot(){
         && JSON.stringify(top.projects)===JSON.stringify(state.projects||[])
         && JSON.stringify(top.okrs)===JSON.stringify(state.okrs||[])
         && JSON.stringify(top.anniv)===JSON.stringify(state.anniv||[]);   // P0-4：去重比较同步扩域，否则项目/目标/纪念日的改动会被判为"无变化"而不入栈
-      if(same) return;
+      if(same){ _lastSnapVer=_dataVer; return; }   // P2-5：内容与栈顶一致也记版本，避免下次重复全量比较
     }
     undoStack.push(snapshotObj());
     if(undoStack.length>UNDO_MAX) undoStack.shift();
+    _lastSnapVer=_dataVer;   // P2-5：记录已快照到的版本
     const now=Date.now();
     if(now-_lastUndoPersistT>2500){ _lastUndoPersistT=now; undoPersist(); }   // O8：落盘节流，避免每次快照全量写盘
   }catch(e){}
@@ -9996,7 +10141,7 @@ function applyUndo(s){
   if(Array.isArray(s.projects)){ state.projects=s.projects; projectsSave(); }
   if(Array.isArray(s.okrs)){ state.okrs=s.okrs; okrsSave(); }
   if(Array.isArray(s.anniv)){ state.anniv=s.anniv; annivSave(); }
-  save(); mediaSave(); habitSave(); listsSave(); renderAll(); toast("已撤销");
+  saveAndToast("已撤销"); mediaSave(); habitSave(); listsSave(); renderAll();
 }
 /* 带「撤销」按钮的提示：语义与 Ctrl+Z 完全一致（弹栈顶快照还原），调用点须已在改数据前 snapshot()。
    2026-10-19 审查补回：fdc6c7c 引入、9976228「删死代码4薄封装」误删定义 → 11 处调用悬空
@@ -10158,7 +10303,7 @@ document.getElementById("btnClearOv").onclick=()=>{
   if(!editingId||!editingDate) return;
   const t=state.tasks.find(x=>x.id===editingId);
   if(t) delRecOverride(t, editingDate);
-  save(); openModal(editingId, editingDate, "once"); toast("已清除该日单独设置，恢复整组默认");
+  saveAndToast("已清除该日单独设置，恢复整组默认"); openModal(editingId, editingDate, "once");
 };
 document.getElementById("btnDone").onclick=markDoneBtn;
 const undoDoneEl=document.getElementById("btnUndoDone"); if(undoDoneEl) undoDoneEl.onclick=undoDoneBtn;
@@ -10305,7 +10450,7 @@ document.getElementById("btnBackfillSkip").onclick=async()=>{
   if(!targets.length){ toast("没有需要补勾的重复任务"); return; }
   if(!(await confirmDialog("将为 "+targets.length+" 个尚未设置「错过不补」的重复任务批量开启（已开启的不会被改动）。这会让它们的往期未完成项不再进入「逾期待补做」。",{ok:"批量开启",danger:true}))) return;
   targets.forEach(t=>{ t.skipMissed=true; });
-  save(); renderAll(); toast("已为 "+targets.length+" 个重复任务开启「错过不补」");
+  saveAndToast("已为 "+targets.length+" 个重复任务开启「错过不补」"); renderAll();
 };
 document.getElementById("mCancel").onclick=closeMedia;
 document.getElementById("mSave").onclick=saveMedia;
@@ -11030,8 +11175,17 @@ const TASK_ALLOW=new Set([                             // O11-1：导入字段�
   "est","energy","seed","archived","done",
   "gw","ctx","createdAt"        // P1-9：GTD 三态 / 情境 / 创建时间——缺失会让导入任务 GTD 回落 next、情境徽标消失、收件箱排序与"停滞>14天"判定失真
 ]);
-async function cloudUpload(silent){
-  if(!cloud.token||!cloud.gist){ if(!silent) setCloudStatus("请先填写 Token 与 Gist ID", true); return; }
+/* R4 移植（对齐明信片 4106）：自锁下沉到函数内部。原先锁只在 withBusy 里置起，
+   而自动上传的三条路径（1.5s 防抖定时器 / flushSave / scheduleCloudRetry）不经过 withBusy，
+   两条上传可同时在飞：后写的整包 PATCH 覆盖先写的，先写方改动被静默吞掉一次（读改写窗口最宽 35s）。 */
+async function cloudUpload(silent, keepalive){
+  if(_cloudBusy){ _pendingUpload=true; return false; }   // 忙 → 排队，收尾统一补传
+  if(!keepalive) _cloudBusy=true;
+  try{ return await _cloudUploadInner(silent, keepalive); }
+  finally{ if(!keepalive) _cloudBusy=false; }
+}
+async function _cloudUploadInner(silent, keepalive){
+  if(!cloud.token||!cloud.gist){ if(!silent) setCloudStatus("请先填写 Token 与 Gist ID", true); return false; }
   if(!silent) setCloudStatus("上传中…");
   setCloudPill("syncing");
   let phase="read";
@@ -11040,17 +11194,24 @@ async function cloudUpload(silent){
     // H1 修复：读云端失败（网络不可达 / HTTP 非 2xx）→ 放弃本次上传，仅保留本地已落盘，
     //          绝不拿「可能过旧的本地整包」覆盖云端（此前多次"数据消失"的共同机理）。
     const r2=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 20000);
-    if(!r2.ok) throw new Error(await gistErrText(r2));
+    /* 修复：原 gistErrText 全文件无定义 → HTTP 非 2xx 时抛 ReferenceError「gistErrText is not defined」，
+       真实状态码与可行动建议全丢，且 scheduleCloudRetry 的 /HTTP 429/ 专项退避永远匹配不上。改用 SHARED 的 explainHttp。 */
+    if(!r2.ok){ const e2=new Error(explainHttp(r2.status,"上传")); e2.status=r2.status; throw e2; }
     const d2=await r2.json();
     const ff=d2.files&&d2.files["taskhub.json"];
-    if(ff&&ff.content){ const o2=JSON.parse(ff.content); mergeTasksIntoLocal(o2); if(Array.isArray(o2.habits)) habits=mergeHabits(habits, o2.habits, o2.deleted); if(o2.media) media=mediaMergeKeep(o2.media, o2.deleted); }
+    if(ff&&ff.content){
+      // 编辑弹窗打开时不做云端合并：mergeTasksIntoLocal 会就地改写/删除 state.tasks，正在编辑的任务可能被移走（P0-2 的另一半）。
+      // 改为排队补传；设置弹窗不受影响（这里只拦任务编辑 #mask 与详情 #detailMask 两个数据弹窗）。
+      if(document.querySelector("#mask.show,#detailMask.show")){ _pendingUpload=true; setCloudPill("ok"); return false; }
+      const o2=JSON.parse(ff.content); mergeTasksIntoLocal(o2); if(Array.isArray(o2.habits)) habits=mergeHabits(habits, o2.habits, o2.deleted); if(o2.media) media=mediaMergeKeep(o2.media, o2.deleted);
+    }
     phase="write";
     const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{
       method:"PATCH",
       headers:{"Authorization":authHeader(),"Content-Type":"application/json"},
       body:JSON.stringify({files:{"taskhub.json":{content:JSON.stringify(syncPayload(),null,2)}}})
     }, 15000);
-    if(!res.ok) throw new Error(await gistErrText(res));
+    if(!res.ok){ const e2=new Error(explainHttp(res.status,"上传")); e2.status=res.status; throw e2; }
     const t=new Date().toLocaleTimeString();
     // M4：把「本次同步云端改了什么」告诉用户 —— 静默覆盖不再无感知
     const S=window.__lastMergeStats;
@@ -11076,11 +11237,16 @@ async function cloudUpload(silent){
   }
 }
 async function cloudDownload(){
+  if(_cloudBusy||_pullBusy){ toast("云同步正在进行中，请稍候","warn"); return; }
+  _pullBusy=true;
+  try{ return await _cloudDownloadInner(); } finally{ _pullBusy=false; }
+}
+async function _cloudDownloadInner(){
   if(!cloud.token||!cloud.gist){ setCloudStatus("请先在设置中填写 Token 与 Gist ID", true); toast("请先在设置中填写 GitHub Token 与 Gist ID，再下载", "danger"); return; }
   setCloudStatus("下载中…");
   try{
     const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 15000);
-    if(!res.ok) throw new Error(await gistErrText(res));
+    if(!res.ok){ const e2=new Error(explainHttp(res.status,"下载")); e2.status=res.status; throw e2; }
     const data=await res.json();
     const _files=data.files||{};
     let f=_files["taskhub.json"];
@@ -11165,7 +11331,7 @@ function scheduleCloudRetry(){
 let _upTimer=null;
 let _pendingUpload=false;   // 已被启动门禁拦下的待传改动（拉取一旦成功必须补传，否则永久搁置）
 function cloudAutoUpload(){
-  if(_cloudBusy) return;
+  if(_cloudBusy){ if(cloud.auto&&cloud.token&&cloud.gist) _pendingUpload=true; return; }   // 忙 → 排队，收尾统一补传（对齐明信片 4276）
   if(!cloud.auto) return;
   if(!cloud.token||!cloud.gist) return;
   // 启动拉取未完成/失败前不自动上传（保护 Gist 不被空数据覆盖），但要记下「有待传改动」。
@@ -11338,11 +11504,16 @@ function dataSigOf(obj){
    +"|"+s(mediaSig(obj.media));
 }
 async function cloudStartupPull(silent){
+  if(_cloudBusy||_pullBusy){ window.__pullOk=false; return; }   // 与上传/手动下载互斥；被挡下也要重置成败标志，防调用方误判成功
+  _pullBusy=true;
+  try{ return await _cloudStartupPullInner(silent); } finally{ _pullBusy=false; }
+}
+async function _cloudStartupPullInner(silent){
   window.__pullOk=false;   // 供静默轮询判定本次拉取成败（本函数内部自行 catch，不向外抛错）
   try{
     if(!silent) setCloudPill("syncing");   // 拉取中给可见反馈（静默轮询不闪灯，避免每 15s 抖动）
     const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 20000);
-    if(!res.ok) throw new Error(await gistErrText(res));   // H2：云不可达/认证失败 → 走 catch，不放开自动上传
+    if(!res.ok){ const e2=new Error(explainHttp(res.status,"读取")); e2.status=res.status; throw e2; }   // H2：云不可达/认证失败 → 走 catch，不放开自动上传（原 gistErrText 未定义，已修）
     _bootSyncAllowed=true;   // 云可达且有数据，启动期内的自动上传/落盘上传均放开
     window.__pullOk=true;
     const data=await res.json();
@@ -11407,7 +11578,7 @@ async function cloudSilentPull(){
   window.__lastPullTry=Date.now();
   _pullBusy=true;
   try{
-    await cloudStartupPull(true);
+    await _cloudStartupPullInner(true);   // 本函数已自置 _pullBusy，须调内层（薄壳会直接 return）
     if(window.__pullOk){
       _pullFailN=0; markSynced();
       // 自愈补传：此前被 _bootSyncAllowed 拦下的改动在此刻补传（cloudUpload 先读云端再合并写回，不会覆盖其他设备数据）
@@ -11624,7 +11795,7 @@ if(_ob){ _ob.addEventListener("click", toggleTopOverview); _ob.addEventListener(
     </div>
     <div class="field" style="justify-content:flex-end;"><label class="chk" style="display:flex;align-items:center;gap:6px;height:38px;cursor:pointer;"><input type="checkbox" id="aYearly" checked> 每年重复</label></div>
     <div class="lunar-preview" id="aLunar"></div>
-    <div class="field"><label for="aNote">备注</label><textarea id="aNote" rows="2" placeholder="可选，如：准备礼物 / 发祝福"></textarea></div>
+    <div class="field"><label for="aNote">备注</label><textarea id="aNote" rows="2" maxlength="500" placeholder="可选，如：准备礼物 / 发祝福"></textarea></div>
     <div class="row2" style="margin-top:12px;">
       <button class="btn btn-ghost" id="btnAnnivCancel" type="button">取消</button>
       <button class="btn btn-pri" id="btnAnnivSave" type="button">保存</button>
@@ -11655,6 +11826,23 @@ if(_ob){ _ob.addEventListener("click", toggleTopOverview); _ob.addEventListener(
     var btn=document.getElementById('introStart');
     if(btn){ btn.onclick=function(){ var m=document.getElementById('introMask'); if(m) m.classList.remove('show'); }; }
   }catch(e){}
+})();
+
+/* 全局错误兜底（P1-6，2026-10-23）：单文件工具无构建无 Sentry，此前任何未捕获异常都静默丢失，
+   用户只能描述「坏了」却说不出原因。这里把 error / unhandledrejection 转成可见 toast，
+   给出可上报的报错信息。兜底自身绝不能再抛错。 */
+(function(){
+  function _guardToast(msg){
+    try{ toast(msg, "danger", 6000); }
+    catch(_){ try{ console.error(msg); }catch(__){} }
+  }
+  window.addEventListener("error", function(e){
+    try{ _guardToast("页面出错："+((e&&e.message)||"未知")+"（详情见浏览器控制台）"); }catch(_){}
+  });
+  window.addEventListener("unhandledrejection", function(e){
+    var r=e&&e.reason; var m=(r&&r.message)?r.message:String(r||"未知");
+    try{ _guardToast("异步操作失败："+m+"（详情见浏览器控制台）"); }catch(_){}
+  });
 })();
 </script>
 </body>

@@ -205,7 +205,9 @@ function toast(msg, kind, ms, undoFn){
   t.className="toast"+(kind?(" "+kind):"");
   t.classList.add("show"); clearTimeout(t._timer);
   var n=String(msg==null?"":msg).length;
-  var dur = (typeof undoFn==="function") ? 4800 : (ms || (n>60?7000 : n>30?5000 : n>14?3200 : 1800));
+  /* 2026-10-23 撤销窗口修正：undo 分支此前硬编码 4800、无视调用方传的 ms，
+     明信片「删除 8s / 清空 12s」的撤销窗口因此无法生效。现 ms 优先，缺省仍 4800（两文件既有 toastUndo 调用行为不变）。 */
+  var dur = (ms || (typeof undoFn==="function" ? 4800 : (n>60?7000 : n>30?5000 : n>14?3200 : 1800)));
   t._timer=setTimeout(function(){ t.classList.remove("show"); }, dur);
 }
 /* P0-1：保存失败时的统一可行动文案。此前 save() 的返回值被全链路丢弃，
@@ -214,7 +216,12 @@ var SAVE_FAIL_TXT="保存失败：浏览器存储空间已满或被禁用（无�
 /* P0-1：所有「用户可见的写操作 + 成功提示」都走这里，成功才提示，失败必给可行动告警。
    不要在调用点写 `save(); toast("已保存")` —— 那是本次静默丢数据的根因。 */
 function saveAndToast(okMsg){
-  var ok = save();
+  var ok = save(okMsg);
+  /* 两种宿主实现，靠返回值区分：
+     · 返回 "__pending__" —— 宿主 save 是节流异步版（任务台），成功文案已被挂起，
+       将由 save() 在真正落盘后按 storageSetSafe 的真实结果决定是否弹出，此处不能再弹。
+     · 返回 true/false   —— 宿主 save 是同步版（明信片），直接按结果提示。 */
+  if(ok==="__pending__") return true;
   if(ok===false){ toast("⚠️ "+SAVE_FAIL_TXT, "danger", 7000); return false; }
   if(okMsg) toast(okMsg);
   return true;
