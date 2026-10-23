@@ -42,7 +42,10 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
     --bg:#0f1320; --card:#171c2b; --ink:#e8ecf5; --text:#e8ecf5; --sub:#9aa3b5; --line:#262d40;
     --pri:#5b86ff; --pri-ink:#8FABFF; --pri-soft:#1c2540; --hover:#1d2233; --bg2:#0f1320; --muted:#9aa3b5;
     --ok:#2bd99a; --warn:#ff9a4d; --danger:#ff6b6b;
-  --warnbg:#3a1f1f; }
+  --warnbg:#3a1f1f;
+  /* 数据色深色值：--c4 与任务台深色同值（跨页契约）；--c6/--c7 为统计卡专用，
+     深色下提亮以保对比度（实测 #b08cff 6.50:1 / #3ec9d6 8.51:1，均过正文 4.5:1） */
+  --c4:#ff7aa6; --c6:#b08cff; --c7:#3ec9d6; }
 
   /* =====  补漏：明信片此前无组件级 dark 覆盖，浅彩徽章/胶囊/节点/边框在此适配 ===== */
   [data-theme="dark"] .cloudpill.off{ background:#232a3a; color:#8b94a3; border-color:#232a3a; }
