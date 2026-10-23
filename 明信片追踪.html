@@ -2364,6 +2364,10 @@ function renderStats(){
       (p.direction===PDIR.THEM && p.sent && !p.proxyRecv) ||
       (p.proxyMode===PMODE.ONEWAY && p.envSent && !p.envRecv)
     ).reduce((a,p)=>a+cc(p),0);
+    /* G17（2026-10-23 用户确认口径）：一条「对方已寄出、我未收且超期」的记录会**同时**计入
+       「对方代寄在途张数」与「可能丢失张数」（isLostProxy 判的也是 transit 态）——这是有意设计：
+       在途是生命周期状态、丢失是异常提醒，二者语义不同。并排展示时「在途 ≥ 丢失」属正常，
+       不要按互斥去重改口径（丢失明细视图里它也该出现，方便直接处理异常件）。 */
     // 可能丢失（单腿丢失即计）
     const lostProxyCards=proxies.filter(p=>isLostProxy(p)).reduce((a,p)=>a+cc(p),0);
     // 状态细分：单腿 5 态，标签按方向翻转（双向语义透明：对方的算对方的、我的算我的）
@@ -3948,10 +3952,7 @@ async function delProxy(id){
   snapshot();   // 撤销栈：8s 窗口
   const gone=proxies.find(p=>p.id===id); const pid=gone&&gone.pairId;
   proxies=proxies.filter(p=>p.id!==id); unlinkFromActivities(id); pushTomb(id);
-  if(pid){  // F6 修复：删单腿后若 pairId 组只剩自己，解除关联，避免另一腿留悬空 pairId
-    const rest=proxies.filter(p=>p.pairId===pid);
-    if(rest.length<=1) rest.forEach(p=>{ delete p.pairId; touch(p); });
-  }
+  if(pid) unlinkPartnerIfOrphan(pid);   // G16：收敛到统一实现（跨数组扫 sent/received/proxies，行为覆盖原内联版——原版只查 proxies，跨数组残腿会漏）
   tombSave();
   renderAll();
   toastUndo("已删除代寄记录", 8000, save()===false);
@@ -3962,7 +3963,9 @@ async function delProxyPair(pairId){
   if(!(await confirmDialog(`确定删除这一对互寄记录（${n} 条）？`,{danger:true, ok:"删除整对"}))) return;
   snapshot();   // 撤销栈：8s 窗口（整对腿 + 悬空 pairId 清理一并还原）
   proxies.filter(p=>p.pairId===pairId).forEach(p=>{ unlinkFromActivities(p.id); pushTomb(p.id); });  // 整对逐条打墓碑
-  proxies=proxies.filter(p=>p.pairId!==pairId); tombSave();
+  proxies=proxies.filter(p=>p.pairId!==pairId);
+  unlinkPartnerIfOrphan(pairId);   // G16：兜底清理跨数组残腿（正常全在 proxies，理论空转，统一口径防漏）
+  tombSave();
   renderAll();
   toastUndo("已删除互寄对（"+n+" 条）", 8000, save()===false);
 }
@@ -4125,6 +4128,10 @@ const TOMB_MAX=2000;
 
 function tombLoad(){ try{ const r=localStorage.getItem(TOMB_KEY); if(r){ const a=JSON.parse(r)||[]; deletedIds=Array.isArray(a)?a.map(normTomb).filter(t=>t.id):[]; } }catch(e){ deletedIds=[]; } }
 function tombSave(){ storageSet(TOMB_KEY, JSON.stringify(deletedIds)); }
+/* G15（2026-10-23 复核结论：现有「覆盖为新 ts」是正确语义，不改代码只留分析）：
+   每个 pushTomb 调用点（delRec/delProxy/delProxyPair/镜像腿/clearAll/convertRecord）都伴随该记录**当次真实移除**，
+   刷新 ts = 让「最新删除意图」胜出 —— 若不刷新而保留旧 ts，反而会出现「记录 updatedAt 晚于旧墓碑 → 合并复活」的反向漏洞。
+   真正的隐患（移动墓碑 op/to 被云拉取剥离）已由 S2（tombMap 保留完整墓碑 + convertRecord touch）根治。 */
 function pushTomb(id){ const s=String(id||""); if(!s) return; const i=deletedIds.findIndex(d=>d.id===s); const t={id:s, ts:Date.now()}; if(i>=0) deletedIds[i]=t; else deletedIds.push(t); if(deletedIds.length>TOMB_MAX) deletedIds=deletedIds.slice(-TOMB_MAX); }
 
 /* R2-2（治 P1-2）移动墓碑：记录在数组间移动（如「寄出→收到」转换）时，**原数组那份必须也留个删除标记**。

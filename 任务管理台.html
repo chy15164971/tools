@@ -3169,19 +3169,33 @@ function fillCatSelect(sel){
   sel.innerHTML=(ph?ph.outerHTML:"")+catSelectHtml();
 }
 function priColor(n){ const p=pris.find(x=>x.name===n); return p?p.color:"#9aa0ab"; }
-/* 把「色块专用色」自动加深为可作白底前景的文字色（WCAG AA 4.5:1）。
-   分类/优先级可由用户自定义，写死 ink 对照表必然漏配新增颜色 —— 这里按相对亮度循环加深。
+/* 把「色块专用色」自动加深为可作前景的文字色（WCAG AA 4.5:1）。
+   分类/优先级可由用户自定义，写死 ink 对照表必然漏配新增颜色 —— 这里按相对亮度循环调整。
    例：#9aa0ab(2.63:1)→约 #6c7078；#ff9f45(1.79:1)→约 #9e6235。
-   ⚠️ 只用于文字色；色块背景/进度条/图标继续用原色（大面积填充的对比度要求不同）。 */
+   ⚠️ 只用于文字色；色块背景/进度条/图标继续用原色（大面积填充的对比度要求不同）。
+   G18：主题感知 —— 浅色按白底加深；深色下 badge 底是 hexA(c,.16) 叠深色卡 ≈ 深底，
+   深墨字对比度反而崩，改为向白提亮到对深色卡底 4.5:1。 */
+var _cssInkCardL=null;   // 深色卡底相对亮度缓存（--card 的 dark 值恒定，无需随主题切换失效）
 function cssInk(hex){
   var m=/^#?([0-9a-fA-F]{6})$/.exec(String(hex||"").trim());
   var r0=109,g0=116,b0=130,r=r0,g=g0,b=b0;            // 解析失败时用中性深灰
   if(m){ r0=r=parseInt(m[1].slice(0,2),16); g0=g=parseInt(m[1].slice(2,4),16); b0=b=parseInt(m[1].slice(4,6),16); }
   function f(c){ c/=255; return c<=0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055,2.4); }
-  function cr(){ return 1.05/(0.2126*f(r)+0.7152*f(g)+0.0722*f(b)+0.05); }
-  var k=1;
-  while(cr()<4.5 && k>0.1){ k-=0.05; r=Math.round(r0*k); g=Math.round(g0*k); b=Math.round(b0*k); }
   function hx(v){ var t=v.toString(16); return t.length<2?("0"+t):t; }
+  if(document.documentElement.getAttribute("data-theme")!=="dark"){
+    function cr(){ return 1.05/(0.2126*f(r)+0.7152*f(g)+0.0722*f(b)+0.05); }
+    var k=1;
+    while(cr()<4.5 && k>0.1){ k-=0.05; r=Math.round(r0*k); g=Math.round(g0*k); b=Math.round(b0*k); }
+  }else{
+    if(_cssInkCardL==null){
+      var cv=cssVar("--card")||"#171c2b";
+      var mm=/^#?([0-9a-fA-F]{6})$/.exec(cv);
+      _cssInkCardL = mm ? 0.2126*f(parseInt(mm[1].slice(0,2),16)/255)+0.7152*f(parseInt(mm[1].slice(2,4),16)/255)+0.0722*f(parseInt(mm[1].slice(4,6),16)/255) : 0.012;
+    }
+    function crd(){ return (_cssInkCardL+0.05)/(0.2126*f(r)+0.7152*f(g)+0.0722*f(b)+0.05); }
+    var k2=0;
+    while(crd()<4.5 && k2<1){ k2+=0.05; r=Math.round(r0+(255-r0)*k2); g=Math.round(g0+(255-g0)*k2); b=Math.round(b0+(255-b0)*k2); }
+  }
   return "#"+hx(r)+hx(g)+hx(b);
 }
 function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim()||"#9aa0ab"; }
@@ -3357,8 +3371,17 @@ function moveRecInstance(t, fromDate, deltaDays){
   const fromKey = ovKeyD(fromDate);
   const ov = getRecOverride(t, fromDate);
   const baseS = parseLocal(t.start), baseE = parseLocal(t.end);
-  let s = ov && ov.start ? parseLocal(ov.start) : new Date(startOfDay(fromDate)); s.setHours(baseS.getHours(), baseS.getMinutes());
-  let e = ov && ov.end ? parseLocal(ov.end) : new Date(startOfDay(fromDate)); e.setHours(baseE.getHours(), baseE.getMinutes());
+  /* G6：override 日期串可能畸形（导入/云同步/手工备份），parseLocal 产生 Invalid Date 会一路污染成
+     top:"NaNpx" 并经 toStr 把 "Invalid Date" 写回数据 —— 取用前先验 isNaN，非法即回落模板锚点。
+     G11：回落路径对跨午夜模板（如 23:00–次日 01:00）补跨度，防 end<start。 */
+  const _ovS = ov && ov.start ? parseLocal(ov.start) : null;
+  const _ovE = ov && ov.end ? parseLocal(ov.end) : null;
+  let s = (_ovS && !isNaN(_ovS.getTime())) ? _ovS : new Date(startOfDay(fromDate)); s.setHours(baseS.getHours(), baseS.getMinutes());
+  let e = (_ovE && !isNaN(_ovE.getTime())) ? _ovE : new Date(startOfDay(fromDate)); e.setHours(baseE.getHours(), baseE.getMinutes());
+  if(!(_ovE && !isNaN(_ovE.getTime()))){
+    const _off=Math.round((startOfDay(baseE)-startOfDay(baseS))/DAY);
+    if(_off>0) e=addDays(e,_off);
+  }
   const ns = new Date(s.getTime() + d*DAY), ne = new Date(e.getTime() + d*DAY);
   // 原日：硬跳过（hard:true）——这次被挪到别处，原日不应再出现，且要与「不补做」软态区分开
   t.overrides = t.overrides || {};
@@ -3412,19 +3435,25 @@ function getInstances(rangeStart, rangeEnd){
           if(ov && ov.skip && ov.hard){ cur=addDays(cur,1); continue; }
           let s=new Date(cur); s.setHours(bs.getHours(),bs.getMinutes());
           let e=new Date(cur); e.setHours(be.getHours(),be.getMinutes());
+          { const _toff=Math.round((startOfDay(be)-startOfDay(bs))/DAY); if(_toff>0) e=addDays(e,_toff); }   // G11：跨午夜模板（如 23:00–次日 01:00）保留跨度，防 end<start
           let taskRef = t;
           if(ov){
             /* override 存的是绝对时间字符串。历史版本写入时把它锚在【整组模板的起始日】上，
                直接取用会让实例漂移到模板日（症状：今天这条任务保存后消失）。
                这里统一把 override 的「时刻」落到当前发生日 cur 上，并保留其跨天跨度：
                既让新写入的数据正确，也能自愈已存在的脏 override。 */
-            if(ov.start){ const os=parseLocal(ov.start); s=new Date(cur); s.setHours(os.getHours(),os.getMinutes()); }
+            if(ov.start){ const os=parseLocal(ov.start); if(!isNaN(os.getTime())){ s=new Date(cur); s.setHours(os.getHours(),os.getMinutes()); } }   // G6：非法 override 回落自然实例
             if(ov.end){
-              const oe=parseLocal(ov.end); e=new Date(cur); e.setHours(oe.getHours(),oe.getMinutes());
-              if(ov.start){
-                const os=parseLocal(ov.start);
-                const off=Math.round((startOfDay(oe)-startOfDay(os))/DAY);
-                if(off>0) e=addDays(e,off);   // 跨天实例：保留「截止比开始晚 N 天」的跨度
+              const oe=parseLocal(ov.end);
+              if(!isNaN(oe.getTime())){   // G6：非法 override 回落（保留上面已含跨度的自然 end）
+                e=new Date(cur); e.setHours(oe.getHours(),oe.getMinutes());
+                if(ov.start){
+                  const os=parseLocal(ov.start);
+                  if(!isNaN(os.getTime())){
+                    const off=Math.round((startOfDay(oe)-startOfDay(os))/DAY);
+                    if(off>0) e=addDays(e,off);   // 跨天实例：保留「截止比开始晚 N 天」的跨度
+                  }
+                }
               }
             }
             if(ov.title || ov.desc!=null || ov.cat || ov.priority || (ov.tags&&ov.tags.length)){
@@ -3455,11 +3484,15 @@ function getInstances(rangeStart, rangeEnd){
           if(cur<startOfDay(bs)) continue;          // 早于任务起始日的不算
           let s=new Date(cur); s.setHours(bs.getHours(),bs.getMinutes());
           let e=new Date(cur); e.setHours(be.getHours(),be.getMinutes());
+          { const _toff=Math.round((startOfDay(be)-startOfDay(bs))/DAY); if(_toff>0) e=addDays(e,_toff); }   // G11：跨午夜模板保留跨度
           let taskRef=t;
-          if(ov.start){ const os=parseLocal(ov.start); s=new Date(cur); s.setHours(os.getHours(),os.getMinutes()); }
+          if(ov.start){ const os=parseLocal(ov.start); if(!isNaN(os.getTime())){ s=new Date(cur); s.setHours(os.getHours(),os.getMinutes()); } }   // G6：非法回落
           if(ov.end){
-            const oe=parseLocal(ov.end); e=new Date(cur); e.setHours(oe.getHours(),oe.getMinutes());
-            if(ov.start){ const os=parseLocal(ov.start); const off=Math.round((startOfDay(oe)-startOfDay(os))/DAY); if(off>0) e=addDays(e,off); }
+            const oe=parseLocal(ov.end);
+            if(!isNaN(oe.getTime())){   // G6：非法回落
+              e=new Date(cur); e.setHours(oe.getHours(),oe.getMinutes());
+              if(ov.start){ const os=parseLocal(ov.start); if(!isNaN(os.getTime())){ const off=Math.round((startOfDay(oe)-startOfDay(os))/DAY); if(off>0) e=addDays(e,off); } }
+            }
           }
           if(ov.title||ov.desc!=null||ov.cat||ov.priority||(ov.tags&&ov.tags.length)){
             taskRef=Object.assign({},t);
@@ -3685,8 +3718,10 @@ function attachEvDrag(ev, isWeek){
     let sDT, eDT;
     if(rec){
       const ov=getRecOverride(t, instDate);
-      sDT = ov&&ov.start ? parseLocal(ov.start) : new Date(instDate.getFullYear(),instDate.getMonth(),instDate.getDate(),base.getHours(),base.getMinutes());
-      eDT = ov&&ov.end ? parseLocal(ov.end) : new Date(sDT.getTime()+(parseLocal(t.end)-base));
+      const _os2=ov&&ov.start ? parseLocal(ov.start) : null;
+      sDT = (_os2 && !isNaN(_os2.getTime())) ? _os2 : new Date(instDate.getFullYear(),instDate.getMonth(),instDate.getDate(),base.getHours(),base.getMinutes());   // G6：非法 override 回落模板锚点
+      const _oe2=ov&&ov.end ? parseLocal(ov.end) : null;
+      eDT = (_oe2 && !isNaN(_oe2.getTime())) ? _oe2 : new Date(sDT.getTime()+(parseLocal(t.end)-base));
     } else { sDT=parseLocal(t.start); eDT=parseLocal(t.end); }
     const origTop=(sDT.getHours()+sDT.getMinutes()/60)*44;
     const sy=e.clientY, sx=e.clientX; let moved=false;
@@ -4595,7 +4630,16 @@ function computeFuncSummary(){
   /* P1-4：改用统一逾期口径（collectOverdueSet 一次展开实例），不再直接比模板 t.end */
   const _ovdSet=collectOverdueSet(today0);
   const overdue=tasks.filter(t=>!noDate(t)&&!isTaskDoneNow(t)&&!t.skipMissed&&_ovdSet.has(t.id));
-  const dueToday=tasks.filter(t=>!isTaskDoneNow(t)&&!noDate(t)&&(()=>{const e=parseLocal(t.end);return e>=today0&&e<addDays(today0,1);})());
+  /* G9（2026-10-23 用户确认改实例口径）：重复任务原来看模板 t.end（= 创建日，恒不在今天窗口 → 恒漏计）。
+     现改为看「今天有没有未完成且未标记不补做的实例」——每日任务上午打了卡、下午那次还没做，仍计入今日待办。
+     非重复任务口径不变。getInstances 有 O9 记忆化，逐条过滤成本可控。 */
+  const dueToday=tasks.filter(t=>{
+    if(noDate(t)) return false;
+    const isRec=!!(t.recurrence&&t.recurrence.freq!=="none");
+    if(!isRec) return !isTaskDoneNow(t)&&(()=>{const e=parseLocal(t.end);return e>=today0&&e<addDays(today0,1);})();
+    const insts=getInstances(today0, addDays(today0,1));
+    return insts.some(i=>i.task&&i.task.id===t.id&&!isDropped(i.task,i.date)&&!isDone(i));
+  });
   const trend=[]; for(let i=6;i>=0;i--){ const d=addDays(today0,-i); const k=ymd(d); const c=tasks.filter(t=>doneOnDate(t,k)).length; trend.push({d,c}); }
   tasks.forEach(t=>{ if(!isTaskDoneNow(t) && !t.dropped && !isDropped(t, ymd(today0))) active++; const c=(t.cat&&t.cat.name)||t.cat||"未分类"; catMap[c]=(catMap[c]||0)+1; });
   return {weekDone, overdue, dueToday, trend, catMap, active, total:tasks.length};
@@ -5692,7 +5736,8 @@ function taskOverdueNow(t, refDay){
   const isRec=!!(t.recurrence && t.recurrence.freq!=="none");
   if(!isRec) return parseLocal(t.end) < today;
   // 重复任务：取最近一个已到期、未完成、且未被标记不补做的实例
-  const insts=filterInsts(getInstances(addDays(today,-90), today));
+  // G10（2026-10-23 用户确认）：逾期判定绕过视图筛选——搜索关键词不应改变统计卡/导出周报/项目徽标的逾期总数
+  const insts=getInstances(addDays(today,-90), today);
   let worst=null;
   for(const i of insts){
     if(i.task && i.task.id!==t.id) continue;
@@ -5711,7 +5756,8 @@ function collectOverdueSet(refDay){
     const isRec=!!(t.recurrence && t.recurrence.freq!=="none");
     if(!isRec){ if(parseLocal(t.end) < today) set.add(t.id); }
   }
-  const insts=filterInsts(getInstances(addDays(today,-90), today));
+  // G10（用户确认）：绕过视图筛选——统计口径必须可复现，不随搜索/筛选词漂移
+  const insts=getInstances(addDays(today,-90), today);
   for(const i of insts){
     if(!i.task || !i.task.id) continue;
     if(!i.task.recurrence || i.task.recurrence.freq==="none") continue;   // 非重复已在上循环处理
@@ -8072,8 +8118,8 @@ function applyEditingDate(){
     if(ov.cat) f.cat.value=ov.cat;
     if(ov.priority) f.priority.value=ov.priority;
     if(ov.tags) f.tags.value=ov.tags.join(", ");
-    if(ov.start){ f.sdate.value=ymd(parseLocal(ov.start)); f.stime.value=fmtTime(parseLocal(ov.start)); }
-    if(ov.end){ f.edate.value=ymd(parseLocal(ov.end)); f.etime.value=fmtTime(parseLocal(ov.end)); }
+    if(ov.start){ const _os=parseLocal(ov.start); if(!isNaN(_os.getTime())){ f.sdate.value=ymd(_os); f.stime.value=fmtTime(_os); } }   // G6：非法 override 不回填表单
+    if(ov.end){ const _oe=parseLocal(ov.end); if(!isNaN(_oe.getTime())){ f.edate.value=ymd(_oe); f.etime.value=fmtTime(_oe); } }
   }
   document.getElementById("f_skip").checked = !!(ov&&ov.skip);
   const sdTxt=(editingDate||"").slice(5).replace("-","/");
@@ -8906,7 +8952,15 @@ function importJSON(file){
         if(Array.isArray(data.okrs)){ state.okrs=data.okrs; okrsSave(); }
         /* P2-8：_ver:4 起备份含纪念日与墓碑；旧备份无这些字段则保持现状，不清空 */
         if(Array.isArray(data.anniv)){ state.anniv=data.anniv; annivSave(); }
-        if(Array.isArray(data.deleted)){ deletedIds=data.deleted.map(normTomb); deletedIdsSave(); }
+        /* G7：覆盖导入的墓碑改「并集（同 id 取较新 ts）」而非整表替换 —— 替换会丢「纯本地删除尚未上云」的墓碑，
+           旧备份里的同 id 记录会在下轮云同步复活。备份缺 deleted 字段时保持本地墓碑不动（下方 P1-8 矛盾清理兜住反杀）。 */
+        if(Array.isArray(data.deleted)){
+          const _tm=new Map(deletedIds.map(d=>[String(d&&d.id), d]));
+          data.deleted.map(normTomb).forEach(d=>{ const k=String(d&&d.id); const curd=_tm.get(k); if(!curd || (d.ts||0)>(curd.ts||0)) _tm.set(k, d); });
+          deletedIds=Array.from(_tm.values());
+          if(deletedIds.length>TOMB_MAX) deletedIds=deletedIds.slice(-TOMB_MAX);
+          deletedIdsSave();
+        }
         /* P1-8（导入路径）：备份里若同时含「任务本体 + 该任务的墓碑」（历史脏备份/手工编辑），
            墓碑会让下一轮云同步把刚恢复的任务再删一次 —— 这里按任务 id 就地清掉矛盾墓碑 */
         { const alive=new Set(state.tasks.map(t=>String(t&&t.id)));
