@@ -1858,7 +1858,12 @@ function isHiddenHere(wid){
 function saveWidgets(){ storageSet(WKEY, JSON.stringify(widgetCfg)); touchCfg(); cloudAutoUpload(); }
 const SAVED_AT="wb_postcards_savedAt_v1";
 const CFG_SAVED_KEY="wb_postcards_cfgsavedat_v1";
-let cfgSavedAt=+(localStorage.getItem(CFG_SAVED_KEY)||0)||0;  // 设置项（标签名/自定义卡）最后修改时间，用于跨设备「最后写入者胜出」
+/* 2026-10-23 白屏事故三修：此行原先裸调 localStorage.getItem 且无 try —— 它是 IIFE 顶层
+   立即执行语句，浏览器禁用/阻止存储时（隐私设置/无痕/隐私扩展）直接抛 SecurityError，
+   整个主脚本在此中断：boot 段不执行、无错误横幅、只剩静态 HTML。
+   cfgsavedat 纯优化字段，读不到就退化为 0，绝不能因为它让整页挂掉。 */
+let cfgSavedAt=0;
+try{ cfgSavedAt=+(localStorage.getItem(CFG_SAVED_KEY)||0)||0; }catch(e){}
 function touchCfg(){ cfgSavedAt=Date.now(); storageSet(CFG_SAVED_KEY, String(cfgSavedAt)); }
 const CLOUD_KEY="wb_postcards_cloudsync_v1";
 const STATUS_ORDER=["unwritten","unsent","transit","arrived","returned"];
@@ -4993,5 +4998,6 @@ setInterval(cloudAutoDownload, 30000);   // 30s（仅前台时真正发起）
    而这份用 .find() 取**第一个**（背景弹窗）且监听器 capture:true 先执行 → 嵌套弹窗（如「代寄弹窗内再开选项管理」）里按 Tab，
    焦点被两份逻辑互相打架，甩到背景弹窗。SHARED 版还顺带管了 body 滚动锁，本文件末尾那份没管。
    已给 SHARED 版补 e.target.tagName==='TEXTAREA' 保护（多行文本域内 Tab 应缩进而非跳焦点）。 */
-
-
+</script>
+</body>
+</html>
