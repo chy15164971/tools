@@ -3142,124 +3142,7 @@ async function clearAll(){
 }
 
 /* ===== L4 Render · P1-9 分层（2026-10-23）===== */
-
-/* ===== L5 Bind · P1-9 分层（2026-10-23）===== */
-
-/* ===== L6 Cloud · P1-9 分层（2026-10-23）===== */
-
-/* ===== L7 Boot · P1-9 分层（2026-10-23）===== */
-/* ===== 数据 ===== */
-const KEY="wb_postcards_v1";
-const WKEY="wb_postcards_widgets_v1";
-const VIEW_NAME={sent:"寄出",received:"收到",proxy:"代寄",activity:"活动"};
-let widgetCfg={order:[],hidden:[],custom:[],autoRename:{}};
-const SAVED_AT="wb_postcards_savedAt_v1";
-const CFG_SAVED_KEY="wb_postcards_cfgsavedat_v1";
-/* 2026-10-23 白屏事故三修：此行原先裸调 localStorage.getItem 且无 try —— 它是 IIFE 顶层
-   立即执行语句，浏览器禁用/阻止存储时（隐私设置/无痕/隐私扩展）直接抛 SecurityError，
-   整个主脚本在此中断：boot 段不执行、无错误横幅、只剩静态 HTML。
-   cfgsavedat 纯优化字段，读不到就退化为 0，绝不能因为它让整页挂掉。 */
-let cfgSavedAt=0;
-try{ cfgSavedAt=+(localStorage.getItem(CFG_SAVED_KEY)||0)||0; }catch(e){}
-const CLOUD_KEY="wb_postcards_cloudsync_v1";
-const STATUS_ORDER=["unwritten","unsent","transit","arrived","returned"];
-const STATUSES={
-  unwritten:{label:"未写", color:"#c2c7d0"},
-  unsent:{label:"未寄", color:"#9aa0ab"},
-  transit:{label:"在途", color:"#ff8a3d"},
-  arrived:{label:"已到", color:"#22b07d"},
-  returned:{label:"退回", color:"#ef4444"},
-};
-const RECV_STATUS_ORDER=["transit","received"];
-const RECV_STATUSES={
-  transit:{label:"在途", color:"#ff8a3d"},
-  received:{label:"已收", color:"#22b07d"},
-};
-/* 代寄 mode/direction/step 常量枚举：单一事实源，避免散落字符串拼写错误（审计 B1-PC）*/
-const PMODE={BACK:"back", ONEWAY:"oneway"};
-const PDIR={ME:"me", THEM:"them"};
-const PSTEP={READY:"ready", SENT:"sent", PROXY_RECV:"proxyRecv", PROXY_BACK:"proxyBack", GOT_BACK:"gotBack", ENV_SENT:"envSent", ENV_RECV:"envRecv"};
-
-// 代寄 / write-back：同一张片寄给对方写回再寄回，4 节点往返生命周期
-// 方向：me = 我寄出在先（标准）；them = 对方寄出在先（互相代寄的另一条腿，方向相反）
-const PROXY_STEPS=[
-  {k:"sent",      label:"我寄出"},
-  {k:"proxyRecv", label:"对方收"},
-  {k:"proxyBack", label:"对方写回寄出"},
-  {k:"gotBack",   label:"我收到"}
-];
-const PROXY_STEPS_THEM=[
-  {k:"sent",      label:"对方寄出"},
-  {k:"proxyRecv", label:"我收"},
-  {k:"proxyBack", label:"我写回寄出"},
-  {k:"gotBack",   label:"对方收到"}
-];
-// 单向代寄（对方找我代寄，我寄出不回寄）：仅 2 节点，完成复用 gotBack 字段以共用完成态样式/统计
-const PROXY_STEPS_ONEWAY=[
-  {k:"envSent",  label:"对方寄出"},
-  {k:"envRecv",  label:"我收"},
-  {k:"sent",     label:"我写回寄出"},
-  {k:"gotBack",  label:"对方收到"}
-];
-/* P2-2：每个状态补ink =「同色系的深色版」，专供 badge 文字使用。
-   原先 badge 直接拿 color 当文字色（`background:${c}22;color:${c}`），而这些色是按「色块」选的：
-   寄出在途 #f5a623 在白底上只有 2.03:1、对方已寄出 #fb923c 2.32:1、对方已收 #4aa3ff 2.64:1，全部远低于 AA 4.5:1。
-   color 保持不变继续用于色点/进度条/图表（那里是大面积填充，对比度要求不同），只有小字标签改用 ink。 */
-const PROXY_STATUS={
-  ready:    {label:"准备中",     color:"#9aa3b2", ink:"#5b6472"},
-  envSent:  {label:"对方已寄出", color:"#fb923c", ink:"#9a4a08"},
-  envRecv:  {label:"我已收", color:"#4aa3ff", ink:"#0b5fa5"},
-  sent:     {label:"寄出在途",   color:"#f5a623", ink:"#8a5200"},
-  proxyRecv:{label:"对方已收",   color:"#4aa3ff", ink:"#0b5fa5"},
-  proxyBack:{label:"对方寄回中", color:"#a06bff", ink:"#6a2fd0"},
-  gotBack:  {label:"已收到", color:"#22b07d", ink:"#0a7a53"}
-};
-// 进行中活动：RR（未满员）/ TAG（未tag完）/ 交换（进行中）等参与型活动
-const ACT_KIND_DEFAULT=[{key:"rr",label:"RR",progress:true},{key:"tag",label:"TAG",progress:true},{key:"exchange",label:"交换",progress:false},{key:"other",label:"其他",progress:false}];
-let actKindList=ACT_KIND_DEFAULT.map(o=>({...o}));
-const ACT_KIND_COLOR=["#f5a623","#a06bff","#4aa3ff","#22b07d","#ea580c","#ff6b6b","#9aa3b2"];
-const LINK_LABEL={sent:"寄出",received:"收到",proxy:"代寄"};
-const ACT_STATUS={     // P2-2：同 PROXY_STATUS，ink 供 badge 文字（对比度），color 供色点/图表
-  ongoing:{label:"进行中", color:"#4aa3ff", ink:"#0b5fa5"},
-  done:   {label:"已结束", color:"#22b07d", ink:"#0a7a53"},
-  closed: {label:"已关闭", color:"#9aa3b2", ink:"#5b6472"}
-};
-/* R2-1：活动状态白名单，供 sanitizeArr 校验用。
-   ⚠️ 必须声明在 ACT_STATUS **之后** —— const 有暂时性死区，写在前面会让 Object.keys(ACT_STATUS)
-   在模块求值时抛 ReferenceError，整个 script 挂掉（页面只剩静态 HTML：标签栏与表格全空）。
-   这个坑与「派生常量必须晚于源常量」是同一条铁律，派生一律放源后面。 */
-const ACT_STATUS_ORDER=Object.keys(ACT_STATUS);
-let postcards=[];
-let received=[];
-let proxies=[];
-let activities=[];
-let actEditingLinks=[]; // 活动弹窗中临时维护的关联明信片列表
-let view="sent";
-let filter={status:"all", country:"", platform:"", type:"", channel:"", q:""};   // P0-4：channel 键补齐（此前 filter.channel 恒 undefined，渠道筛选形同虚设）
-let rfilter={status:"all", country:"", platform:"", type:"", q:""};
-let pfilter={status:"all", country:"", platform:"", type:"", q:""};
-let afilter={kind:"all", status:"ongoing", q:""}; // 活动：默认只看「进行中」
-let sort={sent:"", received:"", proxy:""}; // F5 排序键：""/date/arr/country/platform
-const PLAT_DEFAULT=["Postcrossing","微博互换","自寄","朋友赠送","闲鱼代寄","旅行自购"];
-const TYPE_DEFAULT=["交换","TAG","RR","自寄","其他"];
-const COUNTRY_DEFAULT=["中国","日本","德国","法国","意大利","韩国","美国","英国","荷兰","俄罗斯","泰国","澳大利亚","加拿大","西班牙","新加坡"];
-let platList=PLAT_DEFAULT.slice();
-let typeList=TYPE_DEFAULT.slice();
-let countryList=COUNTRY_DEFAULT.slice();
-let optsKind="platform", optsReturn=null;
-
-const cleanArr=v=>sanitizeArr(v);   // 旧名保留兼容（两文件不用，但改调用点风险大时可用）
-/* ===== 本地存储统一写入口 =====
-   原实现把 QuotaExceededError 静默吞掉 → 界面显示「已保存」、刷新后数据全丢且毫无提示。
-   明信片含 base64 图片，极易触发配额上限，这里必须显式告警。 */
-let _quotaWarnAt=0;
-
-/* ===== F1 异常件（可能丢失）提醒 ===== */
-const LOST_DAYS={平邮:60,空邮:30,挂号:120,其他:45,"":60}; // 各渠道在途超期阈值（天）（「自寄」键已删：渠道下拉无此项，永不命中）
-const PROXY_LOST_DAYS=75; // 代寄：自「我寄出」起超过该天数仍未走完，判定可能丢失
 function lostBadge(view,p){ const lost = view==="sent"?isLostSent(p) : view==="proxy"?isLostProxy(p):false; return lost?`<span class="badge" style="background:rgba(239,68,68,.14);color:var(--danger);margin-right:6px;">⚠️ 可能丢失</span>`:""; }
-
-// 返回值用于 HTML 属性（href="..."），必须再过 esc，否则可用 " 提前闭合属性造成属性逃逸型 XSS
 
 function fillSelect(id, kind, val){
   const sel=document.getElementById(id); if(!sel) return;
@@ -3267,13 +3150,7 @@ function fillSelect(id, kind, val){
   const pool=[...new Set([...list, ...poolUsed(kind)])].sort((a,b)=>a.localeCompare(b,"zh"));
   sel.innerHTML=`<option value="">— 未填 —</option>`+pool.map(o=>`<option value="${esc(o)}" ${o===val?"selected":""}>${esc(o)}</option>`).join("");
 }
-function openOpts(kind, selId){
-  optsKind=kind; optsReturn=selId||null;
-  document.getElementById("optsTitle").textContent = kind==="platform"?"管理平台选项":kind==="type"?"管理类型选项":"管理国家/地区选项";
-  renderOptsList();
-  document.getElementById("maskOpts").classList.add("show");
-  try{ document.getElementById("optsNew").focus(); }catch(e){}
-}
+
 function renderOptsList(){
   const list = optsListOf(optsKind);
   const el=document.getElementById("optsList");
@@ -3287,24 +3164,7 @@ function renderOptsList(){
     list.splice(i,1); save(); renderOptsList();
   });
 }
-function closeOpts(){
-  document.getElementById("maskOpts").classList.remove("show");
-  if(optsReturn){ fillSelect(optsReturn, optsKind, document.getElementById(optsReturn).value); }
-  save();
-  optsReturn=null;
-}
 
-/* ===== 相关站点快捷链接（底部常驻 · 可管理 · 存本地） ===== */
-const LKEY="wb_postcards_links_v1";
-const LINKS_DEFAULT=[
-  {emoji:"✉️", name:"Postcrossing",    url:"https://www.postcrossing.com/"},
-  {emoji:"🌍", name:"PostcardUnited",  url:"https://postcardunited.com/"},
-  {emoji:"💌", name:"Happy Postcard",  url:"https://www.happypostcard.fun/"},
-  {emoji:"📬", name:"You've Got Mail", url:"https://youvegotmail.club/"},
-  {emoji:"🎫", name:"25Stamps",        url:"https://www.25stamps.club/"},
-  {emoji:"🖼", name:"我的收片相册",     url:"https://eu.zonerama.com/Profile/704015/1255144"}
-];
-let linkList=[];
 function renderLinkBar(){
   const el=document.getElementById("linkList"); if(!el) return;
   el.innerHTML=linkList.map(l=>{
@@ -3312,6 +3172,7 @@ function renderLinkBar(){
     return `<a class="lb-item" href="${safeUrl(u)}" target="_blank" rel="noopener" title="${esc(u)}"><span class="lb-e">${esc(l.emoji||"🔗")}</span><span class="lb-n">${esc(l.name||u)}</span><span class="lb-a">↗</span></a>`;
   }).join("");
 }
+
 function renderLinkEditor(){
   const el=document.getElementById("linksList"); if(!el) return;
   if(!linkList.length){ el.innerHTML=emptyState("🔗","暂无链接，下面添加一条吧。"); return; }
@@ -3324,12 +3185,7 @@ function renderLinkEditor(){
   el.querySelectorAll("input[data-li]").forEach(inp=>inp.oninput=()=>{ linkList[+inp.dataset.li][inp.dataset.lf]=inp.value; saveLinks(); renderLinkBar(); });
   el.querySelectorAll("[data-ldel]").forEach(b=>b.onclick=()=>{ linkList.splice(+b.dataset.ldel,1); saveLinks(); renderLinkEditor(); renderLinkBar(); });
 }
-function openLinkEditor(){ renderLinkEditor(); document.getElementById("maskLinks").classList.add("show"); }
-function closeLinkEditor(){ document.getElementById("maskLinks").classList.remove("show"); saveLinks(); renderLinkBar(); }
 
-/* ===== 渲染：视图切换（标签页名称可双击编辑） ===== */
-const TAB_DEFAULT={ sent:"寄出追踪", received:"收到收藏", proxy:"代寄", activity:"进行中活动" };
-const TAB_KEY="wb_postcard_tabs_v1";
 function tabIcon(v){
   const map={
     sent:`<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>`,
@@ -3339,6 +3195,7 @@ function tabIcon(v){
   };
   return map[v]||"";
 }
+
 function renderTabs(){
   const el=document.getElementById("segtabs");
   const lbl=tabLabels();
@@ -3371,6 +3228,7 @@ function renderTabs(){
     });
   });
 }
+
 function enterTabEdit(seg,label){
   seg.dataset.editing="1";
   label.contentEditable="true";
@@ -3379,8 +3237,6 @@ function enterTabEdit(seg,label){
   const s=getSelection(); s.removeAllRanges(); s.addRange(r);
 }
 
-/* ===== 渲染：统计 ===== */
-let widgetEditMode=false;
 function updateEditButton(){
   const b=document.getElementById("btnEditStats");
   if(!b) return;
@@ -3388,10 +3244,7 @@ function updateEditButton(){
   b.classList.toggle("btn-pri", widgetEditMode);
   b.classList.toggle("btn-ghost", !widgetEditMode);
 }
-// F3 修复：代寄 5 态标签此前在 renderStats 与 currentWidgetWids 各写一份（长短不一致），
-// wid 永不匹配 → 统计卡排序/上移下移不持久。两处必须共用本常量。
-const PROXY_STAT_LABELS={ready:"准备中", sent:"寄出在途（我寄出 / 对方寄出待我收）", proxyRecv:"第一步已收（对方收 / 我收）", proxyBack:"回寄在途（对方写回 / 我写回）", gotBack:"回片已到（我收到 / 对方收到）"};
-let _renderedAutoWids=null;   // 最近一次 renderStats 实际产出的自动卡wid 列表（P2-17：供 currentWidgetWids 反推）
+
 function renderStats(){
   const el=document.getElementById("stats");
   el.className="stats"+(widgetEditMode?" editing":"");
@@ -3513,6 +3366,7 @@ function renderStats(){
   const hc=widgetCfg.hidden.filter(isHiddenHere).length;
   if(hc){ sh.style.display=""; sh.textContent="显示已隐藏("+hc+")"; sh.setAttribute('aria-label',"显示已隐藏卡片"); } else sh.style.display="none";
 }
+
 function statCtrl(wid, isCustom){
   /* 自动统计卡也允许改名（仅改显示文字），故同样给 ✎ 按钮，但走 rename 分支 */
   const edit=isCustom?`<button class="we" title="编辑" aria-label="编辑" data-act="edit" data-wid="${esc(wid)}">✎</button>`
@@ -3523,41 +3377,7 @@ function statCtrl(wid, isCustom){
     <button class="we" title="下移" aria-label="下移" data-act="down" data-wid="${esc(wid)}">↓</button>
     <button class="we" title="隐藏" aria-label="隐藏" data-act="hide" data-wid="${esc(wid)}">⊘</button>${edit}${del}</div>`;
 }
-let dragWid=null, dragDropBefore=false;
-function bindWidgetCtrls(el){
-  el.querySelectorAll(".w-ctrl button").forEach(b=>{
-    b.addEventListener("click", e=>{ e.stopPropagation(); const act=b.dataset.act, wid=b.dataset.wid;
-      if(act==="up") moveWidget(wid,-1);
-      else if(act==="down") moveWidget(wid,1);
-      else if(act==="hide") hideWidget(wid);
-      else if(act==="edit") openWidgetModal(wid);
-      else if(act==="rename") openRename(wid);
-      else if(act==="del") delWidget(wid);
-    });
-  });
-  /* 键盘重排：聚焦拖拽手柄后用上下方向键移动（原生拖拽的键盘替代） */
-  el.querySelectorAll(".w-ctrl .grip").forEach(g=>{
-    g.addEventListener("keydown", e=>{ const wid=g.dataset.wid;
-      if(e.key==="ArrowUp"){ e.preventDefault(); moveWidget(wid,-1); }
-      else if(e.key==="ArrowDown"){ e.preventDefault(); moveWidget(wid,1); }
-    });
-  });
-  /* 自动统计卡的标签支持双击重命名 */
-  el.querySelectorAll(".stat.widget").forEach(card=>{
-    const wid=card.dataset.wid||"";
-    if(wid.indexOf("stat:")!==0) return;
-    const l=card.querySelector(".l");
-    if(l) l.addEventListener("dblclick", e=>{ e.stopPropagation(); openRename(wid); });
-  });
-  el.querySelectorAll(".stat.widget").forEach(card=>{
-    card.addEventListener("dragstart", e=>{ dragWid=card.dataset.wid; card.classList.add("dragging"); try{e.dataTransfer.effectAllowed="move";}catch(_){} });
-    card.addEventListener("dragend", ()=>{ card.classList.remove("dragging"); dragWid=null; dragDropBefore=false; el.querySelectorAll(".stat.widget").forEach(c=>c.classList.remove("drop-before","drop-after")); });
-    card.addEventListener("dragover", e=>{ e.preventDefault(); if(card.dataset.wid===dragWid) return; const r=card.getBoundingClientRect(); dragDropBefore=(e.clientY-r.top)<r.height/2; card.classList.toggle("drop-before",dragDropBefore); card.classList.toggle("drop-after",!dragDropBefore); });
-    card.addEventListener("dragleave", ()=>card.classList.remove("drop-before","drop-after"));
-    card.addEventListener("drop", e=>{ e.preventDefault(); const tgt=card.dataset.wid; if(tgt!==dragWid) dropWidget(dragWid,tgt); card.classList.remove("drop-before","drop-after"); });
-  });
-}
-let editingWid=null;
+
 function openWidgetModal(wid){
   editingWid=wid||null;
   const m=document.getElementById("widgetModal");
@@ -3574,15 +3394,15 @@ function openWidgetModal(wid){
   toggleWRows(w.type);
   m.classList.add("show");
 }
+
 function toggleWRows(t){
   document.getElementById("wRowText").style.display = t==="text"?"":"none";
   document.getElementById("wRowLink").style.display = t==="link"?"":"none";
   document.getElementById("wRowNum").style.display = t==="num"?"":"none";
 }
+
 function closeWidgetModal(){ document.getElementById("widgetModal").classList.remove("show"); }
 
-/* 自动统计卡重命名：仅覆盖显示文字，wid 与数值计算均不变 */
-let renamingWid=null;
 function openRename(wid){
   renamingWid=wid;
   const parts=wid.split(":");
@@ -3594,9 +3414,9 @@ function openRename(wid){
   document.getElementById("renameModal").classList.add("show");
   setTimeout(()=>{ try{ i.focus(); i.select(); }catch(e){} },30);
 }
+
 function closeRename(){ document.getElementById("renameModal").classList.remove("show"); renamingWid=null; }
 
-/* ===== 渲染：筛选条 ===== */
 function fillOptions(selId, arr){
   const sel=document.getElementById(selId); if(!sel) return;
   const cur=sel.value;
@@ -3604,47 +3424,7 @@ function fillOptions(selId, arr){
   sel.innerHTML=`<option value="">${sel.dataset.ph||"全部"}</option>`+set.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
   if([...set,""].includes(cur)) sel.value=cur;
 }
-/* ===== D1：四视图筛选条参数化 =====
-   sent/received/proxy/activity 的筛选条结构高度重复（仅 id 前缀/数据源/排序项/占位文案不同），
-   统一到 FILTER_BAR_CFG 配置 + buildFilterBar 构建；新增筛选字段只改配置表一处。
-   id 全部保持历史值（fSearch/fPSearch 等被冒烟测试与既有逻辑引用）。 */
-const FILTER_BAR_CFG = {
-  sent:{
-    filter:()=>filter, chips:["statusChips"],
-    selects:[
-      {id:"fCountry", ph:"全部国家/地区", field:"country", src:()=>postcards},
-      {id:"fPlatform", ph:"全部平台", field:"platform", src:()=>postcards},
-      {id:"fTypeFilter", ph:"全部类型", field:"type", src:()=>postcards}
-    ],
-    sort:{id:"fSort", key:"sent", opts:[["date","寄出日↓"],["arr","到达日↓"],["country","国家"],["platform","平台"]]},
-    search:{id:"fSearch", clearId:"fSearchClear", ph:"搜索收件人 / 国家 / 平台 / 类型 / 备注…"}
-  },
-  received:{
-    filter:()=>rfilter, chips:["recvChips"],
-    selects:[
-      {id:"fRCountry", ph:"全部国家/地区", field:"country", src:()=>received},
-      {id:"fRPlatform", ph:"全部平台", field:"platform", src:()=>received},
-      {id:"rTypeFilter", ph:"全部类型", field:"type", src:()=>received}
-    ],
-    sort:{id:"rSort", key:"received", opts:[["arr","收到日↓"],["country","国家"],["platform","平台"]]},
-    search:{id:"fRSearch", clearId:"fRSearchClear", ph:"搜索寄件人 / 国家 / 平台 / 类型 / 备注…"}
-  },
-  proxy:{
-    filter:()=>pfilter, chips:["proxyChips"],
-    selects:[
-      {id:"fPCountry", ph:"全部国家/地区", field:"country", src:()=>proxies},
-      {id:"fPPlatform", ph:"全部平台", field:"platform", src:()=>proxies},
-      {id:"fPType", ph:"全部类型", field:"type", src:()=>proxies}
-    ],
-    sort:{id:"pSort", key:"proxy", opts:[["date","我寄出日↓"],["country","国家"],["platform","平台"]]},
-    search:{id:"fPSearch", clearId:"fPSearchClear", ph:"搜索对方 / 国家 / 平台 / 类型 / 备注…"}
-  },
-  activity:{
-    filter:()=>afilter, chips:["actKChips","actSChips"],
-    selects:[], sort:null,
-    search:{id:"fASearch", clearId:"fASearchClear", ph:"搜索活动名称 / 平台 / 备注…"}
-  }
-};
+
 function buildFilterBar(){
   const cfg=FILTER_BAR_CFG[view];
   const wrap=document.getElementById("filters");
@@ -3671,10 +3451,9 @@ function buildFilterBar(){
     const se=document.getElementById(cfg.search.id); if(se) se.value=f.q||"";
   }catch(e){}
 }
+
 function renderFilters(){ buildFilterBar(); }
-/* ===== D2：chips 渲染泛化 =====
-   五个 chips 函数同构（全部 chip + 枚举 map + onclick 改 filter 再 renderTable），统一到
-   renderChipsGeneric + CHIP_GROUPS 配置；外部调用点（含活动类型编辑器）保留同名薄封装。 */
+
 function renderChipsGeneric(elId, entries, curKey, allLabel, dataAttr, onPick){
   const el=document.getElementById(elId); if(!el) return;
   const mk=(k,label,active)=>`<span class="chip ${active?"active":""}" role="button" tabindex="0" data-${dataAttr}="${k}">${esc(label)}</span>`;  // P2：chip 加 role/tabindex，键盘可达（焦点环复用 [role="button"]:focus-visible）
@@ -3686,46 +3465,12 @@ function renderChipsGeneric(elId, entries, curKey, allLabel, dataAttr, onPick){
     ch.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); onPick(ch.dataset[dataAttr]); } };
   });
 }
-const CHIP_GROUPS = {
-  sent:[{id:"statusChips", entries:()=>STATUS_ORDER.map(s=>({k:s,label:STATUSES[s].label})), cur:()=>filter.status, all:"全部", attr:"s", pick:v=>{ filter.status=v; }}],
-  received:[{id:"recvChips", entries:()=>RECV_STATUS_ORDER.map(s=>({k:s,label:RECV_STATUSES[s].label})), cur:()=>rfilter.status, all:"全部", attr:"s", pick:v=>{ rfilter.status=v; }}],
-  proxy:[{id:"proxyChips", entries:()=>Object.keys(PROXY_STATUS).map(s=>({k:s,label:PROXY_STATUS[s].label})), cur:()=>pfilter.status, all:"全部", attr:"s", pick:v=>{ pfilter.status=v; }}],
-  activity:[
-    {id:"actKChips", entries:()=>actKindList.map(o=>({k:o.key,label:o.label})), cur:()=>afilter.kind, all:"全部类型", attr:"k", pick:v=>{ afilter.kind=v; }},
-    {id:"actSChips", entries:()=>Object.keys(ACT_STATUS).map(s=>({k:s,label:ACT_STATUS[s].label})), cur:()=>afilter.status, all:"全部", attr:"s", pick:v=>{ afilter.status=v; }}
-  ]
-};
+
 function renderChipGroup(viewKey, i){
   const c=CHIP_GROUPS[viewKey][i];
   renderChipsGeneric(c.id, c.entries(), c.cur(), c.all, c.attr, v=>{ c.pick(v); renderChipGroup(viewKey, i); renderTable(); });
 }
-/* P3-1：renderChips 已删（薄封装，无调用方） */
 
-// 每步独立按真实字段判定完成态（不再用顺序计数，避免「中间空却显示已完成」的假象）
-/* P1-6：原实现从**前**向后扫，返回「第一个未完成」的下标。
-   致命处：toggleProxyStep 允许任意顺序点节点（注释明确「不级联」），于是跳步时派生量全错——
-   ① 只勾第 4 步(gotBack) → firstUndone()===0 → proxyStatusOf 渲染成「准备中」，但完成日已填；
-   ② isLostProxy 只看 firstUndone!==-1 → 勾了第 3、4 步且超期 75 天，**已完成的卡片**被打上「可能丢失」；
-   ③ proxyUnitDone 同样受影响 → 完成的行不沉底、5 态计数全部错位。
-   改为从后向前扫：只要最后一个节点没填就还没完成；最后一个填了即视为已完成（跳步不再产生矛盾状态）。
-   （保存时的顺序补齐 normalizeProxySteps 属治本项，本轮先止血。） */
-
-/* 步进口径分离（2026-10-05 修「圆圈高亮错位」）：
-   firstUndone 回答的是「是否全部完成」，返回**从后往前**第一个未完成的下标 —— 这是 P1-6 为治
-   「跳步时状态/丢失判定自相矛盾」故意改的，**不能动**（改了会让 ② isLostProxy ③ proxyUnitDone 回归）。
-   但它被两处当「下标」用，语义就错了：
-     ① proxyStepNode 里 `i===firstUndone(p)` 判定「当前步高亮」→ 只完成第1步时返回 3，
-        高亮落到**第 4 圈**上，而真正的下一步是第 2 圈（截图即此症状：第1圈✓、2/3灰、4圈蓝）；
-     ② proxyStatusOf / proxyStatusText 拿它当状态链下标 → 同一条记录被渲染成「我已收」，
-        统计（5 态计数 / 在途张数 / 筛选）随之错位。
-   highestDone 回答的是「已经走到第几步」= **从后往前**最后一个**已完成**的下标（全空 -1）。
-   由此统一派生，两个语义都对，且对跳步数据同样自洽：
-     全空 → -1 → 高亮第1圈 / 状态「准备中」
-     完成1 → 0 → 高亮第2圈 / 状态「我寄出在途」← 截图的期望
-     只勾第4步 → 3 → 无高亮 / 状态「我已收」（正是 P1-6 ① 期望的解）
-     全完成 → 3 → 无高亮 / 状态「我已收」
-   步进数组下标与状态链下标天然对齐（往返 me: sent→proxyRecv→proxyBack→gotBack；
-   单向: envSent→envRecv→sent→gotBack），故 +1 即状态链下标，无需再特判 i<0。 */
 // 互寄对 stepper：4 列网格，每列 = 同一进度节点，上排「我→对方」下排「对方→我」，纵向严格对齐
 function proxyStepNode(p, i){
   const steps=proxyStepsOf(p); const s=steps[i];
@@ -3736,6 +3481,7 @@ function proxyStepNode(p, i){
   const mark=done?"✓":(i+1);
   return `<div class="sp-node ${cls} clickable" role="button" tabindex="0" data-pid="${p.id}" data-pstep="${i}" title="点击切换「${s.label}」状态">${mark}</div>`;
 }
+
 function renderProxyPairStepper(me, them){
   const cols=[];
   for(let i=0;i<4;i++){
@@ -3745,6 +3491,7 @@ function renderProxyPairStepper(me, them){
   }
   return `<div class="stepper-pair"><div class="sp-caps"><span class="sp-cap me">▲ 我 → 对方</span><span class="sp-cap them">▼ 对方 → 我</span></div><div class="sp-grid">${cols.join("")}</div></div>`;
 }
+
 // 单条代寄 stepper：按实际步数渲染（往返 4 步 / 单向 2 步），每列单圆 + 单标签
 function renderProxySingleStepper(p){
   const cols=[];
@@ -3754,6 +3501,7 @@ function renderProxySingleStepper(p){
   }
   return `<div class="stepper-pair"><div class="sp-grid single">${cols.join("")}</div></div>`;
 }
+
 // D5：单腿/配对行前 5 列结构重复，抽公共片段（dot 颜色由调用方传入：单腿=行状态色，配对=组合状态色）
 function proxyBaseCells(p, dotColor){
   return `<td data-label="对方（代寄人）"><div class="pc"><span class="dot" style="background:${dotColor}"></span><b title="${esc(p.proxy)}">${esc(p.proxy)||"—"}</b></div>${p.note?`<div class="note">${esc(p.note)}</div>`:""}</td>
@@ -3762,6 +3510,7 @@ function proxyBaseCells(p, dotColor){
     <td class="hide-sm" data-label="类型">${esc(p.type)||"—"}</td>
     <td class="hide-sm" data-label="张数">${esc(p.cardCount||1)}</td>`;
 }
+
 function renderProxySingleRow(p, isDone){
   const st=PROXY_STATUS[proxyStatusOf(p)]||PROXY_STATUS.ready;
   const stLabel=proxyStatusText(p);
@@ -3774,6 +3523,7 @@ function renderProxySingleRow(p, isDone){
     <td class="col-act" data-label="操作"><div class="row-act"><button class="linkbtn act-primary" data-pedit="${p.id}">编辑</button><button class="linkbtn act-secondary" data-conv="proxy:${p.id}">转换</button><button class="linkbtn danger act-primary" data-pdel="${p.id}">删除</button><details class="act-more"><summary class="linkbtn">⋯</summary><div class="act-more-body"><button class="linkbtn act-secondary" data-conv="proxy:${p.id}">转换</button></div></details></div></td>
   </tr>`;
 }
+
 function renderProxyPairRow(u, isDone){
   const {me, them, pairId}=u;
   const base = me || them;
@@ -3789,11 +3539,7 @@ function renderProxyPairRow(u, isDone){
     <td class="col-act" data-label="操作"><div class="row-act"><button class="linkbtn act-primary" data-pedit="${convId}">编辑</button><button class="linkbtn act-secondary" data-conv="proxy:${convId}">转换</button><button class="linkbtn act-secondary" data-pair="proxy" data-pid="${pairId}" data-cur="${convId}">↔ 互寄</button><button class="linkbtn danger act-primary" data-ppair="${pairId}">删除</button><details class="act-more"><summary class="linkbtn">⋯</summary><div class="act-more-body"><button class="linkbtn act-secondary" data-conv="proxy:${convId}">转换</button><button class="linkbtn act-secondary" data-pair="proxy" data-pid="${pairId}" data-cur="${convId}">↔ 互寄</button></div></details></div></td>
   </tr>`;
 }
-/* ===== P1-4 窄屏隐藏列的 th/td 配对 =====
-   .hide-sm 只写在 <th> 上，而对应 <td> 漏加 —— 561~980px（iPad 竖屏+横屏）时表头消失、数据格仍在，
-   列序整体错位一格，「操作」列按钮上方顶着无主的日期值：看错列会把「到达日」当成「寄出日」，
-   而日期是本应用最核心的字段。手工补 class 下次加列还会漏，故改为**渲染后按可见 th 顺序统一同步**。
-   同时处理反向：视口从窄变宽时要把之前加上的 hide-sm 摘掉，否则列永久消失。 */
+
 function syncHideSm(tb){
   const ths=Array.from(document.querySelectorAll("#thead th"));
   if(!ths.length||!tb) return;
@@ -3808,6 +3554,7 @@ function syncHideSm(tb){
     });
   }
 }
+
 function renderTable(){
   const thead=document.getElementById("thead");
   const tb=document.getElementById("tbody");
@@ -3961,6 +3708,560 @@ function renderTable(){
   // N4 无障碍播报：列表/筛选/翻页变化后播报条数与页码（文本相同自动去重，不刷屏）
   announceList("pc-"+view, list.length);
 }
+
+function renderAddBtn(){ const b=document.getElementById("btnAdd"); if(!b) return; const map={ sent:["新建寄出",()=>openRecModal("sent")], received:["新建收到",()=>openRecModal("received")], proxy:["新建代寄",()=>openProxyModal()], activity:["新建活动",()=>openActivityModal()] }; const c=map[view]||map.sent; b.textContent=c[0]; b.setAttribute('aria-label',c[0]); b.onclick=c[1]; }
+
+function renderAllNow(){
+  /* 2026-10-23 白屏事故修复：原先五个渲染步骤串行裸跑，任何一步抛异常（如脏数据触发 TypeError）
+     都会中断后续全部渲染 → 页面只剩静态骨架。改为分步隔离：单区失败只降级该区，其余照常渲染。 */
+  const steps=[["页签",renderTabs],["统计卡",renderStats],["筛选栏",renderFilters],["表格",renderTable],["操作按钮",renderAddBtn]];
+  for(const [nm,fn] of steps){
+    try{ fn(); clearRegionWarn(nm); }
+     catch(e){
+       if(DEBUG)console.error("[renderAllNow] 「"+nm+"」区域渲染失败：", e);
+       renderRegionWarn(nm, e);
+     }
+  }
+}
+
+/* G12（2026-10-23 修）：区域渲染成功即摘牌——红条此前只增不清，一次瞬时错误会让红条
+   驻留到刷新为止，误导后续排查（看起来一直在出错）。全部区域正常时整个横幅收起。 */
+function clearRegionWarn(nm){
+  try{
+    const box=document.getElementById("bootErr");
+    if(!box) return;
+    const item=box.querySelector('[data-region="'+CSS.escape(nm)+'"]');
+    if(item) item.remove();
+    if(!box.querySelector("[data-region]")) box.hidden=true;
+  }catch(_){}
+}
+
+function renderRegionWarn(nm, e){
+  /* 2026-10-23 二次白屏排查：toast 是瞬时的，用户截图时早消失，等于没报。
+     改为持久错误块：区域名 + 错误消息直接显示在页面顶部，截图即可定位。 */
+  try{
+    const box=document.getElementById("bootErr");
+    if(!box) return;
+    box.hidden=false;
+    const msg=(e&&e.message)?String(e.message):"未知错误";
+    let item=box.querySelector('[data-region="'+CSS.escape(nm)+'"]');
+    if(!item){
+      item=document.createElement("div");
+      item.dataset.region=nm;
+      item.style.cssText="background:#fdecec;color:#8a1f1f;border:1px solid #f5c2c2;border-radius:10px;padding:10px 14px;margin:0 0 10px;font-size:12.5px;line-height:1.6;";
+      if(document.documentElement.dataset.theme==="dark"||document.body.classList.contains("dark"))
+        item.style.cssText+="background:#3a2226;color:#ffb4b4;border-color:#6b3a3f;";
+      box.appendChild(item);
+    }
+    item.textContent="⚠️ 「"+nm+"」区域渲染出错（其余区域正常）： "+msg;
+  }catch(_){}
+  const now=Date.now();
+  if(now-(_regionWarnAt[nm]||0)<30000) return;   // 同区域 30s 节流（toast 保留）
+  _regionWarnAt[nm]=now;
+  try{ toast("「"+nm+"」区域刷新出错，详情见页面顶部红条","danger"); }catch(_){}
+}
+
+function renderAll(){
+  if(_raPending){ _raDirty=true; return; }
+  _raPending=true; _raDirty=false;
+  try{
+    renderAllNow();
+  }catch(e){
+    if(DEBUG)console.error("[renderAll] 渲染异常，已释放刷新锁；界面可能未完全更新：", e);
+    const now=Date.now();
+    if(now-_raErrAt>30000){ // 同类告警 30s 内只提示一次，避免高频渲染刷屏
+      _raErrAt=now;
+      try{ toast("界面刷新出错，已自动恢复；若显示仍异常请刷新页面", "danger"); }catch(_){}
+    }
+  }finally{
+    queueMicrotask(()=>{ _raPending=false; if(_raDirty){ _raDirty=false; renderAll(); } });
+  }
+}
+
+function fillForm(dir, p){
+  const def=REC_DEFS[dir];
+  for(const fid in def.form){ const rf=def.form[fid]; const el=document.getElementById(fid); if(el) el.value=(p && p[rf]!=null)? p[rf] : ""; }
+  const sel=document.getElementById(def.statusId);
+  if(sel) sel.value=(p && p.status) || def.defaultStatus;
+  fillSelect(def.platId, "platform", p? (p.platform||"") : "");
+  fillSelect(def.typeId, "type", p? (p.type||"") : "");
+  fillSelect(def.countryId, "country", p? (p.country||"") : "");
+}
+
+function readForm(dir){
+  const def=REC_DEFS[dir]; const o={};
+  for(const fid in def.form){ const rf=def.form[fid]; const el=document.getElementById(fid); if(el) o[rf]=el.value.trim(); }
+  if(def.form.fImage) o.image=sanitizeImageUrl(o.image);
+  if(def.form.rImage) o.image=sanitizeImageUrl(o.image);
+  o.status=document.getElementById(def.statusId).value || def.defaultStatus;
+  return o;
+}
+
+/* P2-5：统一「关闭前脏检查」入口。此前「取消」按钮直接 closeRecModal（绕过检查），而 Esc 路径会弹确认 —— 同一操作两个行为，改了内容点取消静默丢失。recSnapshot 在关闭时清空，否则下次打开空白表单会被误判为「已修改」 */
+/* P2-13：字段级校验反馈。原先只有底部 toast：既不 focus 也不高亮，用户不知道该改哪个字段；
+   toast 还固定在底部、会盖住弹窗底部按钮。本函数给输入框加红框 + 就地红字说明并聚焦。 */
+function clearFieldError(id){
+  const el=document.getElementById(id); if(!el) return;
+  el.removeAttribute("aria-invalid");
+  el.style.removeProperty("border-color");
+  const box=el.closest(".field")||el.parentElement;
+  if(box){ const e=box.querySelector(".field-err"); if(e) e.remove(); }
+}
+
+function fieldError(id, msg){
+  const el=document.getElementById(id); if(!el) { toast(msg,"danger"); return false; }
+  clearFieldError(id);
+  el.setAttribute("aria-invalid","true");
+  el.style.borderColor="var(--danger)";
+  const box=el.closest(".field")||el.parentElement;
+  if(box){
+    const e=document.createElement("div");
+    e.className="field-err"; e.setAttribute("role","alert");
+    e.style.cssText="color:var(--danger);font-size:12px;margin-top:4px;line-height:1.4;";
+    e.textContent=msg; box.appendChild(e);
+  }
+  try{ el.focus(); }catch(_){}
+  toast(msg,"danger");
+  return false;
+}
+
+function actLinkHtml(a){
+  if(!a || !Array.isArray(a.links) || !a.links.length) return "—";
+  return a.links.map((l,i)=>`<button class="linkbtn" data-alink="${a.id}" data-alidx="${i}">${esc(actLinkItemLabel(l.type,l.id))}</button>`).join(" ");
+}
+
+function renderRotEditor(){
+  const box=document.getElementById("aRotList"); if(!box) return;
+  if(!actEditingRot.length){
+    box.innerHTML='<div class="muted" style="font-size:12.5px;padding:6px 0;">还没有轮次。点「添加一轮」或批量粘贴，按顺序登记每轮收件人与对方要求的尺寸；可分别记录「已写完 / 已寄出 / 已收到」三个时间节点追踪进度。</div>';
+    rotSyncInput(); return;
+  }
+  /* P2-9：每列用 <label class="rot-f"> 包裹并带一个可见 <span> 标签。
+     宽屏时 span 隐藏（维持 8 列 grid 对齐）；≤700px 行退化为单列卡片时 span 显示，替代隐藏的表头。 */
+  const fld=(i,k,label,val,type,ph)=>'<label class="rot-f"><span>'+label+'</span>'
+    +'<input '+(type?'type="'+type+'" ':'')+'data-ri="'+i+'" data-rf="'+k+'" value="'+esc(val||"")+'" placeholder="'+ph+'" aria-label="第'+(i+1)+'轮'+label+'"></label>';
+  box.innerHTML=actEditingRot.map((r,i)=>'<div class="rot-row">'
+    +'<span class="rot-no">R'+(i+1)+'</span>'
+    +fld(i,"to","收件人",r.to,"","收件人")
+    +fld(i,"size","尺寸要求",r.size,"","尺寸要求")
+    +fld(i,"due","截止日",r.due,"date","")
+    +fld(i,"written","已写完",r.written,"date","")
+    +fld(i,"sent","已寄出",r.sent,"date","")
+    +fld(i,"received","已收到",r.received,"date","")
+    +'<span class="rot-ops">'
+    +'<button type="button" class="mini" data-rup="'+i+'" title="上移" aria-label="上移">↑</button>'
+    +'<button type="button" class="mini" data-rdn="'+i+'" title="下移" aria-label="下移">↓</button>'
+    +'<button type="button" class="mini" data-rdel="'+i+'" title="删除" aria-label="删除">✕</button>'
+    +'</span></div>').join("");
+  box.querySelectorAll("input[data-ri]").forEach(inp=>{
+    inp.addEventListener("input",()=>{ const i=parseInt(inp.dataset.ri,10); if(actEditingRot[i]) actEditingRot[i][inp.dataset.rf]=inp.value; rotSyncInput(); });
+  });
+  box.querySelectorAll("[data-rdel]").forEach(b=>{ b.onclick=()=>{ actEditingRot.splice(parseInt(b.dataset.rdel,10),1); renderRotEditor(); }; });
+  box.querySelectorAll("[data-rup]").forEach(b=>{ b.onclick=()=>{ const i=parseInt(b.dataset.rup,10); if(i<=0) return; const t=actEditingRot[i-1]; actEditingRot[i-1]=actEditingRot[i]; actEditingRot[i]=t; renderRotEditor(); }; });
+  box.querySelectorAll("[data-rdn]").forEach(b=>{ b.onclick=()=>{ const i=parseInt(b.dataset.rdn,10); if(i>=actEditingRot.length-1) return; const t=actEditingRot[i+1]; actEditingRot[i+1]=actEditingRot[i]; actEditingRot[i]=t; renderRotEditor(); }; });
+  rotSyncInput();
+}
+
+function rotSummaryHtml(a){ if(!a||!Array.isArray(a.rotation)||!a.rotation.length) return ""; const n=a.rotation.length; const w=a.rotation.filter(r=>r&&r.written).length; const s=a.rotation.filter(r=>r&&r.sent).length; const rc=a.rotation.filter(r=>r&&r.received).length; return `<div class="note" style="font-size:12px;opacity:.85">进度：写完 ${w}/${n} · 寄出 ${s}/${n} · 收到 ${rc}/${n}</div>`; }
+
+function renderActLinkChips(){
+  const box=document.getElementById("aLinkChips"); if(!box) return;
+  if(!actEditingLinks.length){ box.innerHTML='<span class="muted">尚未关联明信片，可在下方添加</span>'; return; }
+  box.innerHTML=actEditingLinks.map((l,i)=>`<span class="link-chip">${esc(actLinkItemLabel(l.type,l.id))}<button aria-label="移除" type="button" class="x" data-alremove="${i}" title="移除">✕</button></span>`).join("");
+  box.querySelectorAll("[data-alremove]").forEach(b=>b.onclick=()=>{ actEditingLinks.splice(parseInt(b.dataset.alremove,10),1); renderActLinkChips(); refreshActLinkOptions(); });
+}
+
+function updateActProgressVisibility(){
+  const kind=document.getElementById("aKind").value;
+  const show = actKindProgress(kind);
+  const curLbl=document.getElementById("aCurLbl"), maxLbl=document.getElementById("aMaxLbl");
+  const isTag = /tag/i.test(kind+" "+(actKindLabel(kind)||""));
+  if(curLbl) curLbl.textContent = isTag? "已 tag 张数" : "当前人数";
+  if(maxLbl) maxLbl.textContent = isTag? "需 tag 张数" : "满员人数";
+  const hint=document.getElementById("aProgHint");
+  if(hint) hint.textContent = isTag? "进度（已 tag / 需 tag 张数）" : "进度（当前 / 满员人数）";
+  // P2-18：原用 aCur.closest(".sub-h") 找兄弟标题 —— closest 只在**祖先链**上找，而 sub-h 是 aCur 的**前置兄弟**（1139 行是独立 id），
+  // 故恒为 null，「进度（当前/满员）」标题在「交换/其他」类型下永不禁用，留下一个没有输入框的标题。
+  // 标题有独立 id 直接取；输入行仍需closest(".row2")（那个确实是祖先）。
+  if(hint) hint.style.display = show? "" : "none";
+  const curEl=document.getElementById("aCur"), row=curEl&&curEl.closest(".row2");
+  if(row) row.style.display = show? "" : "none";
+}
+
+function fillKindSelect(){
+  const sel=document.getElementById("aKind"); if(!sel) return;
+  const val=sel.value;
+  sel.innerHTML=actKindList.map(o=>`<option value="${esc(o.key)}" ${o.key===val?"selected":""}>${esc(o.label)}</option>`).join("");
+}
+
+/* P0-4（2026-10-04 紧急修复）：补回 renderActiveChips。此前被调用 4 次、零定义
+   → 在「活动类型」弹窗里改标签名/删除类型后���ReferenceError，整个 script 中断（白屏）。
+   语义：重渲染活动筛选栏里的「类型」chip 组（与 renderChipGroup("activity",0) 等价，此处保留独立名以匹配既有调用点）。 */
+function renderActiveChips(){
+  try{ renderChipGroup("activity", 0); renderChipGroup("activity", 1); }catch(e){}
+}
+
+function renderActKindList(){
+  const el=document.getElementById("actKindList"); if(!el) return;
+  el.innerHTML=actKindList.map((o,i)=>`<div class="opt-row"><input class="opt-in" data-i="${i}" value="${esc(o.label)}"><label class="ak-prog" style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:12px;color:var(--muted)"><input type="checkbox" class="ak-pc" data-i="${i}" ${o.progress?"checked":""}>跟踪进度</label><button aria-label="删除" type="button" class="opt-del" data-i="${i}" title="删除">✕</button></div>`).join("");
+  el.querySelectorAll(".opt-in").forEach(inp=>{
+    inp.oninput=()=>{ actKindList[+inp.dataset.i].label=inp.value; };
+    inp.onchange=()=>{ actKindList[+inp.dataset.i].label=inp.value; save(); fillKindSelect(); renderActiveChips(); };
+  });
+  el.querySelectorAll(".ak-pc").forEach(cb=>cb.onchange=()=>{ actKindList[+cb.dataset.i].progress=cb.checked; save(); });
+  el.querySelectorAll(".opt-del").forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.i, o=actKindList[i];
+    const c=activities.filter(a=>a.kind===o.key).length;
+    if(c>0){ toast(`「${o.label}」被 ${c} 条活动使用，先去修改那些活动再删除`,"danger"); return; }
+    actKindList.splice(i,1); save(); renderActKindList(); fillKindSelect(); renderActiveChips();
+  });
+}
+
+// 代寄模式 / 方向 → 同步弹窗标签、可见节点、对方字段文案、互寄勾选可用性
+function applyProxyModeUI(mode, dir, isEdit){
+  const isOne = mode==="oneway";
+  document.getElementById("pProxyMode").value = mode;
+  document.querySelectorAll("#proxyModeSeg .seg-opt").forEach(b=> b.classList.toggle("active", b.dataset.mode===mode));
+  /* 2026-10-22 修复「往返节点编号与时间顺序错位」：旧结构把「完成日」摆在第 2 格、
+     「对方收」摆在第 3 格，于是 ② 其实已是第 4 步、③ 才是第 2 步，编号与真实先后打架，
+     按编号填日期必然错列（互寄另一条腿 / 对方寄出在先时更乱）。
+     现改为单一网格 #proxyNodes，按模式重排字段 DOM 顺序，让「编号 = 视觉格位 = 时间顺序」。 */
+  const nodeOrder = isOne
+    ? ["pfEnvSent","pfEnvRecv","pfSent","pfGotBack"]
+    : ["pfSent","pfProxyRecv","pfProxyBack","pfGotBack"];
+  const nodeBox = document.getElementById("proxyNodes");
+  nodeOrder.forEach(fid=>{
+    const el = document.getElementById(fid);
+    if(!el) return;
+    if(nodeBox) nodeBox.appendChild(el);   // appendChild 即「移到末尾」，按 nodeOrder 依次追加得到目标顺序
+    el.style.display = "";
+  });
+  ["pfEnvSent","pfEnvRecv","pfSent","pfProxyRecv","pfProxyBack","pfGotBack"].forEach(fid=>{
+    if(nodeOrder.indexOf(fid) === -1){ const el = document.getElementById(fid); if(el) el.style.display = "none"; }
+  });
+  if(isOne){
+    document.getElementById("pEnvSentLbl").textContent = "① 对方寄出日";
+    document.getElementById("pEnvRecvLbl").textContent = "② 我收日";
+    document.getElementById("pSentLbl").textContent = "③ 我写回寄出日";
+    document.getElementById("pDoneLbl").textContent = "④ 对方收到日（完成）";
+    document.getElementById("proxyStepsSub").textContent = "代寄节点（对方寄出 → 我收 → 我写回寄出 → 对方收到，单向不回寄）";
+    document.getElementById("proxyModeHint").textContent = "对方找我代寄：对方先寄出 → 我收 → 我写回寄出 → 对方收到（完成）";
+    document.getElementById("pProxyLbl").textContent = "对方（找我代寄的人）*";
+    document.getElementById("pProxy").placeholder = "如：小明（让我帮他寄北京邮戳片，先把信封寄给我）";
+  }else{
+    const steps = dir==="them" ? PROXY_STEPS_THEM : PROXY_STEPS;
+    document.getElementById("pSentLbl").textContent = "① "+steps[0].label+"日";
+    document.getElementById("pProxyRecvLbl").textContent = "② "+steps[1].label+"日";
+    document.getElementById("pProxyBackLbl").textContent = "③ "+steps[2].label+"日";
+    document.getElementById("pDoneLbl").textContent = "④ "+steps[3].label+"日（完成）";
+    document.getElementById("proxyStepsSub").textContent = "往返节点（按实际进度填写，状态自动推算）";
+    document.getElementById("proxyModeHint").textContent = "我请对方代寄并写回："+steps[0].label+" → "+steps[1].label+" → "+steps[2].label+" → "+steps[3].label;
+    document.getElementById("pProxyLbl").textContent = "对方（代寄人）*";
+    document.getElementById("pProxy").placeholder = "如：Anna（德国笔友，帮我代寄盖章）";
+  }
+  // 单向代寄无镜像腿，禁用互寄勾选
+  const m=document.getElementById("pMutualChk"); m.disabled=isOne;
+  if(m.closest(".chk")) m.closest(".chk").style.display = isOne ? "none" : "";
+  if(isOne) m.checked=false;
+}
+
+/* 带「撤销」按钮的提示：语义与 Ctrl+Z 一致（弹栈顶快照还原），调用点须已在改数据前 snapshot()。
+   ms = toast 停留时长（删除 8000 / 清空 12000；shared.js 已修复 undo 分支忽略 ms 的 bug）。
+   saveFailed 时退化：保存失败则不弹撤销按钮，改弹可行动告警（撤销的是内存态，落盘失败时优先告警）。 */
+function toastUndo(msg, ms, saveFailed){
+  if(saveFailed){ toast("⚠️ "+SAVE_FAIL_TXT, "danger", 7000); return; }
+  toast(msg, "", ms||0, function(){ try{ pcUndo(); }catch(e){ toast("撤销失败","danger"); } });
+}
+
+function applyTheme(t){
+  document.documentElement.dataset.theme=t;
+  try{ localStorage.setItem("wb_theme_v1", t); try{ localStorage.setItem("wb_postcards_theme", t); }catch(_){} }catch(e){}
+  const tb=document.getElementById("btnTheme"); if(tb) tb.setAttribute("aria-pressed", t==="dark"?"true":"false");
+  /* P3-5：同步 <meta name="theme-color"> —— iPhone/iPad 暗色下状态栏仍是亮蓝，与页面割裂。
+     浅色取 --bg、深色取 --ink2（与 body 背景一致）。首屏 <head> 里的初值在 L7，需在读取 localStorage 后立即调用本函数覆盖。 */
+  try{ const m=document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute("content", t==="dark"?"#0f1320":"#f5f7fb"); }catch(_){}
+}
+
+/* ===== L5 Bind · P1-9 分层（2026-10-23）===== */
+
+/* ===== L6 Cloud · P1-9 分层（2026-10-23）===== */
+
+/* ===== L7 Boot · P1-9 分层（2026-10-23）===== */
+/* ===== 数据 ===== */
+const KEY="wb_postcards_v1";
+const WKEY="wb_postcards_widgets_v1";
+const VIEW_NAME={sent:"寄出",received:"收到",proxy:"代寄",activity:"活动"};
+let widgetCfg={order:[],hidden:[],custom:[],autoRename:{}};
+const SAVED_AT="wb_postcards_savedAt_v1";
+const CFG_SAVED_KEY="wb_postcards_cfgsavedat_v1";
+/* 2026-10-23 白屏事故三修：此行原先裸调 localStorage.getItem 且无 try —— 它是 IIFE 顶层
+   立即执行语句，浏览器禁用/阻止存储时（隐私设置/无痕/隐私扩展）直接抛 SecurityError，
+   整个主脚本在此中断：boot 段不执行、无错误横幅、只剩静态 HTML。
+   cfgsavedat 纯优化字段，读不到就退化为 0，绝不能因为它让整页挂掉。 */
+let cfgSavedAt=0;
+try{ cfgSavedAt=+(localStorage.getItem(CFG_SAVED_KEY)||0)||0; }catch(e){}
+const CLOUD_KEY="wb_postcards_cloudsync_v1";
+const STATUS_ORDER=["unwritten","unsent","transit","arrived","returned"];
+const STATUSES={
+  unwritten:{label:"未写", color:"#c2c7d0"},
+  unsent:{label:"未寄", color:"#9aa0ab"},
+  transit:{label:"在途", color:"#ff8a3d"},
+  arrived:{label:"已到", color:"#22b07d"},
+  returned:{label:"退回", color:"#ef4444"},
+};
+const RECV_STATUS_ORDER=["transit","received"];
+const RECV_STATUSES={
+  transit:{label:"在途", color:"#ff8a3d"},
+  received:{label:"已收", color:"#22b07d"},
+};
+/* 代寄 mode/direction/step 常量枚举：单一事实源，避免散落字符串拼写错误（审计 B1-PC）*/
+const PMODE={BACK:"back", ONEWAY:"oneway"};
+const PDIR={ME:"me", THEM:"them"};
+const PSTEP={READY:"ready", SENT:"sent", PROXY_RECV:"proxyRecv", PROXY_BACK:"proxyBack", GOT_BACK:"gotBack", ENV_SENT:"envSent", ENV_RECV:"envRecv"};
+
+// 代寄 / write-back：同一张片寄给对方写回再寄回，4 节点往返生命周期
+// 方向：me = 我寄出在先（标准）；them = 对方寄出在先（互相代寄的另一条腿，方向相反）
+const PROXY_STEPS=[
+  {k:"sent",      label:"我寄出"},
+  {k:"proxyRecv", label:"对方收"},
+  {k:"proxyBack", label:"对方写回寄出"},
+  {k:"gotBack",   label:"我收到"}
+];
+const PROXY_STEPS_THEM=[
+  {k:"sent",      label:"对方寄出"},
+  {k:"proxyRecv", label:"我收"},
+  {k:"proxyBack", label:"我写回寄出"},
+  {k:"gotBack",   label:"对方收到"}
+];
+// 单向代寄（对方找我代寄，我寄出不回寄）：仅 2 节点，完成复用 gotBack 字段以共用完成态样式/统计
+const PROXY_STEPS_ONEWAY=[
+  {k:"envSent",  label:"对方寄出"},
+  {k:"envRecv",  label:"我收"},
+  {k:"sent",     label:"我写回寄出"},
+  {k:"gotBack",  label:"对方收到"}
+];
+/* P2-2：每个状态补ink =「同色系的深色版」，专供 badge 文字使用。
+   原先 badge 直接拿 color 当文字色（`background:${c}22;color:${c}`），而这些色是按「色块」选的：
+   寄出在途 #f5a623 在白底上只有 2.03:1、对方已寄出 #fb923c 2.32:1、对方已收 #4aa3ff 2.64:1，全部远低于 AA 4.5:1。
+   color 保持不变继续用于色点/进度条/图表（那里是大面积填充，对比度要求不同），只有小字标签改用 ink。 */
+const PROXY_STATUS={
+  ready:    {label:"准备中",     color:"#9aa3b2", ink:"#5b6472"},
+  envSent:  {label:"对方已寄出", color:"#fb923c", ink:"#9a4a08"},
+  envRecv:  {label:"我已收", color:"#4aa3ff", ink:"#0b5fa5"},
+  sent:     {label:"寄出在途",   color:"#f5a623", ink:"#8a5200"},
+  proxyRecv:{label:"对方已收",   color:"#4aa3ff", ink:"#0b5fa5"},
+  proxyBack:{label:"对方寄回中", color:"#a06bff", ink:"#6a2fd0"},
+  gotBack:  {label:"已收到", color:"#22b07d", ink:"#0a7a53"}
+};
+// 进行中活动：RR（未满员）/ TAG（未tag完）/ 交换（进行中）等参与型活动
+const ACT_KIND_DEFAULT=[{key:"rr",label:"RR",progress:true},{key:"tag",label:"TAG",progress:true},{key:"exchange",label:"交换",progress:false},{key:"other",label:"其他",progress:false}];
+let actKindList=ACT_KIND_DEFAULT.map(o=>({...o}));
+const ACT_KIND_COLOR=["#f5a623","#a06bff","#4aa3ff","#22b07d","#ea580c","#ff6b6b","#9aa3b2"];
+const LINK_LABEL={sent:"寄出",received:"收到",proxy:"代寄"};
+const ACT_STATUS={     // P2-2：同 PROXY_STATUS，ink 供 badge 文字（对比度），color 供色点/图表
+  ongoing:{label:"进行中", color:"#4aa3ff", ink:"#0b5fa5"},
+  done:   {label:"已结束", color:"#22b07d", ink:"#0a7a53"},
+  closed: {label:"已关闭", color:"#9aa3b2", ink:"#5b6472"}
+};
+/* R2-1：活动状态白名单，供 sanitizeArr 校验用。
+   ⚠️ 必须声明在 ACT_STATUS **之后** —— const 有暂时性死区，写在前面会让 Object.keys(ACT_STATUS)
+   在模块求值时抛 ReferenceError，整个 script 挂掉（页面只剩静态 HTML：标签栏与表格全空）。
+   这个坑与「派生常量必须晚于源常量」是同一条铁律，派生一律放源后面。 */
+const ACT_STATUS_ORDER=Object.keys(ACT_STATUS);
+let postcards=[];
+let received=[];
+let proxies=[];
+let activities=[];
+let actEditingLinks=[]; // 活动弹窗中临时维护的关联明信片列表
+let view="sent";
+let filter={status:"all", country:"", platform:"", type:"", channel:"", q:""};   // P0-4：channel 键补齐（此前 filter.channel 恒 undefined，渠道筛选形同虚设）
+let rfilter={status:"all", country:"", platform:"", type:"", q:""};
+let pfilter={status:"all", country:"", platform:"", type:"", q:""};
+let afilter={kind:"all", status:"ongoing", q:""}; // 活动：默认只看「进行中」
+let sort={sent:"", received:"", proxy:""}; // F5 排序键：""/date/arr/country/platform
+const PLAT_DEFAULT=["Postcrossing","微博互换","自寄","朋友赠送","闲鱼代寄","旅行自购"];
+const TYPE_DEFAULT=["交换","TAG","RR","自寄","其他"];
+const COUNTRY_DEFAULT=["中国","日本","德国","法国","意大利","韩国","美国","英国","荷兰","俄罗斯","泰国","澳大利亚","加拿大","西班牙","新加坡"];
+let platList=PLAT_DEFAULT.slice();
+let typeList=TYPE_DEFAULT.slice();
+let countryList=COUNTRY_DEFAULT.slice();
+let optsKind="platform", optsReturn=null;
+
+const cleanArr=v=>sanitizeArr(v);   // 旧名保留兼容（两文件不用，但改调用点风险大时可用）
+/* ===== 本地存储统一写入口 =====
+   原实现把 QuotaExceededError 静默吞掉 → 界面显示「已保存」、刷新后数据全丢且毫无提示。
+   明信片含 base64 图片，极易触发配额上限，这里必须显式告警。 */
+let _quotaWarnAt=0;
+
+/* ===== F1 异常件（可能丢失）提醒 ===== */
+const LOST_DAYS={平邮:60,空邮:30,挂号:120,其他:45,"":60}; // 各渠道在途超期阈值（天）（「自寄」键已删：渠道下拉无此项，永不命中）
+const PROXY_LOST_DAYS=75; // 代寄：自「我寄出」起超过该天数仍未走完，判定可能丢失
+
+// 返回值用于 HTML 属性（href="..."），必须再过 esc，否则可用 " 提前闭合属性造成属性逃逸型 XSS
+
+function openOpts(kind, selId){
+  optsKind=kind; optsReturn=selId||null;
+  document.getElementById("optsTitle").textContent = kind==="platform"?"管理平台选项":kind==="type"?"管理类型选项":"管理国家/地区选项";
+  renderOptsList();
+  document.getElementById("maskOpts").classList.add("show");
+  try{ document.getElementById("optsNew").focus(); }catch(e){}
+}
+function closeOpts(){
+  document.getElementById("maskOpts").classList.remove("show");
+  if(optsReturn){ fillSelect(optsReturn, optsKind, document.getElementById(optsReturn).value); }
+  save();
+  optsReturn=null;
+}
+
+/* ===== 相关站点快捷链接（底部常驻 · 可管理 · 存本地） ===== */
+const LKEY="wb_postcards_links_v1";
+const LINKS_DEFAULT=[
+  {emoji:"✉️", name:"Postcrossing",    url:"https://www.postcrossing.com/"},
+  {emoji:"🌍", name:"PostcardUnited",  url:"https://postcardunited.com/"},
+  {emoji:"💌", name:"Happy Postcard",  url:"https://www.happypostcard.fun/"},
+  {emoji:"📬", name:"You've Got Mail", url:"https://youvegotmail.club/"},
+  {emoji:"🎫", name:"25Stamps",        url:"https://www.25stamps.club/"},
+  {emoji:"🖼", name:"我的收片相册",     url:"https://eu.zonerama.com/Profile/704015/1255144"}
+];
+let linkList=[];
+function openLinkEditor(){ renderLinkEditor(); document.getElementById("maskLinks").classList.add("show"); }
+function closeLinkEditor(){ document.getElementById("maskLinks").classList.remove("show"); saveLinks(); renderLinkBar(); }
+
+/* ===== 渲染：视图切换（标签页名称可双击编辑） ===== */
+const TAB_DEFAULT={ sent:"寄出追踪", received:"收到收藏", proxy:"代寄", activity:"进行中活动" };
+const TAB_KEY="wb_postcard_tabs_v1";
+
+/* ===== 渲染：统计 ===== */
+let widgetEditMode=false;
+// F3 修复：代寄 5 态标签此前在 renderStats 与 currentWidgetWids 各写一份（长短不一致），
+// wid 永不匹配 → 统计卡排序/上移下移不持久。两处必须共用本常量。
+const PROXY_STAT_LABELS={ready:"准备中", sent:"寄出在途（我寄出 / 对方寄出待我收）", proxyRecv:"第一步已收（对方收 / 我收）", proxyBack:"回寄在途（对方写回 / 我写回）", gotBack:"回片已到（我收到 / 对方收到）"};
+let _renderedAutoWids=null;   // 最近一次 renderStats 实际产出的自动卡wid 列表（P2-17：供 currentWidgetWids 反推）
+let dragWid=null, dragDropBefore=false;
+function bindWidgetCtrls(el){
+  el.querySelectorAll(".w-ctrl button").forEach(b=>{
+    b.addEventListener("click", e=>{ e.stopPropagation(); const act=b.dataset.act, wid=b.dataset.wid;
+      if(act==="up") moveWidget(wid,-1);
+      else if(act==="down") moveWidget(wid,1);
+      else if(act==="hide") hideWidget(wid);
+      else if(act==="edit") openWidgetModal(wid);
+      else if(act==="rename") openRename(wid);
+      else if(act==="del") delWidget(wid);
+    });
+  });
+  /* 键盘重排：聚焦拖拽手柄后用上下方向键移动（原生拖拽的键盘替代） */
+  el.querySelectorAll(".w-ctrl .grip").forEach(g=>{
+    g.addEventListener("keydown", e=>{ const wid=g.dataset.wid;
+      if(e.key==="ArrowUp"){ e.preventDefault(); moveWidget(wid,-1); }
+      else if(e.key==="ArrowDown"){ e.preventDefault(); moveWidget(wid,1); }
+    });
+  });
+  /* 自动统计卡的标签支持双击重命名 */
+  el.querySelectorAll(".stat.widget").forEach(card=>{
+    const wid=card.dataset.wid||"";
+    if(wid.indexOf("stat:")!==0) return;
+    const l=card.querySelector(".l");
+    if(l) l.addEventListener("dblclick", e=>{ e.stopPropagation(); openRename(wid); });
+  });
+  el.querySelectorAll(".stat.widget").forEach(card=>{
+    card.addEventListener("dragstart", e=>{ dragWid=card.dataset.wid; card.classList.add("dragging"); try{e.dataTransfer.effectAllowed="move";}catch(_){} });
+    card.addEventListener("dragend", ()=>{ card.classList.remove("dragging"); dragWid=null; dragDropBefore=false; el.querySelectorAll(".stat.widget").forEach(c=>c.classList.remove("drop-before","drop-after")); });
+    card.addEventListener("dragover", e=>{ e.preventDefault(); if(card.dataset.wid===dragWid) return; const r=card.getBoundingClientRect(); dragDropBefore=(e.clientY-r.top)<r.height/2; card.classList.toggle("drop-before",dragDropBefore); card.classList.toggle("drop-after",!dragDropBefore); });
+    card.addEventListener("dragleave", ()=>card.classList.remove("drop-before","drop-after"));
+    card.addEventListener("drop", e=>{ e.preventDefault(); const tgt=card.dataset.wid; if(tgt!==dragWid) dropWidget(dragWid,tgt); card.classList.remove("drop-before","drop-after"); });
+  });
+}
+let editingWid=null;
+
+/* 自动统计卡重命名：仅覆盖显示文字，wid 与数值计算均不变 */
+let renamingWid=null;
+
+/* ===== 渲染：筛选条 ===== */
+/* ===== D1：四视图筛选条参数化 =====
+   sent/received/proxy/activity 的筛选条结构高度重复（仅 id 前缀/数据源/排序项/占位文案不同），
+   统一到 FILTER_BAR_CFG 配置 + buildFilterBar 构建；新增筛选字段只改配置表一处。
+   id 全部保持历史值（fSearch/fPSearch 等被冒烟测试与既有逻辑引用）。 */
+const FILTER_BAR_CFG = {
+  sent:{
+    filter:()=>filter, chips:["statusChips"],
+    selects:[
+      {id:"fCountry", ph:"全部国家/地区", field:"country", src:()=>postcards},
+      {id:"fPlatform", ph:"全部平台", field:"platform", src:()=>postcards},
+      {id:"fTypeFilter", ph:"全部类型", field:"type", src:()=>postcards}
+    ],
+    sort:{id:"fSort", key:"sent", opts:[["date","寄出日↓"],["arr","到达日↓"],["country","国家"],["platform","平台"]]},
+    search:{id:"fSearch", clearId:"fSearchClear", ph:"搜索收件人 / 国家 / 平台 / 类型 / 备注…"}
+  },
+  received:{
+    filter:()=>rfilter, chips:["recvChips"],
+    selects:[
+      {id:"fRCountry", ph:"全部国家/地区", field:"country", src:()=>received},
+      {id:"fRPlatform", ph:"全部平台", field:"platform", src:()=>received},
+      {id:"rTypeFilter", ph:"全部类型", field:"type", src:()=>received}
+    ],
+    sort:{id:"rSort", key:"received", opts:[["arr","收到日↓"],["country","国家"],["platform","平台"]]},
+    search:{id:"fRSearch", clearId:"fRSearchClear", ph:"搜索寄件人 / 国家 / 平台 / 类型 / 备注…"}
+  },
+  proxy:{
+    filter:()=>pfilter, chips:["proxyChips"],
+    selects:[
+      {id:"fPCountry", ph:"全部国家/地区", field:"country", src:()=>proxies},
+      {id:"fPPlatform", ph:"全部平台", field:"platform", src:()=>proxies},
+      {id:"fPType", ph:"全部类型", field:"type", src:()=>proxies}
+    ],
+    sort:{id:"pSort", key:"proxy", opts:[["date","我寄出日↓"],["country","国家"],["platform","平台"]]},
+    search:{id:"fPSearch", clearId:"fPSearchClear", ph:"搜索对方 / 国家 / 平台 / 类型 / 备注…"}
+  },
+  activity:{
+    filter:()=>afilter, chips:["actKChips","actSChips"],
+    selects:[], sort:null,
+    search:{id:"fASearch", clearId:"fASearchClear", ph:"搜索活动名称 / 平台 / 备注…"}
+  }
+};
+/* ===== D2：chips 渲染泛化 =====
+   五个 chips 函数同构（全部 chip + 枚举 map + onclick 改 filter 再 renderTable），统一到
+   renderChipsGeneric + CHIP_GROUPS 配置；外部调用点（含活动类型编辑器）保留同名薄封装。 */
+const CHIP_GROUPS = {
+  sent:[{id:"statusChips", entries:()=>STATUS_ORDER.map(s=>({k:s,label:STATUSES[s].label})), cur:()=>filter.status, all:"全部", attr:"s", pick:v=>{ filter.status=v; }}],
+  received:[{id:"recvChips", entries:()=>RECV_STATUS_ORDER.map(s=>({k:s,label:RECV_STATUSES[s].label})), cur:()=>rfilter.status, all:"全部", attr:"s", pick:v=>{ rfilter.status=v; }}],
+  proxy:[{id:"proxyChips", entries:()=>Object.keys(PROXY_STATUS).map(s=>({k:s,label:PROXY_STATUS[s].label})), cur:()=>pfilter.status, all:"全部", attr:"s", pick:v=>{ pfilter.status=v; }}],
+  activity:[
+    {id:"actKChips", entries:()=>actKindList.map(o=>({k:o.key,label:o.label})), cur:()=>afilter.kind, all:"全部类型", attr:"k", pick:v=>{ afilter.kind=v; }},
+    {id:"actSChips", entries:()=>Object.keys(ACT_STATUS).map(s=>({k:s,label:ACT_STATUS[s].label})), cur:()=>afilter.status, all:"全部", attr:"s", pick:v=>{ afilter.status=v; }}
+  ]
+};
+/* P3-1：renderChips 已删（薄封装，无调用方） */
+
+// 每步独立按真实字段判定完成态（不再用顺序计数，避免「中间空却显示已完成」的假象）
+/* P1-6：原实现从**前**向后扫，返回「第一个未完成」的下标。
+   致命处：toggleProxyStep 允许任意顺序点节点（注释明确「不级联」），于是跳步时派生量全错——
+   ① 只勾第 4 步(gotBack) → firstUndone()===0 → proxyStatusOf 渲染成「准备中」，但完成日已填；
+   ② isLostProxy 只看 firstUndone!==-1 → 勾了第 3、4 步且超期 75 天，**已完成的卡片**被打上「可能丢失」；
+   ③ proxyUnitDone 同样受影响 → 完成的行不沉底、5 态计数全部错位。
+   改为从后向前扫：只要最后一个节点没填就还没完成；最后一个填了即视为已完成（跳步不再产生矛盾状态）。
+   （保存时的顺序补齐 normalizeProxySteps 属治本项，本轮先止血。） */
+
+/* 步进口径分离（2026-10-05 修「圆圈高亮错位」）：
+   firstUndone 回答的是「是否全部完成」，返回**从后往前**第一个未完成的下标 —— 这是 P1-6 为治
+   「跳步时状态/丢失判定自相矛盾」故意改的，**不能动**（改了会让 ② isLostProxy ③ proxyUnitDone 回归）。
+   但它被两处当「下标」用，语义就错了：
+     ① proxyStepNode 里 `i===firstUndone(p)` 判定「当前步高亮」→ 只完成第1步时返回 3，
+        高亮落到**第 4 圈**上，而真正的下一步是第 2 圈（截图即此症状：第1圈✓、2/3灰、4圈蓝）；
+     ② proxyStatusOf / proxyStatusText 拿它当状态链下标 → 同一条记录被渲染成「我已收」，
+        统计（5 态计数 / 在途张数 / 筛选）随之错位。
+   highestDone 回答的是「已经走到第几步」= **从后往前**最后一个**已完成**的下标（全空 -1）。
+   由此统一派生，两个语义都对，且对跳步数据同样自洽：
+     全空 → -1 → 高亮第1圈 / 状态「准备中」
+     完成1 → 0 → 高亮第2圈 / 状态「我寄出在途」← 截图的期望
+     只勾第4步 → 3 → 无高亮 / 状态「我已收」（正是 P1-6 ① 期望的解）
+     全完成 → 3 → 无高亮 / 状态「我已收」
+   步进数组下标与状态链下标天然对齐（往返 me: sent→proxyRecv→proxyBack→gotBack；
+   单向: envSent→envRecv→sent→gotBack），故 +1 即状态链下标，无需再特判 i<0。 */
+/* ===== P1-4 窄屏隐藏列的 th/td 配对 =====
+   .hide-sm 只写在 <th> 上，而对应 <td> 漏加 —— 561~980px（iPad 竖屏+横屏）时表头消失、数据格仍在，
+   列序整体错位一格，「操作」列按钮上方顶着无主的日期值：看错列会把「到达日」当成「寄出日」，
+   而日期是本应用最核心的字段。手工补 class 下次加列还会漏，故改为**渲染后按可见 th 顺序统一同步**。
+   同时处理反向：视口从窄变宽时要把之前加上的 hide-sm 摘掉，否则列永久消失。 */
 // M1：表格事件委托——整表 innerHTML 重建后不再逐行重绑事件，改为在 tbody 上挂一次稳定监听器（性能优化 + 避免监听器反复创建销毁）
 function bindTableDelegation(){
   const tb=document.getElementById("tbody");
@@ -3992,76 +4293,12 @@ function bindTableDelegation(){
     el=t.closest(".st.clickable, .sp-node.clickable"); if(el){ toggleProxyStep(el.dataset.pid, parseInt(el.dataset.pstep,10)); return; }
   });
 }
-function renderAddBtn(){ const b=document.getElementById("btnAdd"); if(!b) return; const map={ sent:["新建寄出",()=>openRecModal("sent")], received:["新建收到",()=>openRecModal("received")], proxy:["新建代寄",()=>openProxyModal()], activity:["新建活动",()=>openActivityModal()] }; const c=map[view]||map.sent; b.textContent=c[0]; b.setAttribute('aria-label',c[0]); b.onclick=c[1]; }
-function renderAllNow(){
-  /* 2026-10-23 白屏事故修复：原先五个渲染步骤串行裸跑，任何一步抛异常（如脏数据触发 TypeError）
-     都会中断后续全部渲染 → 页面只剩静态骨架。改为分步隔离：单区失败只降级该区，其余照常渲染。 */
-  const steps=[["页签",renderTabs],["统计卡",renderStats],["筛选栏",renderFilters],["表格",renderTable],["操作按钮",renderAddBtn]];
-  for(const [nm,fn] of steps){
-    try{ fn(); clearRegionWarn(nm); }
-     catch(e){
-       if(DEBUG)console.error("[renderAllNow] 「"+nm+"」区域渲染失败：", e);
-       renderRegionWarn(nm, e);
-     }
-  }
-}
-/* G12（2026-10-23 修）：区域渲染成功即摘牌——红条此前只增不清，一次瞬时错误会让红条
-   驻留到刷新为止，误导后续排查（看起来一直在出错）。全部区域正常时整个横幅收起。 */
-function clearRegionWarn(nm){
-  try{
-    const box=document.getElementById("bootErr");
-    if(!box) return;
-    const item=box.querySelector('[data-region="'+CSS.escape(nm)+'"]');
-    if(item) item.remove();
-    if(!box.querySelector("[data-region]")) box.hidden=true;
-  }catch(_){}
-}
 let _regionWarnAt={};
-function renderRegionWarn(nm, e){
-  /* 2026-10-23 二次白屏排查：toast 是瞬时的，用户截图时早消失，等于没报。
-     改为持久错误块：区域名 + 错误消息直接显示在页面顶部，截图即可定位。 */
-  try{
-    const box=document.getElementById("bootErr");
-    if(!box) return;
-    box.hidden=false;
-    const msg=(e&&e.message)?String(e.message):"未知错误";
-    let item=box.querySelector('[data-region="'+CSS.escape(nm)+'"]');
-    if(!item){
-      item=document.createElement("div");
-      item.dataset.region=nm;
-      item.style.cssText="background:#fdecec;color:#8a1f1f;border:1px solid #f5c2c2;border-radius:10px;padding:10px 14px;margin:0 0 10px;font-size:12.5px;line-height:1.6;";
-      if(document.documentElement.dataset.theme==="dark"||document.body.classList.contains("dark"))
-        item.style.cssText+="background:#3a2226;color:#ffb4b4;border-color:#6b3a3f;";
-      box.appendChild(item);
-    }
-    item.textContent="⚠️ 「"+nm+"」区域渲染出错（其余区域正常）： "+msg;
-  }catch(_){}
-  const now=Date.now();
-  if(now-(_regionWarnAt[nm]||0)<30000) return;   // 同区域 30s 节流（toast 保留）
-  _regionWarnAt[nm]=now;
-  try{ toast("「"+nm+"」区域刷新出错，详情见页面顶部红条","danger"); }catch(_){}
-}
 /*  重渲染合并：同一事件内的多次 renderAll 合并为 1–2 次实际渲染，且不丢最新状态
     （R4 移植，对齐任务台 7701：必须用 try/finally 释放刷新锁——此前 renderAllNow() 一旦抛异常
     （如某条脏数据的字段为 null），_raPending 会永久卡 true，之后所有 renderAll 全部静默失效，
     界面定格且无任何报错，用户只能刷新页面。） */
 let _raPending=false, _raDirty=false, _raErrAt=0;
-function renderAll(){
-  if(_raPending){ _raDirty=true; return; }
-  _raPending=true; _raDirty=false;
-  try{
-    renderAllNow();
-  }catch(e){
-    if(DEBUG)console.error("[renderAll] 渲染异常，已释放刷新锁；界面可能未完全更新：", e);
-    const now=Date.now();
-    if(now-_raErrAt>30000){ // 同类告警 30s 内只提示一次，避免高频渲染刷屏
-      _raErrAt=now;
-      try{ toast("界面刷新出错，已自动恢复；若显示仍异常请刷新页面", "danger"); }catch(_){}
-    }
-  }finally{
-    queueMicrotask(()=>{ _raPending=false; if(_raDirty){ _raDirty=false; renderAll(); } });
-  }
-}
 
 /* ===== 操作：寄出 ===== */
 /* ===== 操作：记录（寄出/收到 统一 schema 驱动） ===== */
@@ -4092,23 +4329,6 @@ const REC_DEFS = {
     }
   }
 };
-function fillForm(dir, p){
-  const def=REC_DEFS[dir];
-  for(const fid in def.form){ const rf=def.form[fid]; const el=document.getElementById(fid); if(el) el.value=(p && p[rf]!=null)? p[rf] : ""; }
-  const sel=document.getElementById(def.statusId);
-  if(sel) sel.value=(p && p.status) || def.defaultStatus;
-  fillSelect(def.platId, "platform", p? (p.platform||"") : "");
-  fillSelect(def.typeId, "type", p? (p.type||"") : "");
-  fillSelect(def.countryId, "country", p? (p.country||"") : "");
-}
-function readForm(dir){
-  const def=REC_DEFS[dir]; const o={};
-  for(const fid in def.form){ const rf=def.form[fid]; const el=document.getElementById(fid); if(el) o[rf]=el.value.trim(); }
-  if(def.form.fImage) o.image=sanitizeImageUrl(o.image);
-  if(def.form.rImage) o.image=sanitizeImageUrl(o.image);
-  o.status=document.getElementById(def.statusId).value || def.defaultStatus;
-  return o;
-}
 /* 状态↔日期一致性（D1，按审查建议改为「保留历史轨迹」）：
    - 状态回退时【不再】清空已填日期；已到达→误改回在途，arrived 仍保留为历史轨迹。
    - 仅「未写」(unwritten) 视为彻底重置，才清空 sent/arrived（修复原「状态=未写却残留 arrived」污染）。
@@ -4147,32 +4367,6 @@ function openRecModal(dir, id){
   try{ document.getElementById(def.focusId).focus(); }catch(e){}
 }
 function closeRecModal(dir){ document.getElementById(REC_DEFS[dir].maskId).classList.remove("show"); recSnapshot=null; }
-/* P2-5：统一「关闭前脏检查」入口。此前「取消」按钮直接 closeRecModal（绕过检查），而 Esc 路径会弹确认 —— 同一操作两个行为，改了内容点取消静默丢失。recSnapshot 在关闭时清空，否则下次打开空白表单会被误判为「已修改」 */
-/* P2-13：字段级校验反馈。原先只有底部 toast：既不 focus 也不高亮，用户不知道该改哪个字段；
-   toast 还固定在底部、会盖住弹窗底部按钮。本函数给输入框加红框 + 就地红字说明并聚焦。 */
-function clearFieldError(id){
-  const el=document.getElementById(id); if(!el) return;
-  el.removeAttribute("aria-invalid");
-  el.style.removeProperty("border-color");
-  const box=el.closest(".field")||el.parentElement;
-  if(box){ const e=box.querySelector(".field-err"); if(e) e.remove(); }
-}
-function fieldError(id, msg){
-  const el=document.getElementById(id); if(!el) { toast(msg,"danger"); return false; }
-  clearFieldError(id);
-  el.setAttribute("aria-invalid","true");
-  el.style.borderColor="var(--danger)";
-  const box=el.closest(".field")||el.parentElement;
-  if(box){
-    const e=document.createElement("div");
-    e.className="field-err"; e.setAttribute("role","alert");
-    e.style.cssText="color:var(--danger);font-size:12px;margin-top:4px;line-height:1.4;";
-    e.textContent=msg; box.appendChild(e);
-  }
-  try{ el.focus(); }catch(_){}
-  toast(msg,"danger");
-  return false;
-}
 async function tryCloseRec(dir){
   if(formDirty(dir) && !(await confirmDialog("内容尚未保存，确定关闭吗？"))) return false;
   closeRecModal(dir); return true;
@@ -4245,43 +4439,8 @@ function bindLink(dir, id, tgtDir, cid){
 function closeLinkModal(){ document.getElementById("linkModal").classList.remove("show"); }
 /* ===== 操作：进行中活动（RR 未满员 / TAG 未 tag / 交换进行中） ===== */
 
-function actLinkHtml(a){
-  if(!a || !Array.isArray(a.links) || !a.links.length) return "—";
-  return a.links.map((l,i)=>`<button class="linkbtn" data-alink="${a.id}" data-alidx="${i}">${esc(actLinkItemLabel(l.type,l.id))}</button>`).join(" ");
-}
 /* ===== RR 轮换名单：每 N 周给名单下一位寄一张，全部寄出即闭环 ===== */
 let actEditingRot=[];
-function renderRotEditor(){
-  const box=document.getElementById("aRotList"); if(!box) return;
-  if(!actEditingRot.length){
-    box.innerHTML='<div class="muted" style="font-size:12.5px;padding:6px 0;">还没有轮次。点「添加一轮」或批量粘贴，按顺序登记每轮收件人与对方要求的尺寸；可分别记录「已写完 / 已寄出 / 已收到」三个时间节点追踪进度。</div>';
-    rotSyncInput(); return;
-  }
-  /* P2-9：每列用 <label class="rot-f"> 包裹并带一个可见 <span> 标签。
-     宽屏时 span 隐藏（维持 8 列 grid 对齐）；≤700px 行退化为单列卡片时 span 显示，替代隐藏的表头。 */
-  const fld=(i,k,label,val,type,ph)=>'<label class="rot-f"><span>'+label+'</span>'
-    +'<input '+(type?'type="'+type+'" ':'')+'data-ri="'+i+'" data-rf="'+k+'" value="'+esc(val||"")+'" placeholder="'+ph+'" aria-label="第'+(i+1)+'轮'+label+'"></label>';
-  box.innerHTML=actEditingRot.map((r,i)=>'<div class="rot-row">'
-    +'<span class="rot-no">R'+(i+1)+'</span>'
-    +fld(i,"to","收件人",r.to,"","收件人")
-    +fld(i,"size","尺寸要求",r.size,"","尺寸要求")
-    +fld(i,"due","截止日",r.due,"date","")
-    +fld(i,"written","已写完",r.written,"date","")
-    +fld(i,"sent","已寄出",r.sent,"date","")
-    +fld(i,"received","已收到",r.received,"date","")
-    +'<span class="rot-ops">'
-    +'<button type="button" class="mini" data-rup="'+i+'" title="上移" aria-label="上移">↑</button>'
-    +'<button type="button" class="mini" data-rdn="'+i+'" title="下移" aria-label="下移">↓</button>'
-    +'<button type="button" class="mini" data-rdel="'+i+'" title="删除" aria-label="删除">✕</button>'
-    +'</span></div>').join("");
-  box.querySelectorAll("input[data-ri]").forEach(inp=>{
-    inp.addEventListener("input",()=>{ const i=parseInt(inp.dataset.ri,10); if(actEditingRot[i]) actEditingRot[i][inp.dataset.rf]=inp.value; rotSyncInput(); });
-  });
-  box.querySelectorAll("[data-rdel]").forEach(b=>{ b.onclick=()=>{ actEditingRot.splice(parseInt(b.dataset.rdel,10),1); renderRotEditor(); }; });
-  box.querySelectorAll("[data-rup]").forEach(b=>{ b.onclick=()=>{ const i=parseInt(b.dataset.rup,10); if(i<=0) return; const t=actEditingRot[i-1]; actEditingRot[i-1]=actEditingRot[i]; actEditingRot[i]=t; renderRotEditor(); }; });
-  box.querySelectorAll("[data-rdn]").forEach(b=>{ b.onclick=()=>{ const i=parseInt(b.dataset.rdn,10); if(i>=actEditingRot.length-1) return; const t=actEditingRot[i+1]; actEditingRot[i+1]=actEditingRot[i]; actEditingRot[i]=t; renderRotEditor(); }; });
-  rotSyncInput();
-}
 function rotAddRow(){
   actEditingRot.push({to:"",size:"",due:"",written:"",sent:"",received:""}); renderRotEditor();
   const box=document.getElementById("aRotList");
@@ -4289,7 +4448,6 @@ function rotAddRow(){
   const last=rows.length?rows[rows.length-1].querySelector("input"):null;
   if(last) last.focus();
 }
-function rotSummaryHtml(a){ if(!a||!Array.isArray(a.rotation)||!a.rotation.length) return ""; const n=a.rotation.length; const w=a.rotation.filter(r=>r&&r.written).length; const s=a.rotation.filter(r=>r&&r.sent).length; const rc=a.rotation.filter(r=>r&&r.received).length; return `<div class="note" style="font-size:12px;opacity:.85">进度：写完 ${w}/${n} · 寄出 ${s}/${n} · 收到 ${rc}/${n}</div>`; }
 function openActivityModal(id){
   const a=id? activities.find(x=>x.id===id):null;
   document.getElementById("actModalTitle").textContent = a? "编辑活动" : "新建活动";
@@ -4319,56 +4477,8 @@ function openActivityModal(id){
   actSnapshot=formSnapshot(ACT_FORM_IDS); // F9 记录打开时快照，供 Esc 脏检查比对
   document.getElementById("maskActivity").classList.add("show");
 }
-function renderActLinkChips(){
-  const box=document.getElementById("aLinkChips"); if(!box) return;
-  if(!actEditingLinks.length){ box.innerHTML='<span class="muted">尚未关联明信片，可在下方添加</span>'; return; }
-  box.innerHTML=actEditingLinks.map((l,i)=>`<span class="link-chip">${esc(actLinkItemLabel(l.type,l.id))}<button aria-label="移除" type="button" class="x" data-alremove="${i}" title="移除">✕</button></span>`).join("");
-  box.querySelectorAll("[data-alremove]").forEach(b=>b.onclick=()=>{ actEditingLinks.splice(parseInt(b.dataset.alremove,10),1); renderActLinkChips(); refreshActLinkOptions(); });
-}
-function updateActProgressVisibility(){
-  const kind=document.getElementById("aKind").value;
-  const show = actKindProgress(kind);
-  const curLbl=document.getElementById("aCurLbl"), maxLbl=document.getElementById("aMaxLbl");
-  const isTag = /tag/i.test(kind+" "+(actKindLabel(kind)||""));
-  if(curLbl) curLbl.textContent = isTag? "已 tag 张数" : "当前人数";
-  if(maxLbl) maxLbl.textContent = isTag? "需 tag 张数" : "满员人数";
-  const hint=document.getElementById("aProgHint");
-  if(hint) hint.textContent = isTag? "进度（已 tag / 需 tag 张数）" : "进度（当前 / 满员人数）";
-  // P2-18：原用 aCur.closest(".sub-h") 找兄弟标题 —— closest 只在**祖先链**上找，而 sub-h 是 aCur 的**前置兄弟**（1139 行是独立 id），
-  // 故恒为 null，「进度（当前/满员）」标题在「交换/其他」类型下永不禁用，留下一个没有输入框的标题。
-  // 标题有独立 id 直接取；输入行仍需closest(".row2")（那个确实是祖先）。
-  if(hint) hint.style.display = show? "" : "none";
-  const curEl=document.getElementById("aCur"), row=curEl&&curEl.closest(".row2");
-  if(row) row.style.display = show? "" : "none";
-}
 function closeActivityModal(){ document.getElementById("maskActivity").classList.remove("show"); actSnapshot=null; }
-function fillKindSelect(){
-  const sel=document.getElementById("aKind"); if(!sel) return;
-  const val=sel.value;
-  sel.innerHTML=actKindList.map(o=>`<option value="${esc(o.key)}" ${o.key===val?"selected":""}>${esc(o.label)}</option>`).join("");
-}
 function openActKinds(){ renderActKindList(); document.getElementById("maskActKinds").classList.add("show"); try{document.getElementById("actKindNew").focus();}catch(e){} }
-/* P0-4（2026-10-04 紧急修复）：补回 renderActiveChips。此前被调用 4 次、零定义
-   → 在「活动类型」弹窗里改标签名/删除类型后���ReferenceError，整个 script 中断（白屏）。
-   语义：重渲染活动筛选栏里的「类型」chip 组（与 renderChipGroup("activity",0) 等价，此处保留独立名以匹配既有调用点）。 */
-function renderActiveChips(){
-  try{ renderChipGroup("activity", 0); renderChipGroup("activity", 1); }catch(e){}
-}
-function renderActKindList(){
-  const el=document.getElementById("actKindList"); if(!el) return;
-  el.innerHTML=actKindList.map((o,i)=>`<div class="opt-row"><input class="opt-in" data-i="${i}" value="${esc(o.label)}"><label class="ak-prog" style="display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:12px;color:var(--muted)"><input type="checkbox" class="ak-pc" data-i="${i}" ${o.progress?"checked":""}>跟踪进度</label><button aria-label="删除" type="button" class="opt-del" data-i="${i}" title="删除">✕</button></div>`).join("");
-  el.querySelectorAll(".opt-in").forEach(inp=>{
-    inp.oninput=()=>{ actKindList[+inp.dataset.i].label=inp.value; };
-    inp.onchange=()=>{ actKindList[+inp.dataset.i].label=inp.value; save(); fillKindSelect(); renderActiveChips(); };
-  });
-  el.querySelectorAll(".ak-pc").forEach(cb=>cb.onchange=()=>{ actKindList[+cb.dataset.i].progress=cb.checked; save(); });
-  el.querySelectorAll(".opt-del").forEach(b=>b.onclick=()=>{
-    const i=+b.dataset.i, o=actKindList[i];
-    const c=activities.filter(a=>a.kind===o.key).length;
-    if(c>0){ toast(`「${o.label}」被 ${c} 条活动使用，先去修改那些活动再删除`,"danger"); return; }
-    actKindList.splice(i,1); save(); renderActKindList(); fillKindSelect(); renderActiveChips();
-  });
-}
 function closeActKinds(){ document.getElementById("maskActKinds").classList.remove("show"); save(); fillKindSelect(); renderActiveChips(); }
 function openActivityLink(id, idx){
   const a=activities.find(x=>x.id===id); if(!a||!Array.isArray(a.links)) return;
@@ -4415,53 +4525,6 @@ function openProxyModal(id){
   }
   proxySnapshot=formSnapshot(PROXY_FORM_IDS); // F9 记录打开时快照，供 Esc 脏检查比对
   document.getElementById("maskProxy").classList.add("show");
-}
-// 代寄模式 / 方向 → 同步弹窗标签、可见节点、对方字段文案、互寄勾选可用性
-function applyProxyModeUI(mode, dir, isEdit){
-  const isOne = mode==="oneway";
-  document.getElementById("pProxyMode").value = mode;
-  document.querySelectorAll("#proxyModeSeg .seg-opt").forEach(b=> b.classList.toggle("active", b.dataset.mode===mode));
-  /* 2026-10-22 修复「往返节点编号与时间顺序错位」：旧结构把「完成日」摆在第 2 格、
-     「对方收」摆在第 3 格，于是 ② 其实已是第 4 步、③ 才是第 2 步，编号与真实先后打架，
-     按编号填日期必然错列（互寄另一条腿 / 对方寄出在先时更乱）。
-     现改为单一网格 #proxyNodes，按模式重排字段 DOM 顺序，让「编号 = 视觉格位 = 时间顺序」。 */
-  const nodeOrder = isOne
-    ? ["pfEnvSent","pfEnvRecv","pfSent","pfGotBack"]
-    : ["pfSent","pfProxyRecv","pfProxyBack","pfGotBack"];
-  const nodeBox = document.getElementById("proxyNodes");
-  nodeOrder.forEach(fid=>{
-    const el = document.getElementById(fid);
-    if(!el) return;
-    if(nodeBox) nodeBox.appendChild(el);   // appendChild 即「移到末尾」，按 nodeOrder 依次追加得到目标顺序
-    el.style.display = "";
-  });
-  ["pfEnvSent","pfEnvRecv","pfSent","pfProxyRecv","pfProxyBack","pfGotBack"].forEach(fid=>{
-    if(nodeOrder.indexOf(fid) === -1){ const el = document.getElementById(fid); if(el) el.style.display = "none"; }
-  });
-  if(isOne){
-    document.getElementById("pEnvSentLbl").textContent = "① 对方寄出日";
-    document.getElementById("pEnvRecvLbl").textContent = "② 我收日";
-    document.getElementById("pSentLbl").textContent = "③ 我写回寄出日";
-    document.getElementById("pDoneLbl").textContent = "④ 对方收到日（完成）";
-    document.getElementById("proxyStepsSub").textContent = "代寄节点（对方寄出 → 我收 → 我写回寄出 → 对方收到，单向不回寄）";
-    document.getElementById("proxyModeHint").textContent = "对方找我代寄：对方先寄出 → 我收 → 我写回寄出 → 对方收到（完成）";
-    document.getElementById("pProxyLbl").textContent = "对方（找我代寄的人）*";
-    document.getElementById("pProxy").placeholder = "如：小明（让我帮他寄北京邮戳片，先把信封寄给我）";
-  }else{
-    const steps = dir==="them" ? PROXY_STEPS_THEM : PROXY_STEPS;
-    document.getElementById("pSentLbl").textContent = "① "+steps[0].label+"日";
-    document.getElementById("pProxyRecvLbl").textContent = "② "+steps[1].label+"日";
-    document.getElementById("pProxyBackLbl").textContent = "③ "+steps[2].label+"日";
-    document.getElementById("pDoneLbl").textContent = "④ "+steps[3].label+"日（完成）";
-    document.getElementById("proxyStepsSub").textContent = "往返节点（按实际进度填写，状态自动推算）";
-    document.getElementById("proxyModeHint").textContent = "我请对方代寄并写回："+steps[0].label+" → "+steps[1].label+" → "+steps[2].label+" → "+steps[3].label;
-    document.getElementById("pProxyLbl").textContent = "对方（代寄人）*";
-    document.getElementById("pProxy").placeholder = "如：Anna（德国笔友，帮我代寄盖章）";
-  }
-  // 单向代寄无镜像腿，禁用互寄勾选
-  const m=document.getElementById("pMutualChk"); m.disabled=isOne;
-  if(m.closest(".chk")) m.closest(".chk").style.display = isOne ? "none" : "";
-  if(isOne) m.checked=false;
 }
 function closeProxyModal(){ document.getElementById("maskProxy").classList.remove("show"); proxySnapshot=null; }
 /* ===== 转换归类：将现有条目在 寄出/收到/代寄 之间重新归类 ===== */
@@ -4561,13 +4624,6 @@ const TOMB_MAX=2000;
    会话内撤销 + toast 按钮（删除 8s / 清空 12s）已覆盖误删场景；刷新后走「Gist 历史找回」。 */
 let undoStack=[];
 const PC_UNDO_MAX=20;
-/* 带「撤销」按钮的提示：语义与 Ctrl+Z 一致（弹栈顶快照还原），调用点须已在改数据前 snapshot()。
-   ms = toast 停留时长（删除 8000 / 清空 12000；shared.js 已修复 undo 分支忽略 ms 的 bug）。
-   saveFailed 时退化：保存失败则不弹撤销按钮，改弹可行动告警（撤销的是内存态，落盘失败时优先告警）。 */
-function toastUndo(msg, ms, saveFailed){
-  if(saveFailed){ toast("⚠️ "+SAVE_FAIL_TXT, "danger", 7000); return; }
-  toast(msg, "", ms||0, function(){ try{ pcUndo(); }catch(e){ toast("撤销失败","danger"); } });
-}
 /* Ctrl/Cmd+Z：守卫口径与任务台一致（输入控件内交给浏览器原生文本撤销） */
 document.addEventListener("keydown",e=>{
   if((e.ctrlKey||e.metaKey) && !e.shiftKey && e.key.toLowerCase()==="z"){
@@ -4948,14 +5004,6 @@ async function openRecoverModal(){
   done();   // P2-16：无论成功/失败/提前返回都要解锁，否则按钮永久禁用
 }
 
-function applyTheme(t){
-  document.documentElement.dataset.theme=t;
-  try{ localStorage.setItem("wb_theme_v1", t); try{ localStorage.setItem("wb_postcards_theme", t); }catch(_){} }catch(e){}
-  const tb=document.getElementById("btnTheme"); if(tb) tb.setAttribute("aria-pressed", t==="dark"?"true":"false");
-  /* P3-5：同步 <meta name="theme-color"> —— iPhone/iPad 暗色下状态栏仍是亮蓝，与页面割裂。
-     浅色取 --bg、深色取 --ink2（与 body 背景一致）。首屏 <head> 里的初值在 L7，需在读取 localStorage 后立即调用本函数覆盖。 */
-  try{ const m=document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute("content", t==="dark"?"#0f1320":"#f5f7fb"); }catch(_){}
-}
 
 /* ===== 事件绑定 ===== */
 document.getElementById("btnCancel").onclick=()=>tryCloseRec("sent");   // P2-5：与 Esc 路径统一走脏检查

@@ -6833,67 +6833,6 @@ function unarchiveHabit(id){
 }
 
 /* ===== L4 Render · P1-9 分层（2026-10-23）===== */
-
-/* ===== L5 Bind · P1-9 分层（2026-10-23）===== */
-
-/* ===== L6 Cloud · P1-9 分层（2026-10-23）===== */
-
-/* ===== L7 Boot · P1-9 分层（2026-10-23）===== */
-/* 视图名常量枚举：单一事实源，避免散落字符串拼写错误静默失效（审计 B1）*/
-const VIEWS = {
-  TODAY:"today", MONTH:"month", WEEK:"week", DAY:"day", GANTT:"gantt",
-  LISTS:"lists", INBOX:"inbox", PROJECTS:"projects", OKR:"okr", MEDIA:"media",
-  HABIT:"habit", STATS:"stats", REVIEW:"review", ANNIV:"anniv"
-};
-
-
-/* ============================================================================
- * 任务管理台 · 函数分区索引（vanilla JS 单文件 · 全局检索函数名即可定位）
- * ----------------------------------------------------------------------------
- * 数据与状态   load/save/state、各域存储键 wb_taskhub_*、save/saveTags/saveStats
- * 主题/UI偏好  applyTheme/applyCfg/collectCfg/saveUIPrefs/uiPrefs
- * 视图渲染     renderAll/renderAllNow → renderMonth/Week/Day/Gantt/Lists/Projects/Okr/
- *              Media/Habit/Stats/Review/Inbox/Today + patchTaskDom/patchListItem/patchHabitCell(局部)
- * 任务核心     openModal/saveTask/deleteTask/toggleDone/setDoneAt/subToggle/recMatch/
- *              getInstances/_instCache(缓存)/noDate/parseNL/applyNL
- * 拖拽         attachChipDrag/attachEvDrag/attachGanttDrag(Pointer)/bindWidgetDrag(HTML5 DnD)
- * 习惯         toggleHabitDay/habitQuick/habitStreak/openHabitBackfill/confirmHabitBackfill/habitSave
- * 清单/媒体     renderLists/toggleItem/renderMedia/stepMedia/mediaSnapshot
- * 项目/OKR     renderProjects/projSave/projProgress/renderOkr/krEffective/recordOkrTrend
- * 标签/合并     openTags/doMergeTag/syncTagsFromTasks/openMerge/mgPlan/mgRender/applyMerge
- * 多选批量     selToggle/bindSelChecks/selBar/…/batchInboxProps/batchPropsMask(M8 改属性)
- * 模板/复制     duplicateTask/saveTemplateFromModal/newFromTemplate/renderTplMenu
- * 撤销/备份    snapshot/undo/undoPersist/undoLoad/fullRingPush/fullRingLoad/restoreFullBackup/
- *              历史与恢复 renderUnifiedRecovery/openRecoverModal；回收站 pushTrash/renderTrash
- * 数据管理     exportJSON/importJSON/mergeImported/exportDataCenter/renderDataHealth/exportICS
- * 统计/回顾     renderStats/pushHistory/removeHistory/renderDoneLog/renderReview/exportReview
- * 云同步       cloudUpload/cloudPull/cloudStartupPull/cloudAutoUpload/scheduleCloudRetry/
- *              mergeTasks/mergeHabits/applyCloudObj/setCloudStatus
- * 命令面板     CmdPalette(build/render/open)/toggleTplMenu
- * 提醒         startReminderLoop/checkReminders/checkHabitReminders/pushRemindPlan
- * PWA          sw.js(独立)/serviceWorker.register
- * ========================================================================== */
-
-var EMOJI_ICON={"🌟":"star","⚠":"warn","⚠️":"warn","🔍":"search","🎯":"target","📌":"pin","📥":"inbox","⏰":"alarm","📊":"bar","🔀":"shuffle","🎨":"palette","⚡":"bolt","📈":"up","📤":"out","📁":"folder","⏳":"glass","💡":"bulb","🌱":"seed","🔥":"fire","🎉":"pop","📅":"cal","👁":"eye","✨":"spark","🌍":"globe","🔁":"repeat","🔄":"refresh","📦":"box","🔗":"link","✉":"mail"};
-var _emojiRe=null;
-
-let cloud={token:"", gist:"", auto:true};
-
-"use strict";
-/* ===== 分类 / 优先级（用户可编辑，localStorage 持久化） ===== */
-const KEY = "wb_taskhub_v1";
-const CATS_KEY = "wb_taskhub_cats_v1", PRIS_KEY = "wb_taskhub_pris_v1";
-const DEFAULT_CATS = [
-  {name:"工作", color:"#4F7CFF"}, {name:"学习", color:"#22b07d"},
-  {name:"生活", color:"#ff8a3d"}, {name:"健康", color:"#ff5c8a"}, {name:"其他", color:"#9aa0ab"}
-];
-const DEFAULT_PRIS = [
-  {name:"P0", color:"#ff5c5c"}, {name:"P1", color:"#ff9f45"}, {name:"P2", color:"#9aa0ab"}
-];
-let cats = DEFAULT_CATS.map(c=>Object.assign({},c));
-let pris = DEFAULT_PRIS.map(p=>Object.assign({},p));
-// ===== 标签树（受管，支持子标签，localStorage 持久化） =====
-let tagTree=[]; const TAGS_KEY="wb_taskhub_tags_v1";
 function catSelectHtml(){
   return cats.map(c=>{
     const kids=c.children||[];
@@ -6902,18 +6841,13 @@ function catSelectHtml(){
     return h;
   }).join("");
 }
+
 function fillCatSelect(sel){
   if(!sel) return;
   const ph=sel.querySelector('option[value=""]');
   sel.innerHTML=(ph?ph.outerHTML:"")+catSelectHtml();
 }
-/* 把「色块专用色」自动加深为可作前景的文字色（WCAG AA 4.5:1）。
-   分类/优先级可由用户自定义，写死 ink 对照表必然漏配新增颜色 —— 这里按相对亮度循环调整。
-   例：#9aa0ab(2.63:1)→约 #6c7078；#ff9f45(1.79:1)→约 #9e6235。
-   ⚠️ 只用于文字色；色块背景/进度条/图标继续用原色（大面积填充的对比度要求不同）。
-   G18：主题感知 —— 浅色按白底加深；深色下 badge 底是 hexA(c,.16) 叠深色卡 ≈ 深底，
-   深墨字对比度反而崩，改为向白提亮到对深色卡底 4.5:1。 */
-var _cssInkCardL=null;   // 深色卡底相对亮度缓存（--card 的 dark 值恒定，无需随主题切换失效）
+
 function cssInk(hex){
   var m=/^#?([0-9a-fA-F]{6})$/.exec(String(hex||"").trim());
   var r0=109,g0=116,b0=130,r=r0,g=g0,b=b0;            // 解析失败时用中性深灰
@@ -6937,7 +6871,6 @@ function cssInk(hex){
   return "#"+hx(r)+hx(g)+hx(b);
 }
 
-/* ===== 下拉框（分类/优先级）动态填充 ===== */
 // 保留 value="" 的占位项（仅筛选栏有），其余按当前 cats/pris 重建
 function fillSelect(sel, names){
   if(!sel) return;
@@ -6946,6 +6879,7 @@ function fillSelect(sel, names){
   html += names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join("");
   sel.innerHTML = html;
 }
+
 // 重建：弹窗字段(f_cat/f_priority) + 筛选栏(fCat/fPri)；并保留/修正失效的筛选值
 function rebuildCatPriSelects(){
   const fcModal=document.getElementById("f_cat");
@@ -6965,28 +6899,6 @@ function rebuildCatPriSelects(){
   }
 }
 
-/* ===== 状态 ===== */
-let state = { tasks: [], view: "month", cur: new Date(), filter:{ q:"", cat:"", pri:"", tag:"" }, selList: null, projects: [], okrs: [], anniv: [] };
-
-/* ===== 日期工具 ===== */
-const DAY=86400000;
-const WK=["日","一","二","三","四","五","六"];
-
-/* ===== 重复规则匹配 ===== */
-
-/* ===== 重复任务「单次独立修改」override 辅助 =====
- * overrides: { "YYYY-MM-DD": { start, end, title, desc, cat, priority, tags, skip } }
- * - 仅当天的实例读取该 override；其余日期仍走整组模板
- * - skip:true 表示当天不生成这次任务
- */
-
-/* ===== 生成可见区间内的所有任务实例（单一数据源 → 各视图共用） ===== */
-
-/* ===== 实际完成时间：doneAt 按 key 存储 =====
-   - 重复任务：key = 该次发生日 YYYY-MM-DD（与 doneDates 对齐）
-   - 普通任务（含收件箱无日期）：key = "self"
-   取消完成时清掉对应 key，避免残留旧的「完成于」标记。 */
-const DONE_AT_CSS="background:var(--ok);color:#fff";
 /* M13：任务弹窗内展示「完成履历」——doneDates + doneAt 时间戳逐次记录 */
 function renderDoneLog(t){
   const box=document.getElementById("doneLogField"); if(!box) return;
@@ -7002,13 +6914,13 @@ function renderDoneLog(t){
     return '<div class="dl-row" style="font-size:12px;color:var(--text);padding:1px 0;"><span style="color:var(--ok);margin-right:6px;">●</span>'+esc(when)+'</div>';
   }).join("");
 }
+
 function doneAtMark(t, date, full){ // 统一完成标记：有精确时间显示「✓ 完成于 时间」；旧数据（无时间戳）显示「✓ 已完成」，避免空白的"完成于"
   const iso=getDoneAt(t,date);
   if(iso) return "✓ 完成于 "+(full?fmtDoneAtFull(iso):fmtDoneAt(iso));
   return "✓ 已完成";
 }
 
-/* ===== 筛选（搜索 + 分类/优先级），仅作用于各视图渲染，不影响提醒 ===== */
 function filterInsts(insts){
   const q=(state.filter.q||"").trim().toLowerCase();
   const cat=state.filter.cat||"", pri=state.filter.pri||"", tag=state.filter.tag||"";
@@ -7026,120 +6938,6 @@ function filterInsts(insts){
   });
 }
 
-/* ===== 自然语言输入解析 ===== */
-
-/* ===== 拖拽改期 ===== */
-// 时间轴（周/日）事件：纵向拖改时间，周视图可横向拖改天
-function attachEvDrag(ev, isWeek){
-  ev.style.touchAction="none";
-  ev.addEventListener("pointerdown", e=>{
-    e.stopPropagation();
-    const t=state.tasks.find(x=>x.id===ev.dataset.id); if(!t) return;
-    const rec = t.recurrence && t.recurrence.freq!=="none";
-    const instDate = parseLocal(ev.dataset.date+"T00:00");
-    const base = parseLocal(t.start);
-    let sDT, eDT;
-    if(rec){
-      const ov=getRecOverride(t, instDate);
-      const _os2=ov&&ov.start ? parseLocal(ov.start) : null;
-      sDT = (_os2 && !isNaN(_os2.getTime())) ? _os2 : new Date(instDate.getFullYear(),instDate.getMonth(),instDate.getDate(),base.getHours(),base.getMinutes());   // G6：非法 override 回落模板锚点
-      const _oe2=ov&&ov.end ? parseLocal(ov.end) : null;
-      eDT = (_oe2 && !isNaN(_oe2.getTime())) ? _oe2 : new Date(sDT.getTime()+(parseLocal(t.end)-base));
-    } else { sDT=parseLocal(t.start); eDT=parseLocal(t.end); }
-    const origTop=(sDT.getHours()+sDT.getMinutes()/60)*44;
-    const sy=e.clientY, sx=e.clientX; let moved=false;
-    try{ ev.setPointerCapture(e.pointerId); }catch(_){}
-    const mv=ev2=>{
-      const dy=ev2.clientY-sy, dx=ev2.clientX-sx;
-      if(Math.abs(dy)+Math.abs(dx)>4) moved=true;
-      ev.style.top=(origTop+dy)+"px";
-      if(isWeek) ev.style.transform="translateX("+dx+"px)";
-    };
-    const up=ev2=>{
-      ev.removeEventListener("pointermove",mv); ev.removeEventListener("pointerup",up);
-      ev.style.transform="";
-      if(!moved) return;
-      tlSuppressClick=true;   // P1-10：抑制标志改挂模块级变量（原 ev._suppressClick 随 DOM 重建即丢，且依赖逐元素 onclick 存在）
-      /* G5（2026-10-23 修）：拖拽后若浏览器因目标节点已脱离文档而不派生合成 click，标志无人消费会滞留，
-         用户下一次点任意事件块被静默吞掉一次。宏任务兜底复位：若合成 click 正常到来它先行消费，此复位无害。 */
-      setTimeout(()=>{ tlSuppressClick=false; },0);
-      snapshot();   // P1-6：日/周视图拖拽改期此前不可撤销
-      const dy=ev2.clientY-sy, dx=ev2.clientX-sx;
-      const dm=Math.round(dy/44*60/15)*15; // 吸附 15 分钟
-      let deltaDays=0;
-      if(isWeek){ const col=ev.closest(".tcol"); const cw=col?col.offsetWidth:120; deltaDays=Math.round(dx/cw); }
-      const shift=deltaDays*DAY + dm*60000;
-      if(rec){
-        if(deltaDays!==0){
-          moveRecInstance(t, instDate, deltaDays);
-          toast("已把该日任务移到 "+(deltaDays>0?deltaDays+" 天后":"-"+-deltaDays+" 天前"));
-        } else {
-          const ns=new Date(sDT.getTime()+shift), ne=new Date(eDT.getTime()+shift);
-          setRecOverride(t, instDate, {start:toStr(ns), end:toStr(ne)});
-          toast("已调整该日任务时间");
-        }
-      } else {
-        t.start=toStr(new Date(sDT.getTime()+shift));
-        t.end=toStr(new Date(eDT.getTime()+shift));
-        toast("已改期");
-      }
-      touchTask(t); save(); renderAll();
-    };
-    ev.addEventListener("pointermove",mv); ev.addEventListener("pointerup",up);
-  });
-}
-// 月视图任务块：拖到其它日期格 → 整体平移 N 天
-function attachChipDrag(ch){
-  ch.addEventListener("pointerdown", e=>{
-    if(e.pointerType==="mouse" && e.button!==0) return;
-    e.stopPropagation();
-    const id=ch.dataset.id, orig=ch.dataset.date;
-    const sx=e.clientX, sy=e.clientY; let moved=false, hover=null;
-    try{ ch.setPointerCapture(e.pointerId); }catch(_){}
-    const mv=ev2=>{
-      const dx=ev2.clientX-sx, dy=ev2.clientY-sy;
-      if(Math.abs(dx)+Math.abs(dy)>4) moved=true;
-      ch.style.transform="translate("+dx+"px,"+dy+"px)"; ch.style.zIndex=20; ch.style.position="relative";
-      const el=document.elementFromPoint(ev2.clientX,ev2.clientY);
-      const cell=el&&el.closest?el.closest(".dcell"):null;
-      if(hover&&hover!==cell) hover.classList.remove("drop");
-      if(cell&&cell.dataset.day!==orig){ cell.classList.add("drop"); hover=cell; } else hover=null;
-    };
-    const up=ev2=>{
-      ch.removeEventListener("pointermove",mv); ch.removeEventListener("pointerup",up);
-      ch.style.transform=""; ch.style.zIndex=""; ch.style.position="";
-      if(hover) hover.classList.remove("drop");
-      if(moved && hover){
-        const deltaDays=Math.round((parseLocal(hover.dataset.day+"T00:00")-parseLocal(orig+"T00:00"))/DAY);
-        if(deltaDays) applyDayShift(id, deltaDays, orig);
-        ch._suppressClick=true;
-      }
-    };
-    ch.addEventListener("pointermove",mv); ch.addEventListener("pointerup",up);
-  });
-}
-
-/* ===== 持久化 ===== */
-/* 本地最近保存时间：用于云同步启动冲突检测（种子数据不记录） */
-let _markSave=true;
-/* S1（2026-10-23 修）：数据版本号声明提前到 markLocalSave 之前 —— markLocalSave 现在也自增版本号。
-   背景：P2-5 的 snapshot 短路前提是「所有数据变更都走 save/saveQuiet/saveNow」，但
-   media/habit/lists/proj/okr/anniv/tag/widget 各域 saver 只调 markLocalSave、不增版本 →
-   这些域编辑后 snapshot() 被 10109 误跳过 → 撤销快照缺级、Ctrl+Z 跨域连坐回滚。
-   自增下沉到 markLocalSave（全部域 saver 的共用收口）即全覆盖。
-   save 家族自身的 _dataVer++ 保留：双自增无实害（snapshot 内容去重会兜住 no-op）。 */
-var _dataVer=0, _lastSnapVer=-1;
-let _saveTimer=null;
-/* 本地存储写入告警（对齐明信片 storageSet）：配额满/写失败时显式提示，避免静默丢数据 */
-let _quotaWarnAtT=0;
-/* ===== M3 全量本地自动备份环 =====
-   习惯已有独立备份环（仅习惯）；这里是**全量**兜底：任务/媒体/习惯/清单/项目/目标/标签树。
-   只留 2 份（全量快照体积大，localStorage 约 5MB）；配额不足自动降级为 1 份，仍失败则静默放弃，不阻塞主流程。 */
-const FULL_RING_KEY="wb_taskhub_full_ring_v1";
-const FULL_RING_LAST="wb_taskhub_full_ring_last_v1";
-/* P1-7：全量快照体积大（含 tasks+media+habits+lists+projects+okrs+tagTree），留 10 份在中等数据量下
-   即撑爆 localStorage（约 5MB）→ 此后所有修改无法落盘，等同数据丢失。按注释原意改为 2 份。 */
-const FULL_RING_MAX=2;
 function renderFullBackup(){
   const box=document.getElementById("fullBackupList"); if(!box) return;
   const ring=fullRingLoad();
@@ -7155,6 +6953,7 @@ function renderFullBackup(){
   }).join("");
   box.querySelectorAll("[data-ringidx]").forEach(b=>b.onclick=()=>restoreFullBackup(+b.dataset.ringidx));
 }
+
 /* M6：数据健康面板 —— 展示当前浏览器里这份数据的体量与健康度 */
 function renderDataHealth(){
   const box=document.getElementById("healthGrid"); if(!box) return;
@@ -7184,38 +6983,7 @@ function renderDataHealth(){
   ];
   box.innerHTML=rows.map(r=>'<span class="hk">'+esc(r[0])+'</span><span class="hv'+(r[1].indexOf("接近上限")>=0||r[1].indexOf("已丢")>=0?" warn":"")+'">'+esc(r[1])+'</span>').join("");
 }
-/* ===== 任务内「按日期累积」字段的修剪（配额防护，2026-09-14）=====
-   doneDates / doneAt / subDone / overrides 都是按日期一条条累积、只增不减的：
-   每日任务一年就是 300+ 条，几年下来会顶到 localStorage 配额（5MB），并把每次落盘的
-   全量环形快照与云端上传 payload 一起拖大。这里在每次落盘前裁剪：
-   只保留近 TASK_HIST_KEEP_DAYS 天，doneDates 每任务另设条数上限。
-   影响面（如实说明）：任务弹窗「完成履历」超出窗口的旧记录会被清掉；
-   统计页趋势图走的是 stats.history（另有 HISTORY_MAX 上限），不受此处影响。 */
-const TASK_HIST_KEEP_DAYS=730;
-const TASK_HIST_KEEP_MAX=500;
-/* P0（2026-10-23 修）：save() 曾因 400ms 节流丢掉返回值 → 写盘失败却照弹「已保存」。
-   正解：成功文案先挂起，等真正落盘后按 storageSetSafe 的真实结果决定弹绿提示还是 ⚠️。
-   ⚠️ 不可同步 `return _saveOk` —— 那是上一轮的结果，会首次漏报、二次误报。
-   失败提示由 storageSetSafe 自己弹（内部 30s 节流防刷屏），成功提示才在这里发。 */
-var _pendingSaveMsg=null;
-// ===== 云同步：逐任务合并基础设施 =====
-let deletedIds=[];
-// 墓碑规范化：旧格式是字符串 id（无时间），新格式是 {id, ts}。ts=0 表示「未知时间的旧删除」，
-// 只用于清除「从未被编辑过」的任务，避免旧墓碑误杀用户刚编辑过的任务（修复：编辑完成时间保存后任务消失且无法撤销）。
 
-const TOMB_MAX=2000;   // 墓碑上限（对齐明信片，防长期无限增长）
-/* ===== 次级集合的删除传播（媒体 / 习惯 / 清单）=====
-   任务有墓碑可传播删除，媒体 / 习惯 / 清单三类同样走墓碑：各自合并函数（mediaMergeNewer / mergeHabits / union）
-   末尾都经 dropTombed(kind, …, deleted) 过滤——本地或云端任一端持有该 id 的墓碑，即将其从合并结果剔除，
-   从而「删了就不会被另一端并回来」（历史上「三体（广播剧）删不掉」正是缺这层墓碑过滤所致，现已闭合）。
-   墓碑随 payload.deleted 同步 / 导出 / 导入；撤销删除时快照一并回滚 deletedIds，不会误杀刚恢复的条目。
-   复用同一份 deletedIds，但加**种类前缀**，避免与任务 id 相撞（媒体种子 id 是 b1/t1/a1，任务 id 以 t 或 s 开头）。 */
-const TOMB_NS={media:"media:",habit:"habit:",list:"list:",habitday:"habitday:"};
-/* ===== M1 回收站 =====
-   墓碑 deletedIds 只存 id（用于跨设备传播删除，无内容、不可恢复）。这里额外把被删任务的**内容**
-   留存一份，让用户能真正「找回误删」。上限 50 条，超出丢最旧。 */
-const TRASH_KEY="wb_taskhub_trash_v1";
-const TRASH_MAX=50;
 function renderTrash(){
   const box=document.getElementById("trashList"), cnt=document.getElementById("trashCount");
   const a=trashLoad();
@@ -7233,107 +7001,13 @@ function renderTrash(){
   box.querySelectorAll("[data-trres]").forEach(b=>b.onclick=()=>restoreTrash(+b.dataset.trres));
   box.querySelectorAll("[data-trdel]").forEach(b=>b.onclick=()=>dropTrash(+b.dataset.trdel));
 }
-/* ===== 删除任务：墓碑 + 回收站 + 完成流水一并收口（2026-09-14）=====
-   旧版删除只写墓碑（跨设备传播）与回收站（可找回），不动 stats.history →
-   图表会留下**幽灵记录**：任务已经不存在，那天却仍有完成计数。
-   被清掉的流水存进回收站记录、并挂到撤销栈顶快照，「回收站恢复 / Ctrl+Z」都能还回来。 */
+
 function trashRefresh(){
   const m=document.getElementById("dataMask");
   if(m&&m.classList.contains("show")) renderTrash();
   else { const c=document.getElementById("trashCount"); if(c){ const n=trashLoad().length; c.textContent=n?("("+n+")"):""; } }
 }
-window.addEventListener("beforeunload", flushSave);
-window.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="hidden") flushSave(); });
-/* ===== 纪念日（集成视图，data-v="anniv"）=====
-   数据：state.anniv = [{id,name,cat,date(YYYY-MM-DD),yearly(bool),note,created,
-                         calType("solar"|"lunar"), lunar({m,d,leap})?}]
-   - calType 默认 "solar"；为 "lunar" 时以 lunar{m,d,leap} 为准（由 date 反查得到），date 作为公历参照年
-   - 年度重复(yearly)：只取月日，倒计时算「下一次到来」的天数（今年已过则算明年），始终显示「还有 N 天」/「今天」
-   - 非年度(单次)：按完整日期算净天数，未来显示「还有 N 天」、过去显示「已过 N 天」
-   云同步：复用任务台 Gist 同一套机制，anniv 并入 syncPayload 与各处云端对象落地。 */
-const ANNIV_KEY="wb_anniv_v1";
-const ANNIV_CATS=[{name:"生日",color:"#ff5c8a"},{name:"恋爱",color:"#ff7ab6"},{name:"节日",color:"#ffb020"},{name:"工作",color:"#4F7CFF"},{name:"其他",color:"#9aa0ab"}];
 
-/* ===== 农历转换（离线，覆盖 1900–2100；数据来自 solarlunar，已与官方逐日比对 0 差异） =====
-   仅用于展示，不依赖任何外部库/网络。Lunar.text(y,m,d) 返回「农历乙巳年 五月初十」或 ''（越界/无效）。 */
-const Lunar=(function(){
-  var lunarInfo=[0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,
-    0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977,
-    0x04970,0x0a4b0,0x0b4b5,0x06a50,0x06d40,0x1ab54,0x02b60,0x09570,0x052f2,0x04970,
-    0x06566,0x0d4a0,0x0ea50,0x06e95,0x05ad0,0x02b60,0x186e3,0x092e0,0x1c8d7,0x0c950,
-    0x0d4a0,0x1d8a6,0x0b550,0x056a0,0x1a5b4,0x025d0,0x092d0,0x0d2b2,0x0a950,0x0b557,
-    0x06ca0,0x0b550,0x15355,0x04da0,0x0a5b0,0x14573,0x052b0,0x0a9a8,0x0e950,0x06aa0,
-    0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,0x0f263,0x0d950,0x05b57,0x056a0,
-    0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,0x0d558,0x0b540,0x0b6a0,0x195a6,
-    0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,0x06d40,0x0af46,0x0ab60,0x09570,
-    0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,0x05ac0,0x0ab60,0x096d5,0x092e0,
-    0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,0x0abb7,0x025d0,0x092d0,0x0cab5,
-    0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,0x0a5b0,0x15176,0x052b0,0x0a930,
-    0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,0x0a4e0,0x0d260,0x0ea65,0x0d530,
-    0x05aa0,0x076a3,0x096d0,0x04afb,0x04ad0,0x0a4d0,0x1d0b6,0x0d250,0x0d520,0x0dd45,
-    0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0,
-    0x14b63,0x09370,0x049f8,0x04970,0x064b0,0x168a6,0x0ea50,0x06b20,0x1a6c4,0x0aae0,
-    0x092e0,0x0d2e3,0x0c960,0x0d557,0x0d4a0,0x0da50,0x05d55,0x056a0,0x0a6d0,0x055d4,
-    0x052d0,0x0a9b8,0x0a950,0x0b4a0,0x0b6a6,0x0ad50,0x055a0,0x0aba4,0x0a5b0,0x052b0,
-    0x0b273,0x06930,0x07337,0x06aa0,0x0ad50,0x14b55,0x04b60,0x0a570,0x054e4,0x0d160,
-    0x0e968,0x0d520,0x0daa0,0x16aa6,0x056d0,0x04ae0,0x0a9d4,0x0a4d0,0x0d150,0x0f252,
-    0x0d520];
-  const GAN=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
-  const ZHI=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
-  const LMON=['正','二','三','四','五','六','七','八','九','十','冬','腊'];
-  const LDAY=['初一','初二','初三','初四','初五','初六','初七','初八','初九','初十','十一','十二','十三','十四','十五','十六','十七','十八','十九','二十','廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
-  function lYearDays(y){ let s=348; for(let i=0x8000;i>0x8;i>>=1) s+=(lunarInfo[y-1900]&i)?1:0; return s+leapDays(y); }
-  function leapDays(y){ if(leapMonth(y)) return (lunarInfo[y-1900]&0x10000)?30:29; return 0; }
-  function leapMonth(y){ return lunarInfo[y-1900]&0xf; }
-  function monthDays(y,m){ return (lunarInfo[y-1900]&(0x10000>>m))?30:29; }
-  function solar2lunar(yy,mm,dd){
-    let off=Math.round((Date.UTC(yy,mm-1,dd)-Date.UTC(1900,0,31))/86400000), temp=0, i;
-    for(i=1900;i<2101&&off>0;i++){ temp=lYearDays(i); off-=temp; }
-    if(off<0){ off+=temp; i--; }
-    const ly=i;
-    const lp=leapMonth(ly); let isLeap=false;
-    for(i=1;i<13&&off>0;i++){
-      if(lp>0 && i===(lp+1) && isLeap===false){ --i; isLeap=true; temp=leapDays(ly); }
-      else { temp=monthDays(ly,i); }
-      if(isLeap===true && i===(lp+1)){ isLeap=false; }
-      off-=temp;
-    }
-    if(off===0 && lp>0 && i===(lp+1)){ if(isLeap){ isLeap=false; } else { isLeap=true; --i; } }
-    if(off<0){ off+=temp; --i; }
-    return {ly, lm:i, ld:off+1, isLeap};
-  }
-  function gz(y){ let g=(y-3)%10; if(g<=0) g+=10; let z=(y-3)%12; if(z<=0) z+=12; return GAN[g-1]+ZHI[z-1]; }
-  function text(y,m,d){
-    if(y<1900 || y>2100) return '';
-    if(y===1900 && m===1 && d<31) return '';
-    if(!(new Date(y,m-1,d).getDate()===d)) return '';
-    const o=solar2lunar(y,m,d); if(!o||o.ly<1900) return '';
-    return '农历'+gz(o.ly)+'年 '+(o.isLeap?'闰':'')+LMON[o.lm-1]+'月'+LDAY[o.ld-1];
-  }
-  // 农历月日 → 展示串（如「闰五月初十」），无效返回 ''
-  function lunarMD(m,d,isLeap){
-    if(m<1||m>12||d<1||d>30) return '';
-    return (isLeap?'闰':'')+LMON[m-1]+'月'+LDAY[d-1];
-  }
-  // 农历日期 → 公历 {y,m,d}（用于按农历倒计时）；越界/无效/该月天数不符返回 null
-  function toSolar(ly,lm,ld,isLeap){
-    if(ly<1900||ly>2100) return null;
-    if(lm<1||lm>12||ld<1) return null;
-    const lp=leapMonth(ly);
-    if(isLeap && lp!==lm) return null;            // 该年无此闰月
-    const md = isLeap ? leapDays(ly) : monthDays(ly,lm);
-    if(ld>md) return null;
-    let off=0;
-    for(let y=1900; y<ly; y++) off+=lYearDays(y);  // 累计此前各农历年天数
-    for(let i=1;i<lm;i++){ off+=monthDays(ly,i); if(lp>0&&i===lp) off+=leapDays(ly); }
-    if(isLeap) off+=monthDays(ly,lp);             // 闰月前先经过其正月份
-    off+=(ld-1);
-    const base=Date.UTC(1900,0,31);               // 1900-01-31 = 农历1900正月初一
-    const dt=new Date(base+off*86400000);
-    return {y:dt.getUTCFullYear(), m:dt.getUTCMonth()+1, d:dt.getUTCDate()};
-  }
-  return { text, toLunar:solar2lunar, toSolar, lunarMD };
-})();
 function annivRow(a){
   const today=startOfDay(new Date());
   const d=annivDaysLeft(a, today);
@@ -7355,6 +7029,7 @@ function annivRow(a){
       +'<button class="btn btn-ghost btn-sm" data-adel="'+a.id+'" title="删除">✕</button></div></div>'
     +'</div>';
 }
+
 function renderAnniv(){
   const box=document.getElementById("view"); if(!box) return;
   const list=(state.anniv||[]).slice();
@@ -7376,40 +7051,7 @@ function renderAnniv(){
   box.querySelectorAll("[data-aedit]").forEach(b=>b.onclick=()=>openAnnivModal(b.dataset.aedit));
   box.querySelectorAll("[data-adel]").forEach(b=>b.onclick=async()=>{ const id=b.dataset.adel; const a=(state.anniv||[]).find(x=>x.id===id); if(!(await confirmDialog("删除纪念日「"+(a?a.name:"")+"」？",{danger:true}))) return; state.anniv=state.anniv.filter(x=>x.id!==id); annivSave(); renderAll(); toast("已删除纪念日"); });
 }
-let _annivBound=false;
-function bindAnnivModalOnce(){
-  if(_annivBound) return; _annivBound=true;
-  const save=document.getElementById("btnAnnivSave"); if(save) save.onclick=saveAnnivModal;
-  const cancel=document.getElementById("btnAnnivCancel"); if(cancel) cancel.onclick=closeAnnivModal;
-  const m=document.getElementById("annivMask"); if(m) m.addEventListener("click", e=>{ if(e.target.id==="annivMask") closeAnnivModal(); });
-  const da=document.getElementById("aDate"); if(da) da.addEventListener("input", updateAnnivLunar);
-  const ca=document.getElementById("aCal"); if(ca) ca.addEventListener("change", updateAnnivLunar);
-  window.addEventListener("keydown", e=>{ if(e.key==="Escape"){ const mm=document.getElementById("annivMask"); if(mm&&mm.classList.contains("show")) closeAnnivModal(); } });
-}
-function openAnnivModal(id){
-  bindAnnivModalOnce();
-  const a = id ? (state.anniv||[]).find(x=>x.id===id) : null;
-  document.getElementById("aId").value = id||"";
-  document.getElementById("aName").value = a?a.name:"";
-  document.getElementById("aCat").value = a?a.cat:ANNIV_CATS[0].name;
-  document.getElementById("aDate").value = a&&a.date ? String(a.date).slice(0,10) : ymd(startOfDay(new Date()));
-  document.getElementById("aCal").value = a? (a.calType||"solar") : "solar";
-  document.getElementById("aYearly").checked = a? !!a.yearly : true;
-  document.getElementById("aNote").value = a?a.note:"";
-  document.getElementById("annivModalTitle").textContent = a?"编辑纪念日":"新建纪念日";
-  updateAnnivLunar();
-  document.getElementById("annivMask").classList.add("show");
-  setTimeout(()=>{ try{ document.getElementById("aName").focus(); }catch(_){} },50);
-}
-function closeAnnivModal(){ const m=document.getElementById("annivMask"); if(m) m.classList.remove("show"); }
 
-
-/* ===== 顶部 widget 可配置化（今天要处理 / 习惯打卡 / 待办清单 + 自定义卡） ===== */
-const WKEY="wb_taskhub_widgets_v1";
-let widgetCfg={order:[],hidden:[],custom:[]};
-try{ const w=JSON.parse(localStorage.getItem(WKEY)); if(w&&typeof w==="object") widgetCfg=Object.assign({order:[],hidden:[],custom:[]},w); }catch(e){}
-const AUTO_WIDS=["today","habit","list"];
-let dragWid=null, dragDropBefore=false;
 /* 关闭所有面板头溢出菜单；except 传当前要打开的那个（刚关掉再打开同一菜单时避免自打自关） */
 function closeWMenus(except){
   document.querySelectorAll(".w-menu.show").forEach(function(m){
@@ -7419,9 +7061,7 @@ function closeWMenus(except){
     if(b) b.setAttribute("aria-expanded","false");
   });
 }
-/* 点击菜单之外的任意处 / Esc 关闭菜单（只注册一次） */
-document.addEventListener("click",function(e){ if(!(e.target&&e.target.closest&&e.target.closest(".w-more-wrap"))) closeWMenus(); });
-document.addEventListener("keydown",function(e){ if(e.key==="Escape") closeWMenus(); });
+
 /* 面板头控制区：常态只留 ⠿ 拖拽手柄 + ⋯ 溢出菜单；上移/下移/隐藏（自定义卡另有编辑/删除）
    等低频操作收进菜单——此前四枚小按钮常驻，三栏并排时表头被塞满且互相挤压 */
 function ctrlHtml(wid,isCustom,hideEdit){
@@ -7448,26 +7088,14 @@ function renderCustomCard(w, S){
   else body='<div class="card-body"><div class="w-num">'+esc(w.num||"")+'</div></div>';
   return '<div class="custom-card" data-wid="'+esc(wid)+'" draggable="false"><h3 class="cc-h">'+esc(w.title||"未命名")+'<span class="spacer" style="flex:1"></span>'+ctrlHtml(wid,true,w.type==="func")+'</h3>'+body+'</div>';
 }
+
 function injectAutoCtrl(panel, wid){
   const h3=panel.querySelector("h3"); if(!h3) return;
   const ctrl=document.createElement("span"); ctrl.className="w-ctrl"; ctrl.innerHTML=ctrlHtml(wid,false);
   const spacer=h3.querySelector(".spacer"); h3.insertBefore(ctrl, spacer?spacer.nextSibling:null);
   ctrl.querySelectorAll("button").forEach(b=>b.addEventListener("click",e=>{ e.stopPropagation(); handleCtrlAct(b.dataset.act, wid, b); }));
 }
-function bindWidgetDrag(node, wid){
-  if(node.__dragBound) return; node.__dragBound=true; // 守卫：容器节点在重渲染时不被替换，重复 bind 会累积监听器（拖放时重复触发）
-  const grip=node.querySelector(".w-ctrl .grip");
-  if(grip) grip.addEventListener("mousedown",()=>node.setAttribute("draggable","true"));
-  node.addEventListener("dragstart",e=>{ dragWid=wid; node.classList.add("dragging"); try{e.dataTransfer.effectAllowed="move";}catch(_){} });
-  node.addEventListener("dragend",()=>{ node.removeAttribute("draggable"); node.classList.remove("dragging"); document.querySelectorAll("#widgetRow .panel,#widgetRow .custom-card").forEach(c=>c.classList.remove("drop-before","drop-after")); });
-  node.addEventListener("dragover",e=>{ if(dragWid===wid)return; e.preventDefault(); const r=node.getBoundingClientRect(); dragDropBefore=(e.clientX-r.left)<r.width/2; node.classList.toggle("drop-before",dragDropBefore); node.classList.toggle("drop-after",!dragDropBefore); });
-  node.addEventListener("dragleave",()=>node.classList.remove("drop-before","drop-after"));
-  node.addEventListener("drop",e=>{ e.preventDefault(); const tgt=wid; if(dragWid&&tgt!==dragWid) dropWidget(dragWid,tgt); node.classList.remove("drop-before","drop-after"); node.removeAttribute("draggable"); });
-}
-function bindCustomCard(node,wid){
-  bindWidgetDrag(node,wid);
-  node.querySelectorAll(".w-ctrl button").forEach(b=>b.addEventListener("click",e=>{ e.stopPropagation(); handleCtrlAct(b.dataset.act, wid, b); }));
-}
+
 function applyWidgetLayout(){
   const row=document.getElementById("widgetRow"); if(!row) return;
   syncOrder();
@@ -7483,21 +7111,15 @@ function applyWidgetLayout(){
   const sh=document.getElementById("btnShowHidden");
   if(widgetCfg.hidden.length){ sh.style.display=""; sh.textContent="显示已隐藏("+widgetCfg.hidden.length+")"; } else sh.style.display="none";
 }
+
 function showHidden(){ widgetCfg.hidden=[]; saveWidgets(); applyWidgetLayout(); }
-let editingWid=null;
+
 function openWidgetModal(wid){ editingWid=wid||null; const m=document.getElementById("widgetMask"); document.getElementById("wModalTitle").textContent=wid?"编辑卡片":"添加卡片"; let w={type:"text",title:"",text:"",url:"",num:""}; if(wid){ const id=wid.slice(2); const f=widgetCfg.custom.find(x=>x.id===id); if(f){ if(f.type==="func"){ toast("功能卡由系统自动统计，不可编辑"); return; } w=f; } } document.getElementById("wType").value=w.type; document.getElementById("wTitle").value=w.title||""; document.getElementById("wText").value=w.text||""; document.getElementById("wUrl").value=w.url||""; document.getElementById("wNum").value=w.num||""; toggleWRows(w.type); m.classList.add("show"); }
+
 function toggleWRows(t){ document.getElementById("wRowText").style.display=t==="text"?"":"none"; document.getElementById("wRowLink").style.display=t==="link"?"":"none"; document.getElementById("wRowNum").style.display=t==="num"?"":"none"; }
+
 function closeWidgetModal(){ document.getElementById("widgetMask").classList.remove("show"); }
-/* ===== 功能卡（自动统计）预设 ===== */
-const FUNC_PRESETS=[
-  {key:"weekDone", icon:"✅", title:"本周完成", desc:"近 7 天完成的任务数"},
-  {key:"overdue",  icon:"⏰", title:"逾期任务", desc:"已过期仍未完成的任务"},
-  {key:"dueToday", icon:"📌", title:"今日待办", desc:"今天到期且未完成"},
-  {key:"trend7",   icon:"📈", title:"近 7 日完成", desc:"每天完成量的迷你柱状图"},
-  {key:"catShare", icon:"🗂", title:"分类占比", desc:"各分类任务数分布"},
-  {key:"overview", icon:"🧭", title:"任务概览", desc:"今日待办 / 逾期 / 进行中 一览"},
-  {key:"active",   icon:"🔥", title:"进行中", desc:"当前未完成的任务数（重复任务按本轮周期判定）"},
-];
+
 function funcBody(w, S){
   S=S||computeFuncSummary();
   if(w.key==="weekDone"){ return '<div class="cc-num">'+S.weekDone+'</div><div class="cc-sub">近 7 天完成</div>'; }
@@ -7527,47 +7149,18 @@ function funcBody(w, S){
   }
   return '<div class="cc-sub">未知功能卡</div>';
 }
+
 function refreshFuncCards(){
   const row=document.getElementById("widgetRow"); if(!row) return;
   const S=computeFuncSummary();   // O14：一次汇总，所有功能卡共享
   widgetCfg.custom.forEach(w=>{ if(w.type!=="func") return; const wid="c:"+w.id; const n=row.querySelector('[data-wid="'+wid+'"]'); if(n){ const tmp=document.createElement("div"); tmp.innerHTML=renderCustomCard(w,S).trim(); n.innerHTML=tmp.firstChild.innerHTML; bindCustomCard(n,wid); } });
 }
+
 function addFuncCard(key){
   const p=FUNC_PRESETS.find(x=>x.key===key); if(!p) return;
   widgetCfg.custom.push({id:"w"+Date.now().toString(36), type:"func", key, title:p.title});
   syncOrder(); saveWidgets(); applyWidgetLayout(); refreshFuncCards(); closeWidgetModal(); toast("已添加功能卡："+p.title);
 }
-// 事件绑定
-document.getElementById("btnAddWidget").onclick=()=>openWidgetModal(null);
-const wpEl=document.getElementById("wPresets");
-if(wpEl){ wpEl.innerHTML=FUNC_PRESETS.map(p=>'<button type="button" data-func="'+p.key+'"><span class="pi">'+p.icon+'</span><span>'+esc(p.title)+'</span><span class="pd">'+esc(p.desc)+'</span></button>').join(""); wpEl.querySelectorAll("button").forEach(b=>b.onclick=()=>addFuncCard(b.dataset.func)); }
-document.getElementById("wCancel").onclick=closeWidgetModal;
-document.getElementById("wSave").onclick=saveWidgetModal;
-document.getElementById("bpOk").onclick=applyBatchProps;                    // M8：批量改属性
-document.getElementById("bpCancel").onclick=closeBatchProps;
-document.getElementById("batchPropsMask").addEventListener("click", e=>{ if(e.target&&e.target.id==="batchPropsMask") closeBatchProps(); });
-document.getElementById("btnShowHidden").onclick=showHidden;
-document.getElementById("wType").onchange=e=>toggleWRows(e.target.value);
-{ const wm=document.getElementById("widgetMask"); wm.onclick=e=>{ if(e.target===wm) closeWidgetModal(); }; }
-document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ const wm=document.getElementById("widgetMask"); if(wm.classList.contains("show")) closeWidgetModal(); } });
-applyWidgetLayout();
-
-/* ===== 渲染：今天要处理 ===== */
-/* 信息密度与分组：逾期 / 今天到期 / 已完成 三段分组；已完成默认折叠；
-   紧凑密度默认隐藏描述与次要徽标；头部提供「简/详」密度切换与「最大化」聚焦。 */
-/* ===== 今日页视图偏好持久化 =====
-   与 wb_today_subopen_v1 同一思路：属纯 UI 偏好，**刻意不进云同步**（否则多设备的展开态会互相打架）。
-   此前密度/折叠/最大化三个都是内存变量，刷新即丢；而子任务展开态却是持久的 —— 同一页面内不一致。 */
-const TODAY_UI_KEY="wb_today_ui_v1";
-
-/* 已完成区默认**折叠**：用户不使用任务管理台写日志 →「今天做完了什么」没有回看场景，
-   默认展开只会把待办区挤下去、让今日页失焦。仍可随时点开回看/撤销。 */
-let todayDoneExpanded=todayUiGet("done", false);   // 已完成区默认折叠（可手动展开，且刷新后保持）
-let todayDensity=todayUiGet("dens", "compact");     // "compact" | "detail"
-let todayMax=todayUiGet("max", false);              // 是否临时最大化占满整行
-let subOpenIds=new Set();        // 今日面板里已展开子任务勾选区的任务 id
-/* 展开态是 UI 偏好，持久化到独立本地键（不进云同步，避免多设备互相干扰）；坏数据兜底跳过 */
-try{ (JSON.parse(localStorage.getItem("wb_today_subopen_v1")||"[]")||[]).forEach(id=>{ if(id) subOpenIds.add(id); }); }catch(_){}
 
 /* 任务徽章拼装（今日卡片与详情弹窗共用，避免两处各写一遍优先级/分类/GTD/精力/耗时） */
 function taskBadges(t, opts){
@@ -7636,102 +7229,19 @@ function todayItemHtml(i, compact, ov){
   </div>`;
 }
 
-/* 分区头。actionHtml：可选的右侧操作（用 margin-left:auto 靠右），如逾期的「全部顺延到今天」。 */
-const TODAY_SEC_HEAD=(label, n, cls, actionHtml)=>`<div class="today-sec-h" data-sec="${cls}"><span class="today-sec-dot ${cls}"></span>${label} <b>${n}</b>${actionHtml||""}</div>`;
-
-
-/* 今日区域公共绑定（顶部 widget 与「今日」整页共用，唯一差异是刷新回调）；
-   之前两处各有约 35 行近乎逐字重复的绑定，改一处漏一处，现统一收敛。 */
-/* 今日区域交互：改为事件委托——容器元素常驻（只换 innerHTML），监听器只绑一次，
-   避免每次重绘都全量重新绑定。⚠️ 必须限定作用域：#view 里其他视图也有 data-done 等同名属性，
-   故整页侧用 .today-page 收口，防止误触发别的渲染器。 */
-let __todayDelegated=false;
-function handleTodayClick(e, rerender){
-  const el=e.target; if(!el || !el.closest) return;
-  const dall=el.closest("[data-deferall]"); if(dall){ deferOverdueAllToday(); return; }   // 逾期分区头「全部顺延到今天」
-  const done=el.closest("[data-done]");      if(done){ toggleDone(done.dataset.done, done.dataset.date); return; }
-  const rest=el.closest("[data-restore]");   if(rest){ restoreTask(rest.dataset.restore, rest.dataset.date); return; }
-  const sk=el.closest("[data-skip]");        if(sk){ skipTask(sk.dataset.skip, sk.dataset.date); return; }
-  const df=el.closest("[data-defer]");       if(df){ openDeferFromCard(df.dataset.id, df.dataset.date); return; }
-  const so=el.closest("[data-subopen]");     if(so){ const id=so.dataset.subopen; if(subOpenIds.has(id)) subOpenIds.delete(id); else subOpenIds.add(id); persistSubOpen(); rerender(); return; }
-  const st=el.closest("[data-subtick]");     if(st){
-    const t=state.tasks.find(x=>x.id===st.dataset.subtick); if(!t) return;
-    const s=(t.subtasks||[]).find(x=>x.id===st.dataset.sid); if(!s) return;
-    const date=st.dataset.date;
-    const beforeAll=t.subtasks.every(x=>subIsDone(t,x,date));
-    snapshot();
-    subToggle(t, s, date);
-    syncDoneFromSubtasks(t, date, beforeAll);
-    touchTask(t);   /* G1（2026-10-23 修）：勾选改变了任务数据但不更新 updated → mergeTasks 按整条 last-writer-wins，他端旧副本会把勾选静默回吞 */
-    save();
-    rerender(); return;
-  }
-  const tc=el.closest(".tagchip");           if(tc){
-    state.filter={q:tc.dataset.tag, cat:"", pri:"", tag:""};
-    document.getElementById("fSearch").value=tc.dataset.tag;
-    document.getElementById("fCat").value=""; document.getElementById("fPri").value=""; document.getElementById("fTag").value="";
-    document.getElementById("fClear").style.display="inline-flex";
-    renderAll(); return;
-  }
-  const ds=el.closest("[data-donesec]");     if(ds){ todayDoneExpanded=!todayDoneExpanded; todayUiSet("done",todayDoneExpanded); rerender(); return; }
-  const op=el.closest("[data-open]");
-  if(op && !el.closest(".today-acts,.subtoggle,[data-subtick],.tagchip")){ openTaskDetail(op.dataset.open, op.dataset.openDate); }
-}
-function bindTodayDelegation(){
-  if(__todayDelegated) return;
-  const list=document.getElementById("todayList");
-  const view=document.getElementById("view");
-  const onFocusIn=e=>{ const b=e.target.closest && e.target.closest(".btn-sec"); if(b) b.setAttribute("aria-hidden","false"); };
-  const onFocusOut=e=>{ const b=e.target.closest && e.target.closest(".btn-sec"); if(b) b.setAttribute("aria-hidden","true"); };
-  if(list){
-    list.addEventListener("click", e=>handleTodayClick(e, renderToday));
-    list.addEventListener("focusin", onFocusIn);
-    list.addEventListener("focusout", onFocusOut);
-  }
-  if(view){
-    view.addEventListener("click", e=>{ if(!e.target.closest(".today-page")) return; handleTodayClick(e, renderAll); });
-    view.addEventListener("focusin", e=>{ if(!e.target.closest(".today-page")) return; onFocusIn(e); });
-    view.addEventListener("focusout", e=>{ if(!e.target.closest(".today-page")) return; onFocusOut(e); });
-  }
-  __todayDelegated=true;
-}
 /* 渲染后把次要动作（推迟 / 不补做等）标 aria-hidden=true：隐藏态不被读屏读取，
    但保留 DOM 焦点（用 opacity:0 而非 visibility:hidden），键盘 Tab 到达时 focusin 会切回 false 并配合 :focus-visible 显现 */
 function todaySecAriaReset(root){ if(root) root.querySelectorAll(".btn-sec").forEach(b=>b.setAttribute("aria-hidden","true")); }
 
-/* 顶部 widget 头部的「密度 / 最大化」：空态也必须绑定，否则首次进入空列表时按钮是死的 */
-function bindTodayHeader(){
-  const densBtn=document.getElementById("todayDensityBtn");
-  if(densBtn){ densBtn.textContent = todayDensity==="compact" ? "简" : "详"; densBtn.onclick=()=>{ todayDensity = todayDensity==="compact"?"detail":"compact"; todayUiSet("dens",todayDensity); renderToday(); }; }
-  const maxBtn=document.getElementById("todayMaxBtn");
-  if(maxBtn){ maxBtn.onclick=()=>{ todayMax=!todayMax; todayUiSet("max",todayMax); const p=document.querySelector('.toppanel[data-wid="today"]'); if(p) p.classList.toggle('today-max', todayMax); renderToday(); }; }
-}
-/* ===== 今日页分区主体：顶部 widget 与底部整页**共用同一份渲染** =====
-   此前 renderToday / renderTodayPage 各自写了一遍「逾期 / 今天 / 已完成」的拼接、空态判断与空态文案，
-   改一处忘另一处就会出不一致（本文件已因 emptyState 重复定义、formDirtyTask 漏字段踩过同类坑）。 */
-/* ===== 今日页内嵌「快速添加」 =====
-   此前今日页自身没有任何新建入口，空态文案却让用户「点上方『新建任务』」——
-   在底部整页要滚回顶部才能建任务，而"随手记一条"恰恰是每天最频繁的动作。
-   输入走 parseNL：`明天9点 #求职 p1 @电脑` 一行录入，回车即建。 */
-/* 输入框回车提交（keydown 而非 form submit：少一个活动部件，且委托到两个常驻容器即可） */
-function bindQuickAdd(root){
-  if(!root) return;
-  const inp=root.querySelector("[data-qa-input]");
-  if(!inp || inp.__qaBound) return;
-  inp.__qaBound=true;
-  inp.addEventListener("keydown", e=>{
-    if(e.key!=="Enter") return;
-    e.preventDefault();
-    if(quickAddTask(inp.value)) inp.value="";
-  });
-}
 function todayQuickAddHtml(){
   return '<div class="today-qa"><input type="text" data-qa-input class="qa-input" autocomplete="off" spellcheck="false"'
     +' placeholder="＋ 想到什么就记下来，回车创建（支持「明天9点 #标签 p1 @电脑」）" aria-label="快速添加任务"></div>';
 }
+
 function todayEmptyHtml(){
   return '<div class="empty"><div class="empty-ic">🎉</div><div>今天没有待处理任务<br>把收件箱里的想法安排进来，或点上方「新建任务」添加一个</div></div>';
 }
+
 function todaySectionsHtml(m, itemHtml){
   const {overdue, due, todayAll}=m;
   let html="";
@@ -7772,7 +7282,6 @@ function renderToday(){
   updateTodayScrollHint();
 }
 
-
 /* 今日要处理整页视图：底部「今日」标签触发；与顶部 widget 同源、放大为整页、无高度上限、随窗口滚动。
    进入该视图时顶部「今天要处理」widget 由 VIEW_DUP_PANEL 自动收起（内容重复）。 */
 function renderTodayPage(){
@@ -7812,19 +7321,6 @@ function renderTodayPage(){
   bindDens();
 }
 
-
-
-/* 任务详情：点击今日任务项打开只读预览，可跳编辑 / 完成 / 不补做 / 子任务勾选 */
-let detailId=null, detailDate=null;
-function openTaskDetail(id, date){
-  const t=state.tasks.find(x=>x.id===id);
-  if(!t){ toast("任务不存在或已删除"); return; }
-  detailId=id;
-  detailDate = date || (noDate(t) ? "" : ymd(startOfDay(new Date())));
-  renderTaskDetail();
-  document.getElementById("detailMask").classList.add("show");
-}
-function closeTaskDetail(){ const m=document.getElementById("detailMask"); if(m) m.classList.remove("show"); detailId=null; detailDate=null; }
 function renderTaskDetail(){
   const t=state.tasks.find(x=>x.id===detailId); if(!t) return;
   const date=detailDate, dk=date||"";
@@ -7894,6 +7390,7 @@ function renderTaskDetail(){
 
 /* 滚动提示：列表内容溢出可视区时，吸底显示「还有 N 条，滚动查看」；滚到底自动隐藏。 */
 function hintHtml(){ return '<div class="today-scroll-hint" id="todayScrollHint"></div>'; }
+
 function updateTodayScrollHint(){
   const list=document.getElementById("todayList");
   const hint=document.getElementById("todayScrollHint");
@@ -7908,6 +7405,7 @@ function updateTodayScrollHint(){
   hint.textContent="↓ 还有 "+hidden+" 条，滚动查看";
   hint.style.display="";
 }
+
 function renderRing(done,total){
   const svg=document.getElementById("ring"); const r=15.9, c=2*Math.PI*r;
   const pct = total? done/total : 0;
@@ -7918,6 +7416,7 @@ function renderRing(done,total){
     <circle cx="18" cy="18" r="${r}" fill="none" stroke="${ringColor}" stroke-width="4" stroke-linecap="round"
       stroke-dasharray="${c}" stroke-dashoffset="${c*(1-pct)}" transform="rotate(-90 18 18)"/>`;
 }
+
 // B1：就地修改某任务在主视图中的可见行，不重建整个列表
 function patchTaskDom(id){
   const t=state.tasks.find(x=>x.id===id); if(!t) return;
@@ -7943,6 +7442,7 @@ function patchTaskDom(id){
     }
   });
 }
+
 // 弹窗内「标记完成」按钮：针对当前编辑的任务（含非当天）
 // 语义恒定 = 只做「标记完成」。已完成时再点不再取消（旧版会翻转成「取消完成」导致误触），
 // 撤销统一走独立入口「↩ 撤销完成」。
@@ -7983,6 +7483,7 @@ function markDoneBtn(){
   const box=document.getElementById("doneAtField");
   if(box && box.style.display!=="none"){ try{ box.scrollIntoView({block:"nearest"}); }catch(e){} }
 }
+
 // 独立撤销入口：清除这次的打卡记录（含完成时间戳与统计历史），任务恢复未完成
 function undoDoneBtn(){
   if(!editingId) return;
@@ -7999,9 +7500,6 @@ function undoDoneBtn(){
   renderDoneAtField(); syncDoneBtn(); refreshDerived(); renderAll();
 }
 
-/* ===== 完成时间（补打卡 / 事后修正实际完成时刻）=====
-   场景：任务做完了但当时忘了点完成，隔一阵才补打卡；或打卡时间不准需要改。
-   数据落点不变——普通任务写 t.doneAt.self，重复任务写 t.doneAt[发生日] + t.doneDates。 */
 // 渲染弹窗内的「完成时间」区块：未打卡时预填此刻，方便一步补记
 function renderDoneAtField(overrideCtx){
   const box=document.getElementById("doneAtField"); if(!box) return;
@@ -8025,6 +7523,7 @@ function renderDoneAtField(overrideCtx){
     : "填好完成时间后，点「标记完成」即补记为已完成。";
   box.style.display="block";
 }
+
 // 只刷新「标记完成 / 撤销完成」按钮状态，不改动数据（供打卡/改时间后复用）
 // 主按钮文案与配色恒定，撤销按钮仅在已完成时露出——避免「改了完成时间后主按钮翻转成取消」的误触
 function syncDoneBtn(){
@@ -8038,19 +7537,7 @@ function syncDoneBtn(){
   b.className = "btn btn-success";
   if(u) u.style.display = d ? "inline-flex" : "none";
 }
-// 一次性绑定（完成时间区块是静态 DOM，不会随渲染重建）
-function bindDoneAtField(){
-  const d=document.getElementById("f_done_date"), t=document.getElementById("f_done_time");
-  if(d) d.addEventListener("change", ()=>applyDoneTime());
-  if(t) t.addEventListener("change", ()=>applyDoneTime());
-  const p=document.getElementById("btnDonePrev"); if(p) p.onclick=()=>shiftDoneDate(-1);
-  const n=document.getElementById("btnDoneNext"); if(n) n.onclick=()=>shiftDoneDate(1);
-  const w=document.getElementById("btnDoneNow");  if(w) w.onclick=setDoneTimeNow;
-  const c=document.getElementById("btnDoneClear"); if(c) c.onclick=clearDoneTime;
-}
 
-/* ===== 子任务清单（弹窗内编辑，工作副本） ===== */
-let curSubtasks=[];
 function renderSubList(){
   const box=document.getElementById("subList"); if(!box) return;
   const recEl=document.getElementById("f_rec");
@@ -8065,9 +7552,7 @@ function renderSubList(){
   box.querySelectorAll('.st').forEach(sp=>sp.onclick=()=>{ if(rec) return; const ix=+sp.dataset.ix; curSubtasks[ix].done=!curSubtasks[ix].done; renderSubList(); });
   box.querySelectorAll('.sx').forEach(x=>x.onclick=()=>{ curSubtasks.splice(+x.dataset.ix,1); renderSubList(); });
 }
-document.getElementById("subBulkBtn").onclick=toggleSubBulk;
-document.getElementById("subBulkOk").onclick=addSubBulk;
-document.getElementById("subBulkCancel").onclick=()=>{ const w=document.getElementById("subBulkWrap"); if(w) w.style.display="none"; };
+
 // 子任务进度尾标，如 (2/5)。重复任务按 date（缺省今天）统计，非重复任务按 s.done
 function subBadge(t, date){
   const arr=(t&&t.subtasks)||[];
@@ -8075,6 +7560,7 @@ function subBadge(t, date){
   const d=arr.filter(s=>subIsDone(t,s,date)).length;
   return ` (${d}/${arr.length})`;
 }
+
 // 今日面板内联子任务勾选区：点一下即按「当天」记录，第二天自动重置（重复任务）
 function subChecklistHtml(t, date){
   const arr=t.subtasks||[];
@@ -8085,12 +7571,14 @@ function subChecklistHtml(t, date){
     return `<button type="button" class="subcheck-item${on?" on":""}" data-subtick="${t.id}" data-sid="${s.id}" data-date="${date}" role="checkbox" aria-checked="${on}"><span class="sq">${on?"\u2713":""}</span><span class="sct">${esc(s.title)}</span></button>`;
   }).join("")+"</div>";
 }
+
 // 标签 chips（可点击过滤）
 function tagsHtml(t){
   const ts=t.tags||[];
   if(!ts.length) return "";
   return `<div class="tagchips">${ts.map(tg=>{ const disp=tg.replace("/", " › "); return `<button class="tagchip" data-tag="${esc(tg)}">#${esc(disp)}</button>`; }).join("")}</div>`;
 }
+
 // 编辑弹窗内的标签树快捷选择器：点击 chip 追加/移除标签（支持 父/子）
 function renderTagPicker(){
   const el=document.getElementById("tagPick"); if(!el) return;
@@ -8120,33 +7608,6 @@ function renderTagPicker(){
   });
 }
 
-/* ===== 统计：完成历史 ===== */
-let stats={ history:[] };
-const STATS_KEY="wb_taskhub_stats_v1";
-// d 为空时记为今天；补打卡（在别的日期点上）传该日期，让统计趋势落在真正完成的那天
-const HISTORY_MAX=5000;   // 完成流水上限（原 500 会静默丢弃老记录）：触顶后丢最旧一条并累计 historyDropped，让「丢了多少」可被看见
-/* ===== 完成口径：累计 vs 当前周期（2026-09-14）=====
-   同一个「完成了吗」有两种口径，别混用：
-   · isTaskDone(t)    —— 累计口径「曾经完成过」：非重复看 status，重复任务看有没有任何打卡记录。
-                         用于**区间/累计统计**（stats.history 报表、完成总次数）。
-   · isTaskDoneNow(t) —— 当前周期口径「这一轮做了没」：重复任务按循环周期取桶，桶内打过卡才算完成，
-                         周期一过自动回到「未完成」。用于**当前态**（项目进度 / KR auto /
-                         看板与仪表盘的逾期·进行中·今日待办）。
-   旧版只有前者，于是「每日任务打过一次卡就永远算完成」：项目进度虚高、看板逾期/进行中漏项。
-   ⚠️ 重复任务已结束（until 早于今天）或未知频率时退回累计口径 —— 否则已结束的重复任务会永远算「未完成」。 */
-
-/* ===== P1-4：统一的「是否逾期」判定 =====
-   此前 4 处统计（功能卡概览 / 回顾页 / 导出周报 / 项目卡徽标）都直接读**任务模板的 t.end**：
-   对每天重复的任务，t.end 是「创建当天」的时刻（如 2026-06-01T10:00），
-   今天没打卡就恒满足 t.end < today → 成批误判「逾期」（只有 skipMissed=true 的任务被排除，
-   历史/导入的 skipMissed=false 任务全部误报）。而 buildTodayModel 用的是**实例** i.end，是正确的。
-   口径统一为：取该任务「最近一个已到期且未完成」的实例判定期限。
-   为避免逐条任务展开实例导致 O(任务数 × 实例数)，提供两种形态：
-     - taskOverdueNow(t)  单条判定（内部按需展开）
-     - collectOverdueSet() 批量判定，返回 Set（一次展开，供 4 处统计共用） */
-
-
-/* ===== 渲染：月视图 ===== */
 function renderMonth(){
   const cur=startOfDay(state.cur);
   const y=cur.getFullYear(), m=cur.getMonth();
@@ -8220,7 +7681,6 @@ function renderMonth(){
   });
 }
 
-/* ===== 时间轴重叠分列：把同一时段重叠的事件并排拆分，避免互相覆盖 ===== */
 function computeOverlapLayout(dayInsts){
   // 返回 Map<index,{col,cols}>：同一次「互相重叠的组」内按贪心分列，列数取该组最大并发数
   const evs = dayInsts.map((i,idx)=>({idx, s:i.start.getTime(), e:Math.max(i.start.getTime()+1, i.end.getTime())}));
@@ -8249,7 +7709,6 @@ function computeOverlapLayout(dayInsts){
   return out;
 }
 
-/* ===== 渲染：周/日 时间轴 ===== */
 function renderTimeline(days){
   const rangeStart=startOfDay(days[0]), rangeEnd=endOfDay(days[days.length-1]);
   const insts=filterInsts(getInstances(rangeStart, rangeEnd));
@@ -8323,59 +7782,18 @@ function renderTimeline(days){
     col.querySelectorAll(".ev").forEach(ev=>{ if(!ev.dataset.kr) attachEvDrag(ev, state.view===VIEWS.WEEK); });
   });
 }
-/* 日/周视图委托处理器：.ev 优先（内含拖拽后的点击抑制），否则落到 .tbody 空白处新建 */
-let __tlDelegated=false;
-let tlSuppressClick=false;   // 拖拽改期后抑制紧接着的合成 click（原实现挂在 ev._suppressClick 上，随 DOM 重建丢弃）
-function handleTimelineClick(e){
-  const el=e.target; if(!el || !el.closest) return;
-  const ev=el.closest(".ev");
-  if(ev){
-    if(tlSuppressClick){ tlSuppressClick=false; return; }
-    if(ev.dataset.kr) okrOpenKR(ev.dataset.kr); else openModal(ev.dataset.id, ev.dataset.date);
-    return;
-  }
-  const tb=el.closest(".tbody");
-  if(tb){
-    const col=tb.closest(".tcol"); if(!col) return;
-    openModal(null, ymd(parseLocal(col.dataset.day+"T09:00")));
-  }
-}
-function bindTimelineDelegation(){
-  if(__tlDelegated) return;
-  const view=document.getElementById("view");
-  if(view) view.addEventListener("click", e=>{ if(!e.target.closest(".timeline")) return; handleTimelineClick(e); });
-  __tlDelegated=true;
-}
+
 function renderWeek(){
   const cur=startOfDay(state.cur); const dw=(cur.getDay()+6)%7;
   const mon=addDays(cur,-dw);
   const days=Array.from({length:7},(_,i)=>addDays(mon,i));
   renderTimeline(days);
 }
+
 function renderDay(){
   const cur=startOfDay(state.cur);
   renderTimeline([cur]);
 }
-
-/* ===== 渲染：甘特图（增强：范围切换 / 今日线 / 拖拽改期 / 单日任务可隐藏） ===== */
-let ganttRange="month";
-/* 单日任务（跨度仅 1 天）默认隐藏，状态持久化 */
-let ganttHideSingle=true;
-/* ：窄屏「⚙ 显示选项」展开态（仅内存中保持，重渲染后沿用，不写 localStorage） */
-let ganttToolsOpen=false;
-/* 排序：start=按开始时间 / cat=按分类 / pri=按优先级 / title=按名称 */
-let ganttSort="start";
-const GANTT_SORTS=[["start","按开始"],["cat","按分类"],["pri","按优先级"],["title","按名称"],["proj","按项目分组"]];
-/* 按项目分组时，被折叠的项目 id（"__none__" 代表未归属项目的任务） */
-const ganttGroupCollapsed=new Set();
-/* 项目聚焦：只显示某个项目的任务（"" = 全部项目）。会话内有效，不持久化，刷新即回到全部。
-   由项目卡片的「📊 甘特图」按钮或甘特图顶部的下拉框设置。 */
-let ganttFocus="";
-try{ const _g=localStorage.getItem("wb_taskhub_gantt_v1"); if(_g){ const _o=JSON.parse(_g);
-  if(_o&&typeof _o.hideSingle==="boolean") ganttHideSingle=_o.hideSingle;
-  if(_o&&typeof _o.sort==="string"&&GANTT_SORTS.some(s=>s[0]===_o.sort)) ganttSort=_o.sort;
-  if(_o&&Array.isArray(_o.groups)) _o.groups.forEach(k=>ganttGroupCollapsed.add(k));
-} }catch(e){}
 
 /* 日期刻度行：列宽够就逐日显示（1 号标出月份），否则按周 / 月打稀疏标签 */
 function ganttHeadHtml(days, colW, nameLabel){
@@ -8398,6 +7816,7 @@ function ganttHeadHtml(days, colW, nameLabel){
   }
   return `<div class="gantt-row head"><div class="gname">${nameLabel||"任务"}</div><div class="gtrack" style="min-width:${n*colW}px;position:relative">${inner}</div></div>`;
 }
+
 /* 单行甘特条：主甘特与项目卡内嵌甘特共用（colW 决定每天像素） */
 function ganttRowHtml(r, days, rangeStart, colW){
   const n=days.length;
@@ -8415,6 +7834,7 @@ function ganttRowHtml(r, days, rangeStart, colW){
     `<div class="gbar${overdue?' overdue':''}" style="left:${left}px;width:${width}px;background:${col};${done?'opacity:.55':''}" data-id="${r.task.id}" data-date="${ymd(r.min)}" data-colw="${colW}" title="${tip}">${txt}</div>`+
     `</div></div>`;
 }
+
 /* 「按项目分组」：把行按所属项目聚成组，组头显示项目名 + 任务数 + 整体跨度，可折叠 */
 function ganttGroupHtml(rows, days, rangeStart, colW){
   const n=days.length;
@@ -8442,6 +7862,7 @@ function ganttGroupHtml(rows, days, rangeStart, colW){
   }
   return html;
 }
+
 function renderGantt(){
   const _vel=document.getElementById("view");
   const _vst=_vel?_vel.scrollTop:0;
@@ -8552,29 +7973,7 @@ function renderGantt(){
   if(_vel) _vel.scrollTop=_vst;
   const _gel2=_vel?_vel.querySelector(".gantt"):null; if(_gel2) _gel2.scrollLeft=_gsl;
 }
-function attachGanttDrag(bar, colW){
-  // ：Pointer Events 统一鼠标 + 触屏（pointerdown 移动端亦可拖拽平移；轻点仍打开任务）
-  const cw=colW||30;
-  bar.addEventListener("pointerdown", e=>{
-    if(e.pointerType==="mouse" && e.button!==0) return;
-    e.preventDefault();
-    const id=bar.dataset.id; const startX=e.clientX; let moved=false;
-    bar.classList.add("dragging");
-    try{ if(bar.setPointerCapture) bar.setPointerCapture(e.pointerId); }catch(_){}
-    const move=ev=>{ const dx=ev.clientX-startX; bar.style.transform="translateX("+dx+"px)"; if(Math.abs(dx)>4) moved=true; };
-    const up=ev=>{
-      document.removeEventListener("pointermove",move); document.removeEventListener("pointerup",up);
-      bar.classList.remove("dragging"); bar.style.transform="";
-      if(!moved){ openModal(id, bar.dataset.date); return; }
-      const delta=Math.round((ev.clientX-startX)/cw);
-      if(delta!==0){ shiftTaskDates(id, delta, bar.dataset.date); saveAndToast("已平移 "+Math.abs(delta)+" 天"); renderAll(); }
-      else { openModal(id, bar.dataset.date); }
-    };
-    document.addEventListener("pointermove",move); document.addEventListener("pointerup",up);
-  });
-}
 
-/* ===== 顶部日期文案 ===== */
 function renderCur(){
   const d=state.cur;
   let s="";
@@ -8594,90 +7993,20 @@ function renderCur(){
   document.getElementById("curdate").textContent=s;
 }
 
-/* ===== 收件箱：无日期任务 ===== */
 // 无日期判定：start 或 end 缺失即视为收件箱任务
 function noDate(t){ return !t || !t.start || !t.end; }
+
 function renderInboxCount(){
   const n=state.tasks.filter(t=>noDate(t) && t.status!=="done" && !t.dropped).length;
   const el=document.getElementById("inboxCount"); if(el) el.textContent = n>0 ? String(n) : "";
   const el2=document.getElementById("inboxCountTop"); if(el2) el2.textContent = n>0 ? String(n) : "";
 }
 
-/* ===== 长列表分页内核（D5：阈值 100） =====
-   只在渲染出口切片，不改数据结构：统计、导出、批量选择仍基于全量数据。
-   页码按「视图/清单 key」各自记忆；筛选签名变化时自动回到第一页。 */
-
 /* 筛选签名：筛选条件变化时让对应列表回到第一页 */
 function thPgSig(){
   try{
     return (state&&state.view?state.view:"")+"|"+((state&&state.filter&&state.filter.q)||"")+"|"+((state&&state.selList)||"")+"|"+(typeof selMode!=="undefined"&&selMode?"sel":"");
   }catch(e){ return ""; }
-}
-
-/* ===== 收件箱交互：事件委托（P1-10，对标「今日」视图 handleTodayClick 模式） =====
-   此前 renderInbox 每次渲染先 innerHTML 重建列表、再 forEach 逐行绑 4 个闭包：
-   每次 renderAll 新建 N 个闭包又丢弃（GC 压力），且绑定逻辑散在渲染函数里，
-   重建 DOM 后漏绑一次就静默失效。现改为：容器常驻只换 innerHTML，#view 上一次性委托，
-   用 .inbox-wrap 收口作用域（#view 里其他视图也有 data-done 等同名属性，防误触发）。 */
-let __inboxDelegated=false;
-function handleInboxClick(e){
-  const el=e.target; if(!el || !el.closest) return;
-  const add=el.closest("#inboxAdd");         if(add){ openInboxNew(); return; }
-  const sb=el.closest("#inboxSel");          if(sb){ selToggle("inbox"); return; }
-  if(selMode) return;   // 选择模式下整行不触发打开，避免误触（与原逐项绑定行为一致）
-  const rest=el.closest("[data-restore]");   if(rest){ restoreTask(rest.dataset.restore||rest.closest(".inbox-item").dataset.id); return; }
-  const row=el.closest(".inbox-item");       if(!row || !row.dataset.id) return;
-  const id=row.dataset.id;
-  if(el.closest("[data-edit]")){ openModal(id,null); return; }
-  if(el.closest("[data-done]")){ toggleDone(id, ymd(startOfDay(new Date()))); return; }
-  if(el.closest("[data-plan]")){ planInbox(id); return; }
-}
-function bindInboxDelegation(){
-  if(__inboxDelegated) return;
-  const view=document.getElementById("view");
-  if(view) view.addEventListener("click", e=>{ if(!e.target.closest(".inbox-wrap")) return; handleInboxClick(e); });
-  __inboxDelegated=true;
-}
-
-/* ===== 建议3：收件箱条目 → 拖到日历（.dcell）/ 时间轴（.tcol）某一天 = 直接安排 =====
-   背景：收件箱正是无日期任务的集中地，此前只能点条目上的「安排」按钮（默认排进今天再改日期），
-   而今日面板的待办反而能拖 —— 交互不对称。现在把「安排」落点扩展到拖放。
-   实现要点：
-   · 拖源用自定义 MIME application/x-wb-task（与清单视图的 text/plain 拖拽区分，互不干扰）；
-   · dragover 只认该 MIME，其它拖拽（清单重排等）不出现落点高亮；
-   · 监听挂持久元素 #view（innerHTML 替换不销毁它），幂等守卫防重复绑定；
-   · 落点取 data-day，复用 planInbox(id, date) 打开编辑弹窗预填该天，时间仍可改。 */
-let __schedDropBound=false;
-function bindScheduleDropZones(){
-  if(__schedDropBound) return;
-  const view=document.getElementById("view"); if(!view) return;
-  const dayCol=e=>{ const t=e.target; return (t&&t.closest)?(t.closest(".tcol")||t.closest(".dcell")):null; };
-  view.addEventListener("dragstart", e=>{
-    const t=e.target; const el=(t&&t.closest)?t.closest(".inbox-item[data-id]"):null; if(!el) return;
-    try{ e.dataTransfer.setData("application/x-wb-task", el.dataset.id); e.dataTransfer.effectAllowed="copy"; }catch(_){}
-    el.classList.add("dragging");
-  });
-  view.addEventListener("dragend", e=>{
-    const t=e.target; const el=(t&&t.closest)?t.closest(".inbox-item"):null; if(el) el.classList.remove("dragging");
-    document.querySelectorAll(".tcol.drop-hint,.dcell.drop-hint").forEach(x=>x.classList.remove("drop-hint"));
-  });
-  view.addEventListener("dragover", e=>{
-    const col=dayCol(e); if(!col) return;
-    const dt=e.dataTransfer; if(!dt||!dt.types||dt.types.indexOf("application/x-wb-task")<0) return;
-    e.preventDefault();
-    try{ dt.dropEffect="copy"; }catch(_){}
-    document.querySelectorAll(".tcol.drop-hint,.dcell.drop-hint").forEach(x=>{ if(x!==col) x.classList.remove("drop-hint"); });
-    col.classList.add("drop-hint");
-  });
-  view.addEventListener("dragleave", e=>{ const col=dayCol(e); if(col) col.classList.remove("drop-hint"); });
-  view.addEventListener("drop", e=>{
-    const col=dayCol(e); if(!col) return;
-    e.preventDefault(); col.classList.remove("drop-hint");
-    let id=null; try{ id=e.dataTransfer.getData("application/x-wb-task"); }catch(_){}
-    if(!id) return;
-    planInbox(id, col.dataset.day);
-  });
-  __schedDropBound=true;
 }
 
 function renderInbox(){
@@ -8725,16 +8054,9 @@ function renderInbox(){
   bindInboxDelegation();   // P1-10：列表条目的 编辑/完成/安排/恢复 全部走委托，不再逐行绑闭包
   if(selMode) selBind([{label:"完成",cls:"btn-pri",fn:batchInboxDone},{label:"改属性",cls:"btn-ghost",fn:batchInboxProps},{label:"标记不补做",cls:"btn-ghost",fn:batchInboxSkip},{label:"删除",cls:"btn-danger",fn:batchInboxDelete},{label:"清空已完成",cls:"btn-ghost",fn:batchInboxClearDone}]);
 }
-function closeBatchProps(){ const m=document.getElementById("batchPropsMask"); if(m) m.classList.remove("show"); }
-// 新建时默认勾选「不指定日期」
-function openInboxNew(){
-  openModal(null,null);
-  const cb=document.getElementById("f_nodate");
-  if(cb && !cb.checked){ cb.checked=true; toggleNoDate(); }
-}
 
-/* ===== 渲染：统计视图（增强：时间范围 / 习惯契合度 / OKR 进度 / 导出） ===== */
-let statsRange=7;
+function closeBatchProps(){ const m=document.getElementById("batchPropsMask"); if(m) m.classList.remove("show"); }
+
 /* 分布条标签等宽：测量同一分布区内所有名称的自然宽度，统一赋给该区所有标签列。
    这样「P0 重要且紧急」这类长名称也能单行完整显示（不再折成两行），进度条（flex:1）相应缩短。
    两条收窄规则，避免个别超长名称把整列撑得过大：
@@ -8763,6 +8085,7 @@ function fitBarLabels(root){
     requestAnimationFrame(()=>{ labels.forEach(el=>{ el.style.width=w+"px"; }); });
   });
 }
+
 function renderStats(){
   const tasks=state.tasks;
   const total=tasks.length;
@@ -8886,9 +8209,7 @@ function renderStats(){
   fitBarLabels(v);
   bindNoSearchNote(v);
 }
-/* ===== M14：导出日历（.ics）=====
-   把未完成任务转成 VEVENT；重复任务展开未来 180 天（已打卡的实例跳过）。
-   时间用「浮动时间」（不带 Z），导入后按本机时区解释，时段不变。 */
+
 function exportICS(){
   try{
     const now=new Date(), horizon=new Date(now.getTime()+180*DAY);
@@ -8925,6 +8246,7 @@ function exportICS(){
     toast("已导出 "+(lines.filter(x=>x==="BEGIN:VEVENT").length)+" 条日历事件");
   }catch(e){ if(DEBUG)console.error(e); toast("导出日历失败："+(e&&e.message?e.message:e),"danger"); }
 }
+
 function exportStatsReport(){
   try{
     const tasks=state.tasks; const total=tasks.length;
@@ -8945,15 +8267,6 @@ function exportStatsReport(){
   }catch(e){ toast("导出失败："+e.message); }
 }
 
-/* ===== 顶部三栏折叠（）：整页视图首屏默认折叠，手动偏好持久化 ===== */
-let uiPrefs={collapsed:{top:false,habit:false,list:false}, topOpen:false, touched:false};
-try{ const _r=localStorage.getItem("wb_taskhub_ui_v1"); if(_r){ const _o=JSON.parse(_r); if(_o&&_o.collapsed) uiPrefs.collapsed=Object.assign({top:false,habit:false,list:false},_o.collapsed); if(_o.touched!==undefined) uiPrefs.touched=!!_o.touched; if(_o.topOpen!==undefined) uiPrefs.topOpen=!!_o.topOpen; } }catch(e){}
-const PANEL_KEYS={top:"toppanel",habit:"habitpanel",list:"listpanel"};
-/* ：某些整页视图与顶部 widget 内容完全重复（习惯视图 vs 习惯打卡面板）。
-   进入这些视图时把对应 widget 临时收起（不改用户持久偏好，切回其它视图自动恢复），避免同屏两处相同信息。
-   注：「清单」视图曾用同一规则自动收起顶部「清单速览」，导致该栏只剩空白卡片；
-   按用户反馈已移除该映射——清单视图下顶部「清单速览」与其他视图一致，正常展开、内容照常渲染。 */
-const VIEW_DUP_PANEL={habit:"habit", today:"top"};
 function applyPanelCollapse(isFullPage, view){
   const dup = view ? VIEW_DUP_PANEL[view] : null;
   for(const k in PANEL_KEYS){
@@ -8971,29 +8284,7 @@ function applyPanelCollapse(isFullPage, view){
     if(gf) gf.style.display = (want && !auto)? "inline-flex":"none";
   }
 }
-function togglePanel(k){
-  uiPrefs.touched=true;
-  const el=document.querySelector("."+PANEL_KEYS[k]);
-  // 以当前实际显示态为准翻转，再写回偏好（整页视图默认折叠时存储值可能≠显示态）
-  const now = el ? el.classList.contains("collapsed") : !!uiPrefs.collapsed[k];
-  uiPrefs.collapsed[k]=!now;
-  saveUIPrefs();
-  if(el){
-    el.classList.toggle("collapsed", !now);
-    // R10：手动折叠后同步「完整视图」跳转显隐（自动收起 dup-hidden 不显示，因用户已在完整视图）
-    const gf=el.querySelector(".goto-full");
-    if(gf) gf.style.display = (!now && !el.classList.contains("dup-hidden")) ? "inline-flex":"none";
-  }
-}
-document.querySelectorAll(".panel.collapsible .ptoggle").forEach(b=>{
-  b.addEventListener("click", e=>{
-    e.stopPropagation();
-    const p=b.closest(".panel"); if(!p) return;
-    for(const k in PANEL_KEYS){ if(p.classList.contains(PANEL_KEYS[k])){ togglePanel(k); break; } }
-  });
-});
 
-/* ===== 顶部概览条（默认收起三栏，点开才展开） ===== */
 function applyTopOverview(){
   const row=document.getElementById("widgetRow");
   const bar=document.getElementById("overviewBar");
@@ -9003,6 +8294,7 @@ function applyTopOverview(){
   bar.classList.toggle("open", open);
   bar.setAttribute("aria-expanded", open?"true":"false");
 }
+
 function renderOverview(){
   const bar=document.getElementById("overviewBar"); if(!bar) return;
   // 今天：逾期+今天到期未完成数；有逾期则标红
@@ -9046,13 +8338,7 @@ function renderOverview(){
     + "；今日已打卡 "+habDone+"/"+habActive.length+" 个习惯"
     + "；"+activeLists+" 个清单仍有待办");
 }
-function toggleTopOverview(){
-  uiPrefs.topOpen=!uiPrefs.topOpen; saveUIPrefs();
-  applyTopOverview();
-}
 
-/* ===== 总渲染 ===== */
-/* ===== 通用 helpers（项目 / OKR / 回顾 共用） ===== */
 function fillKrSelect(sel, cur){
   if(!sel) return;
   const opts=['<option value="">（无）</option>'];
@@ -9060,6 +8346,7 @@ function fillKrSelect(sel, cur){
   sel.innerHTML=opts.join("");
   if(cur) sel.value=cur;
 }
+
 function fillProjectSelect(){
   const sel=document.getElementById("f_project");
   if(!sel) return;
@@ -9067,6 +8354,7 @@ function fillProjectSelect(){
   for(const p of (state.projects||[])){ if(p.archived) continue; opts.push(`<option value="${p.id}">${esc(p.name||"（未命名项目）")}</option>`); }
   sel.innerHTML=opts.join("");
 }
+
 function fillKrChecklist(container, selected){
   if(!container) return;
   const sel=selected||[];
@@ -9075,6 +8363,7 @@ function fillKrChecklist(container, selected){
   for(const o of state.okrs){ h+=`<div class="kr-cat">${esc(o.title)}</div>`; for(const k of o.krs){ const on=sel.includes(k.id)?'checked':''; h+=`<label class="kr-cb"><input type="checkbox" value="${k.id}" ${on}> ${esc(k.title)}</label>`; } }
   container.innerHTML=h;
 }
+
 /* 生成 KR 迷你趋势 sparkline（需 ≥2 周数据） */
 function krSpark(krId){
   try{
@@ -9095,14 +8384,6 @@ function krSpark(krId){
   }catch(e){ return ''; }
 }
 
-/* ===== 通用合并：目标 OKR / 项目 ===== */
-/* 指标语义桶：判断两条 KR 是否同义（用于合并去重） */
-const KR_BUCKETS=[
-  {key:"apply",     label:"投递类",   re:/投递|申请|海投|apply/i},
-  {key:"interview", label:"面试类",   re:/面试|面经|一面|二面|interview/i},
-  {key:"offer",     label:"Offer 类", re:/offer|录用|入职|拿到/i}
-];
-let mgKind="okr";
 function mgOptions(){
   if(mgKind==="okr"){
     return state.okrs.map(o=>{
@@ -9115,6 +8396,7 @@ function mgOptions(){
   }
   return state.projects.map(p=>({id:p.id, label:esc(p.name||"(未命名项目)")+(p.archived?" · 已归档":"")}));
 }
+
 function mgFill(){
   const opts=mgOptions();
   const ks=document.getElementById("mgKeep"), ds=document.getElementById("mgDrop");
@@ -9125,6 +8407,7 @@ function mgFill(){
   ds.value = opts.some(o=>o.id===dv)?dv:(opts[1]?opts[1].id:"");
   if(ks.value===ds.value && opts.length>1){ const other=opts.find(o=>o.id!==ks.value); if(other) ds.value=other.id; }
 }
+
 function mgRender(){
   const b=document.getElementById("mgBody"); if(!b) return;
   const pl=mgPlan();
@@ -9173,17 +8456,7 @@ function mgRender(){
   }
   b.innerHTML=h;
 }
-function openMerge(kind){
-  mgKind=kind||"okr";
-  document.querySelectorAll("#mergeMask .mg-tab").forEach(b=>b.classList.toggle("active", b.dataset.mgkind===mgKind));
-  mgFill(); mgRender();
-  document.getElementById("mergeMask").classList.add("show");
-}
 
-
-/* ===== 项目视图（P0） ===== */
-/* ：项目卡的任务列表默认折叠（项目多时单屏能看到全部项目），展开状态按项目 id 记忆 */
-const projExpanded=new Set();
 function renderProjects(){
   const v=document.getElementById("view");
   /* ：整页视图搜索——按项目名/描述/其下任务标题过滤 */
@@ -9264,9 +8537,6 @@ function renderProjects(){
   });
 }
 
-/* ===== OKR 视图（P1，打磨：折叠 / 过滤 / 风险脉冲 / 趋势占位 / 检查点备注） ===== */
-let okrFilter="all";
-const okrCollapsed=new Set();
 function renderOkr(){
   const v=document.getElementById("view");
   let h=`<div class="vhead"><h2>目标 OKR</h2>
@@ -9388,20 +8658,11 @@ function renderOkr(){
   v.querySelectorAll(".kr-task[data-open]").forEach(b=>b.onclick=()=>openModal(b.dataset.open,null));
 }
 
-/* ===== 回顾视图（P1） ===== */
 function diagCard(title,num,items){
   let h=`<div class="diag-card"><div class="diag-num ${num?'alert':''}">${num}</div><div class="diag-label">${title}</div>`;
   if(items&&items.length){ h+=`<div class="diag-items">`; h+=items.slice(0,6).map(t=>`<div class="diag-open" data-open="${t.id}">${esc(t.title)}</div>`).join(""); if(items.length>6) h+=`<div class="muted">…还有 ${items.length-6} 项</div>`; h+=`</div>`; }
   h+=`</div>`; return h;
 }
-/* ===== 回顾：笔记 / 快照 / 自定义清单 存储 ===== */
-let reviewViewWeek=null;
-/* P1-8（2026-10-23 修）：原裸 localStorage.setItem 有两个问题——
-   ① 绑在 oninput 上逐键全量 JSON 序列化 + 写盘，复盘文字长时可感卡顿；
-   ② 配额满时从 oninput 抛未捕获异常（此处不在任何 try 内），用户零反馈，刷新后内容全丢。
-   改为 300ms 去抖 + storageSetSafe（失败会弹可行动告警）。wk 由闭包捕获：去抖窗口内切周时，
-   写回的是「旧周在输入最后一刻的内容」，语义正确。 */
-var _reviewNotesTimer=null;
 
 function renderReview(){
   const v=document.getElementById("view");
@@ -9506,6 +8767,7 @@ function renderReview(){
   const addc=v.querySelector("#rvAddCk"); if(addc) addc.onclick=()=>{ const inp=v.querySelector("#rvNewCk"); const val=inp?inp.value.trim():""; if(!val) return; const arr=reviewTplGet(); const key="c"+(Date.now().toString(36)); arr.push({key,label:val}); reviewTplSet(arr); renderReview(); };
   v.querySelectorAll("[data-delck]").forEach(b=>b.onclick=()=>{ const arr=reviewTplGet().filter(c=>c.key!==b.dataset.delck); reviewTplSet(arr); renderReview(); });
 }
+
 function exportReview(){
   try{
     const wk=weekKey(new Date());
@@ -9549,11 +8811,6 @@ function exportReview(){
   }catch(e){ toast("导出失败："+e.message); }
 }
 
-/* ===== 项目编辑器逻辑 ===== */
-/* ===== P1-5：删除「项目 / KR / 目标」的级联清理统一出口 =====
-   此前两个入口两套行为：弹窗内删会清悬空引用并 save()，视图卡片上的删除只过滤数组、不清引用也不 save()。
-   悬空的 t.project / t.krId 会让甘特归入「未归属项目」、项目视图看不到、OKR 自动汇总漏计，
-   且悬空值随 syncPayload 上云污染其他设备。三个入口统一走这里。 */
 function renderTodayKrHtml(){
   const today=startOfDay(new Date());
   const items=[];
@@ -9627,8 +8884,7 @@ function renderAllNow(){
   if(_tl) _tl.scrollTop=_stt;
   if(_view){ const els=_view.querySelectorAll(".timeline,.tcols"); els.forEach((e,ix)=>{ if(_hs[ix]!=null) e.scrollLeft=_hs[ix]; }); }
 }
-/*  重渲染合并：同一事件内的多次 renderAll 合并为 1–2 次实际渲染，且不丢最新状态 */
-let _raPending=false, _raDirty=false, _raErrAt=0;
+
 function renderAll(){
   if(_raPending){ _raDirty=true; return; }
   _raPending=true; _raDirty=false;
@@ -9647,10 +8903,7 @@ function renderAll(){
     queueMicrotask(()=>{ _raPending=false; if(_raDirty){ _raDirty=false; renderAll(); } });
   }
 }
-/* ===== 筛选状态可见性（）=====
-   筛选栏在整页视图（统计/习惯/清单/项目/目标/回顾/进度）下被隐藏，但 state.filter 仍会过滤
-   「今天要处理」等顶部 widget —— 以前用户看不到任何依据。这里在视图标题右侧挂一个浮标，
-   写明当前生效的条件，并提供一键清除。 */
+
 function filterSummary(){
   const f=state.filter||{}; const p=[];
   if(f.q) p.push("“"+f.q+"”");
@@ -9659,6 +8912,7 @@ function filterSummary(){
   if(f.tag) p.push("#"+f.tag);
   return p.join(" · ");
 }
+
 function updateFilterBadge(isFullPage){
   const vt=document.getElementById("viewtitle"); if(!vt) return;
   let b=document.getElementById("filterBadge");
@@ -9676,6 +8930,7 @@ function updateFilterBadge(isFullPage){
   b.title="筛选栏在当前视图已隐藏，但条件仍在生效（影响「今天要处理」等卡片）· 点击清除";
   b.setAttribute("aria-label","清除当前筛选条件：" + filterSummary());
 }
+
 function syncSeg(){
   document.querySelectorAll("#seg button").forEach(b=>{
     const on = b.dataset.v===state.view;
@@ -9693,9 +8948,6 @@ function syncSeg(){
   badge("listsCountTop","个清单有待办");
 }
 
-/* ===== 弹窗 ===== */
-let editingId=null, editingDate=null, editingScope="once", editingDateAuto=false;
-let __deferCloseAfter=false;   // 从「今日要处理」卡片/详情直接推迟时置真：推迟落盘后自动关编辑弹窗并刷新
 function setModalMode(mode){
   const body=document.body;
   body.classList.toggle("modal-full", mode==="full");
@@ -9703,6 +8955,1516 @@ function setModalMode(mode){
   const hint=document.getElementById("mtHint");
   if(hint) hint.textContent = (mode==="full")? "显示全部字段" : "标题 + 分类 + 日期，其余走默认值";
 }
+
+function setWeekChecks(arr){
+  document.querySelectorAll("#weekDays input").forEach(cb=>cb.checked=arr&&arr.includes(+cb.value));
+}
+
+function toggleRecOpts(){
+  const v=document.getElementById("f_rec").value;
+  document.getElementById("recOpts").style.display = v==="none"?"none":"flex";
+  document.getElementById("weekOpts").style.display = v==="weekly"?"block":"none";
+  const smw=document.getElementById("skipMissedWrap"); if(smw) smw.style.display = v==="none"?"none":"";
+  // O5：新建重复任务时默认勾选「错过不补」（往期作废，不堆逾期待补做）；编辑已有任务尊重原值，不改
+  if(v!=="none" && !editingId){
+    const sm=document.getElementById("f_skipMissed"); if(sm && !sm.checked) sm.checked=true;
+  }
+}
+
+function applyScopeUI(){
+  document.querySelectorAll("#scopeSeg .seg-btn").forEach(b=>{
+    const on=b.dataset.scope===editingScope;
+    b.style.background = on ? "var(--pri)" : "transparent";
+    b.style.color = on ? "#fff" : "var(--sub)";
+    b.style.borderColor = on ? "var(--pri)" : "var(--line)";
+  });
+  const once = editingScope==="once";
+  const tools=document.getElementById("scopeTools"); if(tools) tools.style.display = once ? "flex" : "none";
+  // 仅此一次时，重复规则属于整组，不可在此处修改
+  ["f_rec","f_interval","f_runtil"].forEach(id=>{ const el=document.getElementById(id); if(el) el.disabled=once; });
+  document.querySelectorAll("#weekDays input").forEach(cb=>cb.disabled=once);
+}
+
+// 「不指定日期时间」开关：勾选则隐藏日期区（任务进入收件箱）
+function toggleNoDate(){
+  const cb=document.getElementById("f_nodate");
+  const box=document.getElementById("dateFields");
+  if(!cb||!box) return;
+  box.style.display = cb.checked ? "none" : "block";
+}
+
+function renderTplMenu(){
+  const m=document.getElementById("tplMenu"); if(!m) return;
+  const arr=templatesLoad();
+  if(!arr.length){ m.innerHTML='<div style="padding:10px;color:var(--sub);font-size:13px;">还没有模板。在任务弹窗点「存为模板」即可保存。</div>'; m.style.display="block"; return; }
+  m.innerHTML=arr.map(tp=>'<div class="tpl-item" data-tid="'+tp.id+'" style="padding:8px 10px;cursor:pointer;border-radius:8px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📋 '+esc(tp.name)+'</div>').join("")
+    +'<div class="tpl-item" data-tid="__clear" style="padding:8px 10px;cursor:pointer;border-radius:8px;font-size:12px;color:var(--sub);border-top:1px solid var(--line);margin-top:4px;">清空全部模板</div>';
+  m.querySelectorAll(".tpl-item").forEach(el=>el.onclick=()=>{
+    const tid=el.dataset.tid; m.style.display="none";
+    if(tid==="__clear"){ if(confirm("确定清空所有模板？")){ templatesSave([]); toast("已清空模板"); } return; }
+    const tp=arr.find(x=>x.id===tid); if(tp) newFromTemplate(tp);
+  });
+}
+
+function closeDeferPop(){ const p=document.getElementById("deferPop"); if(p) p.style.display="none"; }
+
+function renderOptList(){
+  const cl=document.getElementById("catList"), pl=document.getElementById("priList");
+  if(cl){
+    cl.innerHTML=cats.map((c,i)=>{
+      const cnt=state.tasks.filter(t=>t.cat===c.name).length;
+      const dis=(cats.length<=1)?"disabled":"";
+      const kids=c.children||[];
+      return `<div class="optrow" data-type="cat" data-i="${i}">
+        <input type="color" class="oc-color" value="${esc(c.color)}" title="颜色">
+        <input type="text" class="oc-hex" value="${esc(c.color).toUpperCase()}" title="颜色色号">
+        <input type="text" class="oc-name" value="${esc(c.name)}" maxlength="12" placeholder="分类名">
+        <span class="oct">${cnt}项</span>
+        <button aria-label="上移" class="ob up" title="上移" ${i===0?'disabled':''}>↑</button>
+        <button aria-label="下移" class="ob down" title="下移" ${i===cats.length-1?'disabled':''}>↓</button>
+        <button aria-label="删除" class="ob del" title="删除" ${dis}>✕</button>
+      </div>
+      <div class="sublist" data-cat="${i}">
+        ${kids.map((k,j)=>`<div class="subrow" data-cat="${i}" data-j="${j}">
+          <span class="subpre">↳</span>
+          <input type="color" class="sc-color" value="${esc(k.color)}" title="子分类颜色">
+          <input type="text" class="oc-hex sc-hex" value="${esc(k.color).toUpperCase()}" title="颜色色号">
+          <input type="text" class="sc-name" value="${esc(k.name)}" maxlength="12" placeholder="子分类名">
+          <button aria-label="删除子分类" class="ob del" data-del-sub="${i}:${j}" title="删除子分类">✕</button>
+        </div>`).join("")}
+        <div class="subadd">
+          <input type="text" class="sc-new-name" placeholder="新增子分类名" maxlength="12">
+          <input type="color" class="sc-new-color" value="#9aa0ab" title="子分类颜色">
+          <input type="text" class="oc-hex sc-new-hex" placeholder="#RRGGBB" title="颜色色号">
+          <button class="ob add" data-add-sub="${i}" type="button">+ 子分类</button>
+        </div>
+      </div>`;
+    }).join("");
+    cl.querySelectorAll(".optrow").forEach(row=>{
+      const i=+row.dataset.i;
+      const colorEl=row.querySelector(".oc-color"), hexEl=row.querySelector(".oc-hex");
+      bindColorPair(colorEl, hexEl, col=>{ cats[i].color=col; catsSave(); renderAll(); });
+      row.querySelector(".oc-name").onchange=()=>renameCat(i, row.querySelector(".oc-name").value);
+      row.querySelector(".up").onclick=()=>moveCat(i,-1);
+      row.querySelector(".down").onclick=()=>moveCat(i,1);
+      row.querySelector(".del").onclick=()=>delCat(i);
+      const sub=row.nextElementSibling;
+      if(sub && sub.classList.contains("sublist")){
+        sub.querySelectorAll(".subrow").forEach(sr=>{
+          const j=+sr.dataset.j;
+          bindColorPair(sr.querySelector(".sc-color"), sr.querySelector(".sc-hex"), col=>{ cats[i].children[j].color=col; catsSave(); renderAll(); });
+          sr.querySelector(".sc-name").onchange=()=>{
+            const nm=(sr.querySelector(".sc-name").value||"").trim(); if(!nm){ renderOptList(); return; }
+            if((cats[i].children||[]).some((x,k)=>k!==j && x.name===nm)){ toast("子分类名重复"); renderOptList(); return; }
+            const old=cats[i].children[j].name;
+            if(old!==nm){ cats[i].children[j].name=nm; state.tasks.forEach(t=>{ if(t.cat===cats[i].name+"/"+old) t.cat=cats[i].name+"/"+nm; }); catsSave(); save(); rebuildCatPriSelects(); renderOptList(); }
+          };
+          sr.querySelector("[data-del-sub]").onclick=()=>{ cats[i].children.splice(j,1); catsSave(); renderAll(); renderOptList(); };
+        });
+        const addBtn=sub.querySelector(".subadd [data-add-sub]");
+        if(addBtn) addBtn.onclick=()=>{
+          const nm=(sub.querySelector(".sc-new-name").value||"").trim();
+          if(!nm){ toast("请输入子分类名"); return; }
+          if((cats[i].children||[]).some(x=>x.name===nm)){ toast("子分类已存在"); return; }
+          const hex=parseHex(sub.querySelector(".sc-new-hex").value) || sub.querySelector(".sc-new-color").value || "#9aa0ab";
+          cats[i].children=cats[i].children||[];
+          cats[i].children.push({name:nm, color:hex});
+          catsSave(); renderAll(); renderOptList();
+        };
+      }
+    });
+  }
+  if(pl){
+    pl.innerHTML=pris.map((p,i)=>{
+      const cnt=state.tasks.filter(t=>t.priority===p.name).length;
+      const dis=(pris.length<=1)?"disabled":"";
+      return `<div class="optrow" data-type="pri" data-i="${i}">
+        <input type="color" class="oc-color" value="${esc(p.color)}" title="颜色">
+        <input type="text" class="oc-hex" value="${esc(p.color).toUpperCase()}" title="颜色色号">
+        <input type="text" class="oc-name" value="${esc(p.name)}" maxlength="12" placeholder="优先级名">
+        <span class="oct">${cnt}项</span>
+        <button aria-label="上移" class="ob up" title="上移" ${i===0?'disabled':''}>↑</button>
+        <button aria-label="下移" class="ob down" title="下移" ${i===pris.length-1?'disabled':''}>↓</button>
+        <button aria-label="删除" class="ob del" title="删除" ${dis}>✕</button>
+      </div>`;
+    }).join("");
+    pl.querySelectorAll(".optrow").forEach(row=>{
+      const i=+row.dataset.i;
+      const colorEl=row.querySelector(".oc-color"), hexEl=row.querySelector(".oc-hex");
+      bindColorPair(colorEl, hexEl, col=>{ pris[i].color=col; prisSave(); renderAll(); });
+      row.querySelector(".oc-name").onchange=()=>renamePri(i, row.querySelector(".oc-name").value);
+      row.querySelector(".up").onclick=()=>movePri(i,-1);
+      row.querySelector(".down").onclick=()=>movePri(i,1);
+      row.querySelector(".del").onclick=()=>delPri(i);
+    });
+  }
+  renderStaleList();   // 改名/删除后，遗留值区同步刷新
+}
+
+function renderStaleList(){
+  const box=document.getElementById("staleField"), el=document.getElementById("staleList");
+  if(!box||!el) return;
+  const ps=stalePriList(), cs=staleCatList();
+  if(!ps.length && !cs.length){ box.style.display="none"; el.innerHTML=""; return; }
+  box.style.display="";
+  const rowHtml=(kind,s,names,guess)=>`<div class="stale-row" data-kind="${kind}" data-old="${esc(s.name)}">
+      <span class="stale-old" title="${esc(s.name)}">${esc(s.name)}</span>
+      <span class="oct">${s.count}项</span>
+      <span class="stale-arrow" aria-hidden="true">→</span>
+      <select class="stale-target" aria-label="把「${esc(s.name)}」合并到">${names.map(n=>`<option value="${esc(n)}"${n===guess?" selected":""}>${esc(n)}</option>`).join("")}</select>
+      <button class="ob merge" data-stale-merge type="button" title="合并到所选名称">合并</button>
+    </div>`;
+  let h="";
+  if(ps.length) h+=`<div class="stale-h">优先级（${ps.length}）</div>`+ps.map(s=>rowHtml("pri",s,priNames(),guessPriTarget(s.name))).join("");
+  if(cs.length) h+=`<div class="stale-h">分类（${cs.length}）</div>`+cs.map(s=>rowHtml("cat",s,catNames(),guessCatTarget(s.name))).join("");
+  el.innerHTML=h;
+  el.querySelectorAll(".stale-row").forEach(row=>{
+    row.querySelector("[data-stale-merge]").onclick=()=>mergeStaleValue(row.dataset.kind, row.dataset.old, row.querySelector(".stale-target").value);
+  });
+}
+
+function renderTagList(){
+  const el=document.getElementById("tagList"); if(!el) return;
+  el.innerHTML=tagTree.map((p,i)=>{
+    const kids=p.children||[];
+    return `<div class="optrow" data-type="tag" data-i="${i}">
+        <span class="tagdot"></span>
+        <input type="text" class="oc-name" value="${esc(p.name)}" maxlength="12" placeholder="标签名">
+        <span class="oct">${tagUseCount(p.name)}项${kids.length?" · "+kids.length+"子":""}</span>
+        <button aria-label="把这个标签合并到另一个标签（相关任务自动改名）" class="ob merge" data-merge-tag="${i}" title="把这个标签合并到另一个标签（相关任务自动改名）">⇄</button>
+        <button aria-label="删除标签" class="ob del" data-del-tag="${i}" title="删除标签">✕</button>
+      </div>
+      <div class="sublist" data-tag="${i}">
+        ${kids.map((k,j)=>`<div class="subrow" data-i="${i}" data-j="${j}">
+          <span class="subpre">↳</span>
+          <input type="text" class="sc-name" value="${esc(k)}" maxlength="12" placeholder="子标签名">
+          <span class="oct">${tagUseCount(p.name,k)}项</span>
+          <button aria-label="删除子标签" class="ob del" data-del-subtag="${i}:${j}" title="删除子标签">✕</button>
+        </div>`).join("")}
+        <div class="subadd">
+          <input type="text" class="sc-new-name" placeholder="新增子标签名" maxlength="12">
+          <button class="ob add" data-add-subtag="${i}" type="button">+ 子标签</button>
+        </div>
+      </div>`;
+  }).join("");
+  el.querySelectorAll(".optrow").forEach(row=>{
+    const i=+row.dataset.i;
+    row.querySelector(".oc-name").onchange=()=>renameTag(i, row.querySelector(".oc-name").value);
+    row.querySelector("[data-merge-tag]").onclick=()=>{   // R7：标签合并并入统一弹窗（预填当前标签为「并入后移除」侧）
+      openMerge("tag");
+      const p=tagTree[i]; if(!p) return;
+      const others=tagTree.filter((_,j)=>j!==i).map(x=>x.name);
+      const guess=guessNameTarget(p.name, others)||others[0]||"";
+      const ks=document.getElementById("mgKeep"), ds=document.getElementById("mgDrop");
+      if(ds) ds.value=p.name;
+      if(ks && guess) ks.value=guess;
+      mgRender();
+    };
+    row.querySelector("[data-del-tag]").onclick=()=>delTag(i);
+    const sub=row.nextElementSibling;
+    if(sub && sub.classList.contains("sublist")){
+      sub.querySelectorAll(".subrow").forEach(sr=>{
+        const j=+sr.dataset.j;
+        sr.querySelector(".sc-name").onchange=()=>renameSubTag(i,j, sr.querySelector(".sc-name").value);
+        sr.querySelector("[data-del-subtag]").onclick=()=>{ tagTree[i].children.splice(j,1); saveTags(); renderTagList(); refreshTagFilter(); };
+      });
+      const addBtn=sub.querySelector(".subadd [data-add-subtag]");
+      if(addBtn) addBtn.onclick=()=>{
+        const nm=(sub.querySelector(".sc-new-name").value||"").trim();
+        if(!nm){ toast("请输入子标签名"); return; }
+        tagTree[i].children=tagTree[i].children||[];
+        if(tagTree[i].children.includes(nm)){ toast("子标签已存在"); return; }
+        tagTree[i].children.push(nm); saveTags(); renderTagList(); refreshTagFilter();
+      };
+    }
+  });
+}
+
+function mCard(c, kind){
+  const k=M_KINDS[kind]||M_KINDS.books;
+  const unit = c.unit || defaultUnit(kind);
+  const isPct = !!c.percent;
+  const p = mPct(c);
+  const dn = mediaDone(c);
+  const hintTxt = isPct
+    ? (dn ? "✓ 已完成 · 100%" : (k.verb+" "+c.current+"%（剩余 "+(100-c.current)+"%）"))
+    : (dn ? ("✓ 已完成 · 共 "+c.total+" "+unit) : (k.verb+" "+c.current+" "+unit+"，剩余 "+(c.total-c.current)));
+  const pctText = isPct ? (c.current+"%") : (p+"%");
+  const metaHtml = isPct ? ("进度 <b>"+c.current+"%</b>") : ("进度 <b>"+c.current+" / "+c.total+"</b> "+unit);
+  const finBtn = dn ? '<button class="munfin" data-unfinish title="撤销完成" aria-label="撤销完成">↺ 撤销</button>'
+                    : '<button class="mfin" data-finish title="标记完成（进度直接到 100%）" aria-label="标记完成">✓ 完成</button>';
+  return `<div class="mcard ${k.cls}${dn?" done":""}" data-id="${c.id}" data-kind="${kind}">
+    <div class="mtop">
+      <div class="mname">${esc(c.title)}</div>
+      <div class="mright">
+        <span class="mbadge">${esc(c.type)}</span>${dn?'<span class="mdone">✓ 已完成</span>':''}
+        <button class="micon" data-edit title="编辑" aria-label="编辑「${esc(c.title)}」">✎</button>
+        <button class="micon" data-del title="删除" aria-label="删除「${esc(c.title)}」"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+      </div>
+    </div>
+    <div class="mmeta">${metaHtml} · 平台 ${esc(c.platform||"—")}</div>
+    <div class="mbar"><div class="track"><i class="fill" data-w="${p}"></i></div><div class="mpct">${pctText}</div></div>
+    <div class="mhint"><span class="mhint-txt">${hintTxt}</span><span class="mstep"><button data-step="-1" title="减 1 ${isPct?'%':unit}" aria-label="「${esc(c.title)}」减 1 ${isPct?'%':unit}">−</button><button data-step="1" title="加 1 ${isPct?'%':unit}" aria-label="「${esc(c.title)}」加 1 ${isPct?'%':unit}">+</button>${finBtn}</span></div>
+  </div>`;
+}
+
+function mediaColHtml(arr, kind, emptyMsg){
+  const act=(arr||[]).filter(c=>!mediaDone(c));
+  const dn=(arr||[]).filter(c=>mediaDone(c));
+  if(!act.length && !dn.length) return '<div class="media-empty">'+emptyMsg+'</div>';
+  let h=act.map(c=>mCard(c,kind)).join("");
+  if(dn.length) h+='<div class="media-done-sep">✓ 已完成 '+dn.length+'</div>'+dn.map(c=>mCard(c,kind)).join("");
+  return h;
+}
+
+function renderMedia(){
+  // 整页视图上下文搜索：按 名称/类型/平台 过滤，与项目/清单/OKR 视图同构
+  const mq=(state.filter.q||"").trim().toLowerCase();
+  const mHit=c=> !mq || [c.title,c.type,c.platform].some(x=>String(x||"").toLowerCase().includes(mq));
+  const booksAll=media.books, tvsAll=media.tvs, audsAll=media.auds;
+  const books=booksAll.filter(mHit), tvs=tvsAll.filter(mHit), auds=audsAll.filter(mHit);
+  const avg=a=> a.length ? Math.round(a.reduce((s,x)=>s+mPct(x),0)/a.length) : 0;
+  const avgAll=avg([...booksAll,...tvsAll,...audsAll].filter(c=>!mediaDone(c)));
+  let html=`<div class="media-wrap">`;
+  if(mq){
+    const hitN=books.length+tvs.length+auds.length, allN=booksAll.length+tvsAll.length+audsAll.length;
+    html+=`<div class="media-hitbar">🔍 匹配 <b>${hitN}</b>/${allN} 项${hitN?'':'　<span class="muted">没有名称/类型/平台含「'+esc(mq)+'」的媒体</span>'}</div>`;
+  }
+  html+=`<div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:10px;"><span class="media-avg">平均进度 <b id="mediaAvgN">${avgAll}%</b></span><button class="btn btn-ghost btn-sm" id="mediaRecover">↺ 找回误删</button><button class="btn btn-pri btn-sm" id="mediaAdd">+ 添加媒体</button></div>`;
+  // 三列与上方三张统计卡同为 repeat(3,1fr)：在读 / 在追 / 在听 1:1 对齐上方标签
+  // 统计卡口径：主数字=进行中（在读/在追/在听），已完成不再计入，另以副标注「已完成 N」呈现
+  const mActive=a=>a.filter(c=>!mediaDone(c)).length, mDone=a=>a.filter(c=>mediaDone(c)).length;
+  const mStat=(act,doneN,label,color)=>`<div class="media-stat"><div class="n" style="color:${color}">${act}</div><div class="l">${label}${doneN?`<span class="msub">已完成 ${doneN}</span>`:""}</div></div>`;
+  html+=`<div class="media-stats">
+    ${mStat(mActive(books),mDone(books),"在读书籍","var(--pri)")}
+    ${mStat(mActive(tvs),mDone(tvs),"在追剧集","var(--c4)")}
+    ${mStat(mActive(auds),mDone(auds),"在听剧集","var(--c6)")}
+  </div>`;
+  html+=`<div class="media-cols">`;
+  html+=`  <div class="media-col">`;
+  html+=`    <div class="media-sec"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> 在读图书</div>`;
+  html+=`    ${mediaColHtml(books,"books", mq?'没有匹配的在读图书':'暂无在读图书，点右上方「+ 添加媒体」')}`;
+  html+=`  </div>`;
+  html+=`  <div class="media-col">`;
+  html+=`    <div class="media-sec tv"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 3l4 4 4-4"/></svg>在追剧集</div>`;
+  html+=`    ${mediaColHtml(tvs,"tvs", mq?'没有匹配的在追剧集':'暂无在追剧集')}`;
+  html+=`  </div>`;
+  html+=`  <div class="media-col">`;
+  html+=`    <div class="media-sec aud"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>在听 · 有声剧 / 播客</div>`;
+  html+=`    ${mediaColHtml(auds,"auds", mq?'没有匹配的在听条目':'暂无在听条目，点右上方「+ 添加媒体」')}`;
+  html+=`  </div>`;
+  html+=`</div>`;
+  html+=`</div>`;
+  const v=document.getElementById("view");
+  v.innerHTML=html;
+  const addBtn=v.querySelector("#mediaAdd"); if(addBtn) addBtn.onclick=()=>openMedia(null,null);
+  const recBtn=v.querySelector("#mediaRecover"); if(recBtn) recBtn.onclick=()=>openRecoverModal({focus:"media"});
+  v.querySelectorAll(".mcard").forEach(card=>{
+    card.querySelector("[data-edit]").onclick=()=>openMedia(card.dataset.id, card.dataset.kind);
+    card.querySelector("[data-del]").onclick=()=>delMedia(card.dataset.id, card.dataset.kind);
+    card.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>stepMedia(card.dataset.id, card.dataset.kind, +b.dataset.step));
+    const mfb=card.querySelector("[data-finish]"); if(mfb) mfb.onclick=()=>mediaFinish(card.dataset.id, card.dataset.kind);
+    const mub=card.querySelector("[data-unfinish]"); if(mub) mub.onclick=()=>mediaUndoFinish(card.dataset.id, card.dataset.kind);
+  });
+  requestAnimationFrame(()=>setTimeout(()=>{
+    v.querySelectorAll(".mcard .fill").forEach(f=>f.style.width=f.dataset.w+"%");
+  },60));
+}
+
+function mediaFormStr(){
+  const ids=["m_type","m_title","m_current","m_total","m_platform","m_unit"];
+  return ids.map(id=>document.getElementById(id).value).join("~~|~~") + "~~|~~" + (document.getElementById("m_percent").checked?"1":"0");
+}
+
+function renderListsCount(){
+  const n=totalPending();
+  const el=document.getElementById("listsCountTop"); if(el) el.textContent = n>0 ? String(n) : "";
+}
+
+function renderLists(){
+  const v=document.getElementById("view");
+  // 解析选中清单：若 selList 失效则回退到第一个
+  if(!lists.some(l=>l.id===state.selList)) state.selList = lists[0] ? lists[0].id : null;
+  /* ：「+ 新建清单」作用于左侧清单树，放进左树头部与清单列表同处一区，
+     不再悬在整页右上角（那里看起来像作用于右侧详情）。 */
+  const head="";
+  // 左树
+  const sortOpts=`<option value="" disabled selected>⇅ 排序</option>
+      <option value="name-asc">名称 A→Z</option>
+      <option value="name-desc">名称 Z→A</option>
+      <option value="time-asc">修改时间 旧→新</option>
+      <option value="time-desc">修改时间 新→旧</option>`;
+  /* ：清单视图搜索——按清单名 / 条目内容过滤左侧清单树 */
+  const lq=(state.filter.q||"").trim().toLowerCase();
+  const treeLists = lq
+    ? lists.filter(l=>String(l.name||"").toLowerCase().includes(lq) || (l.items||[]).some(i=>String(i.text||"").toLowerCase().includes(lq)))
+    : lists;
+  /* ：搜索时若当前选中的清单不在命中结果里，自动切到第一个命中的清单，
+     否则右侧详情会停在一个与搜索无关的清单上，看起来像「搜索没生效」。 */
+  if(lq && treeLists.length && !treeLists.some(l=>l.id===state.selList)) state.selList=treeLists[0].id;
+  const sel=state.selList;
+  let tree=`<div class="lists-pane"><div class="ltree-head"><span class="tt">清单</span>
+      <button class="btn btn-pri btn-sm" id="listAdd" title="新建一个清单">+ 新建</button>
+      <select class="sortsel" id="listSort" title="排序清单">${sortOpts}</select></div><div class="ltree">`;
+  if(!lists.length){
+    tree+=`<div class="ltree-empty">还没有清单<br>点上方「+ 新建」开始</div>`;
+  } else if(!treeLists.length){
+    tree+=`<div class="ltree-empty">没有匹配「${esc(state.filter.q||"")}」的清单</div>`;
+  } else {
+    tree+=treeLists.map((l)=>{
+      const p=listPending(l);
+      const on=l.id===sel?" on":"";
+      return `<div class="ltree-item${on}" data-lid="${l.id}" draggable="true">
+        <span class="lemoji">${escNoIcon(l.emoji||LIST_DEFAULT_EMOJI)}</span>
+        <span class="lname" data-pick>${esc(l.name)}</span>
+        <span class="lcount">${p}</span>
+        <button class="lmenu" data-del title="删除清单" aria-label="删除清单「${esc(l.name)}」">✕</button>
+      </div>`;
+    }).join("");
+  }
+  tree+=`</div></div>`;
+  // 右详情
+  let detail=`<div class="lists-detail">`;
+  if(!sel){
+    detail+=emptyState("📋","还没有清单。点左栏上方「+ 新建」，例如「待读图书」「待寄明信片」。");
+  } else {
+    const l=lists.find(x=>x.id===sel);
+    const rawItems=l.items||[];
+    const dispItems=rawItems.slice(); if(l.sortItem) applyItemSort(dispItems, l.sortItem);
+    /* ：搜索命中了清单名 → 该清单下条目全部展示；否则只展示文本命中的条目 */
+    const listHit = !!lq && String(l.name||"").toLowerCase().includes(lq);
+    const items = (lq && !listHit) ? dispItems.filter(it=>String(it.text||"").toLowerCase().includes(lq)) : dispItems;
+    const p=listPending(l);
+    detail+=`<div class="lcard">
+      <div class="lhead">
+        <span class="lhead-emoji" data-emojiedit title="点此修改图标">${escNoIcon(l.emoji||LIST_DEFAULT_EMOJI)}</span><div class="lname" data-rename title="点名称可重命名">${esc(l.name)}</div>
+        <span class="lcount">待办 ${p}/${items.length}</span>
+        ${lq?`<span class="badge">🔍 匹配 ${items.length}/${dispItems.length}</span>`:""}
+        <select class="sortsel" id="itemSort" title="排序条目">${sortOpts}</select>
+        <button class="btn btn-ghost btn-sm sel-toggle" id="listSel">${selMode?'退出选择':'选择'}</button>
+        <button class="micon" data-ldel title="删除清单" aria-label="删除清单「${esc(l.name)}」"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+      </div>`;
+    const shownItems = selMode ? items : pgSlice(items,"list-"+sel,thPgSig());
+    detail+= items.length ? shownItems.map((it)=>{
+      const late=it.due && isOverdueDate(it.due) && !it.done;
+      return `<div class="litem ${it.done?'done':''} ${late?'late':''} ${(selMode&&selIds.has(it.id))?'sel-checked':''}" data-lid="${l.id}" data-iid="${it.id}" draggable="true">
+        ${selMode?selCheckHTML(it.id):""}
+        <span class="drag-h" title="拖动排序（触屏点此上移一位）" role="button" tabindex="0" aria-label="上移一位">⠿</span>
+        <input type="checkbox" ${it.done?'checked':''} data-toggle aria-label="${esc(it.text)}">
+        <div class="ltxt" data-edit data-lid="${l.id}" data-iid="${it.id}">${esc(it.text)}</div>
+        ${it.due?`<span class="ldue ${late?'overdue':''}" data-dueedit data-lid="${l.id}" data-iid="${it.id}" title="截止日">⏰${esc(it.due)}</span>`:`<span class="lconvert" data-dueedit data-lid="${l.id}" data-iid="${it.id}" title="设置截止日">+截止</span>`}
+        <span class="lconvert" data-convert data-lid="${l.id}" data-iid="${it.id}" title="转为任务">转任务</span>
+        <div class="lx" data-del title="删除该项" role="button" tabindex="0" aria-label="删除条目「${esc(it.text)}」">✕</div>
+      </div>`;
+    }).join("") : `<div class="media-empty">暂无条目，下面添加一条</div>`;
+    if(!selMode) detail+=pgBar(items.length,"list-"+sel,()=>renderLists());
+    detail+=`<div class="ladd">
+      <input placeholder="添加一条，回车确认" data-new>
+      <button class="btn btn-ghost btn-sm" data-newadd>添加</button>
+      <button class="btn btn-ghost btn-sm" data-import title="多行批量导入">多行导入</button>
+    </div>`;
+    detail+=`<div class="limport" id="lImport" style="display:none"><textarea data-importbox maxlength="2000" placeholder="每行一条，可粘贴多行文本批量导入"></textarea><button class="btn btn-pri btn-sm" data-importgo>导入</button> <span class="hint">每行生成一条条目</span></div>`;
+    detail+=`</div>`;
+  }
+  detail+=`</div>`;
+  v.innerHTML=`<div class="lists-wrap lists-2col${selMode?' sel-mode':''}">${head}<div class="lists-body">${tree}${detail}</div></div>`;
+  pgBind();
+  if(sel){
+    const ss=v.querySelector("#itemSort"); if(ss){ const l=lists.find(x=>x.id===sel); ss.value=(l&&l.sortItem)||""; }
+  }
+  if(selMode) detail_match_selBar(v, sel);
+  // 事件绑定已收敛到 setupListsEvents()：容器级委托，只绑定一次，避免每次渲染逐行重绑
+}
+
+function detail_match_selBar(v, sel){
+  if(!sel) return;
+  const card=v.querySelector(".lcard"); if(!card) return;
+  card.insertAdjacentHTML("beforeend", selBarHTML([
+    {label:"完成",cls:"btn-pri",fn:()=>batchListDone(sel)},
+    {label:"删除",cls:"btn-danger",fn:()=>batchListDelete(sel)},
+    {label:"清空已完成",cls:"btn-ghost",fn:()=>batchListClearDone(sel)}
+  ]));
+  selBind([{label:"完成",cls:"btn-pri",fn:()=>batchListDone(sel)},{label:"删除",cls:"btn-danger",fn:()=>batchListDelete(sel)},{label:"清空已完成",cls:"btn-ghost",fn:()=>batchListClearDone(sel)}]);
+}
+
+/* 刷新某清单在各处的「待办 N/M」计数（右详情头部 / 左树角标 / 顶部面板角标），不整页重绘 */
+function refreshListCounts(lid){
+  const l=lists.find(x=>x.id===lid); if(!l) return;
+  const items=l.items||[], p=listPending(l), t=items.length;
+  const v=document.getElementById("view");
+  if(v){
+    // 右详情头部：仅当当前展示的正是该清单时才改，避免误改别的清单
+    const first=v.querySelector(".lists-detail .litem[data-lid]");
+    if(first && first.getAttribute("data-lid")===lid){
+      const hc=v.querySelector(".lists-detail .lcard .lhead .lcount");
+      if(hc) hc.textContent="待办 "+p+"/"+(v.querySelectorAll(".lists-detail .litem").length||t);
+    }
+    const tree=v.querySelector('.ltree-item[data-lid="'+lid+'"] .lcount');
+    if(tree) tree.textContent=p;
+  }
+  const top=document.getElementById("listsPanelBody");
+  if(top){
+    const badge=top.querySelector('.lp-head[data-lid="'+lid+'"] .lp-badge');
+    if(badge){ badge.textContent="待办 "+p+"/"+t; badge.classList.toggle("zero", !p); }
+  }
+}
+
+/* 顶部常驻「待办清单」面板：各清单折叠，可展开勾选/添加/拖动 */
+function renderListsPanel(){
+  const el=document.getElementById("listsPanelBody"); if(!el) return;
+  if(!lists.length){ el.innerHTML='<div class="lp-empty">还没有清单。切到「清单」视图新建。</div>'; return; }
+  el.innerHTML = lists.map(l=>{
+    const items=l.items||[]; const p=listPending(l); const t=items.length;
+    const rows = items.length ? items.map((it,idx)=>`
+      <div class="lp-item ${it.done?'done':''}" data-lid="${l.id}" data-iid="${it.id}" draggable="true">
+        <span class="drag-h" title="拖动排序（触屏点此上移一位）" role="button" tabindex="0" aria-label="上移一位">⠿</span>
+        <input type="checkbox" ${it.done?'checked':''} data-toggle aria-label="${esc(it.text)}">
+        <div class="lp-txt" data-edit>${esc(it.text)}</div>
+        <button class="lp-x" data-del title="删除" aria-label="删除条目「${esc(it.text)}」">✕</button>
+      </div>`).join("") : `<div class="lp-empty">暂无条目</div>`;
+    const open = openLists[l.id];
+    return `<div class="lp-list" data-lid="${l.id}">
+      <div class="lp-head" data-lid="${l.id}">
+        <span class="lp-emoji" data-lid="${l.id}" title="点此修改图标">${escNoIcon(l.emoji||LIST_DEFAULT_EMOJI)}</span>
+        <span class="lp-name">${esc(l.name)}</span>
+        <span class="lp-badge ${p?'':'zero'}">待办 ${p}/${t}</span>
+        <button aria-label="在清单视图打开" class="lp-go" data-go="${l.id}" title="在清单视图打开">↗</button>
+      </div>
+      <div class="lp-items" ${open?'':'hidden'}>
+        ${rows}
+        <div class="lp-add"><input placeholder="添加一条" data-new><button class="btn btn-ghost btn-sm" data-newadd>添加</button></div>
+      </div>
+    </div>`;
+  }).join("");
+  // 事件绑定已收敛到 setupListsPanelEvents()：容器级委托，只绑定一次
+}
+
+function updateSelCount(){ const c=document.getElementById("bbCount"); if(c) c.textContent="已选 "+selIds.size+" 项"; }
+
+function selBarHTML(actions){
+  return `<div class="batch-bar" id="batchBar"><span class="bb-count" id="bbCount">已选 0 项</span>` +
+    actions.map((a,i)=>`<button class="btn ${a.cls||"btn-ghost"} btn-sm" data-ba="${i}">${a.label}</button>`).join("") +
+    `<span class="bb-sp"><button class="btn btn-ghost btn-sm" id="bbCancel">取消选择</button></span></div>`;
+}
+
+function selCheckHTML(id, cls){
+  return `<label class="sel-chk ${cls||""}"><input type="checkbox" data-sel="${esc(id)}" ${(selMode&&selIds.has(id))?"checked":""}></label>`;
+}
+
+/* 带「撤销」按钮的提示：语义与 Ctrl+Z 完全一致（弹栈顶快照还原），调用点须已在改数据前 snapshot()。
+   2026-10-19 审查补回：fdc6c7c 引入、9976228「删死代码4薄封装」误删定义 → 11 处调用悬空
+   （删除/批量/顺延后无 toast 反馈，handler 抛 ReferenceError 中断，主回归 runner 崩溃）。放在 SHARED 块外，注入器不覆盖。 */
+function toastUndo(msg, kind){ toast(msg, kind, 0, function(){ try{ undo(); }catch(e){ toast("撤销失败"); } }); }
+
+function applyTheme(t){ document.documentElement.dataset.theme=t; try{ localStorage.setItem(THEME_KEY,t); }catch(e){} }
+
+function updateThemeBtn(){
+  const b=document.getElementById("btnTheme"); if(!b) return; b.setAttribute("aria-pressed", document.documentElement.dataset.theme==="dark"?"true":"false");
+  const sun='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+  const contrast='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg>';
+  /* ：文本固定为「切换主题」，当前状态由图标表达（亮色态显示太阳、暗色态显示半月），
+     避免「按钮写『暗色』到底是要切到暗色还是当前是暗色」的歧义 */
+  const dark = document.documentElement.dataset.theme==="dark";
+  b.innerHTML=(dark?sun:contrast)+" 切换主题";
+  b.title = dark ? "当前：暗色主题 · 点击切换为亮色" : "当前：亮色主题 · 点击切换为暗色";
+  b.setAttribute("aria-label", b.title);
+}
+
+function habitHeadHtml(weekDays, todayKey){
+  const WKD=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const cells=weekDays.map(d=>{
+    const k=ymd(d), isToday=k===todayKey;
+    return `<div class="hcell head${isToday?' today':''}" title="${d.getDate()}日 ${WKD[d.getDay()]}">${WKD[d.getDay()]}</div>`;
+  }).join("");
+  return `<div class="hrow"><div class="hinfo" style="cursor:default">习惯</div>${cells}</div>`;
+}
+
+function habitRowHtml(h, weekDays, todayKey, restoreMode){
+  const days=h.days||[]; const streak=habitStreak(h);
+  const paused=h.paused, archived=h.archived;
+  const targets = (paused||archived) ? [] : habitWeekTargetDays(h);
+  const goal = habitWeekGoal(h);
+  const cnt = goal>0 ? habitWeekCount(h) : 0;
+  const met = goal>0 && cnt>=goal;
+  const cells=weekDays.map(d=>{
+    const k=ymd(d), on=days.includes(k), isToday=k===todayKey;
+    const tgt=targets.includes(k);
+    return `<div class="hcell${on?' done':''}${isToday?' today':''}${tgt?' target':''}${(paused||archived)?' disabled':''}" data-id="${h.id}" data-day="${k}">${d.getDate()}</div>`;
+  }).join("");
+  const freqLabel = {daily:"每天",weekly:"每周"+(h.freqN||3)+"次",custom:"自定义",someday:"灵活"}[h.freq]||"";
+  const goalHtml = goal>0 ? `<span class="hgoal${met?' met':''}" data-hid="${h.id}" title="本周目标进度（每周 ${goal} 次就算完成）">${met?'✓达标':(cnt+'/'+goal)}</span>` : "";
+  // 提醒时间 + 逾期高亮：已到设定时间、当天是目标日、且尚未打卡
+  const now=new Date();
+  const todayDone=(h.days||[]).includes(todayKey);
+  const isTargetDay=habitNeedsReminderToday(h);
+  const late = !!(h.time) && isTargetDay && !todayDone && (now.getHours()*60+now.getMinutes()) >= (function(){ const pp=h.time.split(":"); return (+pp[0])*60+(+(pp[1]||0)); })();
+  const timeHtml = h.time ? `<span class="htime${late?' remind':''}" title="提醒时间 ${h.time}">🔔 ${h.time}</span>` : "";
+  const editBtn = restoreMode ? "" : `<span class="hedit" title="编辑习惯">✎</span>`;
+  const quick = restoreMode ? "" : `<span class="hquick" data-hq="${h.id}" title="快捷：本周目标日全完成 / 清空本周">⚡</span>`;
+  return `<div class="hrow${paused?' paused':''}${met?' weekDone':''}${late?' hlate':''}${restoreMode?' data-restore="'+h.id+'"':''}" data-hrow="${h.id}">
+    <div class="hinfo"${restoreMode?"":' data-edit="'+h.id+'"'}>
+      <div class="htop"><span class="hemoji">${h.emoji||"🌟"}</span><span class="hname">${esc(h.name)}</span>${editBtn}</div>
+      <div class="hbottom"><span class="hfreq">${freqLabel}</span>${timeHtml}${goalHtml}<span class="hstreak">${archived?"已归档":(paused?"已暂停":streak+"天")}</span>${quick}</div>
+    </div>${cells}</div>`;
+}
+
+function renderHabitPanel(){
+  const el=document.getElementById("habitPanel"); if(!el) return;
+  const weekDays=habitWeekDays(), todayKey=ymd(startOfDay(new Date()));
+  const active=habits.filter(h=>!h.archived);
+  if(!active.length){ el.innerHTML=emptyState("🌱","点「+ 添加」建立习惯打卡。"); return; }
+  let html=habitHeadHtml(weekDays,todayKey);
+  for(const h of active) html+=habitRowHtml(h,weekDays,todayKey,false);
+  el.innerHTML=html;
+  el.querySelectorAll(".hcell:not(.head)").forEach(c=>c.onclick=()=>toggleHabitDay(c.dataset.id,c.dataset.day));
+  el.querySelectorAll(".hinfo[data-edit]").forEach(i=>i.onclick=()=>openHabit(i.dataset.edit));
+  el.querySelectorAll(".hquick").forEach(q=>q.onclick=e=>{ e.stopPropagation(); habitQuick(q.dataset.hq); });
+}
+
+function habitHeatmapHtml(){
+  const active=habits.filter(h=>!h.archived && !h.paused);
+  if(!active.length) return "";
+  const today=startOfDay(new Date());
+  const WDL=["一","二","三","四","五","六","日"];
+  const wd=WDL.map(w=>`<div class="hm-wd">${w}</div>`).join("");
+  let h='<div class="review-notes"><h3 style="display:block;margin:2px 0 8px;font-size:14px;font-weight:700">最近 4 周打卡热力图</h3>';
+  for(const hab of active){
+    const days=hab.days||[];
+    const start=addDays(today,-27);
+    let cells="";
+    for(let i=0;i<28;i++){ const d=addDays(start,i); const k=ymd(d); const on=days.includes(k); const isT=sameDay(d,today); cells+=`<div class="hm${on?' on':''}${isT?' today':''}" title="${k}${on?' ✓':''}"></div>`; }
+    const freqLabel={daily:"每天",weekly:"每周"+(hab.freqN||3)+"次 · 本周"+habitWeekCount(hab)+"/"+(hab.freqN||3),custom:"自定义",someday:"灵活"}[hab.freq]||"";
+    h+=`<div class="hm-card">
+      <div class="hm-head"><span class="hm-emoji">${esc(hab.emoji||'🌟')}</span><span class="hm-name">${esc(hab.name)}</span><span class="hm-freq">${freqLabel}</span></div>
+      <div class="heatmap">${wd}${cells}</div>
+    </div>`;
+  }
+  h+='<div class="heat-legend">每一格 = 一天，绿色表示当天已打卡；带蓝框的是今天</div></div>';
+  return h;
+}
+
+/* 统计 / 习惯 / 回顾 这类聚合视图没有可搜索的条目：有关键词时明确提示「已忽略」并给清除入口，
+   避免用户在搜索框输入后界面毫无反应、以为功能坏了。 */
+function noSearchNote(viewName){
+  const q=(state.filter.q||"").trim();
+  return q ? `<div class="hitbar muted-bar">🔍 「${esc(q)}」在本视图（${esc(viewName)}）没有可匹配的条目，已忽略<button class="hb-clear" id="nsClear">清除</button></div>` : "";
+}
+
+/* ：习惯视图工具条与空态原先各写一份（按钮组 HTML 复制两遍、绑定逻辑复制两遍），
+   抽成统一生成 + 统一绑定，改按钮时只需改一处。 */
+function habitActionsHtml(){
+  return '<div class="habit-actions"><button class="btn btn-ghost btn-sm" id="habitBackfill" title="补打或取消过去某段日期的打卡">📅 补打/取消</button><button class="btn btn-ghost btn-sm" id="habitStyle" title="自定义打卡格子颜色/字体">🎨 打卡样式</button><button class="btn btn-pri btn-sm" id="habitAdd">+ 添加习惯</button></div>';
+}
+
+function setBfMode(mode){
+  bfMode=mode;
+  const isAdd = mode==="add";
+  const add=document.getElementById("bfModeAdd"), rm=document.getElementById("bfModeRemove");
+  add.classList.toggle("on", isAdd); rm.classList.toggle("on", !isAdd);
+  document.getElementById("bfHint").textContent = isAdd
+    ? "选一段日期范围，把漏掉的打卡一次性补上。只做「补」，不会取消已有的打卡。"
+    : "选一段日期范围，把这段时间内误打的卡一次性取消。只做「取消」，不会新增打卡。";
+  document.getElementById("bfConfirm").textContent = isAdd ? "补打" : "取消打卡";
+}
+
+function renderHabit(){
+  const v=document.getElementById("view");
+  const weekDays=habitWeekDays(), todayKey=ymd(startOfDay(new Date()));
+  const active=habits.filter(h=>!h.archived);
+  const archived=habits.filter(h=>h.archived);
+  let html='<div class="media-wrap">';
+  html+=habitActionsHtml();
+  html+=noSearchNote("习惯");
+  if(!habits.length){
+    v.innerHTML='<div class="media-wrap">'+habitActionsHtml()+noSearchNote("习惯")+'<div class="empty">还没有习惯，点右上角「+ 添加习惯」开始打卡 🌱<br><small style="color:var(--sub);font-weight:400;display:inline-block;margin-top:6px;">每天重复的任务显示在「月/周/日」视图里，用 task.recurrence 管理也算一种习惯（两者平行数据模型）。</small></div></div>';
+    bindHabitActions(v); bindNoSearchNote(v); return;
+  }
+  html+='<div class="habit-layout">';
+  html+='<div class="habit-main">';
+  html+='<h3 style="margin:2px 0 8px">进行中（'+active.length+'）</h3>';
+  html+='<div class="habit-grid">'+habitHeadHtml(weekDays,todayKey);
+  for(const h of active) html+=habitRowHtml(h,weekDays,todayKey,false);
+  html+='</div>';
+  if(archived.length){
+    html+='<h3 style="margin:18px 0 8px">已归档（'+archived.length+'）· 点整行可恢复</h3>';
+    html+='<div class="habit-grid">'+habitHeadHtml(weekDays,todayKey);
+    for(const h of archived) html+=habitRowHtml(h,weekDays,todayKey,true);
+    html+='</div>';
+  }
+  html+='</div>';
+  html+='<div class="habit-side">'+habitHeatmapHtml()+'</div>';
+  html+='</div>';
+  html+='</div>';
+  v.innerHTML=html;
+  bindHabitActions(v); bindNoSearchNote(v);
+  v.querySelectorAll(".hcell:not(.head)").forEach(c=>c.onclick=()=>toggleHabitDay(c.dataset.id,c.dataset.day));
+  v.querySelectorAll(".hinfo[data-edit]").forEach(i=>i.onclick=()=>openHabit(i.dataset.edit));
+  v.querySelectorAll(".hquick").forEach(q=>q.onclick=e=>{ e.stopPropagation(); habitQuick(q.dataset.hq); });
+  v.querySelectorAll(".hrow[data-restore]").forEach(r=>r.onclick=()=>unarchiveHabit(r.dataset.restore));
+}
+
+function patchHabitCell(id, day, done){
+  const cells=[];
+  const top=document.getElementById("habitPanel");
+  if(top){ const c=top.querySelector('.hcell[data-id="'+id+'"][data-day="'+day+'"]'); if(c) cells.push(c); }
+  document.querySelectorAll('#view .hcell[data-id="'+id+'"][data-day="'+day+'"]').forEach(c=>cells.push(c));
+  for(const c of cells){
+    c.classList.toggle("done", done);
+    if(done){ c.classList.add("pop"); setTimeout(()=>c.classList.remove("pop"), 280); }
+  }
+}
+
+/* 局部刷新某习惯的「本周 X/N」进度与达标状态（不整面板重建） */
+function refreshHabitProgress(id){
+  const h=habits.find(x=>x.id===id); if(!h) return;
+  const goal=habitWeekGoal(h); if(goal<=0) return;
+  const cnt=habitWeekCount(h), met=cnt>=goal;
+  for(const root of [document.getElementById("habitPanel"), document.getElementById("view")]){
+    if(!root) continue;
+    root.querySelectorAll('.hgoal[data-hid="'+id+'"]').forEach(el=>{
+      el.textContent = met ? "✓达标" : (cnt+"/"+goal);
+      el.classList.toggle("met", met);
+    });
+    const row=root.querySelector('.hrow[data-hrow="'+id+'"]');
+    if(row) row.classList.toggle("weekDone", met);
+  }
+}
+
+/* ===== L5 Bind · P1-9 分层（2026-10-23）===== */
+
+/* ===== L6 Cloud · P1-9 分层（2026-10-23）===== */
+
+/* ===== L7 Boot · P1-9 分层（2026-10-23）===== */
+/* 视图名常量枚举：单一事实源，避免散落字符串拼写错误静默失效（审计 B1）*/
+const VIEWS = {
+  TODAY:"today", MONTH:"month", WEEK:"week", DAY:"day", GANTT:"gantt",
+  LISTS:"lists", INBOX:"inbox", PROJECTS:"projects", OKR:"okr", MEDIA:"media",
+  HABIT:"habit", STATS:"stats", REVIEW:"review", ANNIV:"anniv"
+};
+
+
+/* ============================================================================
+ * 任务管理台 · 函数分区索引（vanilla JS 单文件 · 全局检索函数名即可定位）
+ * ----------------------------------------------------------------------------
+ * 数据与状态   load/save/state、各域存储键 wb_taskhub_*、save/saveTags/saveStats
+ * 主题/UI偏好  applyTheme/applyCfg/collectCfg/saveUIPrefs/uiPrefs
+ * 视图渲染     renderAll/renderAllNow → renderMonth/Week/Day/Gantt/Lists/Projects/Okr/
+ *              Media/Habit/Stats/Review/Inbox/Today + patchTaskDom/patchListItem/patchHabitCell(局部)
+ * 任务核心     openModal/saveTask/deleteTask/toggleDone/setDoneAt/subToggle/recMatch/
+ *              getInstances/_instCache(缓存)/noDate/parseNL/applyNL
+ * 拖拽         attachChipDrag/attachEvDrag/attachGanttDrag(Pointer)/bindWidgetDrag(HTML5 DnD)
+ * 习惯         toggleHabitDay/habitQuick/habitStreak/openHabitBackfill/confirmHabitBackfill/habitSave
+ * 清单/媒体     renderLists/toggleItem/renderMedia/stepMedia/mediaSnapshot
+ * 项目/OKR     renderProjects/projSave/projProgress/renderOkr/krEffective/recordOkrTrend
+ * 标签/合并     openTags/doMergeTag/syncTagsFromTasks/openMerge/mgPlan/mgRender/applyMerge
+ * 多选批量     selToggle/bindSelChecks/selBar/…/batchInboxProps/batchPropsMask(M8 改属性)
+ * 模板/复制     duplicateTask/saveTemplateFromModal/newFromTemplate/renderTplMenu
+ * 撤销/备份    snapshot/undo/undoPersist/undoLoad/fullRingPush/fullRingLoad/restoreFullBackup/
+ *              历史与恢复 renderUnifiedRecovery/openRecoverModal；回收站 pushTrash/renderTrash
+ * 数据管理     exportJSON/importJSON/mergeImported/exportDataCenter/renderDataHealth/exportICS
+ * 统计/回顾     renderStats/pushHistory/removeHistory/renderDoneLog/renderReview/exportReview
+ * 云同步       cloudUpload/cloudPull/cloudStartupPull/cloudAutoUpload/scheduleCloudRetry/
+ *              mergeTasks/mergeHabits/applyCloudObj/setCloudStatus
+ * 命令面板     CmdPalette(build/render/open)/toggleTplMenu
+ * 提醒         startReminderLoop/checkReminders/checkHabitReminders/pushRemindPlan
+ * PWA          sw.js(独立)/serviceWorker.register
+ * ========================================================================== */
+
+var EMOJI_ICON={"🌟":"star","⚠":"warn","⚠️":"warn","🔍":"search","🎯":"target","📌":"pin","📥":"inbox","⏰":"alarm","📊":"bar","🔀":"shuffle","🎨":"palette","⚡":"bolt","📈":"up","📤":"out","📁":"folder","⏳":"glass","💡":"bulb","🌱":"seed","🔥":"fire","🎉":"pop","📅":"cal","👁":"eye","✨":"spark","🌍":"globe","🔁":"repeat","🔄":"refresh","📦":"box","🔗":"link","✉":"mail"};
+var _emojiRe=null;
+
+let cloud={token:"", gist:"", auto:true};
+
+"use strict";
+/* ===== 分类 / 优先级（用户可编辑，localStorage 持久化） ===== */
+const KEY = "wb_taskhub_v1";
+const CATS_KEY = "wb_taskhub_cats_v1", PRIS_KEY = "wb_taskhub_pris_v1";
+const DEFAULT_CATS = [
+  {name:"工作", color:"#4F7CFF"}, {name:"学习", color:"#22b07d"},
+  {name:"生活", color:"#ff8a3d"}, {name:"健康", color:"#ff5c8a"}, {name:"其他", color:"#9aa0ab"}
+];
+const DEFAULT_PRIS = [
+  {name:"P0", color:"#ff5c5c"}, {name:"P1", color:"#ff9f45"}, {name:"P2", color:"#9aa0ab"}
+];
+let cats = DEFAULT_CATS.map(c=>Object.assign({},c));
+let pris = DEFAULT_PRIS.map(p=>Object.assign({},p));
+// ===== 标签树（受管，支持子标签，localStorage 持久化） =====
+let tagTree=[]; const TAGS_KEY="wb_taskhub_tags_v1";
+/* 把「色块专用色」自动加深为可作前景的文字色（WCAG AA 4.5:1）。
+   分类/优先级可由用户自定义，写死 ink 对照表必然漏配新增颜色 —— 这里按相对亮度循环调整。
+   例：#9aa0ab(2.63:1)→约 #6c7078；#ff9f45(1.79:1)→约 #9e6235。
+   ⚠️ 只用于文字色；色块背景/进度条/图标继续用原色（大面积填充的对比度要求不同）。
+   G18：主题感知 —— 浅色按白底加深；深色下 badge 底是 hexA(c,.16) 叠深色卡 ≈ 深底，
+   深墨字对比度反而崩，改为向白提亮到对深色卡底 4.5:1。 */
+var _cssInkCardL=null;   // 深色卡底相对亮度缓存（--card 的 dark 值恒定，无需随主题切换失效）
+
+/* ===== 下拉框（分类/优先级）动态填充 ===== */
+
+/* ===== 状态 ===== */
+let state = { tasks: [], view: "month", cur: new Date(), filter:{ q:"", cat:"", pri:"", tag:"" }, selList: null, projects: [], okrs: [], anniv: [] };
+
+/* ===== 日期工具 ===== */
+const DAY=86400000;
+const WK=["日","一","二","三","四","五","六"];
+
+/* ===== 重复规则匹配 ===== */
+
+/* ===== 重复任务「单次独立修改」override 辅助 =====
+ * overrides: { "YYYY-MM-DD": { start, end, title, desc, cat, priority, tags, skip } }
+ * - 仅当天的实例读取该 override；其余日期仍走整组模板
+ * - skip:true 表示当天不生成这次任务
+ */
+
+/* ===== 生成可见区间内的所有任务实例（单一数据源 → 各视图共用） ===== */
+
+/* ===== 实际完成时间：doneAt 按 key 存储 =====
+   - 重复任务：key = 该次发生日 YYYY-MM-DD（与 doneDates 对齐）
+   - 普通任务（含收件箱无日期）：key = "self"
+   取消完成时清掉对应 key，避免残留旧的「完成于」标记。 */
+const DONE_AT_CSS="background:var(--ok);color:#fff";
+
+/* ===== 筛选（搜索 + 分类/优先级），仅作用于各视图渲染，不影响提醒 ===== */
+
+/* ===== 自然语言输入解析 ===== */
+
+/* ===== 拖拽改期 ===== */
+// 时间轴（周/日）事件：纵向拖改时间，周视图可横向拖改天
+function attachEvDrag(ev, isWeek){
+  ev.style.touchAction="none";
+  ev.addEventListener("pointerdown", e=>{
+    e.stopPropagation();
+    const t=state.tasks.find(x=>x.id===ev.dataset.id); if(!t) return;
+    const rec = t.recurrence && t.recurrence.freq!=="none";
+    const instDate = parseLocal(ev.dataset.date+"T00:00");
+    const base = parseLocal(t.start);
+    let sDT, eDT;
+    if(rec){
+      const ov=getRecOverride(t, instDate);
+      const _os2=ov&&ov.start ? parseLocal(ov.start) : null;
+      sDT = (_os2 && !isNaN(_os2.getTime())) ? _os2 : new Date(instDate.getFullYear(),instDate.getMonth(),instDate.getDate(),base.getHours(),base.getMinutes());   // G6：非法 override 回落模板锚点
+      const _oe2=ov&&ov.end ? parseLocal(ov.end) : null;
+      eDT = (_oe2 && !isNaN(_oe2.getTime())) ? _oe2 : new Date(sDT.getTime()+(parseLocal(t.end)-base));
+    } else { sDT=parseLocal(t.start); eDT=parseLocal(t.end); }
+    const origTop=(sDT.getHours()+sDT.getMinutes()/60)*44;
+    const sy=e.clientY, sx=e.clientX; let moved=false;
+    try{ ev.setPointerCapture(e.pointerId); }catch(_){}
+    const mv=ev2=>{
+      const dy=ev2.clientY-sy, dx=ev2.clientX-sx;
+      if(Math.abs(dy)+Math.abs(dx)>4) moved=true;
+      ev.style.top=(origTop+dy)+"px";
+      if(isWeek) ev.style.transform="translateX("+dx+"px)";
+    };
+    const up=ev2=>{
+      ev.removeEventListener("pointermove",mv); ev.removeEventListener("pointerup",up);
+      ev.style.transform="";
+      if(!moved) return;
+      tlSuppressClick=true;   // P1-10：抑制标志改挂模块级变量（原 ev._suppressClick 随 DOM 重建即丢，且依赖逐元素 onclick 存在）
+      /* G5（2026-10-23 修）：拖拽后若浏览器因目标节点已脱离文档而不派生合成 click，标志无人消费会滞留，
+         用户下一次点任意事件块被静默吞掉一次。宏任务兜底复位：若合成 click 正常到来它先行消费，此复位无害。 */
+      setTimeout(()=>{ tlSuppressClick=false; },0);
+      snapshot();   // P1-6：日/周视图拖拽改期此前不可撤销
+      const dy=ev2.clientY-sy, dx=ev2.clientX-sx;
+      const dm=Math.round(dy/44*60/15)*15; // 吸附 15 分钟
+      let deltaDays=0;
+      if(isWeek){ const col=ev.closest(".tcol"); const cw=col?col.offsetWidth:120; deltaDays=Math.round(dx/cw); }
+      const shift=deltaDays*DAY + dm*60000;
+      if(rec){
+        if(deltaDays!==0){
+          moveRecInstance(t, instDate, deltaDays);
+          toast("已把该日任务移到 "+(deltaDays>0?deltaDays+" 天后":"-"+-deltaDays+" 天前"));
+        } else {
+          const ns=new Date(sDT.getTime()+shift), ne=new Date(eDT.getTime()+shift);
+          setRecOverride(t, instDate, {start:toStr(ns), end:toStr(ne)});
+          toast("已调整该日任务时间");
+        }
+      } else {
+        t.start=toStr(new Date(sDT.getTime()+shift));
+        t.end=toStr(new Date(eDT.getTime()+shift));
+        toast("已改期");
+      }
+      touchTask(t); save(); renderAll();
+    };
+    ev.addEventListener("pointermove",mv); ev.addEventListener("pointerup",up);
+  });
+}
+// 月视图任务块：拖到其它日期格 → 整体平移 N 天
+function attachChipDrag(ch){
+  ch.addEventListener("pointerdown", e=>{
+    if(e.pointerType==="mouse" && e.button!==0) return;
+    e.stopPropagation();
+    const id=ch.dataset.id, orig=ch.dataset.date;
+    const sx=e.clientX, sy=e.clientY; let moved=false, hover=null;
+    try{ ch.setPointerCapture(e.pointerId); }catch(_){}
+    const mv=ev2=>{
+      const dx=ev2.clientX-sx, dy=ev2.clientY-sy;
+      if(Math.abs(dx)+Math.abs(dy)>4) moved=true;
+      ch.style.transform="translate("+dx+"px,"+dy+"px)"; ch.style.zIndex=20; ch.style.position="relative";
+      const el=document.elementFromPoint(ev2.clientX,ev2.clientY);
+      const cell=el&&el.closest?el.closest(".dcell"):null;
+      if(hover&&hover!==cell) hover.classList.remove("drop");
+      if(cell&&cell.dataset.day!==orig){ cell.classList.add("drop"); hover=cell; } else hover=null;
+    };
+    const up=ev2=>{
+      ch.removeEventListener("pointermove",mv); ch.removeEventListener("pointerup",up);
+      ch.style.transform=""; ch.style.zIndex=""; ch.style.position="";
+      if(hover) hover.classList.remove("drop");
+      if(moved && hover){
+        const deltaDays=Math.round((parseLocal(hover.dataset.day+"T00:00")-parseLocal(orig+"T00:00"))/DAY);
+        if(deltaDays) applyDayShift(id, deltaDays, orig);
+        ch._suppressClick=true;
+      }
+    };
+    ch.addEventListener("pointermove",mv); ch.addEventListener("pointerup",up);
+  });
+}
+
+/* ===== 持久化 ===== */
+/* 本地最近保存时间：用于云同步启动冲突检测（种子数据不记录） */
+let _markSave=true;
+/* S1（2026-10-23 修）：数据版本号声明提前到 markLocalSave 之前 —— markLocalSave 现在也自增版本号。
+   背景：P2-5 的 snapshot 短路前提是「所有数据变更都走 save/saveQuiet/saveNow」，但
+   media/habit/lists/proj/okr/anniv/tag/widget 各域 saver 只调 markLocalSave、不增版本 →
+   这些域编辑后 snapshot() 被 10109 误跳过 → 撤销快照缺级、Ctrl+Z 跨域连坐回滚。
+   自增下沉到 markLocalSave（全部域 saver 的共用收口）即全覆盖。
+   save 家族自身的 _dataVer++ 保留：双自增无实害（snapshot 内容去重会兜住 no-op）。 */
+var _dataVer=0, _lastSnapVer=-1;
+let _saveTimer=null;
+/* 本地存储写入告警（对齐明信片 storageSet）：配额满/写失败时显式提示，避免静默丢数据 */
+let _quotaWarnAtT=0;
+/* ===== M3 全量本地自动备份环 =====
+   习惯已有独立备份环（仅习惯）；这里是**全量**兜底：任务/媒体/习惯/清单/项目/目标/标签树。
+   只留 2 份（全量快照体积大，localStorage 约 5MB）；配额不足自动降级为 1 份，仍失败则静默放弃，不阻塞主流程。 */
+const FULL_RING_KEY="wb_taskhub_full_ring_v1";
+const FULL_RING_LAST="wb_taskhub_full_ring_last_v1";
+/* P1-7：全量快照体积大（含 tasks+media+habits+lists+projects+okrs+tagTree），留 10 份在中等数据量下
+   即撑爆 localStorage（约 5MB）→ 此后所有修改无法落盘，等同数据丢失。按注释原意改为 2 份。 */
+const FULL_RING_MAX=2;
+/* ===== 任务内「按日期累积」字段的修剪（配额防护，2026-09-14）=====
+   doneDates / doneAt / subDone / overrides 都是按日期一条条累积、只增不减的：
+   每日任务一年就是 300+ 条，几年下来会顶到 localStorage 配额（5MB），并把每次落盘的
+   全量环形快照与云端上传 payload 一起拖大。这里在每次落盘前裁剪：
+   只保留近 TASK_HIST_KEEP_DAYS 天，doneDates 每任务另设条数上限。
+   影响面（如实说明）：任务弹窗「完成履历」超出窗口的旧记录会被清掉；
+   统计页趋势图走的是 stats.history（另有 HISTORY_MAX 上限），不受此处影响。 */
+const TASK_HIST_KEEP_DAYS=730;
+const TASK_HIST_KEEP_MAX=500;
+/* P0（2026-10-23 修）：save() 曾因 400ms 节流丢掉返回值 → 写盘失败却照弹「已保存」。
+   正解：成功文案先挂起，等真正落盘后按 storageSetSafe 的真实结果决定弹绿提示还是 ⚠️。
+   ⚠️ 不可同步 `return _saveOk` —— 那是上一轮的结果，会首次漏报、二次误报。
+   失败提示由 storageSetSafe 自己弹（内部 30s 节流防刷屏），成功提示才在这里发。 */
+var _pendingSaveMsg=null;
+// ===== 云同步：逐任务合并基础设施 =====
+let deletedIds=[];
+// 墓碑规范化：旧格式是字符串 id（无时间），新格式是 {id, ts}。ts=0 表示「未知时间的旧删除」，
+// 只用于清除「从未被编辑过」的任务，避免旧墓碑误杀用户刚编辑过的任务（修复：编辑完成时间保存后任务消失且无法撤销）。
+
+const TOMB_MAX=2000;   // 墓碑上限（对齐明信片，防长期无限增长）
+/* ===== 次级集合的删除传播（媒体 / 习惯 / 清单）=====
+   任务有墓碑可传播删除，媒体 / 习惯 / 清单三类同样走墓碑：各自合并函数（mediaMergeNewer / mergeHabits / union）
+   末尾都经 dropTombed(kind, …, deleted) 过滤——本地或云端任一端持有该 id 的墓碑，即将其从合并结果剔除，
+   从而「删了就不会被另一端并回来」（历史上「三体（广播剧）删不掉」正是缺这层墓碑过滤所致，现已闭合）。
+   墓碑随 payload.deleted 同步 / 导出 / 导入；撤销删除时快照一并回滚 deletedIds，不会误杀刚恢复的条目。
+   复用同一份 deletedIds，但加**种类前缀**，避免与任务 id 相撞（媒体种子 id 是 b1/t1/a1，任务 id 以 t 或 s 开头）。 */
+const TOMB_NS={media:"media:",habit:"habit:",list:"list:",habitday:"habitday:"};
+/* ===== M1 回收站 =====
+   墓碑 deletedIds 只存 id（用于跨设备传播删除，无内容、不可恢复）。这里额外把被删任务的**内容**
+   留存一份，让用户能真正「找回误删」。上限 50 条，超出丢最旧。 */
+const TRASH_KEY="wb_taskhub_trash_v1";
+const TRASH_MAX=50;
+/* ===== 删除任务：墓碑 + 回收站 + 完成流水一并收口（2026-09-14）=====
+   旧版删除只写墓碑（跨设备传播）与回收站（可找回），不动 stats.history →
+   图表会留下**幽灵记录**：任务已经不存在，那天却仍有完成计数。
+   被清掉的流水存进回收站记录、并挂到撤销栈顶快照，「回收站恢复 / Ctrl+Z」都能还回来。 */
+window.addEventListener("beforeunload", flushSave);
+window.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="hidden") flushSave(); });
+/* ===== 纪念日（集成视图，data-v="anniv"）=====
+   数据：state.anniv = [{id,name,cat,date(YYYY-MM-DD),yearly(bool),note,created,
+                         calType("solar"|"lunar"), lunar({m,d,leap})?}]
+   - calType 默认 "solar"；为 "lunar" 时以 lunar{m,d,leap} 为准（由 date 反查得到），date 作为公历参照年
+   - 年度重复(yearly)：只取月日，倒计时算「下一次到来」的天数（今年已过则算明年），始终显示「还有 N 天」/「今天」
+   - 非年度(单次)：按完整日期算净天数，未来显示「还有 N 天」、过去显示「已过 N 天」
+   云同步：复用任务台 Gist 同一套机制，anniv 并入 syncPayload 与各处云端对象落地。 */
+const ANNIV_KEY="wb_anniv_v1";
+const ANNIV_CATS=[{name:"生日",color:"#ff5c8a"},{name:"恋爱",color:"#ff7ab6"},{name:"节日",color:"#ffb020"},{name:"工作",color:"#4F7CFF"},{name:"其他",color:"#9aa0ab"}];
+
+/* ===== 农历转换（离线，覆盖 1900–2100；数据来自 solarlunar，已与官方逐日比对 0 差异） =====
+   仅用于展示，不依赖任何外部库/网络。Lunar.text(y,m,d) 返回「农历乙巳年 五月初十」或 ''（越界/无效）。 */
+const Lunar=(function(){
+  var lunarInfo=[0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,
+    0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977,
+    0x04970,0x0a4b0,0x0b4b5,0x06a50,0x06d40,0x1ab54,0x02b60,0x09570,0x052f2,0x04970,
+    0x06566,0x0d4a0,0x0ea50,0x06e95,0x05ad0,0x02b60,0x186e3,0x092e0,0x1c8d7,0x0c950,
+    0x0d4a0,0x1d8a6,0x0b550,0x056a0,0x1a5b4,0x025d0,0x092d0,0x0d2b2,0x0a950,0x0b557,
+    0x06ca0,0x0b550,0x15355,0x04da0,0x0a5b0,0x14573,0x052b0,0x0a9a8,0x0e950,0x06aa0,
+    0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,0x0f263,0x0d950,0x05b57,0x056a0,
+    0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,0x0d558,0x0b540,0x0b6a0,0x195a6,
+    0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,0x06d40,0x0af46,0x0ab60,0x09570,
+    0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,0x05ac0,0x0ab60,0x096d5,0x092e0,
+    0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,0x0abb7,0x025d0,0x092d0,0x0cab5,
+    0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,0x0a5b0,0x15176,0x052b0,0x0a930,
+    0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,0x0a4e0,0x0d260,0x0ea65,0x0d530,
+    0x05aa0,0x076a3,0x096d0,0x04afb,0x04ad0,0x0a4d0,0x1d0b6,0x0d250,0x0d520,0x0dd45,
+    0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0,
+    0x14b63,0x09370,0x049f8,0x04970,0x064b0,0x168a6,0x0ea50,0x06b20,0x1a6c4,0x0aae0,
+    0x092e0,0x0d2e3,0x0c960,0x0d557,0x0d4a0,0x0da50,0x05d55,0x056a0,0x0a6d0,0x055d4,
+    0x052d0,0x0a9b8,0x0a950,0x0b4a0,0x0b6a6,0x0ad50,0x055a0,0x0aba4,0x0a5b0,0x052b0,
+    0x0b273,0x06930,0x07337,0x06aa0,0x0ad50,0x14b55,0x04b60,0x0a570,0x054e4,0x0d160,
+    0x0e968,0x0d520,0x0daa0,0x16aa6,0x056d0,0x04ae0,0x0a9d4,0x0a4d0,0x0d150,0x0f252,
+    0x0d520];
+  const GAN=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+  const ZHI=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+  const LMON=['正','二','三','四','五','六','七','八','九','十','冬','腊'];
+  const LDAY=['初一','初二','初三','初四','初五','初六','初七','初八','初九','初十','十一','十二','十三','十四','十五','十六','十七','十八','十九','二十','廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
+  function lYearDays(y){ let s=348; for(let i=0x8000;i>0x8;i>>=1) s+=(lunarInfo[y-1900]&i)?1:0; return s+leapDays(y); }
+  function leapDays(y){ if(leapMonth(y)) return (lunarInfo[y-1900]&0x10000)?30:29; return 0; }
+  function leapMonth(y){ return lunarInfo[y-1900]&0xf; }
+  function monthDays(y,m){ return (lunarInfo[y-1900]&(0x10000>>m))?30:29; }
+  function solar2lunar(yy,mm,dd){
+    let off=Math.round((Date.UTC(yy,mm-1,dd)-Date.UTC(1900,0,31))/86400000), temp=0, i;
+    for(i=1900;i<2101&&off>0;i++){ temp=lYearDays(i); off-=temp; }
+    if(off<0){ off+=temp; i--; }
+    const ly=i;
+    const lp=leapMonth(ly); let isLeap=false;
+    for(i=1;i<13&&off>0;i++){
+      if(lp>0 && i===(lp+1) && isLeap===false){ --i; isLeap=true; temp=leapDays(ly); }
+      else { temp=monthDays(ly,i); }
+      if(isLeap===true && i===(lp+1)){ isLeap=false; }
+      off-=temp;
+    }
+    if(off===0 && lp>0 && i===(lp+1)){ if(isLeap){ isLeap=false; } else { isLeap=true; --i; } }
+    if(off<0){ off+=temp; --i; }
+    return {ly, lm:i, ld:off+1, isLeap};
+  }
+  function gz(y){ let g=(y-3)%10; if(g<=0) g+=10; let z=(y-3)%12; if(z<=0) z+=12; return GAN[g-1]+ZHI[z-1]; }
+  function text(y,m,d){
+    if(y<1900 || y>2100) return '';
+    if(y===1900 && m===1 && d<31) return '';
+    if(!(new Date(y,m-1,d).getDate()===d)) return '';
+    const o=solar2lunar(y,m,d); if(!o||o.ly<1900) return '';
+    return '农历'+gz(o.ly)+'年 '+(o.isLeap?'闰':'')+LMON[o.lm-1]+'月'+LDAY[o.ld-1];
+  }
+  // 农历月日 → 展示串（如「闰五月初十」），无效返回 ''
+  function lunarMD(m,d,isLeap){
+    if(m<1||m>12||d<1||d>30) return '';
+    return (isLeap?'闰':'')+LMON[m-1]+'月'+LDAY[d-1];
+  }
+  // 农历日期 → 公历 {y,m,d}（用于按农历倒计时）；越界/无效/该月天数不符返回 null
+  function toSolar(ly,lm,ld,isLeap){
+    if(ly<1900||ly>2100) return null;
+    if(lm<1||lm>12||ld<1) return null;
+    const lp=leapMonth(ly);
+    if(isLeap && lp!==lm) return null;            // 该年无此闰月
+    const md = isLeap ? leapDays(ly) : monthDays(ly,lm);
+    if(ld>md) return null;
+    let off=0;
+    for(let y=1900; y<ly; y++) off+=lYearDays(y);  // 累计此前各农历年天数
+    for(let i=1;i<lm;i++){ off+=monthDays(ly,i); if(lp>0&&i===lp) off+=leapDays(ly); }
+    if(isLeap) off+=monthDays(ly,lp);             // 闰月前先经过其正月份
+    off+=(ld-1);
+    const base=Date.UTC(1900,0,31);               // 1900-01-31 = 农历1900正月初一
+    const dt=new Date(base+off*86400000);
+    return {y:dt.getUTCFullYear(), m:dt.getUTCMonth()+1, d:dt.getUTCDate()};
+  }
+  return { text, toLunar:solar2lunar, toSolar, lunarMD };
+})();
+let _annivBound=false;
+function bindAnnivModalOnce(){
+  if(_annivBound) return; _annivBound=true;
+  const save=document.getElementById("btnAnnivSave"); if(save) save.onclick=saveAnnivModal;
+  const cancel=document.getElementById("btnAnnivCancel"); if(cancel) cancel.onclick=closeAnnivModal;
+  const m=document.getElementById("annivMask"); if(m) m.addEventListener("click", e=>{ if(e.target.id==="annivMask") closeAnnivModal(); });
+  const da=document.getElementById("aDate"); if(da) da.addEventListener("input", updateAnnivLunar);
+  const ca=document.getElementById("aCal"); if(ca) ca.addEventListener("change", updateAnnivLunar);
+  window.addEventListener("keydown", e=>{ if(e.key==="Escape"){ const mm=document.getElementById("annivMask"); if(mm&&mm.classList.contains("show")) closeAnnivModal(); } });
+}
+function openAnnivModal(id){
+  bindAnnivModalOnce();
+  const a = id ? (state.anniv||[]).find(x=>x.id===id) : null;
+  document.getElementById("aId").value = id||"";
+  document.getElementById("aName").value = a?a.name:"";
+  document.getElementById("aCat").value = a?a.cat:ANNIV_CATS[0].name;
+  document.getElementById("aDate").value = a&&a.date ? String(a.date).slice(0,10) : ymd(startOfDay(new Date()));
+  document.getElementById("aCal").value = a? (a.calType||"solar") : "solar";
+  document.getElementById("aYearly").checked = a? !!a.yearly : true;
+  document.getElementById("aNote").value = a?a.note:"";
+  document.getElementById("annivModalTitle").textContent = a?"编辑纪念日":"新建纪念日";
+  updateAnnivLunar();
+  document.getElementById("annivMask").classList.add("show");
+  setTimeout(()=>{ try{ document.getElementById("aName").focus(); }catch(_){} },50);
+}
+function closeAnnivModal(){ const m=document.getElementById("annivMask"); if(m) m.classList.remove("show"); }
+
+
+/* ===== 顶部 widget 可配置化（今天要处理 / 习惯打卡 / 待办清单 + 自定义卡） ===== */
+const WKEY="wb_taskhub_widgets_v1";
+let widgetCfg={order:[],hidden:[],custom:[]};
+try{ const w=JSON.parse(localStorage.getItem(WKEY)); if(w&&typeof w==="object") widgetCfg=Object.assign({order:[],hidden:[],custom:[]},w); }catch(e){}
+const AUTO_WIDS=["today","habit","list"];
+let dragWid=null, dragDropBefore=false;
+/* 点击菜单之外的任意处 / Esc 关闭菜单（只注册一次） */
+document.addEventListener("click",function(e){ if(!(e.target&&e.target.closest&&e.target.closest(".w-more-wrap"))) closeWMenus(); });
+document.addEventListener("keydown",function(e){ if(e.key==="Escape") closeWMenus(); });
+
+function bindWidgetDrag(node, wid){
+  if(node.__dragBound) return; node.__dragBound=true; // 守卫：容器节点在重渲染时不被替换，重复 bind 会累积监听器（拖放时重复触发）
+  const grip=node.querySelector(".w-ctrl .grip");
+  if(grip) grip.addEventListener("mousedown",()=>node.setAttribute("draggable","true"));
+  node.addEventListener("dragstart",e=>{ dragWid=wid; node.classList.add("dragging"); try{e.dataTransfer.effectAllowed="move";}catch(_){} });
+  node.addEventListener("dragend",()=>{ node.removeAttribute("draggable"); node.classList.remove("dragging"); document.querySelectorAll("#widgetRow .panel,#widgetRow .custom-card").forEach(c=>c.classList.remove("drop-before","drop-after")); });
+  node.addEventListener("dragover",e=>{ if(dragWid===wid)return; e.preventDefault(); const r=node.getBoundingClientRect(); dragDropBefore=(e.clientX-r.left)<r.width/2; node.classList.toggle("drop-before",dragDropBefore); node.classList.toggle("drop-after",!dragDropBefore); });
+  node.addEventListener("dragleave",()=>node.classList.remove("drop-before","drop-after"));
+  node.addEventListener("drop",e=>{ e.preventDefault(); const tgt=wid; if(dragWid&&tgt!==dragWid) dropWidget(dragWid,tgt); node.classList.remove("drop-before","drop-after"); node.removeAttribute("draggable"); });
+}
+function bindCustomCard(node,wid){
+  bindWidgetDrag(node,wid);
+  node.querySelectorAll(".w-ctrl button").forEach(b=>b.addEventListener("click",e=>{ e.stopPropagation(); handleCtrlAct(b.dataset.act, wid, b); }));
+}
+let editingWid=null;
+/* ===== 功能卡（自动统计）预设 ===== */
+const FUNC_PRESETS=[
+  {key:"weekDone", icon:"✅", title:"本周完成", desc:"近 7 天完成的任务数"},
+  {key:"overdue",  icon:"⏰", title:"逾期任务", desc:"已过期仍未完成的任务"},
+  {key:"dueToday", icon:"📌", title:"今日待办", desc:"今天到期且未完成"},
+  {key:"trend7",   icon:"📈", title:"近 7 日完成", desc:"每天完成量的迷你柱状图"},
+  {key:"catShare", icon:"🗂", title:"分类占比", desc:"各分类任务数分布"},
+  {key:"overview", icon:"🧭", title:"任务概览", desc:"今日待办 / 逾期 / 进行中 一览"},
+  {key:"active",   icon:"🔥", title:"进行中", desc:"当前未完成的任务数（重复任务按本轮周期判定）"},
+];
+// 事件绑定
+document.getElementById("btnAddWidget").onclick=()=>openWidgetModal(null);
+const wpEl=document.getElementById("wPresets");
+if(wpEl){ wpEl.innerHTML=FUNC_PRESETS.map(p=>'<button type="button" data-func="'+p.key+'"><span class="pi">'+p.icon+'</span><span>'+esc(p.title)+'</span><span class="pd">'+esc(p.desc)+'</span></button>').join(""); wpEl.querySelectorAll("button").forEach(b=>b.onclick=()=>addFuncCard(b.dataset.func)); }
+document.getElementById("wCancel").onclick=closeWidgetModal;
+document.getElementById("wSave").onclick=saveWidgetModal;
+document.getElementById("bpOk").onclick=applyBatchProps;                    // M8：批量改属性
+document.getElementById("bpCancel").onclick=closeBatchProps;
+document.getElementById("batchPropsMask").addEventListener("click", e=>{ if(e.target&&e.target.id==="batchPropsMask") closeBatchProps(); });
+document.getElementById("btnShowHidden").onclick=showHidden;
+document.getElementById("wType").onchange=e=>toggleWRows(e.target.value);
+{ const wm=document.getElementById("widgetMask"); wm.onclick=e=>{ if(e.target===wm) closeWidgetModal(); }; }
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ const wm=document.getElementById("widgetMask"); if(wm.classList.contains("show")) closeWidgetModal(); } });
+applyWidgetLayout();
+
+/* ===== 渲染：今天要处理 ===== */
+/* 信息密度与分组：逾期 / 今天到期 / 已完成 三段分组；已完成默认折叠；
+   紧凑密度默认隐藏描述与次要徽标；头部提供「简/详」密度切换与「最大化」聚焦。 */
+/* ===== 今日页视图偏好持久化 =====
+   与 wb_today_subopen_v1 同一思路：属纯 UI 偏好，**刻意不进云同步**（否则多设备的展开态会互相打架）。
+   此前密度/折叠/最大化三个都是内存变量，刷新即丢；而子任务展开态却是持久的 —— 同一页面内不一致。 */
+const TODAY_UI_KEY="wb_today_ui_v1";
+
+/* 已完成区默认**折叠**：用户不使用任务管理台写日志 →「今天做完了什么」没有回看场景，
+   默认展开只会把待办区挤下去、让今日页失焦。仍可随时点开回看/撤销。 */
+let todayDoneExpanded=todayUiGet("done", false);   // 已完成区默认折叠（可手动展开，且刷新后保持）
+let todayDensity=todayUiGet("dens", "compact");     // "compact" | "detail"
+let todayMax=todayUiGet("max", false);              // 是否临时最大化占满整行
+let subOpenIds=new Set();        // 今日面板里已展开子任务勾选区的任务 id
+/* 展开态是 UI 偏好，持久化到独立本地键（不进云同步，避免多设备互相干扰）；坏数据兜底跳过 */
+try{ (JSON.parse(localStorage.getItem("wb_today_subopen_v1")||"[]")||[]).forEach(id=>{ if(id) subOpenIds.add(id); }); }catch(_){}
+
+
+
+/* 分区头。actionHtml：可选的右侧操作（用 margin-left:auto 靠右），如逾期的「全部顺延到今天」。 */
+const TODAY_SEC_HEAD=(label, n, cls, actionHtml)=>`<div class="today-sec-h" data-sec="${cls}"><span class="today-sec-dot ${cls}"></span>${label} <b>${n}</b>${actionHtml||""}</div>`;
+
+
+/* 今日区域公共绑定（顶部 widget 与「今日」整页共用，唯一差异是刷新回调）；
+   之前两处各有约 35 行近乎逐字重复的绑定，改一处漏一处，现统一收敛。 */
+/* 今日区域交互：改为事件委托——容器元素常驻（只换 innerHTML），监听器只绑一次，
+   避免每次重绘都全量重新绑定。⚠️ 必须限定作用域：#view 里其他视图也有 data-done 等同名属性，
+   故整页侧用 .today-page 收口，防止误触发别的渲染器。 */
+let __todayDelegated=false;
+function handleTodayClick(e, rerender){
+  const el=e.target; if(!el || !el.closest) return;
+  const dall=el.closest("[data-deferall]"); if(dall){ deferOverdueAllToday(); return; }   // 逾期分区头「全部顺延到今天」
+  const done=el.closest("[data-done]");      if(done){ toggleDone(done.dataset.done, done.dataset.date); return; }
+  const rest=el.closest("[data-restore]");   if(rest){ restoreTask(rest.dataset.restore, rest.dataset.date); return; }
+  const sk=el.closest("[data-skip]");        if(sk){ skipTask(sk.dataset.skip, sk.dataset.date); return; }
+  const df=el.closest("[data-defer]");       if(df){ openDeferFromCard(df.dataset.id, df.dataset.date); return; }
+  const so=el.closest("[data-subopen]");     if(so){ const id=so.dataset.subopen; if(subOpenIds.has(id)) subOpenIds.delete(id); else subOpenIds.add(id); persistSubOpen(); rerender(); return; }
+  const st=el.closest("[data-subtick]");     if(st){
+    const t=state.tasks.find(x=>x.id===st.dataset.subtick); if(!t) return;
+    const s=(t.subtasks||[]).find(x=>x.id===st.dataset.sid); if(!s) return;
+    const date=st.dataset.date;
+    const beforeAll=t.subtasks.every(x=>subIsDone(t,x,date));
+    snapshot();
+    subToggle(t, s, date);
+    syncDoneFromSubtasks(t, date, beforeAll);
+    touchTask(t);   /* G1（2026-10-23 修）：勾选改变了任务数据但不更新 updated → mergeTasks 按整条 last-writer-wins，他端旧副本会把勾选静默回吞 */
+    save();
+    rerender(); return;
+  }
+  const tc=el.closest(".tagchip");           if(tc){
+    state.filter={q:tc.dataset.tag, cat:"", pri:"", tag:""};
+    document.getElementById("fSearch").value=tc.dataset.tag;
+    document.getElementById("fCat").value=""; document.getElementById("fPri").value=""; document.getElementById("fTag").value="";
+    document.getElementById("fClear").style.display="inline-flex";
+    renderAll(); return;
+  }
+  const ds=el.closest("[data-donesec]");     if(ds){ todayDoneExpanded=!todayDoneExpanded; todayUiSet("done",todayDoneExpanded); rerender(); return; }
+  const op=el.closest("[data-open]");
+  if(op && !el.closest(".today-acts,.subtoggle,[data-subtick],.tagchip")){ openTaskDetail(op.dataset.open, op.dataset.openDate); }
+}
+function bindTodayDelegation(){
+  if(__todayDelegated) return;
+  const list=document.getElementById("todayList");
+  const view=document.getElementById("view");
+  const onFocusIn=e=>{ const b=e.target.closest && e.target.closest(".btn-sec"); if(b) b.setAttribute("aria-hidden","false"); };
+  const onFocusOut=e=>{ const b=e.target.closest && e.target.closest(".btn-sec"); if(b) b.setAttribute("aria-hidden","true"); };
+  if(list){
+    list.addEventListener("click", e=>handleTodayClick(e, renderToday));
+    list.addEventListener("focusin", onFocusIn);
+    list.addEventListener("focusout", onFocusOut);
+  }
+  if(view){
+    view.addEventListener("click", e=>{ if(!e.target.closest(".today-page")) return; handleTodayClick(e, renderAll); });
+    view.addEventListener("focusin", e=>{ if(!e.target.closest(".today-page")) return; onFocusIn(e); });
+    view.addEventListener("focusout", e=>{ if(!e.target.closest(".today-page")) return; onFocusOut(e); });
+  }
+  __todayDelegated=true;
+}
+
+/* 顶部 widget 头部的「密度 / 最大化」：空态也必须绑定，否则首次进入空列表时按钮是死的 */
+function bindTodayHeader(){
+  const densBtn=document.getElementById("todayDensityBtn");
+  if(densBtn){ densBtn.textContent = todayDensity==="compact" ? "简" : "详"; densBtn.onclick=()=>{ todayDensity = todayDensity==="compact"?"detail":"compact"; todayUiSet("dens",todayDensity); renderToday(); }; }
+  const maxBtn=document.getElementById("todayMaxBtn");
+  if(maxBtn){ maxBtn.onclick=()=>{ todayMax=!todayMax; todayUiSet("max",todayMax); const p=document.querySelector('.toppanel[data-wid="today"]'); if(p) p.classList.toggle('today-max', todayMax); renderToday(); }; }
+}
+/* ===== 今日页分区主体：顶部 widget 与底部整页**共用同一份渲染** =====
+   此前 renderToday / renderTodayPage 各自写了一遍「逾期 / 今天 / 已完成」的拼接、空态判断与空态文案，
+   改一处忘另一处就会出不一致（本文件已因 emptyState 重复定义、formDirtyTask 漏字段踩过同类坑）。 */
+/* ===== 今日页内嵌「快速添加」 =====
+   此前今日页自身没有任何新建入口，空态文案却让用户「点上方『新建任务』」——
+   在底部整页要滚回顶部才能建任务，而"随手记一条"恰恰是每天最频繁的动作。
+   输入走 parseNL：`明天9点 #求职 p1 @电脑` 一行录入，回车即建。 */
+/* 输入框回车提交（keydown 而非 form submit：少一个活动部件，且委托到两个常驻容器即可） */
+function bindQuickAdd(root){
+  if(!root) return;
+  const inp=root.querySelector("[data-qa-input]");
+  if(!inp || inp.__qaBound) return;
+  inp.__qaBound=true;
+  inp.addEventListener("keydown", e=>{
+    if(e.key!=="Enter") return;
+    e.preventDefault();
+    if(quickAddTask(inp.value)) inp.value="";
+  });
+}
+
+
+
+
+
+
+/* 任务详情：点击今日任务项打开只读预览，可跳编辑 / 完成 / 不补做 / 子任务勾选 */
+let detailId=null, detailDate=null;
+function openTaskDetail(id, date){
+  const t=state.tasks.find(x=>x.id===id);
+  if(!t){ toast("任务不存在或已删除"); return; }
+  detailId=id;
+  detailDate = date || (noDate(t) ? "" : ymd(startOfDay(new Date())));
+  renderTaskDetail();
+  document.getElementById("detailMask").classList.add("show");
+}
+function closeTaskDetail(){ const m=document.getElementById("detailMask"); if(m) m.classList.remove("show"); detailId=null; detailDate=null; }
+
+
+/* ===== 完成时间（补打卡 / 事后修正实际完成时刻）=====
+   场景：任务做完了但当时忘了点完成，隔一阵才补打卡；或打卡时间不准需要改。
+   数据落点不变——普通任务写 t.doneAt.self，重复任务写 t.doneAt[发生日] + t.doneDates。 */
+// 一次性绑定（完成时间区块是静态 DOM，不会随渲染重建）
+function bindDoneAtField(){
+  const d=document.getElementById("f_done_date"), t=document.getElementById("f_done_time");
+  if(d) d.addEventListener("change", ()=>applyDoneTime());
+  if(t) t.addEventListener("change", ()=>applyDoneTime());
+  const p=document.getElementById("btnDonePrev"); if(p) p.onclick=()=>shiftDoneDate(-1);
+  const n=document.getElementById("btnDoneNext"); if(n) n.onclick=()=>shiftDoneDate(1);
+  const w=document.getElementById("btnDoneNow");  if(w) w.onclick=setDoneTimeNow;
+  const c=document.getElementById("btnDoneClear"); if(c) c.onclick=clearDoneTime;
+}
+
+/* ===== 子任务清单（弹窗内编辑，工作副本） ===== */
+let curSubtasks=[];
+document.getElementById("subBulkBtn").onclick=toggleSubBulk;
+document.getElementById("subBulkOk").onclick=addSubBulk;
+document.getElementById("subBulkCancel").onclick=()=>{ const w=document.getElementById("subBulkWrap"); if(w) w.style.display="none"; };
+
+/* ===== 统计：完成历史 ===== */
+let stats={ history:[] };
+const STATS_KEY="wb_taskhub_stats_v1";
+// d 为空时记为今天；补打卡（在别的日期点上）传该日期，让统计趋势落在真正完成的那天
+const HISTORY_MAX=5000;   // 完成流水上限（原 500 会静默丢弃老记录）：触顶后丢最旧一条并累计 historyDropped，让「丢了多少」可被看见
+/* ===== 完成口径：累计 vs 当前周期（2026-09-14）=====
+   同一个「完成了吗」有两种口径，别混用：
+   · isTaskDone(t)    —— 累计口径「曾经完成过」：非重复看 status，重复任务看有没有任何打卡记录。
+                         用于**区间/累计统计**（stats.history 报表、完成总次数）。
+   · isTaskDoneNow(t) —— 当前周期口径「这一轮做了没」：重复任务按循环周期取桶，桶内打过卡才算完成，
+                         周期一过自动回到「未完成」。用于**当前态**（项目进度 / KR auto /
+                         看板与仪表盘的逾期·进行中·今日待办）。
+   旧版只有前者，于是「每日任务打过一次卡就永远算完成」：项目进度虚高、看板逾期/进行中漏项。
+   ⚠️ 重复任务已结束（until 早于今天）或未知频率时退回累计口径 —— 否则已结束的重复任务会永远算「未完成」。 */
+
+/* ===== P1-4：统一的「是否逾期」判定 =====
+   此前 4 处统计（功能卡概览 / 回顾页 / 导出周报 / 项目卡徽标）都直接读**任务模板的 t.end**：
+   对每天重复的任务，t.end 是「创建当天」的时刻（如 2026-06-01T10:00），
+   今天没打卡就恒满足 t.end < today → 成批误判「逾期」（只有 skipMissed=true 的任务被排除，
+   历史/导入的 skipMissed=false 任务全部误报）。而 buildTodayModel 用的是**实例** i.end，是正确的。
+   口径统一为：取该任务「最近一个已到期且未完成」的实例判定期限。
+   为避免逐条任务展开实例导致 O(任务数 × 实例数)，提供两种形态：
+     - taskOverdueNow(t)  单条判定（内部按需展开）
+     - collectOverdueSet() 批量判定，返回 Set（一次展开，供 4 处统计共用） */
+
+
+/* ===== 渲染：月视图 ===== */
+
+/* ===== 时间轴重叠分列：把同一时段重叠的事件并排拆分，避免互相覆盖 ===== */
+
+/* ===== 渲染：周/日 时间轴 ===== */
+/* 日/周视图委托处理器：.ev 优先（内含拖拽后的点击抑制），否则落到 .tbody 空白处新建 */
+let __tlDelegated=false;
+let tlSuppressClick=false;   // 拖拽改期后抑制紧接着的合成 click（原实现挂在 ev._suppressClick 上，随 DOM 重建丢弃）
+function handleTimelineClick(e){
+  const el=e.target; if(!el || !el.closest) return;
+  const ev=el.closest(".ev");
+  if(ev){
+    if(tlSuppressClick){ tlSuppressClick=false; return; }
+    if(ev.dataset.kr) okrOpenKR(ev.dataset.kr); else openModal(ev.dataset.id, ev.dataset.date);
+    return;
+  }
+  const tb=el.closest(".tbody");
+  if(tb){
+    const col=tb.closest(".tcol"); if(!col) return;
+    openModal(null, ymd(parseLocal(col.dataset.day+"T09:00")));
+  }
+}
+function bindTimelineDelegation(){
+  if(__tlDelegated) return;
+  const view=document.getElementById("view");
+  if(view) view.addEventListener("click", e=>{ if(!e.target.closest(".timeline")) return; handleTimelineClick(e); });
+  __tlDelegated=true;
+}
+
+/* ===== 渲染：甘特图（增强：范围切换 / 今日线 / 拖拽改期 / 单日任务可隐藏） ===== */
+let ganttRange="month";
+/* 单日任务（跨度仅 1 天）默认隐藏，状态持久化 */
+let ganttHideSingle=true;
+/* ：窄屏「⚙ 显示选项」展开态（仅内存中保持，重渲染后沿用，不写 localStorage） */
+let ganttToolsOpen=false;
+/* 排序：start=按开始时间 / cat=按分类 / pri=按优先级 / title=按名称 */
+let ganttSort="start";
+const GANTT_SORTS=[["start","按开始"],["cat","按分类"],["pri","按优先级"],["title","按名称"],["proj","按项目分组"]];
+/* 按项目分组时，被折叠的项目 id（"__none__" 代表未归属项目的任务） */
+const ganttGroupCollapsed=new Set();
+/* 项目聚焦：只显示某个项目的任务（"" = 全部项目）。会话内有效，不持久化，刷新即回到全部。
+   由项目卡片的「📊 甘特图」按钮或甘特图顶部的下拉框设置。 */
+let ganttFocus="";
+try{ const _g=localStorage.getItem("wb_taskhub_gantt_v1"); if(_g){ const _o=JSON.parse(_g);
+  if(_o&&typeof _o.hideSingle==="boolean") ganttHideSingle=_o.hideSingle;
+  if(_o&&typeof _o.sort==="string"&&GANTT_SORTS.some(s=>s[0]===_o.sort)) ganttSort=_o.sort;
+  if(_o&&Array.isArray(_o.groups)) _o.groups.forEach(k=>ganttGroupCollapsed.add(k));
+} }catch(e){}
+
+function attachGanttDrag(bar, colW){
+  // ：Pointer Events 统一鼠标 + 触屏（pointerdown 移动端亦可拖拽平移；轻点仍打开任务）
+  const cw=colW||30;
+  bar.addEventListener("pointerdown", e=>{
+    if(e.pointerType==="mouse" && e.button!==0) return;
+    e.preventDefault();
+    const id=bar.dataset.id; const startX=e.clientX; let moved=false;
+    bar.classList.add("dragging");
+    try{ if(bar.setPointerCapture) bar.setPointerCapture(e.pointerId); }catch(_){}
+    const move=ev=>{ const dx=ev.clientX-startX; bar.style.transform="translateX("+dx+"px)"; if(Math.abs(dx)>4) moved=true; };
+    const up=ev=>{
+      document.removeEventListener("pointermove",move); document.removeEventListener("pointerup",up);
+      bar.classList.remove("dragging"); bar.style.transform="";
+      if(!moved){ openModal(id, bar.dataset.date); return; }
+      const delta=Math.round((ev.clientX-startX)/cw);
+      if(delta!==0){ shiftTaskDates(id, delta, bar.dataset.date); saveAndToast("已平移 "+Math.abs(delta)+" 天"); renderAll(); }
+      else { openModal(id, bar.dataset.date); }
+    };
+    document.addEventListener("pointermove",move); document.addEventListener("pointerup",up);
+  });
+}
+
+/* ===== 顶部日期文案 ===== */
+
+/* ===== 收件箱：无日期任务 ===== */
+
+/* ===== 长列表分页内核（D5：阈值 100） =====
+   只在渲染出口切片，不改数据结构：统计、导出、批量选择仍基于全量数据。
+   页码按「视图/清单 key」各自记忆；筛选签名变化时自动回到第一页。 */
+
+
+/* ===== 收件箱交互：事件委托（P1-10，对标「今日」视图 handleTodayClick 模式） =====
+   此前 renderInbox 每次渲染先 innerHTML 重建列表、再 forEach 逐行绑 4 个闭包：
+   每次 renderAll 新建 N 个闭包又丢弃（GC 压力），且绑定逻辑散在渲染函数里，
+   重建 DOM 后漏绑一次就静默失效。现改为：容器常驻只换 innerHTML，#view 上一次性委托，
+   用 .inbox-wrap 收口作用域（#view 里其他视图也有 data-done 等同名属性，防误触发）。 */
+let __inboxDelegated=false;
+function handleInboxClick(e){
+  const el=e.target; if(!el || !el.closest) return;
+  const add=el.closest("#inboxAdd");         if(add){ openInboxNew(); return; }
+  const sb=el.closest("#inboxSel");          if(sb){ selToggle("inbox"); return; }
+  if(selMode) return;   // 选择模式下整行不触发打开，避免误触（与原逐项绑定行为一致）
+  const rest=el.closest("[data-restore]");   if(rest){ restoreTask(rest.dataset.restore||rest.closest(".inbox-item").dataset.id); return; }
+  const row=el.closest(".inbox-item");       if(!row || !row.dataset.id) return;
+  const id=row.dataset.id;
+  if(el.closest("[data-edit]")){ openModal(id,null); return; }
+  if(el.closest("[data-done]")){ toggleDone(id, ymd(startOfDay(new Date()))); return; }
+  if(el.closest("[data-plan]")){ planInbox(id); return; }
+}
+function bindInboxDelegation(){
+  if(__inboxDelegated) return;
+  const view=document.getElementById("view");
+  if(view) view.addEventListener("click", e=>{ if(!e.target.closest(".inbox-wrap")) return; handleInboxClick(e); });
+  __inboxDelegated=true;
+}
+
+/* ===== 建议3：收件箱条目 → 拖到日历（.dcell）/ 时间轴（.tcol）某一天 = 直接安排 =====
+   背景：收件箱正是无日期任务的集中地，此前只能点条目上的「安排」按钮（默认排进今天再改日期），
+   而今日面板的待办反而能拖 —— 交互不对称。现在把「安排」落点扩展到拖放。
+   实现要点：
+   · 拖源用自定义 MIME application/x-wb-task（与清单视图的 text/plain 拖拽区分，互不干扰）；
+   · dragover 只认该 MIME，其它拖拽（清单重排等）不出现落点高亮；
+   · 监听挂持久元素 #view（innerHTML 替换不销毁它），幂等守卫防重复绑定；
+   · 落点取 data-day，复用 planInbox(id, date) 打开编辑弹窗预填该天，时间仍可改。 */
+let __schedDropBound=false;
+function bindScheduleDropZones(){
+  if(__schedDropBound) return;
+  const view=document.getElementById("view"); if(!view) return;
+  const dayCol=e=>{ const t=e.target; return (t&&t.closest)?(t.closest(".tcol")||t.closest(".dcell")):null; };
+  view.addEventListener("dragstart", e=>{
+    const t=e.target; const el=(t&&t.closest)?t.closest(".inbox-item[data-id]"):null; if(!el) return;
+    try{ e.dataTransfer.setData("application/x-wb-task", el.dataset.id); e.dataTransfer.effectAllowed="copy"; }catch(_){}
+    el.classList.add("dragging");
+  });
+  view.addEventListener("dragend", e=>{
+    const t=e.target; const el=(t&&t.closest)?t.closest(".inbox-item"):null; if(el) el.classList.remove("dragging");
+    document.querySelectorAll(".tcol.drop-hint,.dcell.drop-hint").forEach(x=>x.classList.remove("drop-hint"));
+  });
+  view.addEventListener("dragover", e=>{
+    const col=dayCol(e); if(!col) return;
+    const dt=e.dataTransfer; if(!dt||!dt.types||dt.types.indexOf("application/x-wb-task")<0) return;
+    e.preventDefault();
+    try{ dt.dropEffect="copy"; }catch(_){}
+    document.querySelectorAll(".tcol.drop-hint,.dcell.drop-hint").forEach(x=>{ if(x!==col) x.classList.remove("drop-hint"); });
+    col.classList.add("drop-hint");
+  });
+  view.addEventListener("dragleave", e=>{ const col=dayCol(e); if(col) col.classList.remove("drop-hint"); });
+  view.addEventListener("drop", e=>{
+    const col=dayCol(e); if(!col) return;
+    e.preventDefault(); col.classList.remove("drop-hint");
+    let id=null; try{ id=e.dataTransfer.getData("application/x-wb-task"); }catch(_){}
+    if(!id) return;
+    planInbox(id, col.dataset.day);
+  });
+  __schedDropBound=true;
+}
+
+// 新建时默认勾选「不指定日期」
+function openInboxNew(){
+  openModal(null,null);
+  const cb=document.getElementById("f_nodate");
+  if(cb && !cb.checked){ cb.checked=true; toggleNoDate(); }
+}
+
+/* ===== 渲染：统计视图（增强：时间范围 / 习惯契合度 / OKR 进度 / 导出） ===== */
+let statsRange=7;
+/* ===== M14：导出日历（.ics）=====
+   把未完成任务转成 VEVENT；重复任务展开未来 180 天（已打卡的实例跳过）。
+   时间用「浮动时间」（不带 Z），导入后按本机时区解释，时段不变。 */
+
+/* ===== 顶部三栏折叠（）：整页视图首屏默认折叠，手动偏好持久化 ===== */
+let uiPrefs={collapsed:{top:false,habit:false,list:false}, topOpen:false, touched:false};
+try{ const _r=localStorage.getItem("wb_taskhub_ui_v1"); if(_r){ const _o=JSON.parse(_r); if(_o&&_o.collapsed) uiPrefs.collapsed=Object.assign({top:false,habit:false,list:false},_o.collapsed); if(_o.touched!==undefined) uiPrefs.touched=!!_o.touched; if(_o.topOpen!==undefined) uiPrefs.topOpen=!!_o.topOpen; } }catch(e){}
+const PANEL_KEYS={top:"toppanel",habit:"habitpanel",list:"listpanel"};
+/* ：某些整页视图与顶部 widget 内容完全重复（习惯视图 vs 习惯打卡面板）。
+   进入这些视图时把对应 widget 临时收起（不改用户持久偏好，切回其它视图自动恢复），避免同屏两处相同信息。
+   注：「清单」视图曾用同一规则自动收起顶部「清单速览」，导致该栏只剩空白卡片；
+   按用户反馈已移除该映射——清单视图下顶部「清单速览」与其他视图一致，正常展开、内容照常渲染。 */
+const VIEW_DUP_PANEL={habit:"habit", today:"top"};
+function togglePanel(k){
+  uiPrefs.touched=true;
+  const el=document.querySelector("."+PANEL_KEYS[k]);
+  // 以当前实际显示态为准翻转，再写回偏好（整页视图默认折叠时存储值可能≠显示态）
+  const now = el ? el.classList.contains("collapsed") : !!uiPrefs.collapsed[k];
+  uiPrefs.collapsed[k]=!now;
+  saveUIPrefs();
+  if(el){
+    el.classList.toggle("collapsed", !now);
+    // R10：手动折叠后同步「完整视图」跳转显隐（自动收起 dup-hidden 不显示，因用户已在完整视图）
+    const gf=el.querySelector(".goto-full");
+    if(gf) gf.style.display = (!now && !el.classList.contains("dup-hidden")) ? "inline-flex":"none";
+  }
+}
+document.querySelectorAll(".panel.collapsible .ptoggle").forEach(b=>{
+  b.addEventListener("click", e=>{
+    e.stopPropagation();
+    const p=b.closest(".panel"); if(!p) return;
+    for(const k in PANEL_KEYS){ if(p.classList.contains(PANEL_KEYS[k])){ togglePanel(k); break; } }
+  });
+});
+
+/* ===== 顶部概览条（默认收起三栏，点开才展开） ===== */
+function toggleTopOverview(){
+  uiPrefs.topOpen=!uiPrefs.topOpen; saveUIPrefs();
+  applyTopOverview();
+}
+
+/* ===== 总渲染 ===== */
+/* ===== 通用 helpers（项目 / OKR / 回顾 共用） ===== */
+
+/* ===== 通用合并：目标 OKR / 项目 ===== */
+/* 指标语义桶：判断两条 KR 是否同义（用于合并去重） */
+const KR_BUCKETS=[
+  {key:"apply",     label:"投递类",   re:/投递|申请|海投|apply/i},
+  {key:"interview", label:"面试类",   re:/面试|面经|一面|二面|interview/i},
+  {key:"offer",     label:"Offer 类", re:/offer|录用|入职|拿到/i}
+];
+let mgKind="okr";
+function openMerge(kind){
+  mgKind=kind||"okr";
+  document.querySelectorAll("#mergeMask .mg-tab").forEach(b=>b.classList.toggle("active", b.dataset.mgkind===mgKind));
+  mgFill(); mgRender();
+  document.getElementById("mergeMask").classList.add("show");
+}
+
+
+/* ===== 项目视图（P0） ===== */
+/* ：项目卡的任务列表默认折叠（项目多时单屏能看到全部项目），展开状态按项目 id 记忆 */
+const projExpanded=new Set();
+
+/* ===== OKR 视图（P1，打磨：折叠 / 过滤 / 风险脉冲 / 趋势占位 / 检查点备注） ===== */
+let okrFilter="all";
+const okrCollapsed=new Set();
+
+/* ===== 回顾视图（P1） ===== */
+/* ===== 回顾：笔记 / 快照 / 自定义清单 存储 ===== */
+let reviewViewWeek=null;
+/* P1-8（2026-10-23 修）：原裸 localStorage.setItem 有两个问题——
+   ① 绑在 oninput 上逐键全量 JSON 序列化 + 写盘，复盘文字长时可感卡顿；
+   ② 配额满时从 oninput 抛未捕获异常（此处不在任何 try 内），用户零反馈，刷新后内容全丢。
+   改为 300ms 去抖 + storageSetSafe（失败会弹可行动告警）。wk 由闭包捕获：去抖窗口内切周时，
+   写回的是「旧周在输入最后一刻的内容」，语义正确。 */
+var _reviewNotesTimer=null;
+
+
+/* ===== 项目编辑器逻辑 ===== */
+/* ===== P1-5：删除「项目 / KR / 目标」的级联清理统一出口 =====
+   此前两个入口两套行为：弹窗内删会清悬空引用并 save()，视图卡片上的删除只过滤数组、不清引用也不 save()。
+   悬空的 t.project / t.krId 会让甘特归入「未归属项目」、项目视图看不到、OKR 自动汇总漏计，
+   且悬空值随 syncPayload 上云污染其他设备。三个入口统一走这里。 */
+
+/*  重渲染合并：同一事件内的多次 renderAll 合并为 1–2 次实际渲染，且不丢最新状态 */
+let _raPending=false, _raDirty=false, _raErrAt=0;
+/* ===== 筛选状态可见性（）=====
+   筛选栏在整页视图（统计/习惯/清单/项目/目标/回顾/进度）下被隐藏，但 state.filter 仍会过滤
+   「今天要处理」等顶部 widget —— 以前用户看不到任何依据。这里在视图标题右侧挂一个浮标，
+   写明当前生效的条件，并提供一键清除。 */
+
+/* ===== 弹窗 ===== */
+let editingId=null, editingDate=null, editingScope="once", editingDateAuto=false;
+let __deferCloseAfter=false;   // 从「今日要处理」卡片/详情直接推迟时置真：推迟落盘后自动关编辑弹窗并刷新
 document.querySelectorAll("#modeToggle .mt-btn").forEach(b=>{
   b.addEventListener("click", ()=>setModalMode(b.dataset.mode));
 });
@@ -9821,32 +10583,6 @@ function openModal(id, date, scope){
   document.getElementById("mask").classList.add("show");
   _formSnap=formSnapshot();   // P0-2：表单填完后再取脏检查基线（toggleRecOpts 会改写默认值）
 }
-function setWeekChecks(arr){
-  document.querySelectorAll("#weekDays input").forEach(cb=>cb.checked=arr&&arr.includes(+cb.value));
-}
-function toggleRecOpts(){
-  const v=document.getElementById("f_rec").value;
-  document.getElementById("recOpts").style.display = v==="none"?"none":"flex";
-  document.getElementById("weekOpts").style.display = v==="weekly"?"block":"none";
-  const smw=document.getElementById("skipMissedWrap"); if(smw) smw.style.display = v==="none"?"none":"";
-  // O5：新建重复任务时默认勾选「错过不补」（往期作废，不堆逾期待补做）；编辑已有任务尊重原值，不改
-  if(v!=="none" && !editingId){
-    const sm=document.getElementById("f_skipMissed"); if(sm && !sm.checked) sm.checked=true;
-  }
-}
-function applyScopeUI(){
-  document.querySelectorAll("#scopeSeg .seg-btn").forEach(b=>{
-    const on=b.dataset.scope===editingScope;
-    b.style.background = on ? "var(--pri)" : "transparent";
-    b.style.color = on ? "#fff" : "var(--sub)";
-    b.style.borderColor = on ? "var(--pri)" : "var(--line)";
-  });
-  const once = editingScope==="once";
-  const tools=document.getElementById("scopeTools"); if(tools) tools.style.display = once ? "flex" : "none";
-  // 仅此一次时，重复规则属于整组，不可在此处修改
-  ["f_rec","f_interval","f_runtil"].forEach(id=>{ const el=document.getElementById(id); if(el) el.disabled=once; });
-  document.querySelectorAll("#weekDays input").forEach(cb=>cb.disabled=once);
-}
 function closeModal(){ document.getElementById("mask").classList.remove("show"); editingId=null; editingDate=null; editingScope="once"; editingDateAuto=false; _formSnap=null; }   // P0-2：清空脏检查基线
 /* 用户在「编辑哪一次」里切换发生日：校验必须是该重复任务的真实发生日，否则还原并提示 */
 function onEditDateChange(){
@@ -9872,30 +10608,10 @@ const FORM_TEXT_FIELDS=["f_title","f_desc","f_tags","f_sdate","f_stime","f_edate
   "f_cat","f_priority","f_project","f_gw","f_ctx","f_energy","f_est","f_kr","f_rec","f_interval","f_runtil",
   "f_done_date","f_done_time"];
 const FORM_CHECK_FIELDS=["f_nodate","f_skipMissed","f_skip"];
-// 「不指定日期时间」开关：勾选则隐藏日期区（任务进入收件箱）
-function toggleNoDate(){
-  const cb=document.getElementById("f_nodate");
-  const box=document.getElementById("dateFields");
-  if(!cb||!box) return;
-  box.style.display = cb.checked ? "none" : "block";
-}
 /* ===== M7：任务模板 / 复制任务 ===== */
 const TPL_KEY="wb_taskhub_templates_v1";
-function renderTplMenu(){
-  const m=document.getElementById("tplMenu"); if(!m) return;
-  const arr=templatesLoad();
-  if(!arr.length){ m.innerHTML='<div style="padding:10px;color:var(--sub);font-size:13px;">还没有模板。在任务弹窗点「存为模板」即可保存。</div>'; m.style.display="block"; return; }
-  m.innerHTML=arr.map(tp=>'<div class="tpl-item" data-tid="'+tp.id+'" style="padding:8px 10px;cursor:pointer;border-radius:8px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📋 '+esc(tp.name)+'</div>').join("")
-    +'<div class="tpl-item" data-tid="__clear" style="padding:8px 10px;cursor:pointer;border-radius:8px;font-size:12px;color:var(--sub);border-top:1px solid var(--line);margin-top:4px;">清空全部模板</div>';
-  m.querySelectorAll(".tpl-item").forEach(el=>el.onclick=()=>{
-    const tid=el.dataset.tid; m.style.display="none";
-    if(tid==="__clear"){ if(confirm("确定清空所有模板？")){ templatesSave([]); toast("已清空模板"); } return; }
-    const tp=arr.find(x=>x.id===tid); if(tp) newFromTemplate(tp);
-  });
-}
 function toggleTplMenu(){ const m=document.getElementById("tplMenu"); if(!m) return; if(m.style.display==="block"){ m.style.display="none"; } else { renderTplMenu(); } }
 document.addEventListener("click",e=>{ const m=document.getElementById("tplMenu"); if(m && m.style.display==="block" && !m.contains(e.target) && e.target.id!=="btnTpl") m.style.display="none"; });
-function closeDeferPop(){ const p=document.getElementById("deferPop"); if(p) p.style.display="none"; }
 /* 从「今日要处理」卡片 / 详情弹窗直达推迟：直接加载编辑弹窗并展开「推迟/延期」菜单，
    用户选幅度后由 shiftTaskByDays 落盘、__afterDeferShift 自动关弹窗并刷新。 */
 function openDeferFromCard(taskId, date){
@@ -9920,123 +10636,10 @@ function bindColorPair(colorEl, hexEl, onChange){
   hexEl.addEventListener("change", syncFromHex);
 }
 function openOpts(){ renderOptList(); renderStaleList(); const sa=document.getElementById("staleAuto"); if(sa) sa.onclick=mergeAllStale; document.getElementById("optMask").classList.add("show"); }
-function renderOptList(){
-  const cl=document.getElementById("catList"), pl=document.getElementById("priList");
-  if(cl){
-    cl.innerHTML=cats.map((c,i)=>{
-      const cnt=state.tasks.filter(t=>t.cat===c.name).length;
-      const dis=(cats.length<=1)?"disabled":"";
-      const kids=c.children||[];
-      return `<div class="optrow" data-type="cat" data-i="${i}">
-        <input type="color" class="oc-color" value="${esc(c.color)}" title="颜色">
-        <input type="text" class="oc-hex" value="${esc(c.color).toUpperCase()}" title="颜色色号">
-        <input type="text" class="oc-name" value="${esc(c.name)}" maxlength="12" placeholder="分类名">
-        <span class="oct">${cnt}项</span>
-        <button aria-label="上移" class="ob up" title="上移" ${i===0?'disabled':''}>↑</button>
-        <button aria-label="下移" class="ob down" title="下移" ${i===cats.length-1?'disabled':''}>↓</button>
-        <button aria-label="删除" class="ob del" title="删除" ${dis}>✕</button>
-      </div>
-      <div class="sublist" data-cat="${i}">
-        ${kids.map((k,j)=>`<div class="subrow" data-cat="${i}" data-j="${j}">
-          <span class="subpre">↳</span>
-          <input type="color" class="sc-color" value="${esc(k.color)}" title="子分类颜色">
-          <input type="text" class="oc-hex sc-hex" value="${esc(k.color).toUpperCase()}" title="颜色色号">
-          <input type="text" class="sc-name" value="${esc(k.name)}" maxlength="12" placeholder="子分类名">
-          <button aria-label="删除子分类" class="ob del" data-del-sub="${i}:${j}" title="删除子分类">✕</button>
-        </div>`).join("")}
-        <div class="subadd">
-          <input type="text" class="sc-new-name" placeholder="新增子分类名" maxlength="12">
-          <input type="color" class="sc-new-color" value="#9aa0ab" title="子分类颜色">
-          <input type="text" class="oc-hex sc-new-hex" placeholder="#RRGGBB" title="颜色色号">
-          <button class="ob add" data-add-sub="${i}" type="button">+ 子分类</button>
-        </div>
-      </div>`;
-    }).join("");
-    cl.querySelectorAll(".optrow").forEach(row=>{
-      const i=+row.dataset.i;
-      const colorEl=row.querySelector(".oc-color"), hexEl=row.querySelector(".oc-hex");
-      bindColorPair(colorEl, hexEl, col=>{ cats[i].color=col; catsSave(); renderAll(); });
-      row.querySelector(".oc-name").onchange=()=>renameCat(i, row.querySelector(".oc-name").value);
-      row.querySelector(".up").onclick=()=>moveCat(i,-1);
-      row.querySelector(".down").onclick=()=>moveCat(i,1);
-      row.querySelector(".del").onclick=()=>delCat(i);
-      const sub=row.nextElementSibling;
-      if(sub && sub.classList.contains("sublist")){
-        sub.querySelectorAll(".subrow").forEach(sr=>{
-          const j=+sr.dataset.j;
-          bindColorPair(sr.querySelector(".sc-color"), sr.querySelector(".sc-hex"), col=>{ cats[i].children[j].color=col; catsSave(); renderAll(); });
-          sr.querySelector(".sc-name").onchange=()=>{
-            const nm=(sr.querySelector(".sc-name").value||"").trim(); if(!nm){ renderOptList(); return; }
-            if((cats[i].children||[]).some((x,k)=>k!==j && x.name===nm)){ toast("子分类名重复"); renderOptList(); return; }
-            const old=cats[i].children[j].name;
-            if(old!==nm){ cats[i].children[j].name=nm; state.tasks.forEach(t=>{ if(t.cat===cats[i].name+"/"+old) t.cat=cats[i].name+"/"+nm; }); catsSave(); save(); rebuildCatPriSelects(); renderOptList(); }
-          };
-          sr.querySelector("[data-del-sub]").onclick=()=>{ cats[i].children.splice(j,1); catsSave(); renderAll(); renderOptList(); };
-        });
-        const addBtn=sub.querySelector(".subadd [data-add-sub]");
-        if(addBtn) addBtn.onclick=()=>{
-          const nm=(sub.querySelector(".sc-new-name").value||"").trim();
-          if(!nm){ toast("请输入子分类名"); return; }
-          if((cats[i].children||[]).some(x=>x.name===nm)){ toast("子分类已存在"); return; }
-          const hex=parseHex(sub.querySelector(".sc-new-hex").value) || sub.querySelector(".sc-new-color").value || "#9aa0ab";
-          cats[i].children=cats[i].children||[];
-          cats[i].children.push({name:nm, color:hex});
-          catsSave(); renderAll(); renderOptList();
-        };
-      }
-    });
-  }
-  if(pl){
-    pl.innerHTML=pris.map((p,i)=>{
-      const cnt=state.tasks.filter(t=>t.priority===p.name).length;
-      const dis=(pris.length<=1)?"disabled":"";
-      return `<div class="optrow" data-type="pri" data-i="${i}">
-        <input type="color" class="oc-color" value="${esc(p.color)}" title="颜色">
-        <input type="text" class="oc-hex" value="${esc(p.color).toUpperCase()}" title="颜色色号">
-        <input type="text" class="oc-name" value="${esc(p.name)}" maxlength="12" placeholder="优先级名">
-        <span class="oct">${cnt}项</span>
-        <button aria-label="上移" class="ob up" title="上移" ${i===0?'disabled':''}>↑</button>
-        <button aria-label="下移" class="ob down" title="下移" ${i===pris.length-1?'disabled':''}>↓</button>
-        <button aria-label="删除" class="ob del" title="删除" ${dis}>✕</button>
-      </div>`;
-    }).join("");
-    pl.querySelectorAll(".optrow").forEach(row=>{
-      const i=+row.dataset.i;
-      const colorEl=row.querySelector(".oc-color"), hexEl=row.querySelector(".oc-hex");
-      bindColorPair(colorEl, hexEl, col=>{ pris[i].color=col; prisSave(); renderAll(); });
-      row.querySelector(".oc-name").onchange=()=>renamePri(i, row.querySelector(".oc-name").value);
-      row.querySelector(".up").onclick=()=>movePri(i,-1);
-      row.querySelector(".down").onclick=()=>movePri(i,1);
-      row.querySelector(".del").onclick=()=>delPri(i);
-    });
-  }
-  renderStaleList();   // 改名/删除后，遗留值区同步刷新
-}
 
 /* ===== 遗留值整理 =====
    场景：优先级从「P0」改名为「P0 重要且紧急」后，仍有任务挂着旧的 P0，
    统计的分布图里就会多出一行旧名称。这里把它们找出来，一次性合并到现行名称。 */
-function renderStaleList(){
-  const box=document.getElementById("staleField"), el=document.getElementById("staleList");
-  if(!box||!el) return;
-  const ps=stalePriList(), cs=staleCatList();
-  if(!ps.length && !cs.length){ box.style.display="none"; el.innerHTML=""; return; }
-  box.style.display="";
-  const rowHtml=(kind,s,names,guess)=>`<div class="stale-row" data-kind="${kind}" data-old="${esc(s.name)}">
-      <span class="stale-old" title="${esc(s.name)}">${esc(s.name)}</span>
-      <span class="oct">${s.count}项</span>
-      <span class="stale-arrow" aria-hidden="true">→</span>
-      <select class="stale-target" aria-label="把「${esc(s.name)}」合并到">${names.map(n=>`<option value="${esc(n)}"${n===guess?" selected":""}>${esc(n)}</option>`).join("")}</select>
-      <button class="ob merge" data-stale-merge type="button" title="合并到所选名称">合并</button>
-    </div>`;
-  let h="";
-  if(ps.length) h+=`<div class="stale-h">优先级（${ps.length}）</div>`+ps.map(s=>rowHtml("pri",s,priNames(),guessPriTarget(s.name))).join("");
-  if(cs.length) h+=`<div class="stale-h">分类（${cs.length}）</div>`+cs.map(s=>rowHtml("cat",s,catNames(),guessCatTarget(s.name))).join("");
-  el.innerHTML=h;
-  el.querySelectorAll(".stale-row").forEach(row=>{
-    row.querySelector("[data-stale-merge]").onclick=()=>mergeStaleValue(row.dataset.kind, row.dataset.old, row.querySelector(".stale-target").value);
-  });
-}
 // 统计视图里点「整理 N 个遗留值」进入
 function openStaleFix(){
   openOpts();
@@ -10049,62 +10652,6 @@ function openStaleFix(){
 
 /* ===== 标签树管理 ===== */
 function openTags(){ syncTagsFromTasks(); renderTagList(); document.getElementById("tagMask").classList.add("show"); }
-function renderTagList(){
-  const el=document.getElementById("tagList"); if(!el) return;
-  el.innerHTML=tagTree.map((p,i)=>{
-    const kids=p.children||[];
-    return `<div class="optrow" data-type="tag" data-i="${i}">
-        <span class="tagdot"></span>
-        <input type="text" class="oc-name" value="${esc(p.name)}" maxlength="12" placeholder="标签名">
-        <span class="oct">${tagUseCount(p.name)}项${kids.length?" · "+kids.length+"子":""}</span>
-        <button aria-label="把这个标签合并到另一个标签（相关任务自动改名）" class="ob merge" data-merge-tag="${i}" title="把这个标签合并到另一个标签（相关任务自动改名）">⇄</button>
-        <button aria-label="删除标签" class="ob del" data-del-tag="${i}" title="删除标签">✕</button>
-      </div>
-      <div class="sublist" data-tag="${i}">
-        ${kids.map((k,j)=>`<div class="subrow" data-i="${i}" data-j="${j}">
-          <span class="subpre">↳</span>
-          <input type="text" class="sc-name" value="${esc(k)}" maxlength="12" placeholder="子标签名">
-          <span class="oct">${tagUseCount(p.name,k)}项</span>
-          <button aria-label="删除子标签" class="ob del" data-del-subtag="${i}:${j}" title="删除子标签">✕</button>
-        </div>`).join("")}
-        <div class="subadd">
-          <input type="text" class="sc-new-name" placeholder="新增子标签名" maxlength="12">
-          <button class="ob add" data-add-subtag="${i}" type="button">+ 子标签</button>
-        </div>
-      </div>`;
-  }).join("");
-  el.querySelectorAll(".optrow").forEach(row=>{
-    const i=+row.dataset.i;
-    row.querySelector(".oc-name").onchange=()=>renameTag(i, row.querySelector(".oc-name").value);
-    row.querySelector("[data-merge-tag]").onclick=()=>{   // R7：标签合并并入统一弹窗（预填当前标签为「并入后移除」侧）
-      openMerge("tag");
-      const p=tagTree[i]; if(!p) return;
-      const others=tagTree.filter((_,j)=>j!==i).map(x=>x.name);
-      const guess=guessNameTarget(p.name, others)||others[0]||"";
-      const ks=document.getElementById("mgKeep"), ds=document.getElementById("mgDrop");
-      if(ds) ds.value=p.name;
-      if(ks && guess) ks.value=guess;
-      mgRender();
-    };
-    row.querySelector("[data-del-tag]").onclick=()=>delTag(i);
-    const sub=row.nextElementSibling;
-    if(sub && sub.classList.contains("sublist")){
-      sub.querySelectorAll(".subrow").forEach(sr=>{
-        const j=+sr.dataset.j;
-        sr.querySelector(".sc-name").onchange=()=>renameSubTag(i,j, sr.querySelector(".sc-name").value);
-        sr.querySelector("[data-del-subtag]").onclick=()=>{ tagTree[i].children.splice(j,1); saveTags(); renderTagList(); refreshTagFilter(); };
-      });
-      const addBtn=sub.querySelector(".subadd [data-add-subtag]");
-      if(addBtn) addBtn.onclick=()=>{
-        const nm=(sub.querySelector(".sc-new-name").value||"").trim();
-        if(!nm){ toast("请输入子标签名"); return; }
-        tagTree[i].children=tagTree[i].children||[];
-        if(tagTree[i].children.includes(nm)){ toast("子标签已存在"); return; }
-        tagTree[i].children.push(nm); saveTags(); renderTagList(); refreshTagFilter();
-      };
-    }
-  });
-}
 
 /* ===== 备份 ===== */
 
@@ -10121,94 +10668,6 @@ function mediaAdoptCloud(incoming, cloudDeleted){
   };
 }
 const M_KINDS={books:{cls:"",verb:"已读",unit:"章"},tvs:{cls:"tv",verb:"已看",unit:"集"},auds:{cls:"aud",verb:"已听",unit:"集"}};
-function mCard(c, kind){
-  const k=M_KINDS[kind]||M_KINDS.books;
-  const unit = c.unit || defaultUnit(kind);
-  const isPct = !!c.percent;
-  const p = mPct(c);
-  const dn = mediaDone(c);
-  const hintTxt = isPct
-    ? (dn ? "✓ 已完成 · 100%" : (k.verb+" "+c.current+"%（剩余 "+(100-c.current)+"%）"))
-    : (dn ? ("✓ 已完成 · 共 "+c.total+" "+unit) : (k.verb+" "+c.current+" "+unit+"，剩余 "+(c.total-c.current)));
-  const pctText = isPct ? (c.current+"%") : (p+"%");
-  const metaHtml = isPct ? ("进度 <b>"+c.current+"%</b>") : ("进度 <b>"+c.current+" / "+c.total+"</b> "+unit);
-  const finBtn = dn ? '<button class="munfin" data-unfinish title="撤销完成" aria-label="撤销完成">↺ 撤销</button>'
-                    : '<button class="mfin" data-finish title="标记完成（进度直接到 100%）" aria-label="标记完成">✓ 完成</button>';
-  return `<div class="mcard ${k.cls}${dn?" done":""}" data-id="${c.id}" data-kind="${kind}">
-    <div class="mtop">
-      <div class="mname">${esc(c.title)}</div>
-      <div class="mright">
-        <span class="mbadge">${esc(c.type)}</span>${dn?'<span class="mdone">✓ 已完成</span>':''}
-        <button class="micon" data-edit title="编辑" aria-label="编辑「${esc(c.title)}」">✎</button>
-        <button class="micon" data-del title="删除" aria-label="删除「${esc(c.title)}」"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
-      </div>
-    </div>
-    <div class="mmeta">${metaHtml} · 平台 ${esc(c.platform||"—")}</div>
-    <div class="mbar"><div class="track"><i class="fill" data-w="${p}"></i></div><div class="mpct">${pctText}</div></div>
-    <div class="mhint"><span class="mhint-txt">${hintTxt}</span><span class="mstep"><button data-step="-1" title="减 1 ${isPct?'%':unit}" aria-label="「${esc(c.title)}」减 1 ${isPct?'%':unit}">−</button><button data-step="1" title="加 1 ${isPct?'%':unit}" aria-label="「${esc(c.title)}」加 1 ${isPct?'%':unit}">+</button>${finBtn}</span></div>
-  </div>`;
-}
-function mediaColHtml(arr, kind, emptyMsg){
-  const act=(arr||[]).filter(c=>!mediaDone(c));
-  const dn=(arr||[]).filter(c=>mediaDone(c));
-  if(!act.length && !dn.length) return '<div class="media-empty">'+emptyMsg+'</div>';
-  let h=act.map(c=>mCard(c,kind)).join("");
-  if(dn.length) h+='<div class="media-done-sep">✓ 已完成 '+dn.length+'</div>'+dn.map(c=>mCard(c,kind)).join("");
-  return h;
-}
-function renderMedia(){
-  // 整页视图上下文搜索：按 名称/类型/平台 过滤，与项目/清单/OKR 视图同构
-  const mq=(state.filter.q||"").trim().toLowerCase();
-  const mHit=c=> !mq || [c.title,c.type,c.platform].some(x=>String(x||"").toLowerCase().includes(mq));
-  const booksAll=media.books, tvsAll=media.tvs, audsAll=media.auds;
-  const books=booksAll.filter(mHit), tvs=tvsAll.filter(mHit), auds=audsAll.filter(mHit);
-  const avg=a=> a.length ? Math.round(a.reduce((s,x)=>s+mPct(x),0)/a.length) : 0;
-  const avgAll=avg([...booksAll,...tvsAll,...audsAll].filter(c=>!mediaDone(c)));
-  let html=`<div class="media-wrap">`;
-  if(mq){
-    const hitN=books.length+tvs.length+auds.length, allN=booksAll.length+tvsAll.length+audsAll.length;
-    html+=`<div class="media-hitbar">🔍 匹配 <b>${hitN}</b>/${allN} 项${hitN?'':'　<span class="muted">没有名称/类型/平台含「'+esc(mq)+'」的媒体</span>'}</div>`;
-  }
-  html+=`<div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:10px;"><span class="media-avg">平均进度 <b id="mediaAvgN">${avgAll}%</b></span><button class="btn btn-ghost btn-sm" id="mediaRecover">↺ 找回误删</button><button class="btn btn-pri btn-sm" id="mediaAdd">+ 添加媒体</button></div>`;
-  // 三列与上方三张统计卡同为 repeat(3,1fr)：在读 / 在追 / 在听 1:1 对齐上方标签
-  // 统计卡口径：主数字=进行中（在读/在追/在听），已完成不再计入，另以副标注「已完成 N」呈现
-  const mActive=a=>a.filter(c=>!mediaDone(c)).length, mDone=a=>a.filter(c=>mediaDone(c)).length;
-  const mStat=(act,doneN,label,color)=>`<div class="media-stat"><div class="n" style="color:${color}">${act}</div><div class="l">${label}${doneN?`<span class="msub">已完成 ${doneN}</span>`:""}</div></div>`;
-  html+=`<div class="media-stats">
-    ${mStat(mActive(books),mDone(books),"在读书籍","var(--pri)")}
-    ${mStat(mActive(tvs),mDone(tvs),"在追剧集","var(--c4)")}
-    ${mStat(mActive(auds),mDone(auds),"在听剧集","var(--c6)")}
-  </div>`;
-  html+=`<div class="media-cols">`;
-  html+=`  <div class="media-col">`;
-  html+=`    <div class="media-sec"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> 在读图书</div>`;
-  html+=`    ${mediaColHtml(books,"books", mq?'没有匹配的在读图书':'暂无在读图书，点右上方「+ 添加媒体」')}`;
-  html+=`  </div>`;
-  html+=`  <div class="media-col">`;
-  html+=`    <div class="media-sec tv"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 3l4 4 4-4"/></svg>在追剧集</div>`;
-  html+=`    ${mediaColHtml(tvs,"tvs", mq?'没有匹配的在追剧集':'暂无在追剧集')}`;
-  html+=`  </div>`;
-  html+=`  <div class="media-col">`;
-  html+=`    <div class="media-sec aud"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>在听 · 有声剧 / 播客</div>`;
-  html+=`    ${mediaColHtml(auds,"auds", mq?'没有匹配的在听条目':'暂无在听条目，点右上方「+ 添加媒体」')}`;
-  html+=`  </div>`;
-  html+=`</div>`;
-  html+=`</div>`;
-  const v=document.getElementById("view");
-  v.innerHTML=html;
-  const addBtn=v.querySelector("#mediaAdd"); if(addBtn) addBtn.onclick=()=>openMedia(null,null);
-  const recBtn=v.querySelector("#mediaRecover"); if(recBtn) recBtn.onclick=()=>openRecoverModal({focus:"media"});
-  v.querySelectorAll(".mcard").forEach(card=>{
-    card.querySelector("[data-edit]").onclick=()=>openMedia(card.dataset.id, card.dataset.kind);
-    card.querySelector("[data-del]").onclick=()=>delMedia(card.dataset.id, card.dataset.kind);
-    card.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>stepMedia(card.dataset.id, card.dataset.kind, +b.dataset.step));
-    const mfb=card.querySelector("[data-finish]"); if(mfb) mfb.onclick=()=>mediaFinish(card.dataset.id, card.dataset.kind);
-    const mub=card.querySelector("[data-unfinish]"); if(mub) mub.onclick=()=>mediaUndoFinish(card.dataset.id, card.dataset.kind);
-  });
-  requestAnimationFrame(()=>setTimeout(()=>{
-    v.querySelectorAll(".mcard .fill").forEach(f=>f.style.width=f.dataset.w+"%");
-  },60));
-}
 let mediaEditId=null, mediaEditKind=null;
 function openMedia(id, kind){
   mediaEditId=id||null; mediaEditKind=kind||null;
@@ -10418,10 +10877,6 @@ async function runGistScan(opts){
   }
 }
 let _mediaSnap="";
-function mediaFormStr(){
-  const ids=["m_type","m_title","m_current","m_total","m_platform","m_unit"];
-  return ids.map(id=>document.getElementById(id).value).join("~~|~~") + "~~|~~" + (document.getElementById("m_percent").checked?"1":"0");
-}
 
 /* ===== 待办清单 / 库存（轻量模块，与媒体/习惯平级） ===== */
 let lists = [];
@@ -10461,104 +10916,6 @@ const MIGRATIONS={
     if(typeof migrateBooksToList==="function") migrateBooksToList();
   }
 };
-function renderListsCount(){
-  const n=totalPending();
-  const el=document.getElementById("listsCountTop"); if(el) el.textContent = n>0 ? String(n) : "";
-}
-function renderLists(){
-  const v=document.getElementById("view");
-  // 解析选中清单：若 selList 失效则回退到第一个
-  if(!lists.some(l=>l.id===state.selList)) state.selList = lists[0] ? lists[0].id : null;
-  /* ：「+ 新建清单」作用于左侧清单树，放进左树头部与清单列表同处一区，
-     不再悬在整页右上角（那里看起来像作用于右侧详情）。 */
-  const head="";
-  // 左树
-  const sortOpts=`<option value="" disabled selected>⇅ 排序</option>
-      <option value="name-asc">名称 A→Z</option>
-      <option value="name-desc">名称 Z→A</option>
-      <option value="time-asc">修改时间 旧→新</option>
-      <option value="time-desc">修改时间 新→旧</option>`;
-  /* ：清单视图搜索——按清单名 / 条目内容过滤左侧清单树 */
-  const lq=(state.filter.q||"").trim().toLowerCase();
-  const treeLists = lq
-    ? lists.filter(l=>String(l.name||"").toLowerCase().includes(lq) || (l.items||[]).some(i=>String(i.text||"").toLowerCase().includes(lq)))
-    : lists;
-  /* ：搜索时若当前选中的清单不在命中结果里，自动切到第一个命中的清单，
-     否则右侧详情会停在一个与搜索无关的清单上，看起来像「搜索没生效」。 */
-  if(lq && treeLists.length && !treeLists.some(l=>l.id===state.selList)) state.selList=treeLists[0].id;
-  const sel=state.selList;
-  let tree=`<div class="lists-pane"><div class="ltree-head"><span class="tt">清单</span>
-      <button class="btn btn-pri btn-sm" id="listAdd" title="新建一个清单">+ 新建</button>
-      <select class="sortsel" id="listSort" title="排序清单">${sortOpts}</select></div><div class="ltree">`;
-  if(!lists.length){
-    tree+=`<div class="ltree-empty">还没有清单<br>点上方「+ 新建」开始</div>`;
-  } else if(!treeLists.length){
-    tree+=`<div class="ltree-empty">没有匹配「${esc(state.filter.q||"")}」的清单</div>`;
-  } else {
-    tree+=treeLists.map((l)=>{
-      const p=listPending(l);
-      const on=l.id===sel?" on":"";
-      return `<div class="ltree-item${on}" data-lid="${l.id}" draggable="true">
-        <span class="lemoji">${escNoIcon(l.emoji||LIST_DEFAULT_EMOJI)}</span>
-        <span class="lname" data-pick>${esc(l.name)}</span>
-        <span class="lcount">${p}</span>
-        <button class="lmenu" data-del title="删除清单" aria-label="删除清单「${esc(l.name)}」">✕</button>
-      </div>`;
-    }).join("");
-  }
-  tree+=`</div></div>`;
-  // 右详情
-  let detail=`<div class="lists-detail">`;
-  if(!sel){
-    detail+=emptyState("📋","还没有清单。点左栏上方「+ 新建」，例如「待读图书」「待寄明信片」。");
-  } else {
-    const l=lists.find(x=>x.id===sel);
-    const rawItems=l.items||[];
-    const dispItems=rawItems.slice(); if(l.sortItem) applyItemSort(dispItems, l.sortItem);
-    /* ：搜索命中了清单名 → 该清单下条目全部展示；否则只展示文本命中的条目 */
-    const listHit = !!lq && String(l.name||"").toLowerCase().includes(lq);
-    const items = (lq && !listHit) ? dispItems.filter(it=>String(it.text||"").toLowerCase().includes(lq)) : dispItems;
-    const p=listPending(l);
-    detail+=`<div class="lcard">
-      <div class="lhead">
-        <span class="lhead-emoji" data-emojiedit title="点此修改图标">${escNoIcon(l.emoji||LIST_DEFAULT_EMOJI)}</span><div class="lname" data-rename title="点名称可重命名">${esc(l.name)}</div>
-        <span class="lcount">待办 ${p}/${items.length}</span>
-        ${lq?`<span class="badge">🔍 匹配 ${items.length}/${dispItems.length}</span>`:""}
-        <select class="sortsel" id="itemSort" title="排序条目">${sortOpts}</select>
-        <button class="btn btn-ghost btn-sm sel-toggle" id="listSel">${selMode?'退出选择':'选择'}</button>
-        <button class="micon" data-ldel title="删除清单" aria-label="删除清单「${esc(l.name)}」"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
-      </div>`;
-    const shownItems = selMode ? items : pgSlice(items,"list-"+sel,thPgSig());
-    detail+= items.length ? shownItems.map((it)=>{
-      const late=it.due && isOverdueDate(it.due) && !it.done;
-      return `<div class="litem ${it.done?'done':''} ${late?'late':''} ${(selMode&&selIds.has(it.id))?'sel-checked':''}" data-lid="${l.id}" data-iid="${it.id}" draggable="true">
-        ${selMode?selCheckHTML(it.id):""}
-        <span class="drag-h" title="拖动排序（触屏点此上移一位）" role="button" tabindex="0" aria-label="上移一位">⠿</span>
-        <input type="checkbox" ${it.done?'checked':''} data-toggle aria-label="${esc(it.text)}">
-        <div class="ltxt" data-edit data-lid="${l.id}" data-iid="${it.id}">${esc(it.text)}</div>
-        ${it.due?`<span class="ldue ${late?'overdue':''}" data-dueedit data-lid="${l.id}" data-iid="${it.id}" title="截止日">⏰${esc(it.due)}</span>`:`<span class="lconvert" data-dueedit data-lid="${l.id}" data-iid="${it.id}" title="设置截止日">+截止</span>`}
-        <span class="lconvert" data-convert data-lid="${l.id}" data-iid="${it.id}" title="转为任务">转任务</span>
-        <div class="lx" data-del title="删除该项" role="button" tabindex="0" aria-label="删除条目「${esc(it.text)}」">✕</div>
-      </div>`;
-    }).join("") : `<div class="media-empty">暂无条目，下面添加一条</div>`;
-    if(!selMode) detail+=pgBar(items.length,"list-"+sel,()=>renderLists());
-    detail+=`<div class="ladd">
-      <input placeholder="添加一条，回车确认" data-new>
-      <button class="btn btn-ghost btn-sm" data-newadd>添加</button>
-      <button class="btn btn-ghost btn-sm" data-import title="多行批量导入">多行导入</button>
-    </div>`;
-    detail+=`<div class="limport" id="lImport" style="display:none"><textarea data-importbox maxlength="2000" placeholder="每行一条，可粘贴多行文本批量导入"></textarea><button class="btn btn-pri btn-sm" data-importgo>导入</button> <span class="hint">每行生成一条条目</span></div>`;
-    detail+=`</div>`;
-  }
-  detail+=`</div>`;
-  v.innerHTML=`<div class="lists-wrap lists-2col${selMode?' sel-mode':''}">${head}<div class="lists-body">${tree}${detail}</div></div>`;
-  pgBind();
-  if(sel){
-    const ss=v.querySelector("#itemSort"); if(ss){ const l=lists.find(x=>x.id===sel); ss.value=(l&&l.sortItem)||""; }
-  }
-  if(selMode) detail_match_selBar(v, sel);
-  // 事件绑定已收敛到 setupListsEvents()：容器级委托，只绑定一次，避免每次渲染逐行重绑
-}
 function inlineEditItem(row, lid, iid){
   const txt=row.querySelector(".ltxt[data-edit]"); if(!txt) return;
   const l=lists.find(x=>x.id===lid); if(!l) return;
@@ -10578,16 +10935,6 @@ async function dueEditItem(lid, iid){
   const v=await promptModal("格式 YYYY-MM-DD；留空表示清除截止日期",{title:"设置截止日期",value:it.due||"",placeholder:"2026-09-20"}); if(v===null) return;
   setItemDue(lid, iid, v.trim());
 }
-function detail_match_selBar(v, sel){
-  if(!sel) return;
-  const card=v.querySelector(".lcard"); if(!card) return;
-  card.insertAdjacentHTML("beforeend", selBarHTML([
-    {label:"完成",cls:"btn-pri",fn:()=>batchListDone(sel)},
-    {label:"删除",cls:"btn-danger",fn:()=>batchListDelete(sel)},
-    {label:"清空已完成",cls:"btn-ghost",fn:()=>batchListClearDone(sel)}
-  ]));
-  selBind([{label:"完成",cls:"btn-pri",fn:()=>batchListDone(sel)},{label:"删除",cls:"btn-danger",fn:()=>batchListDelete(sel)},{label:"清空已完成",cls:"btn-ghost",fn:()=>batchListClearDone(sel)}]);
-}
 async function editListEmoji(lid){
   const l=lists.find(x=>x.id===lid); if(!l) return;
   const v=await promptModal("可粘贴任意 emoji（如 📚 ✉️ 🎯），留空恢复默认",{title:"设置清单图标",value:l.emoji||"",placeholder:"📋"});
@@ -10596,27 +10943,6 @@ async function editListEmoji(lid){
   const e=v.trim().slice(0,16);   // 防滥用：限长，emoji 组合串一般远小于此
   l.emoji = (e===LIST_DEFAULT_EMOJI) ? "" : e;   // 与默认一致则不冗余存储
   l.updated=Date.now(); listsSave(); renderAll(); toast("已更新图标");
-}
-/* 刷新某清单在各处的「待办 N/M」计数（右详情头部 / 左树角标 / 顶部面板角标），不整页重绘 */
-function refreshListCounts(lid){
-  const l=lists.find(x=>x.id===lid); if(!l) return;
-  const items=l.items||[], p=listPending(l), t=items.length;
-  const v=document.getElementById("view");
-  if(v){
-    // 右详情头部：仅当当前展示的正是该清单时才改，避免误改别的清单
-    const first=v.querySelector(".lists-detail .litem[data-lid]");
-    if(first && first.getAttribute("data-lid")===lid){
-      const hc=v.querySelector(".lists-detail .lcard .lhead .lcount");
-      if(hc) hc.textContent="待办 "+p+"/"+(v.querySelectorAll(".lists-detail .litem").length||t);
-    }
-    const tree=v.querySelector('.ltree-item[data-lid="'+lid+'"] .lcount');
-    if(tree) tree.textContent=p;
-  }
-  const top=document.getElementById("listsPanelBody");
-  if(top){
-    const badge=top.querySelector('.lp-head[data-lid="'+lid+'"] .lp-badge');
-    if(badge){ badge.textContent="待办 "+p+"/"+t; badge.classList.toggle("zero", !p); }
-  }
 }
 async function editItem(lid,iid){
   const l=lists.find(x=>x.id===lid); if(!l) return;
@@ -10641,35 +10967,6 @@ document.addEventListener("keydown",function(e){
   const row=h.closest(".litem[data-iid],.lp-item[data-iid]"); if(!row) return;
   e.preventDefault(); moveItemUp(row.dataset.lid, row.dataset.iid);
 });
-/* 顶部常驻「待办清单」面板：各清单折叠，可展开勾选/添加/拖动 */
-function renderListsPanel(){
-  const el=document.getElementById("listsPanelBody"); if(!el) return;
-  if(!lists.length){ el.innerHTML='<div class="lp-empty">还没有清单。切到「清单」视图新建。</div>'; return; }
-  el.innerHTML = lists.map(l=>{
-    const items=l.items||[]; const p=listPending(l); const t=items.length;
-    const rows = items.length ? items.map((it,idx)=>`
-      <div class="lp-item ${it.done?'done':''}" data-lid="${l.id}" data-iid="${it.id}" draggable="true">
-        <span class="drag-h" title="拖动排序（触屏点此上移一位）" role="button" tabindex="0" aria-label="上移一位">⠿</span>
-        <input type="checkbox" ${it.done?'checked':''} data-toggle aria-label="${esc(it.text)}">
-        <div class="lp-txt" data-edit>${esc(it.text)}</div>
-        <button class="lp-x" data-del title="删除" aria-label="删除条目「${esc(it.text)}」">✕</button>
-      </div>`).join("") : `<div class="lp-empty">暂无条目</div>`;
-    const open = openLists[l.id];
-    return `<div class="lp-list" data-lid="${l.id}">
-      <div class="lp-head" data-lid="${l.id}">
-        <span class="lp-emoji" data-lid="${l.id}" title="点此修改图标">${escNoIcon(l.emoji||LIST_DEFAULT_EMOJI)}</span>
-        <span class="lp-name">${esc(l.name)}</span>
-        <span class="lp-badge ${p?'':'zero'}">待办 ${p}/${t}</span>
-        <button aria-label="在清单视图打开" class="lp-go" data-go="${l.id}" title="在清单视图打开">↗</button>
-      </div>
-      <div class="lp-items" ${open?'':'hidden'}>
-        ${rows}
-        <div class="lp-add"><input placeholder="添加一条" data-new><button class="btn btn-ghost btn-sm" data-newadd>添加</button></div>
-      </div>
-    </div>`;
-  }).join("");
-  // 事件绑定已收敛到 setupListsPanelEvents()：容器级委托，只绑定一次
-}
 function toggleListsAll(){
   const anyOpen = lists.some(l=>openLists[l.id]);
   lists.forEach(l=>{ openLists[l.id]=!anyOpen; });
@@ -10768,12 +11065,6 @@ let _cloudBusy=false;
 
 /* ===== 选择模式 + 批量操作（任务/清单/项目通用） ===== */
 let selMode=false, selView="", selIds=new Set();
-function updateSelCount(){ const c=document.getElementById("bbCount"); if(c) c.textContent="已选 "+selIds.size+" 项"; }
-function selBarHTML(actions){
-  return `<div class="batch-bar" id="batchBar"><span class="bb-count" id="bbCount">已选 0 项</span>` +
-    actions.map((a,i)=>`<button class="btn ${a.cls||"btn-ghost"} btn-sm" data-ba="${i}">${a.label}</button>`).join("") +
-    `<span class="bb-sp"><button class="btn btn-ghost btn-sm" id="bbCancel">取消选择</button></span></div>`;
-}
 function selBind(actions){
   const bar=document.getElementById("batchBar"); if(!bar) return;
   bar.classList.add("show");
@@ -10781,9 +11072,6 @@ function selBind(actions){
   const c=bar.querySelector("#bbCancel"); if(c) c.onclick=()=>{ selClear(); renderAll(); };
   bindSelChecks(); // 关键：绑定各视图勾选框的 onchange，否则点击「选不中」
   updateSelCount();
-}
-function selCheckHTML(id, cls){
-  return `<label class="sel-chk ${cls||""}"><input type="checkbox" data-sel="${esc(id)}" ${(selMode&&selIds.has(id))?"checked":""}></label>`;
 }
 function bindSelChecks(view, after){
   if(!selMode) return;
@@ -10884,10 +11172,6 @@ document.addEventListener("keydown",e=>{
 let undoStack=[];
 const UNDO_KEY="wb_taskhub_undo_v1";
 const UNDO_MAX=20;   // 落盘上限：刷新后仍可撤销，但不过度占用 localStorage
-/* 带「撤销」按钮的提示：语义与 Ctrl+Z 完全一致（弹栈顶快照还原），调用点须已在改数据前 snapshot()。
-   2026-10-19 审查补回：fdc6c7c 引入、9976228「删死代码4薄封装」误删定义 → 11 处调用悬空
-   （删除/批量/顺延后无 toast 反馈，handler 抛 ReferenceError 中断，主回归 runner 崩溃）。放在 SHARED 块外，注入器不覆盖。 */
-function toastUndo(msg, kind){ toast(msg, kind, 0, function(){ try{ undo(); }catch(e){ toast("撤销失败"); } }); }
 
 /* ===== 浏览器提醒 ===== */
 let remind={on:false, lead:10, reminded:[]};
@@ -11349,19 +11633,7 @@ document.addEventListener("keydown",e=>{
 
 /* ===== 明/暗主题 ===== */
 const THEME_KEY="wb_theme_v1";
-function applyTheme(t){ document.documentElement.dataset.theme=t; try{ localStorage.setItem(THEME_KEY,t); }catch(e){} }
 function toggleTheme(){ const cur=document.documentElement.dataset.theme==="dark"?"light":"dark"; applyTheme(cur); updateThemeBtn(); }
-function updateThemeBtn(){
-  const b=document.getElementById("btnTheme"); if(!b) return; b.setAttribute("aria-pressed", document.documentElement.dataset.theme==="dark"?"true":"false");
-  const sun='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
-  const contrast='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg>';
-  /* ：文本固定为「切换主题」，当前状态由图标表达（亮色态显示太阳、暗色态显示半月），
-     避免「按钮写『暗色』到底是要切到暗色还是当前是暗色」的歧义 */
-  const dark = document.documentElement.dataset.theme==="dark";
-  b.innerHTML=(dark?sun:contrast)+" 切换主题";
-  b.title = dark ? "当前：暗色主题 · 点击切换为亮色" : "当前：亮色主题 · 点击切换为暗色";
-  b.setAttribute("aria-label", b.title);
-}
 
 /* ===== 习惯打卡 ===== */
 let habits=[];
@@ -11383,89 +11655,9 @@ function openHabitStyle(){
 function closeHabitStyle(){ document.getElementById("hbStyleMask").classList.remove("show"); }
 /* 每周目标：freq==="weekly" 时 freqN 即「每周完成几次就算完成」；其余频率无目标 */
 
-function habitHeadHtml(weekDays, todayKey){
-  const WKD=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-  const cells=weekDays.map(d=>{
-    const k=ymd(d), isToday=k===todayKey;
-    return `<div class="hcell head${isToday?' today':''}" title="${d.getDate()}日 ${WKD[d.getDay()]}">${WKD[d.getDay()]}</div>`;
-  }).join("");
-  return `<div class="hrow"><div class="hinfo" style="cursor:default">习惯</div>${cells}</div>`;
-}
-function habitRowHtml(h, weekDays, todayKey, restoreMode){
-  const days=h.days||[]; const streak=habitStreak(h);
-  const paused=h.paused, archived=h.archived;
-  const targets = (paused||archived) ? [] : habitWeekTargetDays(h);
-  const goal = habitWeekGoal(h);
-  const cnt = goal>0 ? habitWeekCount(h) : 0;
-  const met = goal>0 && cnt>=goal;
-  const cells=weekDays.map(d=>{
-    const k=ymd(d), on=days.includes(k), isToday=k===todayKey;
-    const tgt=targets.includes(k);
-    return `<div class="hcell${on?' done':''}${isToday?' today':''}${tgt?' target':''}${(paused||archived)?' disabled':''}" data-id="${h.id}" data-day="${k}">${d.getDate()}</div>`;
-  }).join("");
-  const freqLabel = {daily:"每天",weekly:"每周"+(h.freqN||3)+"次",custom:"自定义",someday:"灵活"}[h.freq]||"";
-  const goalHtml = goal>0 ? `<span class="hgoal${met?' met':''}" data-hid="${h.id}" title="本周目标进度（每周 ${goal} 次就算完成）">${met?'✓达标':(cnt+'/'+goal)}</span>` : "";
-  // 提醒时间 + 逾期高亮：已到设定时间、当天是目标日、且尚未打卡
-  const now=new Date();
-  const todayDone=(h.days||[]).includes(todayKey);
-  const isTargetDay=habitNeedsReminderToday(h);
-  const late = !!(h.time) && isTargetDay && !todayDone && (now.getHours()*60+now.getMinutes()) >= (function(){ const pp=h.time.split(":"); return (+pp[0])*60+(+(pp[1]||0)); })();
-  const timeHtml = h.time ? `<span class="htime${late?' remind':''}" title="提醒时间 ${h.time}">🔔 ${h.time}</span>` : "";
-  const editBtn = restoreMode ? "" : `<span class="hedit" title="编辑习惯">✎</span>`;
-  const quick = restoreMode ? "" : `<span class="hquick" data-hq="${h.id}" title="快捷：本周目标日全完成 / 清空本周">⚡</span>`;
-  return `<div class="hrow${paused?' paused':''}${met?' weekDone':''}${late?' hlate':''}${restoreMode?' data-restore="'+h.id+'"':''}" data-hrow="${h.id}">
-    <div class="hinfo"${restoreMode?"":' data-edit="'+h.id+'"'}>
-      <div class="htop"><span class="hemoji">${h.emoji||"🌟"}</span><span class="hname">${esc(h.name)}</span>${editBtn}</div>
-      <div class="hbottom"><span class="hfreq">${freqLabel}</span>${timeHtml}${goalHtml}<span class="hstreak">${archived?"已归档":(paused?"已暂停":streak+"天")}</span>${quick}</div>
-    </div>${cells}</div>`;
-}
-function renderHabitPanel(){
-  const el=document.getElementById("habitPanel"); if(!el) return;
-  const weekDays=habitWeekDays(), todayKey=ymd(startOfDay(new Date()));
-  const active=habits.filter(h=>!h.archived);
-  if(!active.length){ el.innerHTML=emptyState("🌱","点「+ 添加」建立习惯打卡。"); return; }
-  let html=habitHeadHtml(weekDays,todayKey);
-  for(const h of active) html+=habitRowHtml(h,weekDays,todayKey,false);
-  el.innerHTML=html;
-  el.querySelectorAll(".hcell:not(.head)").forEach(c=>c.onclick=()=>toggleHabitDay(c.dataset.id,c.dataset.day));
-  el.querySelectorAll(".hinfo[data-edit]").forEach(i=>i.onclick=()=>openHabit(i.dataset.edit));
-  el.querySelectorAll(".hquick").forEach(q=>q.onclick=e=>{ e.stopPropagation(); habitQuick(q.dataset.hq); });
-}
-function habitHeatmapHtml(){
-  const active=habits.filter(h=>!h.archived && !h.paused);
-  if(!active.length) return "";
-  const today=startOfDay(new Date());
-  const WDL=["一","二","三","四","五","六","日"];
-  const wd=WDL.map(w=>`<div class="hm-wd">${w}</div>`).join("");
-  let h='<div class="review-notes"><h3 style="display:block;margin:2px 0 8px;font-size:14px;font-weight:700">最近 4 周打卡热力图</h3>';
-  for(const hab of active){
-    const days=hab.days||[];
-    const start=addDays(today,-27);
-    let cells="";
-    for(let i=0;i<28;i++){ const d=addDays(start,i); const k=ymd(d); const on=days.includes(k); const isT=sameDay(d,today); cells+=`<div class="hm${on?' on':''}${isT?' today':''}" title="${k}${on?' ✓':''}"></div>`; }
-    const freqLabel={daily:"每天",weekly:"每周"+(hab.freqN||3)+"次 · 本周"+habitWeekCount(hab)+"/"+(hab.freqN||3),custom:"自定义",someday:"灵活"}[hab.freq]||"";
-    h+=`<div class="hm-card">
-      <div class="hm-head"><span class="hm-emoji">${esc(hab.emoji||'🌟')}</span><span class="hm-name">${esc(hab.name)}</span><span class="hm-freq">${freqLabel}</span></div>
-      <div class="heatmap">${wd}${cells}</div>
-    </div>`;
-  }
-  h+='<div class="heat-legend">每一格 = 一天，绿色表示当天已打卡；带蓝框的是今天</div></div>';
-  return h;
-}
-/* 统计 / 习惯 / 回顾 这类聚合视图没有可搜索的条目：有关键词时明确提示「已忽略」并给清除入口，
-   避免用户在搜索框输入后界面毫无反应、以为功能坏了。 */
-function noSearchNote(viewName){
-  const q=(state.filter.q||"").trim();
-  return q ? `<div class="hitbar muted-bar">🔍 「${esc(q)}」在本视图（${esc(viewName)}）没有可匹配的条目，已忽略<button class="hb-clear" id="nsClear">清除</button></div>` : "";
-}
 function bindNoSearchNote(root){
   const b=root.querySelector("#nsClear"); if(!b) return;
   b.onclick=()=>{ const c=document.getElementById("fClear"); if(c) c.click(); };
-}
-/* ：习惯视图工具条与空态原先各写一份（按钮组 HTML 复制两遍、绑定逻辑复制两遍），
-   抽成统一生成 + 统一绑定，改按钮时只需改一处。 */
-function habitActionsHtml(){
-  return '<div class="habit-actions"><button class="btn btn-ghost btn-sm" id="habitBackfill" title="补打或取消过去某段日期的打卡">📅 补打/取消</button><button class="btn btn-ghost btn-sm" id="habitStyle" title="自定义打卡格子颜色/字体">🎨 打卡样式</button><button class="btn btn-pri btn-sm" id="habitAdd">+ 添加习惯</button></div>';
 }
 function bindHabitActions(root){
   if(!root) return;
@@ -11475,16 +11667,6 @@ function bindHabitActions(root){
 }
 /* 补打 / 取消 多天卡：选日期范围 + 习惯，把漏掉的打卡一次性补上，或撤销误打的卡 */
 let bfMode="add";
-function setBfMode(mode){
-  bfMode=mode;
-  const isAdd = mode==="add";
-  const add=document.getElementById("bfModeAdd"), rm=document.getElementById("bfModeRemove");
-  add.classList.toggle("on", isAdd); rm.classList.toggle("on", !isAdd);
-  document.getElementById("bfHint").textContent = isAdd
-    ? "选一段日期范围，把漏掉的打卡一次性补上。只做「补」，不会取消已有的打卡。"
-    : "选一段日期范围，把这段时间内误打的卡一次性取消。只做「取消」，不会新增打卡。";
-  document.getElementById("bfConfirm").textContent = isAdd ? "补打" : "取消打卡";
-}
 function openHabitBackfill(){
   const mask=document.getElementById("habitBackfillMask"); if(!mask) return;
   setBfMode("add");
@@ -11501,66 +11683,6 @@ function openHabitBackfill(){
   setTimeout(()=>s.focus(),50);
 }
 function closeHabitBackfill(){ const m=document.getElementById("habitBackfillMask"); if(m) m.classList.remove("show"); }
-function renderHabit(){
-  const v=document.getElementById("view");
-  const weekDays=habitWeekDays(), todayKey=ymd(startOfDay(new Date()));
-  const active=habits.filter(h=>!h.archived);
-  const archived=habits.filter(h=>h.archived);
-  let html='<div class="media-wrap">';
-  html+=habitActionsHtml();
-  html+=noSearchNote("习惯");
-  if(!habits.length){
-    v.innerHTML='<div class="media-wrap">'+habitActionsHtml()+noSearchNote("习惯")+'<div class="empty">还没有习惯，点右上角「+ 添加习惯」开始打卡 🌱<br><small style="color:var(--sub);font-weight:400;display:inline-block;margin-top:6px;">每天重复的任务显示在「月/周/日」视图里，用 task.recurrence 管理也算一种习惯（两者平行数据模型）。</small></div></div>';
-    bindHabitActions(v); bindNoSearchNote(v); return;
-  }
-  html+='<div class="habit-layout">';
-  html+='<div class="habit-main">';
-  html+='<h3 style="margin:2px 0 8px">进行中（'+active.length+'）</h3>';
-  html+='<div class="habit-grid">'+habitHeadHtml(weekDays,todayKey);
-  for(const h of active) html+=habitRowHtml(h,weekDays,todayKey,false);
-  html+='</div>';
-  if(archived.length){
-    html+='<h3 style="margin:18px 0 8px">已归档（'+archived.length+'）· 点整行可恢复</h3>';
-    html+='<div class="habit-grid">'+habitHeadHtml(weekDays,todayKey);
-    for(const h of archived) html+=habitRowHtml(h,weekDays,todayKey,true);
-    html+='</div>';
-  }
-  html+='</div>';
-  html+='<div class="habit-side">'+habitHeatmapHtml()+'</div>';
-  html+='</div>';
-  html+='</div>';
-  v.innerHTML=html;
-  bindHabitActions(v); bindNoSearchNote(v);
-  v.querySelectorAll(".hcell:not(.head)").forEach(c=>c.onclick=()=>toggleHabitDay(c.dataset.id,c.dataset.day));
-  v.querySelectorAll(".hinfo[data-edit]").forEach(i=>i.onclick=()=>openHabit(i.dataset.edit));
-  v.querySelectorAll(".hquick").forEach(q=>q.onclick=e=>{ e.stopPropagation(); habitQuick(q.dataset.hq); });
-  v.querySelectorAll(".hrow[data-restore]").forEach(r=>r.onclick=()=>unarchiveHabit(r.dataset.restore));
-}
-function patchHabitCell(id, day, done){
-  const cells=[];
-  const top=document.getElementById("habitPanel");
-  if(top){ const c=top.querySelector('.hcell[data-id="'+id+'"][data-day="'+day+'"]'); if(c) cells.push(c); }
-  document.querySelectorAll('#view .hcell[data-id="'+id+'"][data-day="'+day+'"]').forEach(c=>cells.push(c));
-  for(const c of cells){
-    c.classList.toggle("done", done);
-    if(done){ c.classList.add("pop"); setTimeout(()=>c.classList.remove("pop"), 280); }
-  }
-}
-/* 局部刷新某习惯的「本周 X/N」进度与达标状态（不整面板重建） */
-function refreshHabitProgress(id){
-  const h=habits.find(x=>x.id===id); if(!h) return;
-  const goal=habitWeekGoal(h); if(goal<=0) return;
-  const cnt=habitWeekCount(h), met=cnt>=goal;
-  for(const root of [document.getElementById("habitPanel"), document.getElementById("view")]){
-    if(!root) continue;
-    root.querySelectorAll('.hgoal[data-hid="'+id+'"]').forEach(el=>{
-      el.textContent = met ? "✓达标" : (cnt+"/"+goal);
-      el.classList.toggle("met", met);
-    });
-    const row=root.querySelector('.hrow[data-hrow="'+id+'"]');
-    if(row) row.classList.toggle("weekDone", met);
-  }
-}
 let habitEditId=null;
 function openHabit(id){
   habitEditId=id||null;
