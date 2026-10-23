@@ -3114,8 +3114,514 @@ function escIcon(s){ return iconify(esc(s)); }
  */
 
 /* ===== L1 Util/Date · P1-9 分层（2026-10-23）===== */
+function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim()||"#9aa0ab"; }
+
+// hex → rgba，用于 badge 淡色底
+function hexA(hex, a){
+  const m=/^#?([0-9a-f]{6})$/i.exec(String(hex||"").trim());
+  if(!m) return "rgba(154,160,171,"+a+")";
+  const v=parseInt(m[1],16);
+  return "rgba("+((v>>16)&255)+","+((v>>8)&255)+","+(v&255)+","+a+")";
+}
+
+function ymd(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+
+function parseLocal(s){ // "YYYY-MM-DDTHH:MM" / "YYYY-MM-DD" / Date
+  if(!s) return new Date();
+  if(s instanceof Date) return new Date(s.getTime());
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if(m) return new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5]);
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return new Date(+m[1],+m[2]-1,+m[3]); // 纯日期按本地午夜解析，避免 UTC 偏移一天
+  return new Date(s);
+}
+
+function startOfDay(d){const x=new Date(d);x.setHours(0,0,0,0);return x;}
+
+function endOfDay(d){const x=new Date(d);x.setHours(23,59,59,999);return x;}
+
+function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x;}
+
+function addMonths(d,n){const x=new Date(d);x.setMonth(x.getMonth()+n);return x;}
+
+function sameDay(a,b){return ymd(a)===ymd(b);}
+
+function fmtTime(d){return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
+
+function fmtRange(s,e){return fmtTime(s)+"–"+fmtTime(e);}
+
+function toStr(d){ return ymd(d)+"T"+fmtTime(d); }
+
+function pad2(n){ return String(n).padStart(2,"0"); }
+
+/* 跨度是否为「仅 1 天」——重复任务会被聚合成跨天长条，不受影响 */
+function isSingleDayRow(r){ return sameDay(r.min, r.max); }
+
+function ganttRangeDays(){
+  const cur=startOfDay(state.cur); const y=cur.getFullYear(), m=cur.getMonth();
+  if(ganttRange==="quarter"){ const q=Math.floor(m/3)*3; return rangeDays(new Date(y,q,1), new Date(y,q+3,0)); }
+  if(ganttRange==="3m"){ return rangeDays(addDays(new Date(y,m,1),-15), addDays(new Date(y,m,1),75)); }
+  return rangeDays(new Date(y,m,1), new Date(y,m+1,0));
+}
+
+function rangeDays(a,b){ const out=[]; let c=startOfDay(a); const e=startOfDay(b); for(;c<=e;c=addDays(c,1)) out.push(new Date(c)); return out; }
+
+function icsEsc(x){ return String(x==null?"":x).replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\r?\n/g,"\\n"); }
+
+function icsStamp(d){ const p=n=>String(n).padStart(2,"0"); return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"T"+p(d.getHours())+p(d.getMinutes())+"00"; }
+
+function weekKey(d){ const x=startOfDay(d); const dw=(x.getDay()+6)%7; const mon=addDays(x,-dw); return ymd(mon); }
+
+function newId(p){ return (p||"t")+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+function parseHex(v){ if(!v) return null; v=(v||"").trim(); if(v[0]!=="#") v="#"+v; return /^#([0-9a-fA-F]{6})$/.test(v) ? v.toUpperCase() : null; }
+
+function defaultUnit(kind){ const k=M_KINDS[kind]||M_KINDS.books; return k.unit; }
+
+function schemaVersionNow(){ try{ return +localStorage.getItem(SCHEMA_KEY)||1; }catch(e){ return 1; } }
+
+function escNoIcon(s){return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}   // 仅转义 HTML，不转 SVG 图标：清单图标统一按原生 emoji 渲染，避免「命中 iconify 映射表的 emoji 变小灰图标、其余保持彩色」导致风格不一致
+
+/* R4 移植（对齐明信片 4316）：withBusy 退化为「纯 UI 反馈 + 收尾补传」，**不再自己置 _cloudBusy** ——
+   锁已下沉到 cloudUpload / cloudStartupPull / cloudDownload 内部。原先两层都置锁，被包裹的
+   cloudUpload 自锁化后会在第一行被 withBusy 的锁挡掉（手动上传点按钮没反应）。 */
+async function withBusy(btn, fn){
+  if(_cloudBusy||_pullBusy){ toast("云同步正在进行中，请稍候","warn"); return; }
+  const b=(typeof btn==="string"?document.getElementById(btn):btn);
+  if(b){ try{ b.disabled=true; b.classList.add("is-busy"); b.setAttribute("aria-busy","true"); }catch(_){} }
+  try{ return await fn(); }
+  finally{
+    if(b){ try{ b.disabled=false; b.classList.remove("is-busy"); b.removeAttribute("aria-busy"); }catch(_){} }
+    /* 补传：这一轮同步期间被自锁挡下、置了 _pendingUpload 的改动，此刻补上（对齐明信片 4334） */
+    if(_pendingUpload){ _pendingUpload=false; cloudAutoUpload(); }
+  }
+}
+
+function parseDateVal(v){
+  if(!v) return null;
+  const m=String(v).trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(!m) return null;
+  const y=+m[1], mo=+m[2], d=+m[3];
+  if(mo<1||mo>12||d<1||d>31) return null;
+  const dt=new Date(y, mo-1, d);
+  if(dt.getFullYear()!==y || dt.getMonth()!==mo-1 || dt.getDate()!==d) return null;  // 防 Date 进位（2026-02-30→03-02）
+  return startOfDay(dt);
+}
 
 /* ===== L2 Store · P1-9 分层（2026-10-23）===== */
+function catsLoad(){ try{ const r=localStorage.getItem(CATS_KEY); if(r){ const a=JSON.parse(r); if(Array.isArray(a)&&a.length) cats=a.filter(x=>x&&x.name).map(c=>({name:c.name,color:c.color||"#9aa0ab",children:Array.isArray(c.children)?c.children:[]})); } }catch(e){} }
+
+function prisLoad(){ try{ const r=localStorage.getItem(PRIS_KEY); if(r){ const a=JSON.parse(r); if(Array.isArray(a)&&a.length) pris=a.filter(x=>x&&x.name); } }catch(e){} }
+
+function catsSave(){ try{ localStorage.setItem(CATS_KEY, JSON.stringify(cats)); }catch(e){} markLocalSave(); }
+
+function prisSave(){ try{ localStorage.setItem(PRIS_KEY, JSON.stringify(pris)); }catch(e){} markLocalSave(); }
+
+function loadTags(){ try{ const r=localStorage.getItem(TAGS_KEY); if(r){ const a=JSON.parse(r); if(Array.isArray(a)) tagTree=a.filter(x=>x&&x.name).map(x=>({name:x.name, children:Array.isArray(x.children)?x.children.filter(Boolean):[]})); } }catch(e){} }
+
+function saveTags(){ try{ localStorage.setItem(TAGS_KEY, JSON.stringify(tagTree)); }catch(e){} markLocalSave(); }
+
+function catColor(n){
+  if(n && n.indexOf("/")>0){
+    const p=n.slice(0,n.indexOf("/")), c=n.slice(n.indexOf("/")+1);
+    const pc=cats.find(x=>x.name===p);
+    if(pc){ const ch=(pc.children||[]).find(x=>x.name===c); return ch?ch.color:pc.color; }
+  }
+  const c=cats.find(x=>x.name===n); return c?c.color:"#9aa0ab";
+}
+
+// 分类两级下拉：父本身可选 + 有子分类时用 <optgroup> 列子项（value=父/子）
+function catHasValue(v){
+  if(!v) return false;
+  if(catNames().includes(v)) return true;
+  const i=v.indexOf("/"); if(i>0){ const p=v.slice(0,i), c=v.slice(i+1); const pc=cats.find(x=>x.name===p); return !!(pc && (pc.children||[]).some(x=>x.name===c)); }
+  return false;
+}
+
+function priColor(n){ const p=pris.find(x=>x.name===n); return p?p.color:"#9aa0ab"; }
+
+function catNames(){ return cats.map(c=>c.name); }
+
+function priNames(){ return pris.map(p=>p.name); }
+
+function defCat(){ return cats.length?cats[0].name:"其他"; }
+
+function defPri(){ return pris.length?(pris[Math.min(1,pris.length-1)].name):"P1"; }
+
+function setLocalSaveAt(t){ try{ localStorage.setItem("wb_taskhub_local_savedAt_v1", String(t)); }catch(e){} }
+
+function markLocalSave(){ _dataVer++; if(_markSave) setLocalSaveAt(Date.now()); }
+
+function storageSetSafe(k,v){
+  try{ localStorage.setItem(k,v); if(_quotaFull) _quotaFull=false; return true; }
+  catch(e){
+    const quota = !!e && (e.name==="QuotaExceededError" || e.name==="NS_ERROR_DOM_QUOTA_REACHED" || e.code===22 || e.code===1014);
+    const now=Date.now();
+    if(now-_quotaWarnAtT>30000){
+      _quotaWarnAtT=now;
+      if(quota) _quotaFull=true;   // O11-2：供数据健康面板展示「存储已满」
+      const msg = quota
+        ? "本地存储空间已满，本次修改没能写入。请先删除部分大文件记录（如媒体/清单里的图片）或导出备份后清理旧数据。"
+        : "本地存储写入失败，本次修改可能不会被保留。";
+      try{ toast(msg,"danger"); }catch(_){ try{ alert(msg); }catch(__){} }
+      if(DEBUG)console.error("[storage] setItem failed:", k, e);
+    }
+    return false;
+  }
+}
+
+/* 去重指纹：只存「长度 + djb2 哈希」，不再把完整 JSON 串另写一份（旧实现等于磁盘上多一份全量） */
+function ringFingerprint(s){ let h=5381; for(let i=0;i<s.length;i++){ h=((h<<5)+h+s.charCodeAt(i))|0; } return s.length.toString(36)+"."+(h>>>0).toString(36); }
+
+function fullRingSnapshot(){ return {t:Date.now(), tasks:state.tasks||[], media:media||{}, habits:habits||[], lists:lists||[], projects:state.projects||[], okrs:state.okrs||[], tagTree:tagTree||[]}; }
+
+function fullRingPush(){
+  try{
+    const snap=fullRingSnapshot();
+    const cur=JSON.stringify(snap);
+    const fp=ringFingerprint(cur);
+    if(fp===localStorage.getItem(FULL_RING_LAST)) return;   // 内容无变化不重复留档
+    let ring=[]; try{ ring=JSON.parse(localStorage.getItem(FULL_RING_KEY)||"[]"); }catch(e){ ring=[]; }
+    if(!Array.isArray(ring)) ring=[];
+    ring.push(snap);
+    while(ring.length>FULL_RING_MAX) ring.shift();
+    try{ localStorage.setItem(FULL_RING_KEY, JSON.stringify(ring)); localStorage.setItem(FULL_RING_LAST, fp); }
+    catch(e){ try{ const c2=JSON.stringify(ring.slice(-2)); localStorage.setItem(FULL_RING_KEY,c2); localStorage.setItem(FULL_RING_LAST,fp); }
+      catch(e2){ try{ localStorage.setItem(FULL_RING_KEY, JSON.stringify(ring.slice(-1))); }catch(e3){} } }
+  }catch(e){}
+}
+
+function fullRingLoad(){ try{ const a=JSON.parse(localStorage.getItem(FULL_RING_KEY)||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+
+function ringTimeStr(ms){ const d=new Date(ms||Date.now()); const p=n=>String(n).padStart(2,"0");
+  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes()); }
+
+async function restoreFullBackup(idx){
+  const ring=fullRingLoad(); const sn=ring[idx];
+  if(!sn){ toast("该备份已不存在"); return; }
+  if(!(await confirmDialog("将用 "+ringTimeStr(sn.t)+" 的自动备份覆盖当前全部数据（任务 / 媒体 / 习惯 / 清单 / 项目 / 目标）。\n当前状态会先存入撤销栈，可用 Ctrl+Z 回退。确认恢复？",{ok:"恢复此备份",danger:true}))){ toast("已取消恢复"); return; }
+  snapshot();
+  state.tasks=(sn.tasks||[]).map(t=>Object.assign({status:"todo",doneDates:[],recurrence:{freq:"none"}},t));
+  media=Object.assign({books:[],tvs:[],auds:[]},sn.media||{});
+  habits=sn.habits||[]; lists=sn.lists||[];
+  state.projects=sn.projects||[]; state.okrs=sn.okrs||[];
+  if(Array.isArray(sn.tagTree)) tagTree=sn.tagTree;
+  /* P1-8：恢复不清墓碑 → 刚恢复回来的任务会被下一轮云同步按墓碑 ts>t.updated 再删一次
+     （A 设备删任务写墓碑并同步，B 设备用备份恢复 → 本地墓碑仍在 → 恢复项再次消失） */
+  { const alive=new Set((state.tasks||[]).map(t=>String(t&&t.id)));
+    const before=deletedIds.length;
+    deletedIds=deletedIds.filter(d=>!alive.has(String((d&&d.id)||d)));
+    if(deletedIds.length!==before) deletedIdsSave(); }
+  try{ save(); }catch(e){}
+  try{ mediaSave(); }catch(e){}
+  try{ if(typeof listsSave==="function") listsSave(); }catch(e){}
+  try{ if(typeof habitSave==="function") habitSave(); }catch(e){}
+  try{ if(typeof projectsSave==="function") projectsSave(); }catch(e){}
+  try{ if(typeof okrsSave==="function") okrsSave(); }catch(e){}
+  renderAll(); renderFullBackup(); toast("已恢复自动备份 ✓");
+}
+
+/* P2-5：数据版本号 —— save()/saveQuiet()/saveNow() 每次落盘自增。snapshot() 用它做短路：
+   自上次快照以来版本未变 ⇒ 数据必未变 ⇒ 跳过 16 次全量序列化（8 深克隆 + 8 stringify 比较）。
+   S1 修正（2026-10-23）：原「前提：所有数据变更都走这三个保存函数」不成立——各域 saver 只走
+   markLocalSave → 快照被误跳过。现自增下沉到 markLocalSave()，声明与自增见其定义处（3768 一带）。 */
+function save(okMsg){
+  _dataVer++;   // P2-5：数据版本号自增（变更已发生，落盘只是延迟 400ms）
+  if(typeof okMsg==="string" && okMsg) _pendingSaveMsg=okMsg;
+  // 节流：连续多次保存合并为一次 localStorage 写入，降低大库主线程开销（B2）
+  if(_saveTimer) clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(()=>{
+    _saveTimer=null;
+    pruneTaskHistory();
+    const ok=storageSetSafe(KEY, JSON.stringify(state.tasks));
+    if(_pendingSaveMsg!==null){
+      const msg=_pendingSaveMsg; _pendingSaveMsg=null;
+      if(ok) toast(msg);        // 只有真的写成功才报成功
+    }
+    markLocalSave(); maybeBackupHint();
+    fullRingPush();   // M3：每次落盘顺手留一份全量快照
+  }, 400);
+  cloudAutoUpload();
+  // 有挂起文案时返回哨兵，让 saveAndToast 知道「提示由我稍后发」，避免与它重复弹一次
+  return (_pendingSaveMsg!==null) ? "__pending__" : undefined;
+}
+
+// 同步落盘：关闭页面 / 切后台 / 破坏性操作前用，返回真实写入结果（B2）
+function saveNow(){
+  _dataVer++;   // P2-5：与 save() 同口径（save 内部延迟落盘不影响版本号时机）
+  if(_saveTimer){ clearTimeout(_saveTimer); _saveTimer=null; }
+  pruneTaskHistory();
+  const ok=storageSetSafe(KEY, JSON.stringify(state.tasks));
+  if(_pendingSaveMsg!==null){
+    const msg=_pendingSaveMsg; _pendingSaveMsg=null;
+    if(ok) toast(msg);
+  }
+  markLocalSave();
+  return ok;
+}
+
+function deletedIdsLoad(){ try{ const r=localStorage.getItem("wb_taskhub_deleted_v1"); if(r){ const a=JSON.parse(r)||[]; deletedIds=a.map(normTomb); } }catch(e){ deletedIds=[]; } }
+
+function deletedIdsSave(){ try{ localStorage.setItem("wb_taskhub_deleted_v1", JSON.stringify(deletedIds)); }catch(e){} }
+
+function trashLoad(){ try{ const a=JSON.parse(localStorage.getItem(TRASH_KEY)||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+
+function trashSave(a){ try{ localStorage.setItem(TRASH_KEY, JSON.stringify(a)); }catch(e){} }
+
+function pushTrash(t, extra){
+  if(!t||t.id==null) return;
+  try{
+    let a=trashLoad().filter(x=>x && String((x.task&&x.task.id)||"")!==String(t.id));
+    const rec={task:JSON.parse(JSON.stringify(t)), at:Date.now()};
+    if(extra) Object.assign(rec, extra);          // 例：{hist:[...]} 一并存被清掉的完成流水
+    a.push(rec);
+    while(a.length>TRASH_MAX) a.shift();
+    trashSave(a);
+  }catch(e){}
+}
+
+function restoreTrash(idx){
+  const a=trashLoad(); const it=a[idx]; if(!it||!it.task) return;
+  if(state.tasks.some(x=>String(x.id)===String(it.task.id))){ toast("该任务已在列表中，无需恢复"); return; }
+  state.tasks.push(it.task);
+  restoreHistory(it.hist);   // 删除时一并清掉的完成流水，恢复任务时还回来
+  deletedIds=deletedIds.filter(d=>String(d.id||d)!==String(it.task.id)); deletedIdsSave();
+  a.splice(idx,1); trashSave(a);
+  saveAndToast("已恢复："+(it.task.title||"任务")); renderAll(); renderTrash();
+}
+
+function dropTrash(idx){ const a=trashLoad(); if(!a[idx]) return; a.splice(idx,1); trashSave(a); renderTrash(); }
+
+async function clearTrash(){
+  const a=trashLoad(); if(!a.length){ toast("回收站是空的"); return; }
+  if(!(await confirmDialog("清空回收站？"+a.length+" 条已删除任务将彻底无法恢复。",{danger:true}))) return;
+  trashSave([]); renderTrash(); toast("回收站已清空");
+}
+
+// 轻量落盘：写 localStorage + 刷新 savedAt，但不触发 cloudAutoUpload（合并后保存用，避免「合并→保存→自动上传→再合并」死循环）
+function saveQuiet(){ _dataVer++; pruneTaskHistory(); try{ localStorage.setItem(KEY, JSON.stringify(state.tasks)); }catch(e){} markLocalSave(); }
+
+function flushSave(){ // 关闭/切后台前强制落盘，避免 400ms 内未写入丢失（B2）
+  if(_saveTimer || _pendingSaveMsg!==null){ saveNow(); }
+  // 关闭/切后台前，把待上传的云同步也立即触发（best-effort），避免 1.5s 防抖内未上传而丢数据（A）
+  if(_upTimer){ clearTimeout(_upTimer); _upTimer=null; if(cloud.auto && cloud.token && cloud.gist && _bootSyncAllowed && !_cloudBusy) cloudUpload(true); }
+}
+
+function load(){
+  let has=false;
+  try{ const raw=localStorage.getItem(KEY); if(raw){ const v=JSON.parse(raw); if(Array.isArray(v)){ state.tasks=v; has=true; } } }catch(e){}
+  projectsLoad(); okrsLoad(); annivLoad();   // 有任务时也会提前 return，必须在此无条件加载项目/目标/纪念日，否则刷新即丢失
+  return has;
+}
+
+function annivLoad(){ try{ const r=localStorage.getItem(ANNIV_KEY); if(r){ const a=JSON.parse(r); if(Array.isArray(a)) state.anniv=a; } }catch(e){} if(!Array.isArray(state.anniv)) state.anniv=[]; }
+
+function annivSave(){ if(!Array.isArray(state.anniv)) state.anniv=[]; try{ localStorage.setItem(ANNIV_KEY, JSON.stringify(state.anniv)); }catch(e){} markLocalSave(); cloudAutoUpload(); }
+
+function saveWidgets(){ _dataVer++; try{ localStorage.setItem(WKEY, JSON.stringify(widgetCfg)); }catch(e){} }   /* S1：不走 markLocalSave 的裸写域，单独自增 */
+
+function currentWids(){ return AUTO_WIDS.concat(widgetCfg.custom.map(w=>"c:"+w.id)); }
+
+function syncOrder(){
+  const cur=currentWids();
+  cur.forEach(w=>{ if(!widgetCfg.order.includes(w)) widgetCfg.order.push(w); });
+  widgetCfg.order=widgetCfg.order.filter(w=> cur.includes(w) || widgetCfg.hidden.includes(w));
+}
+
+function saveWidgetModal(){
+  const type=document.getElementById("wType").value, title=document.getElementById("wTitle").value.trim(), text=document.getElementById("wText").value.trim(), url=document.getElementById("wUrl").value.trim(), num=document.getElementById("wNum").value.trim();
+  if(!title){ toast("请填写标题"); return; }
+  if(editingWid){ const id=editingWid.slice(2); const w=widgetCfg.custom.find(x=>x.id===id); if(w){ w.type=type; w.title=title; w.text=text; w.url=url; w.num=num; } }
+  else { widgetCfg.custom.push({id:"w"+Date.now().toString(36),type,title,text,url,num}); }
+  syncOrder(); saveWidgets(); applyWidgetLayout(); closeWidgetModal(); toast(editingWid?"已更新卡片":"已添加卡片");
+}
+
+function todayUiGet(k, dflt){ try{ const o=JSON.parse(localStorage.getItem(TODAY_UI_KEY)||"{}"); return (o&&k in o)?o[k]:dflt; }catch(e){ return dflt; } }
+
+function todayUiSet(k, v){ try{ const o=JSON.parse(localStorage.getItem(TODAY_UI_KEY)||"{}"); o[k]=v; localStorage.setItem(TODAY_UI_KEY, JSON.stringify(o)); }catch(e){} }
+
+function persistSubOpen(){ try{ localStorage.setItem("wb_today_subopen_v1", JSON.stringify([...subOpenIds])); }catch(_){} }
+
+function loadStats(){ try{ const r=localStorage.getItem(STATS_KEY); if(r){ const o=JSON.parse(r); if(o&&Array.isArray(o.history)) stats.history=o.history; } }catch(e){} }
+
+function saveStats(){ try{ localStorage.setItem(STATS_KEY, JSON.stringify(stats)); }catch(e){} markLocalSave(); }
+
+function saveGanttPrefs(){ try{ localStorage.setItem("wb_taskhub_gantt_v1", JSON.stringify({hideSingle:ganttHideSingle, sort:ganttSort, groups:Array.from(ganttGroupCollapsed)})); }catch(e){} }
+
+function saveUIPrefs(){ try{ localStorage.setItem("wb_taskhub_ui_v1", JSON.stringify(uiPrefs)); }catch(e){} }
+
+function reviewNotesGet(wk){ try{ return JSON.parse(localStorage.getItem("wb_taskhub_review_notes_v1")||"{}")[wk]||{summary:"",next:""}; }catch(e){ return {summary:"",next:""}; } }
+
+function reviewNotesSet(wk,summary,next){
+  if(_reviewNotesTimer) clearTimeout(_reviewNotesTimer);
+  _reviewNotesTimer=setTimeout(function(){
+    _reviewNotesTimer=null;
+    let all={}; try{all=JSON.parse(localStorage.getItem("wb_taskhub_review_notes_v1")||"{}");}catch(e){}
+    all[wk]={summary,next};
+    storageSetSafe("wb_taskhub_review_notes_v1",JSON.stringify(all));
+  },300);
+}
+
+function reviewSnapsGet(){ try{ return JSON.parse(localStorage.getItem("wb_taskhub_review_snaps_v1")||"{}"); }catch(e){ return {}; } }
+
+function reviewSnapSave(wk,data){ const all=reviewSnapsGet(); all[wk]=data; storageSetSafe("wb_taskhub_review_snaps_v1",JSON.stringify(all)); }   // P1-8：原裸 setItem 配额满时未捕获异常零反馈
+
+function reviewTplGet(){ try{ return JSON.parse(localStorage.getItem("wb_taskhub_review_tpl_v1")||"[]"); }catch(e){ return []; } }
+
+function reviewTplSet(arr){ storageSetSafe("wb_taskhub_review_tpl_v1",JSON.stringify(arr)); }   // P1-8：原裸 setItem 配额满时未捕获异常零反馈
+
+function projSave(){
+  const name=document.getElementById("pj_name").value.trim();
+  if(!name){ toast("请填写项目名"); return; }
+  const id=document.getElementById("pj_id").value;
+  const msRaw=document.getElementById("pj_ms").value.trim();
+  const milestones=(msRaw?msRaw.split(/\r?\n/).map(s=>s.trim()).filter(Boolean).map(line=>{ const sp=line.split(/\s+/); const date=sp[0]||""; const label=sp.slice(1).join(" ").trim(); return {date,label}; }).filter(m=>m.date):[]);
+  const data={ name, desc:document.getElementById("pj_desc").value, color:document.getElementById("pj_color").value,
+    krIds:Array.from(document.querySelectorAll("#pj_kr_list input:checked")).map(c=>c.value), status:document.getElementById("pj_status").value,
+    start:document.getElementById("pj_start").value||"", end:document.getElementById("pj_end").value||"", milestones };
+  if(id){ const p=state.projects.find(x=>x.id===id); Object.assign(p,data); }
+  else { state.projects.push(Object.assign({id:"p"+Date.now().toString(36)},data)); }
+  projectsSave(); document.getElementById("projMask").classList.remove("show"); renderAll(); toast("已保存项目");
+}
+
+function projectsSave(){ try{ localStorage.setItem("wb_taskhub_projects_v1", JSON.stringify(state.projects)); }catch(e){} markLocalSave(); }
+
+function okrsSave(){ try{ localStorage.setItem("wb_taskhub_okrs_v1", JSON.stringify(state.okrs)); }catch(e){} recordOkrTrend(); markLocalSave(); }
+
+function projectsLoad(){ try{ const r=localStorage.getItem("wb_taskhub_projects_v1"); if(r){ const a=JSON.parse(r); if(Array.isArray(a)){ state.projects=a; for(const p of state.projects){ if(p.krId!==undefined && !p.krIds){ p.krIds=p.krId?[p.krId]:[]; } else if(!p.krIds){ p.krIds=[]; } if(p.archived===undefined) p.archived=false; } } } }catch(e){} }
+
+function okrsLoad(){ try{ const r=localStorage.getItem("wb_taskhub_okrs_v1"); if(r){ const a=JSON.parse(r); if(Array.isArray(a)){ state.okrs=a; for(const o of state.okrs){ if(o.parent===undefined)o.parent=""; if(o.level===undefined)o.level="normal"; for(const k of (o.krs||[])){ if(k.start===undefined)k.start=""; if(k.end===undefined)k.end=""; if(k.weight===undefined)k.weight=1; if(k.auto===undefined)k.auto=false; } } } } }catch(e){} }
+
+function okrSave(){
+  const mode=document.getElementById("okr_mode").value;
+  if(mode==="kr"){
+    const objId=document.getElementById("okr_objId").value;
+    const krId=document.getElementById("okr_krId").value;
+    const title=document.getElementById("okr_k_title").value.trim();
+    if(!title){ toast("请填写 KR 名称"); return; }
+    const o=state.okrs.find(x=>x.id===objId); if(!o) return;
+    const auto=document.getElementById("okr_k_auto").checked;
+    const k=o.krs.find(x=>x.id===krId);
+    // ：关掉「自动汇总」且未填手动目标值时，用当前派生进度平滑过渡，避免进度静默归零
+    let cur=0, tgt=Math.max(0,+document.getElementById("okr_k_target").value||0);
+    if(!auto && k && tgt===0){
+      const e=krEffective(k); cur=e.current; tgt=e.target;
+      try{ document.getElementById("okr_k_target").value=e.target; }catch(_){}
+    } else if(!auto){ cur=(k&&k.current)||0; }
+    const data={title, target:tgt, current:cur, unit:auto?"":document.getElementById("okr_k_unit").value.trim(), start:document.getElementById("okr_k_start").value||"", end:document.getElementById("okr_k_end").value||"", auto, weight:Math.max(0.1,+document.getElementById("okr_k_weight").value||1)};
+    if(k){ Object.assign(k,data); } else { o.krs.push(Object.assign({id:"k"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)},data)); }
+  } else {
+    const objId=document.getElementById("okr_objId").value;
+    const title=document.getElementById("okr_o_title").value.trim();
+    if(!title){ toast("请填写目标名称"); return; }
+    const data={title, period:document.getElementById("okr_o_period").value.trim(), parent:document.getElementById("okr_o_parent").value||"", level:document.getElementById("okr_o_level").value||"normal"};
+    const o=state.okrs.find(x=>x.id===objId);
+    if(o){ Object.assign(o,data); } else { state.okrs.push(Object.assign({id:"o"+Date.now().toString(36),period:data.period,krs:[]},data)); }
+  }
+  okrsSave(); document.getElementById("okrMask").classList.remove("show"); renderAll(); toast("已保存");
+}
+
+function templatesLoad(){ try{ return JSON.parse(localStorage.getItem(TPL_KEY)||"[]"); }catch(e){ return []; } }
+
+function templatesSave(a){ try{ localStorage.setItem(TPL_KEY, JSON.stringify(a)); }catch(e){ toast("模板保存失败："+e.message); } }
+
+/* 全量备份：任务 + 书/剧 + 习惯 + 统计 + 主题；兼容旧版仅任务数组 */
+function exportJSON(){
+  const theme=document.documentElement.dataset.theme||"light";
+  /* _ver:3 起纳入 projects / okrs / tagTree —— 此前导出不含项目与目标，备份是残缺的 */
+  /* _ver:4 起纳入 anniv / deleted —— 此前导出不含纪念日与墓碑，本地备份不可完整还原（P2-8） */
+  const pkg={ _app:"任务管理台", _ver:4, tasks:state.tasks, media:media, habits:habits, stats:stats,
+    theme:theme, cats, pris, lists, tagTree, projects:state.projects, okrs:state.okrs,
+    anniv:state.anniv, deleted:deletedIds, cfg:collectCfg(), savedAt:Date.now() };
+  const blob=new Blob([JSON.stringify(pkg,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="任务管理台全量备份_"+ymd(new Date())+".json"; a.click();
+  toast("已导出全量备份（任务+项目+目标+书/剧+习惯+纪念日+墓碑）");
+}
+
+function importJSON(file){
+  const r=new FileReader();
+  r.onload=async()=>{
+    try{
+      const data=JSON.parse(r.result);
+      const isPkg=!Array.isArray(data)&&data&&typeof data==="object"&&("_app" in data||"tasks" in data||"media" in data);
+      if(!isPkg && !Array.isArray(data)) throw 0;
+      const hasProj=!!(data&&data.projects), hasOkr=!!(data&&data.okrs);
+      const scopeTxt="任务"+(hasProj?"+项目":"")+(hasOkr?"+目标":"")+"+书/剧+习惯";
+      const nTask=Array.isArray(data&&data.tasks)?data.tasks.length:(Array.isArray(data)?data.length:0);
+      /* M5：导入提供「合并 / 覆盖」二选。旧版只能全量覆盖，换机合并两台设备数据时被迫二选一。 */
+      const mode=await confirmDialog(
+        "备份含 "+nTask+" 条任务（"+scopeTxt+"）。\n\n"
+        +"· 合并：保留双方，同一条取较新的那份；习惯打卡天数取并集（推荐：换机 / 两设备合数据）\n"
+        +"· 覆盖：清空当前数据，完全以备份为准",
+        {title:"导入备份", ok:"合并导入", extra:"覆盖导入", extraDanger:true, extraValue:"overwrite", cancel:"取消"});
+      if(!mode){ toast("已取消导入"); return; }
+      snapshot();
+      if(mode==="overwrite"){
+      if(isPkg){
+        state.tasks=(data.tasks||[]).map(t=>{ const c=sanitizeTask(t)||{}; return Object.assign({status:"todo",doneDates:[],recurrence:{freq:"none"},updated:c.updated||Date.now()},c); }).filter(Boolean);
+        /* P1-11：auds 漏默认值会让 renderMedia 的 media.auds.filter 抛 TypeError，被 renderAll 吞成"界面刷新出错" */
+        media=Object.assign({books:[],tvs:[],auds:[]},data.media||{}); mediaNorm();
+        habits=data.habits||[];
+        lists=data.lists||[];
+        stats=Object.assign({history:[]},data.stats||{});
+        if(data.cats){ cats=data.cats; catsSave(); }
+        if(data.pris){ pris=data.pris; prisSave(); }
+        /* _ver:3 起备份含项目 / 目标 / 标签树；旧备份无这些字段则保持现状，不清空 */
+        if(Array.isArray(data.tagTree)){ tagTree=data.tagTree; saveTags(); }
+        if(Array.isArray(data.projects)){ state.projects=data.projects; projectsSave(); }
+        if(Array.isArray(data.okrs)){ state.okrs=data.okrs; okrsSave(); }
+        /* P2-8：_ver:4 起备份含纪念日与墓碑；旧备份无这些字段则保持现状，不清空 */
+        if(Array.isArray(data.anniv)){ state.anniv=data.anniv; annivSave(); }
+        /* G7：覆盖导入的墓碑改「并集（同 id 取较新 ts）」而非整表替换 —— 替换会丢「纯本地删除尚未上云」的墓碑，
+           旧备份里的同 id 记录会在下轮云同步复活。备份缺 deleted 字段时保持本地墓碑不动（下方 P1-8 矛盾清理兜住反杀）。 */
+        if(Array.isArray(data.deleted)){
+          const _tm=new Map(deletedIds.map(d=>[String(d&&d.id), d]));
+          data.deleted.map(normTomb).forEach(d=>{ const k=String(d&&d.id); const curd=_tm.get(k); if(!curd || (d.ts||0)>(curd.ts||0)) _tm.set(k, d); });
+          deletedIds=Array.from(_tm.values());
+          if(deletedIds.length>TOMB_MAX) deletedIds=deletedIds.slice(-TOMB_MAX);
+          deletedIdsSave();
+        }
+        /* P1-8（导入路径）：备份里若同时含「任务本体 + 该任务的墓碑」（历史脏备份/手工编辑），
+           墓碑会让下一轮云同步把刚恢复的任务再删一次 —— 这里按任务 id 就地清掉矛盾墓碑 */
+        { const alive=new Set(state.tasks.map(t=>String(t&&t.id)));
+          const before=deletedIds.length;
+          deletedIds=deletedIds.filter(d=>!alive.has(String((d&&d.id)||d)));
+          if(deletedIds.length!==before) deletedIdsSave(); }
+        rebuildCatPriSelects();
+        if(data.theme) applyTheme(data.theme);
+        if(data.cfg) applyCfg(data.cfg);   // M9：覆盖导入时配置一并恢复
+      }else{
+        state.tasks=data.map(t=>{ const c=sanitizeTask(t)||{}; return Object.assign({status:"todo",doneDates:[],recurrence:{freq:"none"},updated:c.updated||Date.now()},c); }).filter(Boolean);
+      }
+      }else{
+        mergeImported(isPkg ? data : {tasks:data});
+      }
+      save(); mediaSave(); habitSave(); listsSave(); saveStats(); renderAll();
+      toast("已导入：任务 "+state.tasks.length+" · 项目 "+state.projects.length+" · 目标 "+state.okrs.length+" · 书 "+media.books.length+" · 剧 "+media.tvs.length+" · 习惯 "+habits.length);
+    }catch(e){ toast("文件格式错误"); }
+  };
+  r.readAsText(file);
+}
+
+function mediaSave(){ storageSetSafe(MEDIA_KEY, JSON.stringify(media)); markLocalSave(); cloudAutoUpload(); }
+
+function mediaLoad(){ try{ const r=localStorage.getItem(MEDIA_KEY); if(r){ media=JSON.parse(r); mediaNorm(); return true; } }catch(e){} return false; }
+
+function listsSave(){ storageSetSafe(LISTS_KEY, JSON.stringify(lists)); markLocalSave(); cloudAutoUpload(); }
+
+function listsLoad(){ try{ const r=localStorage.getItem(LISTS_KEY); if(r){ const a=JSON.parse(r); if(Array.isArray(a)){ lists=a; listsBackfill(); return true; } } }catch(e){} return false; }
+
+function undoPersist(){
+  try{ localStorage.setItem(UNDO_KEY, JSON.stringify(undoStack.slice(-UNDO_MAX))); }
+  catch(e){ try{ localStorage.setItem(UNDO_KEY, JSON.stringify(undoStack.slice(-6))); }catch(e2){ try{ localStorage.setItem(UNDO_KEY, JSON.stringify(undoStack.slice(-1))); }catch(e3){} } }
+}
+
+function undoLoad(){ try{ const a=JSON.parse(localStorage.getItem(UNDO_KEY)||"[]"); if(Array.isArray(a)) undoStack=a; }catch(e){} }
+
+function habitLoad(){ try{ const r=localStorage.getItem(HABIT_KEY); if(r) habits=JSON.parse(r); }catch(e){} }
+
+function habitSave(){ storageSetSafe(HABIT_KEY, JSON.stringify(habits)); markLocalSave(); cloudAutoUpload(); fullRingPush(); }
 
 /* ===== L3 Domain · P1-9 分层（2026-10-23）===== */
 
@@ -3179,29 +3685,8 @@ const DEFAULT_PRIS = [
 ];
 let cats = DEFAULT_CATS.map(c=>Object.assign({},c));
 let pris = DEFAULT_PRIS.map(p=>Object.assign({},p));
-function catsLoad(){ try{ const r=localStorage.getItem(CATS_KEY); if(r){ const a=JSON.parse(r); if(Array.isArray(a)&&a.length) cats=a.filter(x=>x&&x.name).map(c=>({name:c.name,color:c.color||"#9aa0ab",children:Array.isArray(c.children)?c.children:[]})); } }catch(e){} }
-function prisLoad(){ try{ const r=localStorage.getItem(PRIS_KEY); if(r){ const a=JSON.parse(r); if(Array.isArray(a)&&a.length) pris=a.filter(x=>x&&x.name); } }catch(e){} }
-function catsSave(){ try{ localStorage.setItem(CATS_KEY, JSON.stringify(cats)); }catch(e){} markLocalSave(); }
-function prisSave(){ try{ localStorage.setItem(PRIS_KEY, JSON.stringify(pris)); }catch(e){} markLocalSave(); }
 // ===== 标签树（受管，支持子标签，localStorage 持久化） =====
 let tagTree=[]; const TAGS_KEY="wb_taskhub_tags_v1";
-function loadTags(){ try{ const r=localStorage.getItem(TAGS_KEY); if(r){ const a=JSON.parse(r); if(Array.isArray(a)) tagTree=a.filter(x=>x&&x.name).map(x=>({name:x.name, children:Array.isArray(x.children)?x.children.filter(Boolean):[]})); } }catch(e){} }
-function saveTags(){ try{ localStorage.setItem(TAGS_KEY, JSON.stringify(tagTree)); }catch(e){} markLocalSave(); }
-function catColor(n){
-  if(n && n.indexOf("/")>0){
-    const p=n.slice(0,n.indexOf("/")), c=n.slice(n.indexOf("/")+1);
-    const pc=cats.find(x=>x.name===p);
-    if(pc){ const ch=(pc.children||[]).find(x=>x.name===c); return ch?ch.color:pc.color; }
-  }
-  const c=cats.find(x=>x.name===n); return c?c.color:"#9aa0ab";
-}
-// 分类两级下拉：父本身可选 + 有子分类时用 <optgroup> 列子项（value=父/子）
-function catHasValue(v){
-  if(!v) return false;
-  if(catNames().includes(v)) return true;
-  const i=v.indexOf("/"); if(i>0){ const p=v.slice(0,i), c=v.slice(i+1); const pc=cats.find(x=>x.name===p); return !!(pc && (pc.children||[]).some(x=>x.name===c)); }
-  return false;
-}
 function catSelectHtml(){
   return cats.map(c=>{
     const kids=c.children||[];
@@ -3215,7 +3700,6 @@ function fillCatSelect(sel){
   const ph=sel.querySelector('option[value=""]');
   sel.innerHTML=(ph?ph.outerHTML:"")+catSelectHtml();
 }
-function priColor(n){ const p=pris.find(x=>x.name===n); return p?p.color:"#9aa0ab"; }
 /* 把「色块专用色」自动加深为可作前景的文字色（WCAG AA 4.5:1）。
    分类/优先级可由用户自定义，写死 ink 对照表必然漏配新增颜色 —— 这里按相对亮度循环调整。
    例：#9aa0ab(2.63:1)→约 #6c7078；#ff9f45(1.79:1)→约 #9e6235。
@@ -3244,18 +3728,6 @@ function cssInk(hex){
     while(crd()<4.5 && k2<1){ k2+=0.05; r=Math.round(r0+(255-r0)*k2); g=Math.round(g0+(255-g0)*k2); b=Math.round(b0+(255-b0)*k2); }
   }
   return "#"+hx(r)+hx(g)+hx(b);
-}
-function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim()||"#9aa0ab"; }
-function catNames(){ return cats.map(c=>c.name); }
-function priNames(){ return pris.map(p=>p.name); }
-function defCat(){ return cats.length?cats[0].name:"其他"; }
-function defPri(){ return pris.length?(pris[Math.min(1,pris.length-1)].name):"P1"; }
-// hex → rgba，用于 badge 淡色底
-function hexA(hex, a){
-  const m=/^#?([0-9a-f]{6})$/i.exec(String(hex||"").trim());
-  if(!m) return "rgba(154,160,171,"+a+")";
-  const v=parseInt(m[1],16);
-  return "rgba("+((v>>16)&255)+","+((v>>8)&255)+","+(v&255)+","+a+")";
 }
 
 /* ===== 下拉框（分类/优先级）动态填充 ===== */
@@ -3291,23 +3763,6 @@ let state = { tasks: [], view: "month", cur: new Date(), filter:{ q:"", cat:"", 
 
 /* ===== 日期工具 ===== */
 const DAY=86400000;
-function ymd(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
-function parseLocal(s){ // "YYYY-MM-DDTHH:MM" / "YYYY-MM-DD" / Date
-  if(!s) return new Date();
-  if(s instanceof Date) return new Date(s.getTime());
-  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
-  if(m) return new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5]);
-  m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if(m) return new Date(+m[1],+m[2]-1,+m[3]); // 纯日期按本地午夜解析，避免 UTC 偏移一天
-  return new Date(s);
-}
-function startOfDay(d){const x=new Date(d);x.setHours(0,0,0,0);return x;}
-function endOfDay(d){const x=new Date(d);x.setHours(23,59,59,999);return x;}
-function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x;}
-function addMonths(d,n){const x=new Date(d);x.setMonth(x.getMonth()+n);return x;}
-function sameDay(a,b){return ymd(a)===ymd(b);}
-function fmtTime(d){return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
-function fmtRange(s,e){return fmtTime(s)+"–"+fmtTime(e);}
 const WK=["日","一","二","三","四","五","六"];
 
 /* ===== 重复规则匹配 ===== */
@@ -3637,8 +4092,6 @@ function filterInsts(insts){
     return true;
   });
 }
-function toStr(d){ return ymd(d)+"T"+fmtTime(d); }
-function pad2(n){ return String(n).padStart(2,"0"); }
 
 /* ===== 自然语言输入解析 ===== */
 // 解析标题中的日期/时间/时长，返回 {title, start, end} 或 null
@@ -3855,7 +4308,6 @@ function applyDayShift(id, deltaDays, orig){
 /* ===== 持久化 ===== */
 /* 本地最近保存时间：用于云同步启动冲突检测（种子数据不记录） */
 let _markSave=true;
-function setLocalSaveAt(t){ try{ localStorage.setItem("wb_taskhub_local_savedAt_v1", String(t)); }catch(e){} }
 /* S1（2026-10-23 修）：数据版本号声明提前到 markLocalSave 之前 —— markLocalSave 现在也自增版本号。
    背景：P2-5 的 snapshot 短路前提是「所有数据变更都走 save/saveQuiet/saveNow」，但
    media/habit/lists/proj/okr/anniv/tag/widget 各域 saver 只调 markLocalSave、不增版本 →
@@ -3863,27 +4315,9 @@ function setLocalSaveAt(t){ try{ localStorage.setItem("wb_taskhub_local_savedAt_
    自增下沉到 markLocalSave（全部域 saver 的共用收口）即全覆盖。
    save 家族自身的 _dataVer++ 保留：双自增无实害（snapshot 内容去重会兜住 no-op）。 */
 var _dataVer=0, _lastSnapVer=-1;
-function markLocalSave(){ _dataVer++; if(_markSave) setLocalSaveAt(Date.now()); }
 let _saveTimer=null;
 /* 本地存储写入告警（对齐明信片 storageSet）：配额满/写失败时显式提示，避免静默丢数据 */
 let _quotaWarnAtT=0;
-function storageSetSafe(k,v){
-  try{ localStorage.setItem(k,v); if(_quotaFull) _quotaFull=false; return true; }
-  catch(e){
-    const quota = !!e && (e.name==="QuotaExceededError" || e.name==="NS_ERROR_DOM_QUOTA_REACHED" || e.code===22 || e.code===1014);
-    const now=Date.now();
-    if(now-_quotaWarnAtT>30000){
-      _quotaWarnAtT=now;
-      if(quota) _quotaFull=true;   // O11-2：供数据健康面板展示「存储已满」
-      const msg = quota
-        ? "本地存储空间已满，本次修改没能写入。请先删除部分大文件记录（如媒体/清单里的图片）或导出备份后清理旧数据。"
-        : "本地存储写入失败，本次修改可能不会被保留。";
-      try{ toast(msg,"danger"); }catch(_){ try{ alert(msg); }catch(__){} }
-      if(DEBUG)console.error("[storage] setItem failed:", k, e);
-    }
-    return false;
-  }
-}
 /* ===== M3 全量本地自动备份环 =====
    习惯已有独立备份环（仅习惯）；这里是**全量**兜底：任务/媒体/习惯/清单/项目/目标/标签树。
    只留 2 份（全量快照体积大，localStorage 约 5MB）；配额不足自动降级为 1 份，仍失败则静默放弃，不阻塞主流程。 */
@@ -3892,27 +4326,6 @@ const FULL_RING_LAST="wb_taskhub_full_ring_last_v1";
 /* P1-7：全量快照体积大（含 tasks+media+habits+lists+projects+okrs+tagTree），留 10 份在中等数据量下
    即撑爆 localStorage（约 5MB）→ 此后所有修改无法落盘，等同数据丢失。按注释原意改为 2 份。 */
 const FULL_RING_MAX=2;
-/* 去重指纹：只存「长度 + djb2 哈希」，不再把完整 JSON 串另写一份（旧实现等于磁盘上多一份全量） */
-function ringFingerprint(s){ let h=5381; for(let i=0;i<s.length;i++){ h=((h<<5)+h+s.charCodeAt(i))|0; } return s.length.toString(36)+"."+(h>>>0).toString(36); }
-function fullRingSnapshot(){ return {t:Date.now(), tasks:state.tasks||[], media:media||{}, habits:habits||[], lists:lists||[], projects:state.projects||[], okrs:state.okrs||[], tagTree:tagTree||[]}; }
-function fullRingPush(){
-  try{
-    const snap=fullRingSnapshot();
-    const cur=JSON.stringify(snap);
-    const fp=ringFingerprint(cur);
-    if(fp===localStorage.getItem(FULL_RING_LAST)) return;   // 内容无变化不重复留档
-    let ring=[]; try{ ring=JSON.parse(localStorage.getItem(FULL_RING_KEY)||"[]"); }catch(e){ ring=[]; }
-    if(!Array.isArray(ring)) ring=[];
-    ring.push(snap);
-    while(ring.length>FULL_RING_MAX) ring.shift();
-    try{ localStorage.setItem(FULL_RING_KEY, JSON.stringify(ring)); localStorage.setItem(FULL_RING_LAST, fp); }
-    catch(e){ try{ const c2=JSON.stringify(ring.slice(-2)); localStorage.setItem(FULL_RING_KEY,c2); localStorage.setItem(FULL_RING_LAST,fp); }
-      catch(e2){ try{ localStorage.setItem(FULL_RING_KEY, JSON.stringify(ring.slice(-1))); }catch(e3){} } }
-  }catch(e){}
-}
-function fullRingLoad(){ try{ const a=JSON.parse(localStorage.getItem(FULL_RING_KEY)||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
-function ringTimeStr(ms){ const d=new Date(ms||Date.now()); const p=n=>String(n).padStart(2,"0");
-  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes()); }
 function renderFullBackup(){
   const box=document.getElementById("fullBackupList"); if(!box) return;
   const ring=fullRingLoad();
@@ -3957,30 +4370,6 @@ function renderDataHealth(){
   ];
   box.innerHTML=rows.map(r=>'<span class="hk">'+esc(r[0])+'</span><span class="hv'+(r[1].indexOf("接近上限")>=0||r[1].indexOf("已丢")>=0?" warn":"")+'">'+esc(r[1])+'</span>').join("");
 }
-async function restoreFullBackup(idx){
-  const ring=fullRingLoad(); const sn=ring[idx];
-  if(!sn){ toast("该备份已不存在"); return; }
-  if(!(await confirmDialog("将用 "+ringTimeStr(sn.t)+" 的自动备份覆盖当前全部数据（任务 / 媒体 / 习惯 / 清单 / 项目 / 目标）。\n当前状态会先存入撤销栈，可用 Ctrl+Z 回退。确认恢复？",{ok:"恢复此备份",danger:true}))){ toast("已取消恢复"); return; }
-  snapshot();
-  state.tasks=(sn.tasks||[]).map(t=>Object.assign({status:"todo",doneDates:[],recurrence:{freq:"none"}},t));
-  media=Object.assign({books:[],tvs:[],auds:[]},sn.media||{});
-  habits=sn.habits||[]; lists=sn.lists||[];
-  state.projects=sn.projects||[]; state.okrs=sn.okrs||[];
-  if(Array.isArray(sn.tagTree)) tagTree=sn.tagTree;
-  /* P1-8：恢复不清墓碑 → 刚恢复回来的任务会被下一轮云同步按墓碑 ts>t.updated 再删一次
-     （A 设备删任务写墓碑并同步，B 设备用备份恢复 → 本地墓碑仍在 → 恢复项再次消失） */
-  { const alive=new Set((state.tasks||[]).map(t=>String(t&&t.id)));
-    const before=deletedIds.length;
-    deletedIds=deletedIds.filter(d=>!alive.has(String((d&&d.id)||d)));
-    if(deletedIds.length!==before) deletedIdsSave(); }
-  try{ save(); }catch(e){}
-  try{ mediaSave(); }catch(e){}
-  try{ if(typeof listsSave==="function") listsSave(); }catch(e){}
-  try{ if(typeof habitSave==="function") habitSave(); }catch(e){}
-  try{ if(typeof projectsSave==="function") projectsSave(); }catch(e){}
-  try{ if(typeof okrsSave==="function") okrsSave(); }catch(e){}
-  renderAll(); renderFullBackup(); toast("已恢复自动备份 ✓");
-}
 /* ===== 任务内「按日期累积」字段的修剪（配额防护，2026-09-14）=====
    doneDates / doneAt / subDone / overrides 都是按日期一条条累积、只增不减的：
    每日任务一年就是 300+ 条，几年下来会顶到 localStorage 配额（5MB），并把每次落盘的
@@ -4015,43 +4404,6 @@ function pruneTaskHistory(){
    ⚠️ 不可同步 `return _saveOk` —— 那是上一轮的结果，会首次漏报、二次误报。
    失败提示由 storageSetSafe 自己弹（内部 30s 节流防刷屏），成功提示才在这里发。 */
 var _pendingSaveMsg=null;
-/* P2-5：数据版本号 —— save()/saveQuiet()/saveNow() 每次落盘自增。snapshot() 用它做短路：
-   自上次快照以来版本未变 ⇒ 数据必未变 ⇒ 跳过 16 次全量序列化（8 深克隆 + 8 stringify 比较）。
-   S1 修正（2026-10-23）：原「前提：所有数据变更都走这三个保存函数」不成立——各域 saver 只走
-   markLocalSave → 快照被误跳过。现自增下沉到 markLocalSave()，声明与自增见其定义处（3768 一带）。 */
-function save(okMsg){
-  _dataVer++;   // P2-5：数据版本号自增（变更已发生，落盘只是延迟 400ms）
-  if(typeof okMsg==="string" && okMsg) _pendingSaveMsg=okMsg;
-  // 节流：连续多次保存合并为一次 localStorage 写入，降低大库主线程开销（B2）
-  if(_saveTimer) clearTimeout(_saveTimer);
-  _saveTimer=setTimeout(()=>{
-    _saveTimer=null;
-    pruneTaskHistory();
-    const ok=storageSetSafe(KEY, JSON.stringify(state.tasks));
-    if(_pendingSaveMsg!==null){
-      const msg=_pendingSaveMsg; _pendingSaveMsg=null;
-      if(ok) toast(msg);        // 只有真的写成功才报成功
-    }
-    markLocalSave(); maybeBackupHint();
-    fullRingPush();   // M3：每次落盘顺手留一份全量快照
-  }, 400);
-  cloudAutoUpload();
-  // 有挂起文案时返回哨兵，让 saveAndToast 知道「提示由我稍后发」，避免与它重复弹一次
-  return (_pendingSaveMsg!==null) ? "__pending__" : undefined;
-}
-// 同步落盘：关闭页面 / 切后台 / 破坏性操作前用，返回真实写入结果（B2）
-function saveNow(){
-  _dataVer++;   // P2-5：与 save() 同口径（save 内部延迟落盘不影响版本号时机）
-  if(_saveTimer){ clearTimeout(_saveTimer); _saveTimer=null; }
-  pruneTaskHistory();
-  const ok=storageSetSafe(KEY, JSON.stringify(state.tasks));
-  if(_pendingSaveMsg!==null){
-    const msg=_pendingSaveMsg; _pendingSaveMsg=null;
-    if(ok) toast(msg);
-  }
-  markLocalSave();
-  return ok;
-}
 // ===== 云同步：逐任务合并基础设施 =====
 let deletedIds=[];
 // 墓碑规范化：旧格式是字符串 id（无时间），新格式是 {id, ts}。ts=0 表示「未知时间的旧删除」，
@@ -4059,8 +4411,6 @@ let deletedIds=[];
 
 const TOMB_MAX=2000;   // 墓碑上限（对齐明信片，防长期无限增长）
 function pushTomb(id){ const s=String(id||""); if(!s) return; const i=deletedIds.findIndex(d=>d&&(d.id||d)===s); const t={id:s, ts:Date.now()}; if(i>=0) deletedIds[i]=t; else deletedIds.push(t); if(deletedIds.length>TOMB_MAX) deletedIds=deletedIds.slice(-TOMB_MAX); }
-function deletedIdsLoad(){ try{ const r=localStorage.getItem("wb_taskhub_deleted_v1"); if(r){ const a=JSON.parse(r)||[]; deletedIds=a.map(normTomb); } }catch(e){ deletedIds=[]; } }
-function deletedIdsSave(){ try{ localStorage.setItem("wb_taskhub_deleted_v1", JSON.stringify(deletedIds)); }catch(e){} }
 /* ===== 次级集合的删除传播（媒体 / 习惯 / 清单）=====
    任务有墓碑可传播删除，媒体 / 习惯 / 清单三类同样走墓碑：各自合并函数（mediaMergeNewer / mergeHabits / union）
    末尾都经 dropTombed(kind, …, deleted) 过滤——本地或云端任一端持有该 id 的墓碑，即将其从合并结果剔除，
@@ -4118,34 +4468,6 @@ function clearHabitDayTombs(hid){
    留存一份，让用户能真正「找回误删」。上限 50 条，超出丢最旧。 */
 const TRASH_KEY="wb_taskhub_trash_v1";
 const TRASH_MAX=50;
-function trashLoad(){ try{ const a=JSON.parse(localStorage.getItem(TRASH_KEY)||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
-function trashSave(a){ try{ localStorage.setItem(TRASH_KEY, JSON.stringify(a)); }catch(e){} }
-function pushTrash(t, extra){
-  if(!t||t.id==null) return;
-  try{
-    let a=trashLoad().filter(x=>x && String((x.task&&x.task.id)||"")!==String(t.id));
-    const rec={task:JSON.parse(JSON.stringify(t)), at:Date.now()};
-    if(extra) Object.assign(rec, extra);          // 例：{hist:[...]} 一并存被清掉的完成流水
-    a.push(rec);
-    while(a.length>TRASH_MAX) a.shift();
-    trashSave(a);
-  }catch(e){}
-}
-function restoreTrash(idx){
-  const a=trashLoad(); const it=a[idx]; if(!it||!it.task) return;
-  if(state.tasks.some(x=>String(x.id)===String(it.task.id))){ toast("该任务已在列表中，无需恢复"); return; }
-  state.tasks.push(it.task);
-  restoreHistory(it.hist);   // 删除时一并清掉的完成流水，恢复任务时还回来
-  deletedIds=deletedIds.filter(d=>String(d.id||d)!==String(it.task.id)); deletedIdsSave();
-  a.splice(idx,1); trashSave(a);
-  saveAndToast("已恢复："+(it.task.title||"任务")); renderAll(); renderTrash();
-}
-function dropTrash(idx){ const a=trashLoad(); if(!a[idx]) return; a.splice(idx,1); trashSave(a); renderTrash(); }
-async function clearTrash(){
-  const a=trashLoad(); if(!a.length){ toast("回收站是空的"); return; }
-  if(!(await confirmDialog("清空回收站？"+a.length+" 条已删除任务将彻底无法恢复。",{danger:true}))) return;
-  trashSave([]); renderTrash(); toast("回收站已清空");
-}
 function renderTrash(){
   const box=document.getElementById("trashList"), cnt=document.getElementById("trashCount");
   const a=trashLoad();
@@ -4209,15 +4531,8 @@ function trashRefresh(){
   if(m&&m.classList.contains("show")) renderTrash();
   else { const c=document.getElementById("trashCount"); if(c){ const n=trashLoad().length; c.textContent=n?("("+n+")"):""; } }
 }
-// 轻量落盘：写 localStorage + 刷新 savedAt，但不触发 cloudAutoUpload（合并后保存用，避免「合并→保存→自动上传→再合并」死循环）
-function saveQuiet(){ _dataVer++; pruneTaskHistory(); try{ localStorage.setItem(KEY, JSON.stringify(state.tasks)); }catch(e){} markLocalSave(); }
 // 给任务打「最近修改」时间戳：合并时按此判断谁更新（墙钟；单用户顺次编辑足够，并发同任务编辑极少见）
 function touchTask(t, ts){ if(!t) return t; const v=ts||Date.now(); if(!t.updated || t.updated<v) t.updated=v; return t; }
-function flushSave(){ // 关闭/切后台前强制落盘，避免 400ms 内未写入丢失（B2）
-  if(_saveTimer || _pendingSaveMsg!==null){ saveNow(); }
-  // 关闭/切后台前，把待上传的云同步也立即触发（best-effort），避免 1.5s 防抖内未上传而丢数据（A）
-  if(_upTimer){ clearTimeout(_upTimer); _upTimer=null; if(cloud.auto && cloud.token && cloud.gist && _bootSyncAllowed && !_cloudBusy) cloudUpload(true); }
-}
 window.addEventListener("beforeunload", flushSave);
 window.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="hidden") flushSave(); });
 // 数据积累提示：满 30 条时温和提醒导出备份（仅提示一次）
@@ -4226,12 +4541,6 @@ function maybeBackupHint(){
     try{ localStorage.setItem("wb_taskhub_backup_hint_v1","1"); }catch(e){}
     setTimeout(()=>toast("数据已积累 "+state.tasks.length+" 条，建议点左上角云同步按钮，在面板里导出 JSON 存档"),800);
   }
-}
-function load(){
-  let has=false;
-  try{ const raw=localStorage.getItem(KEY); if(raw){ const v=JSON.parse(raw); if(Array.isArray(v)){ state.tasks=v; has=true; } } }catch(e){}
-  projectsLoad(); okrsLoad(); annivLoad();   // 有任务时也会提前 return，必须在此无条件加载项目/目标/纪念日，否则刷新即丢失
-  return has;
 }
 /* ===== 纪念日（集成视图，data-v="anniv"）=====
    数据：state.anniv = [{id,name,cat,date(YYYY-MM-DD),yearly(bool),note,created,
@@ -4324,8 +4633,6 @@ const Lunar=(function(){
   }
   return { text, toLunar:solar2lunar, toSolar, lunarMD };
 })();
-function annivLoad(){ try{ const r=localStorage.getItem(ANNIV_KEY); if(r){ const a=JSON.parse(r); if(Array.isArray(a)) state.anniv=a; } }catch(e){} if(!Array.isArray(state.anniv)) state.anniv=[]; }
-function annivSave(){ if(!Array.isArray(state.anniv)) state.anniv=[]; try{ localStorage.setItem(ANNIV_KEY, JSON.stringify(state.anniv)); }catch(e){} markLocalSave(); cloudAutoUpload(); }
 function annivSolarDate(a, today){
   if(a.calType==="lunar" && a.lunar && a.lunar.m){
     const m=a.lunar.m, d=a.lunar.d, leap=!!a.lunar.leap;
@@ -4526,15 +4833,8 @@ function seed(){
 const WKEY="wb_taskhub_widgets_v1";
 let widgetCfg={order:[],hidden:[],custom:[]};
 try{ const w=JSON.parse(localStorage.getItem(WKEY)); if(w&&typeof w==="object") widgetCfg=Object.assign({order:[],hidden:[],custom:[]},w); }catch(e){}
-function saveWidgets(){ _dataVer++; try{ localStorage.setItem(WKEY, JSON.stringify(widgetCfg)); }catch(e){} }   /* S1：不走 markLocalSave 的裸写域，单独自增 */
 const AUTO_WIDS=["today","habit","list"];
 let dragWid=null, dragDropBefore=false;
-function currentWids(){ return AUTO_WIDS.concat(widgetCfg.custom.map(w=>"c:"+w.id)); }
-function syncOrder(){
-  const cur=currentWids();
-  cur.forEach(w=>{ if(!widgetCfg.order.includes(w)) widgetCfg.order.push(w); });
-  widgetCfg.order=widgetCfg.order.filter(w=> cur.includes(w) || widgetCfg.hidden.includes(w));
-}
 /* 关闭所有面板头溢出菜单；except 传当前要打开的那个（刚关掉再打开同一菜单时避免自打自关） */
 function closeWMenus(except){
   document.querySelectorAll(".w-menu.show").forEach(function(m){
@@ -4633,13 +4933,6 @@ let editingWid=null;
 function openWidgetModal(wid){ editingWid=wid||null; const m=document.getElementById("widgetMask"); document.getElementById("wModalTitle").textContent=wid?"编辑卡片":"添加卡片"; let w={type:"text",title:"",text:"",url:"",num:""}; if(wid){ const id=wid.slice(2); const f=widgetCfg.custom.find(x=>x.id===id); if(f){ if(f.type==="func"){ toast("功能卡由系统自动统计，不可编辑"); return; } w=f; } } document.getElementById("wType").value=w.type; document.getElementById("wTitle").value=w.title||""; document.getElementById("wText").value=w.text||""; document.getElementById("wUrl").value=w.url||""; document.getElementById("wNum").value=w.num||""; toggleWRows(w.type); m.classList.add("show"); }
 function toggleWRows(t){ document.getElementById("wRowText").style.display=t==="text"?"":"none"; document.getElementById("wRowLink").style.display=t==="link"?"":"none"; document.getElementById("wRowNum").style.display=t==="num"?"":"none"; }
 function closeWidgetModal(){ document.getElementById("widgetMask").classList.remove("show"); }
-function saveWidgetModal(){
-  const type=document.getElementById("wType").value, title=document.getElementById("wTitle").value.trim(), text=document.getElementById("wText").value.trim(), url=document.getElementById("wUrl").value.trim(), num=document.getElementById("wNum").value.trim();
-  if(!title){ toast("请填写标题"); return; }
-  if(editingWid){ const id=editingWid.slice(2); const w=widgetCfg.custom.find(x=>x.id===id); if(w){ w.type=type; w.title=title; w.text=text; w.url=url; w.num=num; } }
-  else { widgetCfg.custom.push({id:"w"+Date.now().toString(36),type,title,text,url,num}); }
-  syncOrder(); saveWidgets(); applyWidgetLayout(); closeWidgetModal(); toast(editingWid?"已更新卡片":"已添加卡片");
-}
 /* G8（2026-10-23 修）：对齐明信片 delWidget——原直接 filter 无撤销，跨页能力不对称。
    widgetCfg 属独立存储域不走记录撤销栈，闭包捕获 custom/order/hidden 三份现场还原；
    order/hidden 一并清理（原版留孤儿 "c:id"），撤销时整组还原。 */
@@ -4752,8 +5045,6 @@ applyWidgetLayout();
    与 wb_today_subopen_v1 同一思路：属纯 UI 偏好，**刻意不进云同步**（否则多设备的展开态会互相打架）。
    此前密度/折叠/最大化三个都是内存变量，刷新即丢；而子任务展开态却是持久的 —— 同一页面内不一致。 */
 const TODAY_UI_KEY="wb_today_ui_v1";
-function todayUiGet(k, dflt){ try{ const o=JSON.parse(localStorage.getItem(TODAY_UI_KEY)||"{}"); return (o&&k in o)?o[k]:dflt; }catch(e){ return dflt; } }
-function todayUiSet(k, v){ try{ const o=JSON.parse(localStorage.getItem(TODAY_UI_KEY)||"{}"); o[k]=v; localStorage.setItem(TODAY_UI_KEY, JSON.stringify(o)); }catch(e){} }
 
 /* 已完成区默认**折叠**：用户不使用任务管理台写日志 →「今天做完了什么」没有回看场景，
    默认展开只会把待办区挤下去、让今日页失焦。仍可随时点开回看/撤销。 */
@@ -4763,7 +5054,6 @@ let todayMax=todayUiGet("max", false);              // 是否临时最大化占�
 let subOpenIds=new Set();        // 今日面板里已展开子任务勾选区的任务 id
 /* 展开态是 UI 偏好，持久化到独立本地键（不进云同步，避免多设备互相干扰）；坏数据兜底跳过 */
 try{ (JSON.parse(localStorage.getItem("wb_today_subopen_v1")||"[]")||[]).forEach(id=>{ if(id) subOpenIds.add(id); }); }catch(_){}
-function persistSubOpen(){ try{ localStorage.setItem("wb_today_subopen_v1", JSON.stringify([...subOpenIds])); }catch(_){} }
 /* 今日要处理：数据模型（顶部 widget 与底部整页视图共用，保证两套口径完全一致） */
 function buildTodayModel(){
   const d0=startOfDay(new Date()), now=new Date();
@@ -5683,8 +5973,6 @@ function renderTagPicker(){
 /* ===== 统计：完成历史 ===== */
 let stats={ history:[] };
 const STATS_KEY="wb_taskhub_stats_v1";
-function loadStats(){ try{ const r=localStorage.getItem(STATS_KEY); if(r){ const o=JSON.parse(r); if(o&&Array.isArray(o.history)) stats.history=o.history; } }catch(e){} }
-function saveStats(){ try{ localStorage.setItem(STATS_KEY, JSON.stringify(stats)); }catch(e){} markLocalSave(); }
 // d 为空时记为今天；补打卡（在别的日期点上）传该日期，让统计趋势落在真正完成的那天
 const HISTORY_MAX=5000;   // 完成流水上限（原 500 会静默丢弃老记录）：触顶后丢最旧一条并累计 historyDropped，让「丢了多少」可被看见
 function pushHistory(t, d){ stats.history.push({d: d? ymdOf(d) : ymd(new Date()), id:t.id, t:t.title, ts:Date.now()}); while(stats.history.length>HISTORY_MAX){ stats.history.shift(); stats.historyDropped=(stats.historyDropped||0)+1; } saveStats(); }
@@ -6096,7 +6384,6 @@ try{ const _g=localStorage.getItem("wb_taskhub_gantt_v1"); if(_g){ const _o=JSON
   if(_o&&typeof _o.sort==="string"&&GANTT_SORTS.some(s=>s[0]===_o.sort)) ganttSort=_o.sort;
   if(_o&&Array.isArray(_o.groups)) _o.groups.forEach(k=>ganttGroupCollapsed.add(k));
 } }catch(e){}
-function saveGanttPrefs(){ try{ localStorage.setItem("wb_taskhub_gantt_v1", JSON.stringify({hideSingle:ganttHideSingle, sort:ganttSort, groups:Array.from(ganttGroupCollapsed)})); }catch(e){} }
 function sortGanttRows(list){
   const a=list.slice();
   if(ganttSort==="cat")        a.sort((x,y)=>String(x.task.cat||"").localeCompare(String(y.task.cat||""),"zh") || x.min-y.min);
@@ -6105,15 +6392,6 @@ function sortGanttRows(list){
   else                         a.sort((x,y)=>x.min-y.min);
   return a;
 }
-/* 跨度是否为「仅 1 天」——重复任务会被聚合成跨天长条，不受影响 */
-function isSingleDayRow(r){ return sameDay(r.min, r.max); }
-function ganttRangeDays(){
-  const cur=startOfDay(state.cur); const y=cur.getFullYear(), m=cur.getMonth();
-  if(ganttRange==="quarter"){ const q=Math.floor(m/3)*3; return rangeDays(new Date(y,q,1), new Date(y,q+3,0)); }
-  if(ganttRange==="3m"){ return rangeDays(addDays(new Date(y,m,1),-15), addDays(new Date(y,m,1),75)); }
-  return rangeDays(new Date(y,m,1), new Date(y,m+1,0));
-}
-function rangeDays(a,b){ const out=[]; let c=startOfDay(a); const e=startOfDay(b); for(;c<=e;c=addDays(c,1)) out.push(new Date(c)); return out; }
 function shiftTaskDates(id, delta, date){
   const t=state.tasks.find(x=>x.id===id); if(!t||noDate(t)) return;
   if(t.recurrence&&t.recurrence.freq!=="none"){ moveRecInstance(t, parseLocal((date||t.start)+"T00:00"), delta); return; }
@@ -6834,8 +7112,6 @@ function renderStats(){
 /* ===== M14：导出日历（.ics）=====
    把未完成任务转成 VEVENT；重复任务展开未来 180 天（已打卡的实例跳过）。
    时间用「浮动时间」（不带 Z），导入后按本机时区解释，时段不变。 */
-function icsEsc(x){ return String(x==null?"":x).replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\r?\n/g,"\\n"); }
-function icsStamp(d){ const p=n=>String(n).padStart(2,"0"); return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"T"+p(d.getHours())+p(d.getMinutes())+"00"; }
 function exportICS(){
   try{
     const now=new Date(), horizon=new Date(now.getTime()+180*DAY);
@@ -6908,7 +7184,6 @@ function refreshTagFilter(){
 /* ===== 顶部三栏折叠（）：整页视图首屏默认折叠，手动偏好持久化 ===== */
 let uiPrefs={collapsed:{top:false,habit:false,list:false}, topOpen:false, touched:false};
 try{ const _r=localStorage.getItem("wb_taskhub_ui_v1"); if(_r){ const _o=JSON.parse(_r); if(_o&&_o.collapsed) uiPrefs.collapsed=Object.assign({top:false,habit:false,list:false},_o.collapsed); if(_o.touched!==undefined) uiPrefs.touched=!!_o.touched; if(_o.topOpen!==undefined) uiPrefs.topOpen=!!_o.topOpen; } }catch(e){}
-function saveUIPrefs(){ try{ localStorage.setItem("wb_taskhub_ui_v1", JSON.stringify(uiPrefs)); }catch(e){} }
 const PANEL_KEYS={top:"toppanel",habit:"habitpanel",list:"listpanel"};
 /* ：某些整页视图与顶部 widget 内容完全重复（习惯视图 vs 习惯打卡面板）。
    进入这些视图时把对应 widget 临时收起（不改用户持久偏好，切回其它视图自动恢复），避免同屏两处相同信息。
@@ -7108,7 +7383,6 @@ function timeHealth(start,end){
   return null;
 }
 function okrOverall(o){ const ks=o.krs.filter(k=>{ const e=krEffective(k); return e.target>0; }); if(!ks.length) return 0; let wsum=0,acc=0; for(const k of ks){ const e=krEffective(k); const w=Math.max(0.1,k.weight||1); const pct=Math.min(100,Math.round(e.current/e.target*100)); acc+=w*pct; wsum+=w; } return Math.round(acc/wsum); }
-function weekKey(d){ const x=startOfDay(d); const dw=(x.getDay()+6)%7; const mon=addDays(x,-dw); return ymd(mon); }
 
 /* ===== 通用合并：目标 OKR / 项目 ===== */
 /* 指标语义桶：判断两条 KR 是否同义（用于合并去重） */
@@ -7518,26 +7792,12 @@ function diagCard(title,num,items){
 }
 /* ===== 回顾：笔记 / 快照 / 自定义清单 存储 ===== */
 let reviewViewWeek=null;
-function reviewNotesGet(wk){ try{ return JSON.parse(localStorage.getItem("wb_taskhub_review_notes_v1")||"{}")[wk]||{summary:"",next:""}; }catch(e){ return {summary:"",next:""}; } }
 /* P1-8（2026-10-23 修）：原裸 localStorage.setItem 有两个问题——
    ① 绑在 oninput 上逐键全量 JSON 序列化 + 写盘，复盘文字长时可感卡顿；
    ② 配额满时从 oninput 抛未捕获异常（此处不在任何 try 内），用户零反馈，刷新后内容全丢。
    改为 300ms 去抖 + storageSetSafe（失败会弹可行动告警）。wk 由闭包捕获：去抖窗口内切周时，
    写回的是「旧周在输入最后一刻的内容」，语义正确。 */
 var _reviewNotesTimer=null;
-function reviewNotesSet(wk,summary,next){
-  if(_reviewNotesTimer) clearTimeout(_reviewNotesTimer);
-  _reviewNotesTimer=setTimeout(function(){
-    _reviewNotesTimer=null;
-    let all={}; try{all=JSON.parse(localStorage.getItem("wb_taskhub_review_notes_v1")||"{}");}catch(e){}
-    all[wk]={summary,next};
-    storageSetSafe("wb_taskhub_review_notes_v1",JSON.stringify(all));
-  },300);
-}
-function reviewSnapsGet(){ try{ return JSON.parse(localStorage.getItem("wb_taskhub_review_snaps_v1")||"{}"); }catch(e){ return {}; } }
-function reviewSnapSave(wk,data){ const all=reviewSnapsGet(); all[wk]=data; storageSetSafe("wb_taskhub_review_snaps_v1",JSON.stringify(all)); }   // P1-8：原裸 setItem 配额满时未捕获异常零反馈
-function reviewTplGet(){ try{ return JSON.parse(localStorage.getItem("wb_taskhub_review_tpl_v1")||"[]"); }catch(e){ return []; } }
-function reviewTplSet(arr){ storageSetSafe("wb_taskhub_review_tpl_v1",JSON.stringify(arr)); }   // P1-8：原裸 setItem 配额满时未捕获异常零反馈
 
 function renderReview(){
   const v=document.getElementById("view");
@@ -7701,19 +7961,6 @@ function projOpen(id){
   document.getElementById("pjDelete").style.display=id?"inline-flex":"none";
   document.getElementById("projMask").classList.add("show");
 }
-function projSave(){
-  const name=document.getElementById("pj_name").value.trim();
-  if(!name){ toast("请填写项目名"); return; }
-  const id=document.getElementById("pj_id").value;
-  const msRaw=document.getElementById("pj_ms").value.trim();
-  const milestones=(msRaw?msRaw.split(/\r?\n/).map(s=>s.trim()).filter(Boolean).map(line=>{ const sp=line.split(/\s+/); const date=sp[0]||""; const label=sp.slice(1).join(" ").trim(); return {date,label}; }).filter(m=>m.date):[]);
-  const data={ name, desc:document.getElementById("pj_desc").value, color:document.getElementById("pj_color").value,
-    krIds:Array.from(document.querySelectorAll("#pj_kr_list input:checked")).map(c=>c.value), status:document.getElementById("pj_status").value,
-    start:document.getElementById("pj_start").value||"", end:document.getElementById("pj_end").value||"", milestones };
-  if(id){ const p=state.projects.find(x=>x.id===id); Object.assign(p,data); }
-  else { state.projects.push(Object.assign({id:"p"+Date.now().toString(36)},data)); }
-  projectsSave(); document.getElementById("projMask").classList.remove("show"); renderAll(); toast("已保存项目");
-}
 function pjDeferApply(n){
   const endEl=document.getElementById("pj_end");
   const base = endEl.value? startOfDay(parseLocal(endEl.value)) : startOfDay(new Date());
@@ -7735,8 +7982,6 @@ async function projDelete(){
   detachProject(id);                           // P1-5：统一走级联清理出口（含独立落盘）
   document.getElementById("projMask").classList.remove("show"); renderAll();
 }
-function projectsSave(){ try{ localStorage.setItem("wb_taskhub_projects_v1", JSON.stringify(state.projects)); }catch(e){} markLocalSave(); }
-function okrsSave(){ try{ localStorage.setItem("wb_taskhub_okrs_v1", JSON.stringify(state.okrs)); }catch(e){} recordOkrTrend(); markLocalSave(); }
 /* ===== P1-5：删除「项目 / KR / 目标」的级联清理统一出口 =====
    此前两个入口两套行为：弹窗内删会清悬空引用并 save()，视图卡片上的删除只过滤数组、不清引用也不 save()。
    悬空的 t.project / t.krId 会让甘特归入「未归属项目」、项目视图看不到、OKR 自动汇总漏计，
@@ -7762,8 +8007,6 @@ function detachObjective(objId){  // 解除该目标下全部 KR 的任务引用
   return n;
 }
 function countTasksOnKr(krId){ return (state.tasks||[]).filter(t=>t&&t.krId===krId).length; }
-function projectsLoad(){ try{ const r=localStorage.getItem("wb_taskhub_projects_v1"); if(r){ const a=JSON.parse(r); if(Array.isArray(a)){ state.projects=a; for(const p of state.projects){ if(p.krId!==undefined && !p.krIds){ p.krIds=p.krId?[p.krId]:[]; } else if(!p.krIds){ p.krIds=[]; } if(p.archived===undefined) p.archived=false; } } } }catch(e){} }
-function okrsLoad(){ try{ const r=localStorage.getItem("wb_taskhub_okrs_v1"); if(r){ const a=JSON.parse(r); if(Array.isArray(a)){ state.okrs=a; for(const o of state.okrs){ if(o.parent===undefined)o.parent=""; if(o.level===undefined)o.level="normal"; for(const k of (o.krs||[])){ if(k.start===undefined)k.start=""; if(k.end===undefined)k.end=""; if(k.weight===undefined)k.weight=1; if(k.auto===undefined)k.auto=false; } } } } }catch(e){} }
 function okrOpen(objId, krId, newKr){
   document.getElementById("okr_objId").value=objId||"";
   document.getElementById("okr_krId").value=krId||"";
@@ -7800,34 +8043,6 @@ function okrOpen(objId, krId, newKr){
   }
   document.getElementById("okrDelete").style.display=(objId||krId)?"inline-flex":"none";
   document.getElementById("okrMask").classList.add("show");
-}
-function okrSave(){
-  const mode=document.getElementById("okr_mode").value;
-  if(mode==="kr"){
-    const objId=document.getElementById("okr_objId").value;
-    const krId=document.getElementById("okr_krId").value;
-    const title=document.getElementById("okr_k_title").value.trim();
-    if(!title){ toast("请填写 KR 名称"); return; }
-    const o=state.okrs.find(x=>x.id===objId); if(!o) return;
-    const auto=document.getElementById("okr_k_auto").checked;
-    const k=o.krs.find(x=>x.id===krId);
-    // ：关掉「自动汇总」且未填手动目标值时，用当前派生进度平滑过渡，避免进度静默归零
-    let cur=0, tgt=Math.max(0,+document.getElementById("okr_k_target").value||0);
-    if(!auto && k && tgt===0){
-      const e=krEffective(k); cur=e.current; tgt=e.target;
-      try{ document.getElementById("okr_k_target").value=e.target; }catch(_){}
-    } else if(!auto){ cur=(k&&k.current)||0; }
-    const data={title, target:tgt, current:cur, unit:auto?"":document.getElementById("okr_k_unit").value.trim(), start:document.getElementById("okr_k_start").value||"", end:document.getElementById("okr_k_end").value||"", auto, weight:Math.max(0.1,+document.getElementById("okr_k_weight").value||1)};
-    if(k){ Object.assign(k,data); } else { o.krs.push(Object.assign({id:"k"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)},data)); }
-  } else {
-    const objId=document.getElementById("okr_objId").value;
-    const title=document.getElementById("okr_o_title").value.trim();
-    if(!title){ toast("请填写目标名称"); return; }
-    const data={title, period:document.getElementById("okr_o_period").value.trim(), parent:document.getElementById("okr_o_parent").value||"", level:document.getElementById("okr_o_level").value||"normal"};
-    const o=state.okrs.find(x=>x.id===objId);
-    if(o){ Object.assign(o,data); } else { state.okrs.push(Object.assign({id:"o"+Date.now().toString(36),period:data.period,krs:[]},data)); }
-  }
-  okrsSave(); document.getElementById("okrMask").classList.remove("show"); renderAll(); toast("已保存");
 }
 async function okrDelete(){
   const mode=document.getElementById("okr_mode").value;
@@ -8257,9 +8472,6 @@ function toggleNoDate(){
 }
 /* ===== M7：任务模板 / 复制任务 ===== */
 const TPL_KEY="wb_taskhub_templates_v1";
-function templatesLoad(){ try{ return JSON.parse(localStorage.getItem(TPL_KEY)||"[]"); }catch(e){ return []; } }
-function templatesSave(a){ try{ localStorage.setItem(TPL_KEY, JSON.stringify(a)); }catch(e){ toast("模板保存失败："+e.message); } }
-function newId(p){ return (p||"t")+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function duplicateTask(id){   // 复制：克隆所有字段，重置完成态，生成新任务并打开
   const t=state.tasks.find(x=>x.id===id); if(!t) return;
   const c=JSON.parse(JSON.stringify(t));
@@ -8546,7 +8758,6 @@ async function deleteTask(){
 }
 
 /* ===== 分类 / 优先级 管理 ===== */
-function parseHex(v){ if(!v) return null; v=(v||"").trim(); if(v[0]!=="#") v="#"+v; return /^#([0-9a-fA-F]{6})$/.test(v) ? v.toUpperCase() : null; }
 function bindColorPair(colorEl, hexEl, onChange){
   const syncFromColor=()=>{ const v=colorEl.value.toUpperCase(); hexEl.value=v; hexEl.classList.remove("invalid"); onChange(v); };
   const syncFromHex=()=>{
@@ -8930,19 +9141,6 @@ function renameSubTag(i,j,nm){ nm=(nm||"").trim(); if(!nm){ renderTagList(); ret
 function addTag(){ const nm=(document.getElementById("tagNew").value||"").trim(); if(!nm){ toast("请输入标签名"); return; } if(tagTree.some(t=>t.name===nm)){ toast("标签已存在"); return; } tagTree.push({name:nm, children:[]}); saveTags(); document.getElementById("tagNew").value=""; renderTagList(); refreshTagFilter(); }
 
 /* ===== 备份 ===== */
-/* 全量备份：任务 + 书/剧 + 习惯 + 统计 + 主题；兼容旧版仅任务数组 */
-function exportJSON(){
-  const theme=document.documentElement.dataset.theme||"light";
-  /* _ver:3 起纳入 projects / okrs / tagTree —— 此前导出不含项目与目标，备份是残缺的 */
-  /* _ver:4 起纳入 anniv / deleted —— 此前导出不含纪念日与墓碑，本地备份不可完整还原（P2-8） */
-  const pkg={ _app:"任务管理台", _ver:4, tasks:state.tasks, media:media, habits:habits, stats:stats,
-    theme:theme, cats, pris, lists, tagTree, projects:state.projects, okrs:state.okrs,
-    anniv:state.anniv, deleted:deletedIds, cfg:collectCfg(), savedAt:Date.now() };
-  const blob=new Blob([JSON.stringify(pkg,null,2)],{type:"application/json"});
-  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
-  a.download="任务管理台全量备份_"+ymd(new Date())+".json"; a.click();
-  toast("已导出全量备份（任务+项目+目标+书/剧+习惯+纪念日+墓碑）");
-}
 /* M5 合并式导入的通用工具：按 id 合并，取 updated 较新的一方；doneDates 取并集 */
 function mergeByIdList(loc, inc){
   loc=Array.isArray(loc)?loc.slice():[];
@@ -9008,70 +9206,6 @@ function mergeImported(inc){
   if(Array.isArray(inc.anniv)) state.anniv=mergeByIdList(state.anniv||[], inc.anniv);
   mediaNorm();
 }
-function importJSON(file){
-  const r=new FileReader();
-  r.onload=async()=>{
-    try{
-      const data=JSON.parse(r.result);
-      const isPkg=!Array.isArray(data)&&data&&typeof data==="object"&&("_app" in data||"tasks" in data||"media" in data);
-      if(!isPkg && !Array.isArray(data)) throw 0;
-      const hasProj=!!(data&&data.projects), hasOkr=!!(data&&data.okrs);
-      const scopeTxt="任务"+(hasProj?"+项目":"")+(hasOkr?"+目标":"")+"+书/剧+习惯";
-      const nTask=Array.isArray(data&&data.tasks)?data.tasks.length:(Array.isArray(data)?data.length:0);
-      /* M5：导入提供「合并 / 覆盖」二选。旧版只能全量覆盖，换机合并两台设备数据时被迫二选一。 */
-      const mode=await confirmDialog(
-        "备份含 "+nTask+" 条任务（"+scopeTxt+"）。\n\n"
-        +"· 合并：保留双方，同一条取较新的那份；习惯打卡天数取并集（推荐：换机 / 两设备合数据）\n"
-        +"· 覆盖：清空当前数据，完全以备份为准",
-        {title:"导入备份", ok:"合并导入", extra:"覆盖导入", extraDanger:true, extraValue:"overwrite", cancel:"取消"});
-      if(!mode){ toast("已取消导入"); return; }
-      snapshot();
-      if(mode==="overwrite"){
-      if(isPkg){
-        state.tasks=(data.tasks||[]).map(t=>{ const c=sanitizeTask(t)||{}; return Object.assign({status:"todo",doneDates:[],recurrence:{freq:"none"},updated:c.updated||Date.now()},c); }).filter(Boolean);
-        /* P1-11：auds 漏默认值会让 renderMedia 的 media.auds.filter 抛 TypeError，被 renderAll 吞成"界面刷新出错" */
-        media=Object.assign({books:[],tvs:[],auds:[]},data.media||{}); mediaNorm();
-        habits=data.habits||[];
-        lists=data.lists||[];
-        stats=Object.assign({history:[]},data.stats||{});
-        if(data.cats){ cats=data.cats; catsSave(); }
-        if(data.pris){ pris=data.pris; prisSave(); }
-        /* _ver:3 起备份含项目 / 目标 / 标签树；旧备份无这些字段则保持现状，不清空 */
-        if(Array.isArray(data.tagTree)){ tagTree=data.tagTree; saveTags(); }
-        if(Array.isArray(data.projects)){ state.projects=data.projects; projectsSave(); }
-        if(Array.isArray(data.okrs)){ state.okrs=data.okrs; okrsSave(); }
-        /* P2-8：_ver:4 起备份含纪念日与墓碑；旧备份无这些字段则保持现状，不清空 */
-        if(Array.isArray(data.anniv)){ state.anniv=data.anniv; annivSave(); }
-        /* G7：覆盖导入的墓碑改「并集（同 id 取较新 ts）」而非整表替换 —— 替换会丢「纯本地删除尚未上云」的墓碑，
-           旧备份里的同 id 记录会在下轮云同步复活。备份缺 deleted 字段时保持本地墓碑不动（下方 P1-8 矛盾清理兜住反杀）。 */
-        if(Array.isArray(data.deleted)){
-          const _tm=new Map(deletedIds.map(d=>[String(d&&d.id), d]));
-          data.deleted.map(normTomb).forEach(d=>{ const k=String(d&&d.id); const curd=_tm.get(k); if(!curd || (d.ts||0)>(curd.ts||0)) _tm.set(k, d); });
-          deletedIds=Array.from(_tm.values());
-          if(deletedIds.length>TOMB_MAX) deletedIds=deletedIds.slice(-TOMB_MAX);
-          deletedIdsSave();
-        }
-        /* P1-8（导入路径）：备份里若同时含「任务本体 + 该任务的墓碑」（历史脏备份/手工编辑），
-           墓碑会让下一轮云同步把刚恢复的任务再删一次 —— 这里按任务 id 就地清掉矛盾墓碑 */
-        { const alive=new Set(state.tasks.map(t=>String(t&&t.id)));
-          const before=deletedIds.length;
-          deletedIds=deletedIds.filter(d=>!alive.has(String((d&&d.id)||d)));
-          if(deletedIds.length!==before) deletedIdsSave(); }
-        rebuildCatPriSelects();
-        if(data.theme) applyTheme(data.theme);
-        if(data.cfg) applyCfg(data.cfg);   // M9：覆盖导入时配置一并恢复
-      }else{
-        state.tasks=data.map(t=>{ const c=sanitizeTask(t)||{}; return Object.assign({status:"todo",doneDates:[],recurrence:{freq:"none"},updated:c.updated||Date.now()},c); }).filter(Boolean);
-      }
-      }else{
-        mergeImported(isPkg ? data : {tasks:data});
-      }
-      save(); mediaSave(); habitSave(); listsSave(); saveStats(); renderAll();
-      toast("已导入：任务 "+state.tasks.length+" · 项目 "+state.projects.length+" · 目标 "+state.okrs.length+" · 书 "+media.books.length+" · 剧 "+media.tvs.length+" · 习惯 "+habits.length);
-    }catch(e){ toast("文件格式错误"); }
-  };
-  r.readAsText(file);
-}
 async function clearAll(){
   if(!(await confirmDialog("将清空全部任务（含示例）。已删除的内容可用 Ctrl+Z 撤销，建议先导出备份。确认清空？",{danger:true}))) return;
   snapshot();
@@ -9113,8 +9247,6 @@ function mediaAdoptCloud(incoming, cloudDeleted){
     auds:  mediaMergeNewer(media.auds,  incoming.auds,  cloudDeleted)
   };
 }
-function mediaSave(){ storageSetSafe(MEDIA_KEY, JSON.stringify(media)); markLocalSave(); cloudAutoUpload(); }
-function mediaLoad(){ try{ const r=localStorage.getItem(MEDIA_KEY); if(r){ media=JSON.parse(r); mediaNorm(); return true; } }catch(e){} return false; }
 function mediaSeed(){
   const seed={
     books:[{id:"b1",title:"麦肯锡教我的工作方法",type:"书籍",current:12,total:30,platform:"微信读书"}],
@@ -9147,7 +9279,6 @@ function mediaUndoFinish(id, kind){
   mediaSave(); renderMedia(); toast("已撤销完成");
 }
 const M_KINDS={books:{cls:"",verb:"已读",unit:"章"},tvs:{cls:"tv",verb:"已看",unit:"集"},auds:{cls:"aud",verb:"已听",unit:"集"}};
-function defaultUnit(kind){ const k=M_KINDS[kind]||M_KINDS.books; return k.unit; }
 function mCard(c, kind){
   const k=M_KINDS[kind]||M_KINDS.books;
   const unit = c.unit || defaultUnit(kind);
@@ -9555,8 +9686,6 @@ let openLists = {};   // 顶部清单面板：各清单展开/收起状态
 const LISTS_KEY = "wb_taskhub_lists_v1";
 function listTouch(l){ if(l && !l.updated) l.updated = Date.now(); return l; }   // 首次给清单打时间戳
 function listsBackfill(){ lists.forEach(l=>{ if(!l.sortItem) l.sortItem=""; (l.items||[]).forEach(it=>{ if(it && !it.ut) it.ut = l.updated || Date.now(); if(it && !it.due) it.due=""; }); }); }   // 旧条目补修改时间戳 + 截止日/排序默认
-function listsSave(){ storageSetSafe(LISTS_KEY, JSON.stringify(lists)); markLocalSave(); cloudAutoUpload(); }
-function listsLoad(){ try{ const r=localStorage.getItem(LISTS_KEY); if(r){ const a=JSON.parse(r); if(Array.isArray(a)){ lists=a; listsBackfill(); return true; } } }catch(e){} return false; }
 function listsSeed(){
   lists = [
     {id:"l1", name:"待读图书", emoji:"📚", updated:2, items:[
@@ -9599,7 +9728,6 @@ const BOOK_SEED = [
    要求：每个迁移必须幂等（重复执行无害）。新增迁移 = 在表里加一项并把 SCHEMA_VERSION+1。 */
 const SCHEMA_KEY="wb_taskhub_schema_v1";
 const SCHEMA_VERSION=2;
-function schemaVersionNow(){ try{ return +localStorage.getItem(SCHEMA_KEY)||1; }catch(e){ return 1; } }
 const MIGRATIONS={
   2: function(){   // v1→v2：书单并入「待读图书」迁移纳入版本管理（幂等；含云覆盖后的自愈补齐）
     if(typeof migrateBooksToList==="function") migrateBooksToList();
@@ -10118,7 +10246,6 @@ function setupListsPanelEvents(){
 
 /* ===== 工具 ===== */
 
-function escNoIcon(s){return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}   // 仅转义 HTML，不转 SVG 图标：清单图标统一按原生 emoji 渲染，避免「命中 iconify 映射表的 emoji 变小灰图标、其余保持彩色」导致风格不一致
 
 /* ==== 云同步防重入 withBusy（）====
    同一时刻只允许一个云同步请求在飞：请求期间禁用触发按钮 + 加 .is-busy 转圈 + aria-busy="true"，
@@ -10126,20 +10253,6 @@ function escNoIcon(s){return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":
    下次触发会补上，绝不并发。目的：避免重复点击触发并发请求，导致后发先至的旧数据覆盖新数据。
    注意：按钮内含 SVG 图标，故只切换 disabled/class，不用 textContent 覆盖（会抹掉 SVG）。 */
 let _cloudBusy=false;
-/* R4 移植（对齐明信片 4316）：withBusy 退化为「纯 UI 反馈 + 收尾补传」，**不再自己置 _cloudBusy** ——
-   锁已下沉到 cloudUpload / cloudStartupPull / cloudDownload 内部。原先两层都置锁，被包裹的
-   cloudUpload 自锁化后会在第一行被 withBusy 的锁挡掉（手动上传点按钮没反应）。 */
-async function withBusy(btn, fn){
-  if(_cloudBusy||_pullBusy){ toast("云同步正在进行中，请稍候","warn"); return; }
-  const b=(typeof btn==="string"?document.getElementById(btn):btn);
-  if(b){ try{ b.disabled=true; b.classList.add("is-busy"); b.setAttribute("aria-busy","true"); }catch(_){} }
-  try{ return await fn(); }
-  finally{
-    if(b){ try{ b.disabled=false; b.classList.remove("is-busy"); b.removeAttribute("aria-busy"); }catch(_){} }
-    /* 补传：这一轮同步期间被自锁挡下、置了 _pendingUpload 的改动，此刻补上（对齐明信片 4334） */
-    if(_pendingUpload){ _pendingUpload=false; cloudAutoUpload(); }
-  }
-}
 
 /* ===== 选择模式 + 批量操作（任务/清单/项目通用） ===== */
 let selMode=false, selView="", selIds=new Set();
@@ -10277,11 +10390,6 @@ function snapshotObj(){
     deleted:JSON.parse(JSON.stringify(deletedIds||[]))}; }   // 墓碑一并入快照：撤销「删除」必须同时撤掉墓碑，否则下轮合并又把该条抹掉
   catch(e){ return {t:Date.now(),tasks:[],media:{books:[],tvs:[],auds:[]},habits:[],lists:[],tagTree:[],projects:[],okrs:[],anniv:[],deleted:[]}; }
 }
-function undoPersist(){
-  try{ localStorage.setItem(UNDO_KEY, JSON.stringify(undoStack.slice(-UNDO_MAX))); }
-  catch(e){ try{ localStorage.setItem(UNDO_KEY, JSON.stringify(undoStack.slice(-6))); }catch(e2){ try{ localStorage.setItem(UNDO_KEY, JSON.stringify(undoStack.slice(-1))); }catch(e3){} } }
-}
-function undoLoad(){ try{ const a=JSON.parse(localStorage.getItem(UNDO_KEY)||"[]"); if(Array.isArray(a)) undoStack=a; }catch(e){} }
 function snapshot(){
   try{
     // P2-5：版本号短路 —— 自上次快照以来没有任何保存路径触碰数据 ⇒ 与栈顶必然一致，
@@ -10820,8 +10928,6 @@ function updateThemeBtn(){
 /* ===== 习惯打卡 ===== */
 let habits=[];
 const HABIT_KEY="wb_taskhub_habits_v1";
-function habitLoad(){ try{ const r=localStorage.getItem(HABIT_KEY); if(r) habits=JSON.parse(r); }catch(e){} }
-function habitSave(){ storageSetSafe(HABIT_KEY, JSON.stringify(habits)); markLocalSave(); cloudAutoUpload(); fullRingPush(); }
 /* 习惯改动直接写入全量备份环（FULL_RING，已含 habits）：被云同步 / 缓存页覆盖时可在「历史与恢复」离线还原，不再单独维护一套习惯环 */
 /* ===== 打卡格子样式（用户可编辑） ===== */
 const HABIT_STYLE_KEY="wb_taskhub_habit_style_v1";
@@ -11029,16 +11135,6 @@ function bindHabitActions(root){
 }
 /* 补打 / 取消 多天卡：选日期范围 + 习惯，把漏掉的打卡一次性补上，或撤销误打的卡 */
 let bfMode="add";
-function parseDateVal(v){
-  if(!v) return null;
-  const m=String(v).trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if(!m) return null;
-  const y=+m[1], mo=+m[2], d=+m[3];
-  if(mo<1||mo>12||d<1||d>31) return null;
-  const dt=new Date(y, mo-1, d);
-  if(dt.getFullYear()!==y || dt.getMonth()!==mo-1 || dt.getDate()!==d) return null;  // 防 Date 进位（2026-02-30→03-02）
-  return startOfDay(dt);
-}
 function setBfMode(mode){
   bfMode=mode;
   const isAdd = mode==="add";

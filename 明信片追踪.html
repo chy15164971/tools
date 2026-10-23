@@ -1870,8 +1870,316 @@ function escIcon(s){ return iconify(esc(s)); }
  */
 
 /* ===== L1 Util/Date · P1-9 分层（2026-10-23）===== */
+// 列表并集（不丢本地独有项）
+function unionArr(a,b){ return Array.from(new Set([].concat(a||[], b||[]))).filter(Boolean); }
+
+/* P1-7 本地日期串：全文件统一的「今天」取值口径。
+   原先 6 处用 new Date().toISOString() 取 UTC 后截取日期 —— toISOString 取的是 UTC，
+   东八区本地 00:00–08:00 之间操作会得到**昨天**的日期串；而所有天数计算（daysBetween/daysSince/
+   transitDays）与 rotDstr() 都按本地零点解析 → 在途天数、往返天数、逾期判定全部偏移 1 天。 */
+function todayStr(){ return rotDstr(new Date()); }
+
+function daysBetween(a,b){ return Math.round((Date.UTC(b.getFullYear(),b.getMonth(),b.getDate())-Date.UTC(a.getFullYear(),a.getMonth(),a.getDate()))/86400000); }
+
+function transitDays(p){
+  if(!p.sent) return null;
+  if(p.status==="returned") return null; // F7 修复：退回件不再「在途」，显示 —，避免天数无限增长
+  const s=new Date(p.sent+"T00:00:00");
+  if(isNaN(s)) return null;   // P1-5：脏日期串（如云同步/导入带入）防护，返回 null 让显示层走「—」分支，避免渲染 NaN 天
+  let v;
+  // P2-19：把「已到」终态判断提到外层—— 状态已 arrived 但到达日被清空时，原逻辑落进在途分支，天数每天无限增长（"已完成"卡片却显示在途 300 天）
+  if(p.status==="arrived"){ if(!p.arrived) return null; const a=new Date(p.arrived+"T00:00:00"); if(isNaN(a)) return null; v=daysBetween(s,a); }
+  else v=daysBetween(s, new Date());
+  return v<0?0:v; // 到达日若填成未来日期，归零避免显示负天数
+}
+
+function daysSince(dateStr){ if(!dateStr) return null; const a=new Date(dateStr+"T00:00:00"); if(isNaN(a)) return null; return Math.round((Date.now()-a)/86400000); }
+
+function normUrl(u){ u=String(u==null?"":u).trim(); if(!u) return ""; return /^https?:\/\//i.test(u)?u:"https://"+u; }
+
+/* P0-2 图片字段只收 http(s) 链接。
+   原先零校验：纯文本框只 .trim()，而 safeImg()（L3858）**只在渲染时**过滤 /^https?:\/\//——
+   data: 内嵌的 base64 早已写进 localStorage。一张 base64 图 ≈ 1.33× 原图，3~4 张即写满 5MB 配额，
+   之后所有 save() 失败（叠上 P0-1 就是静默丢数据），还会撑爆每次 syncPayload 的体积、拖慢搜索。 */
+function sanitizeImageUrl(v){
+  v=String(v==null?"":v).trim();
+  if(!v) return "";
+  if(/^data:/i.test(v)){ toast("图片只支持 http(s) 链接：data: 内嵌图片会让本地存储瞬间写满，已忽略","warn",5200); return ""; }
+  if(!/^https?:\/\//i.test(v)){ toast("图片需以 http:// 或 https:// 开头，已忽略","warn",4000); return ""; }
+  return v.slice(0,500);
+}
+
+function fmtDate(s){ return s? String(s).slice(0,10) : ""; }
+
+function rotDstr(d){ const p=n=>String(n).padStart(2,"0"); return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate()); }
+
+function nextRotIdx(a){ if(!a||!Array.isArray(a.rotation)) return -1; return a.rotation.findIndex(r=>!r||!r.sent); }
+
+function rotNext(a){ const i=nextRotIdx(a); if(i<0) return null; const r=a.rotation[i]||{}; return {idx:i, to:r.to||"", size:r.size||"", due:r.due||""}; }
+
+function rotDueState(r){ if(!r||!r.due) return ""; const t=new Date(r.due+"T00:00:00"); if(isNaN(t)) return ""; const d0=new Date(); d0.setHours(0,0,0,0); const diff=Math.round((t-d0)/86400000); return diff<0?"overdue":(diff<=3?"duesoon":"ok"); }
+
+function safeImg(url){
+  if(!/^https?:\/\//i.test(url||"")) return "—";
+  return '<img class="thumb" src="'+esc(url)+'" alt="明信片图片" loading="lazy" decoding="async" width="34" height="34" title="点击放大（若显示失败提示，原图链接可能已失效）" onerror="this.classList.add(\'imgerr\');this.alt=\'图片加载失败\'" tabindex="0" role="button">';
+}
 
 /* ===== L2 Store · P1-9 分层（2026-10-23）===== */
+function loadWidgets(){ try{ const s=localStorage.getItem(WKEY); if(s){ const o=JSON.parse(s); if(o&&typeof o==="object") widgetCfg={order:o.order||[],hidden:o.hidden||[],custom:o.custom||[],autoRename:(o.autoRename&&typeof o.autoRename==="object")?o.autoRename:{}}; } }catch(e){} }
+
+/* 自定义卡是否在当前页显示：无 scope / scope=all 视为全局（兼容老数据） */
+function widgetInScope(w){ return !w.scope || w.scope==="all" || w.scope===view; }
+
+/* 某张被隐藏的卡是否属于当前页 —— 让「显示已隐藏」只放出本页的卡 */
+function isHiddenHere(wid){
+  if(wid.indexOf("stat:")===0) return wid.indexOf("stat:"+view+":")===0;
+  const c=widgetCfg.custom.find(x=>x.id===wid.slice(2));
+  return c?widgetInScope(c):false;
+}
+
+function saveWidgets(){ storageSet(WKEY, JSON.stringify(widgetCfg)); touchCfg(); cloudAutoUpload(); }
+
+function touchCfg(){ cfgSavedAt=Date.now(); storageSet(CFG_SAVED_KEY, String(cfgSavedAt)); }
+
+function load(){
+  platList=PLAT_DEFAULT.slice(); typeList=TYPE_DEFAULT.slice(); countryList=COUNTRY_DEFAULT.slice();
+  try{
+    const r=localStorage.getItem(KEY);
+    if(r){
+      const a=JSON.parse(r);
+      if(Array.isArray(a)){ a.forEach(function(it){ if(!it || typeof it!=="object" || Array.isArray(it)) return; if(!it.id) it.id=uid(); if(it.dir==="received") received.push(it); else postcards.push(it); }); }
+      else if(a && typeof a==="object"){
+        postcards=sanitizeArr(a.postcards,{statusKeys:STATUS_ORDER,fallbackStatus:"unwritten"});
+        received=sanitizeArr(a.received,{statusKeys:RECV_STATUS_ORDER,fallbackStatus:"transit"});
+        proxies=sanitizeArr(a.proxies);
+        activities=sanitizeArr(a.activities,{statusKeys:ACT_STATUS_ORDER,fallbackStatus:"ongoing"});
+        if(Array.isArray(a.actKindList)&&a.actKindList.length) actKindList=a.actKindList.map(o=>({...o}));
+        if(Array.isArray(a.platList)&&a.platList.length) platList=a.platList;
+        if(Array.isArray(a.typeList)&&a.typeList.length) typeList=a.typeList;
+        if(Array.isArray(a.countryList)&&a.countryList.length) countryList=a.countryList;
+      }
+    }
+  }catch(e){}
+  syncListsFromData();
+  normalizeRecv();
+  let _migrated=false;
+  postcards.forEach(p=>{ if(p && p.status==="sent"){ p.status="transit"; _migrated=true; } });
+  // 迁移：旧互寄逻辑曾把两条腿生成完全一样（同方向、同日期）。
+  // 纠正为一正一反：me 腿保留日期；them 腿设为反向并清空被复制的日期（还原为待填态）。
+  let _mutualFixed=false;
+  const _groups={};
+  proxies.forEach(p=>{ if(p && p.pairId) (_groups[p.pairId]=_groups[p.pairId]||[]).push(p); });
+  Object.keys(_groups).forEach(pid=>{
+    const g=_groups[pid];
+    if(g.some(p=>!p.direction)){ // 存在旧腿（无 direction）→ 整对视为 legacy，需纠正
+      g.forEach((p,i)=>{
+        if(!p.direction){ p.direction=(i===0)?"me":"them"; _mutualFixed=true; }
+        if(p.direction===PDIR.THEM && (p.sent||p.proxyRecv||p.proxyBack||p.gotBack)){
+          p.sent=p.proxyRecv=p.proxyBack=p.gotBack=""; _mutualFixed=true; // 旧镜像日期是 me 腿副本，清空
+        }
+      });
+    }
+  });
+  // 迁移：活动关联从单条（linkType/linkId）升级为 links 数组，保持向后兼容
+  let _linksMigrated=false;
+  activities.forEach(a=>{
+    if(!a) return;
+    if(!Array.isArray(a.links)) a.links=[];
+    if(a.linkType && a.linkId){
+      if(!a.links.some(l=>l.type===a.linkType && l.id===a.linkId)){
+        a.links.push({type:a.linkType, id:a.linkId});
+      }
+      delete a.linkType; delete a.linkId;
+      _linksMigrated=true;
+    }
+  });
+  if(_migrated || _mutualFixed || _linksMigrated) save(); // 迁移即时落盘，避免依赖后续保存
+}
+
+function storageSet(k,v){
+  try{ localStorage.setItem(k,v); return true; }
+  catch(e){
+    const quota = !!e && (e.name==="QuotaExceededError" || e.name==="NS_ERROR_DOM_QUOTA_REACHED" || e.code===22 || e.code===1014);
+    const now=Date.now();
+    if(now-_quotaWarnAt>30000){ // 同类告警 30s 内只弹一次，避免保存风暴刷屏
+      _quotaWarnAt=now;
+      const msg = quota
+        ? "存储空间已满，本次修改没能写入本地（明信片图片较多时容易触发）。请先删除部分图片或清理旧记录，再重新操作。"
+        : "本地存储写入失败，本次修改可能不会被保留。";
+      try{ toast(msg,"danger"); }catch(_){ try{ alert(msg); }catch(__){} }
+      if(DEBUG)console.error("[storage] setItem failed:", k, e);
+    }
+    return false;
+  }
+}
+
+function save(upload){
+  const ok = storageSet(KEY, JSON.stringify({postcards, received, proxies, activities, platList, typeList, actKindList, countryList}));
+  if(ok) storageSet(SAVED_AT, String(Date.now()));
+  if(upload!==false) cloudAutoUpload(); // 破坏性操作（清空/导入）传 false，避免静默覆盖云端
+  return ok;
+}
+
+function uid(){ return "pc_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+// 给记录打「最后修改时间」戳，用于云端合并时按 last-writer-wins 更新已有记录
+function touch(rec){ if(rec && typeof rec==="object"){ try{ rec.updatedAt=Date.now(); }catch(e){} } return rec; }
+
+function loadLinks(){
+  // 只有「从未存过」才播种默认；存过（哪怕被删成空数组）一律尊重用户的取舍
+  let v=null;
+  try{ v=JSON.parse(localStorage.getItem(LKEY)||"null"); }catch(e){ v=null; }
+  const cleaned=normLinkList(v);
+  if(cleaned){
+    linkList = cleaned;
+    try{ if(JSON.stringify(cleaned)!==JSON.stringify(v)) saveLinks(); }catch(_){}   // 清洗有实效才回写，把脏数据从存储里洗掉
+  }else{
+    linkList = LINKS_DEFAULT.map(x=>({...x}));
+    saveLinks();
+  }
+}
+
+function saveLinks(){ storageSet(LKEY, JSON.stringify(linkList)); touchCfg(); cloudAutoUpload(); }   /* G14（2026-10-23 修）：对齐 saveTabLabel/saveWidgets——原只写本地，书签改动不上云且不推 cfgSavedAt，「最后写入者胜出」感知不到它，可能被他端旧设置静默覆盖新编辑（cloudAutoUpload 自带 1.5s 去抖，逐键触发无害） */
+
+function tabLabels(){ try{ return Object.assign({}, TAB_DEFAULT, JSON.parse(localStorage.getItem(TAB_KEY)||"{}")); }catch(e){ return Object.assign({}, TAB_DEFAULT); } }
+
+function tabLabel(v){ return tabLabels()[v] || TAB_DEFAULT[v]; }
+
+function saveTabLabel(v,txt){ const m=tabLabels(); m[v]=(txt&&txt.trim())?txt.trim():TAB_DEFAULT[v]; storageSet(TAB_KEY, JSON.stringify(m)); touchCfg(); cloudAutoUpload(); }   // P2-15：走 storageSet，配额满时不再静默丢标签名
+
+function currentWidgetWids(){
+  /* P2-17：直接反推 renderStats 的真实产出，而不是再手写一份标签列表。
+     手写列表与 renderStats 的 auto 数组是两份数据，此前三次分叉（代寄 5 态短标签 / 漏「可能丢失张数」/ 漏 sent 的「可能丢失」）
+     每次都让对应卡的排序操作静默失效。_renderedAutoWids 为 null（renderStats 还没跑过，如 syncOrder 在启动早期被调）时
+     退回上一版的手写列表兜底，保证首次调用也能工作。 */
+  const auto = (_renderedAutoWids && _renderedAutoWids.length)
+    ? _renderedAutoWids
+    : (view==="sent" ? ["总计","未写","未寄","在途","已到","在途均天数","可能丢失"]
+      : view==="received" ? ["总计","在途","已收","国家/地区","平台数","有图"]
+      : view==="activity" ? ["活动总数","进行中","已结束","已关闭"].concat(actKindList.map(o=>o.label+" 活动"))
+      : ["总张数","在途张数","对方代寄在途张数","可能丢失张数"].concat(Object.values(PROXY_STAT_LABELS)))
+      .map(l=>"stat:"+view+":"+l);
+  return auto.concat(widgetCfg.custom.filter(widgetInScope).map(w=>"c:"+w.id));
+}
+
+function syncOrder(){
+  const cur=currentWidgetWids();
+  cur.forEach(w=>{ if(!widgetCfg.order.includes(w)) widgetCfg.order.push(w); });
+  /* 自定义卡即使限定了页面，也始终保留排序位，避免在其他页拖拽后切回时排序丢失 */
+  widgetCfg.order=widgetCfg.order.filter(w=> cur.includes(w) || widgetCfg.hidden.includes(w) || w.indexOf("c:")===0);
+}
+
+function saveWidgetModal(){
+  const type=document.getElementById("wType").value;
+  const title=document.getElementById("wTitle").value.trim();
+  const text=document.getElementById("wText").value.trim();
+  const url=document.getElementById("wUrl").value.trim();
+  const num=document.getElementById("wNum").value.trim();
+  const scope=document.getElementById("wScope").value||view;
+  if(!title){ fieldError("wTitle","请填写标题"); return; }   // P2-13：聚焦+红字，不再只弹 toast
+  if(editingWid){
+    const id=editingWid.slice(2); const w=widgetCfg.custom.find(x=>x.id===id);
+    if(w){ w.type=type; w.title=title; w.text=text; w.url=url; w.num=num; w.scope=scope; }
+  }else{
+    widgetCfg.custom.push({id:"w"+Date.now().toString(36), type, title, text, url, num, scope});
+  }
+  syncOrder(); saveWidgets(); renderStats(); closeWidgetModal(); toast(editingWid?"已更新卡片":"已添加卡片");
+}
+
+/* 备份快照必须与 save()/syncPayload() 同字段，否则「导出备份 → 导入恢复」会静默丢数据。
+   旧实现只导 4 个字段，漏掉 activities 与全部自定义列表（平台/类型/国家/活动类型/标签名）。 */
+function backupPayload(){
+  return {
+    _ver:3, exportedAt:new Date().toISOString(),
+    postcards, received, proxies, activities,
+    platList, typeList, actKindList, countryList,
+    tabLabels:tabLabels(), links:linkList,
+    widgetCfg:{order:widgetCfg.order,hidden:widgetCfg.hidden,custom:widgetCfg.custom,autoRename:widgetCfg.autoRename},  // F2 修复：自定义统计卡/排序/隐藏/重命名此前漏备份，导入恢复会全丢
+    cfgSavedAt,
+    deleted:deletedIds          // 墓碑必须进备份，否则恢复后已删记录会被云端复活
+  };
+}
+
+function exportJSON(){
+  const blob=new Blob([JSON.stringify(backupPayload(),null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="postcards.json"; a.click();
+  /* P3-4：revoke 延后 1s —— 紧邻 a.click() 同步撤销，Firefox/Safari 上 blob 还没开始读就失效 → 下载失败。
+     setTimeout 让浏览器先取到数据；1s 后对象 URL 已用完，撤销无副作用。 */
+  setTimeout(function(){ try{ URL.revokeObjectURL(a.href); }catch(_){} }, 1000);
+  toast("已导出完整备份");
+}
+
+// F7 按当前视图导出 CSV（带 BOM，Excel 中文不乱码；字段按视图裁剪）
+function exportCSV(){
+  let rows=[], name="";
+  if(view==="sent"){
+    name="postcards_sent";
+    rows.push(["收件人","国家","城市","渠道","平台","类型","寄出日","到达日","状态","追踪号","图","备注"]);
+    filteredSent().forEach(p=>rows.push([p.recipient,p.country,p.city,p.channel,p.platform,p.type,p.sent,p.arrived,(STATUSES[p.status]||{}).label,p.trackingNo,p.image,p.note]));
+  }else if(view==="received"){
+    name="postcards_received";
+    rows.push(["寄件人","国家","城市","平台","类型","状态","收到日","图","备注"]);
+    filteredRecv().forEach(p=>rows.push([p.sender,p.country,p.city,p.platform,p.type,(RECV_STATUSES[p.status]||{}).label,p.received,p.image,p.note]));
+  }else if(view==="activity"){
+    // F1 修复：此前活动视图落入 else 兜底（代寄分支），导出文件名与内容都是代寄数据
+    name="postcards_activity";
+    rows.push(["活动名称","类型","平台","进度","状态","截止日","关联","轮换","备注"]);
+    filteredActivities().forEach(a=>{
+      const k=(actKindList.find(o=>o.key===a.kind)||{}).label||a.kind||"";
+      const prog=(a.max>0? (a.cur||0)+"/"+a.max : String(a.cur||0));
+      const links=(Array.isArray(a.links)?a.links:[]).map(l=>actLinkItemLabel(l.type,l.id)).filter(Boolean).join("；");
+      const rot=(Array.isArray(a.rotation)?a.rotation:[]).map(r=>[r.to||"",r.size||"",r.due||"",r.written||"",r.sent||"",r.received||""].join("|")).join(" ; ");
+      rows.push([a.title,k,a.platform,prog,(ACT_STATUS[a.status]||{}).label||a.status||"",a.deadline||"",links,rot,a.note||""]);
+    });
+  }else{
+    name="postcards_proxy";
+    rows.push(["对方","国家","城市","平台","类型","方向","张数","对方寄出","我收","我写回寄出","对方收","对方写回","我收到","状态","备注"]);
+    filteredProxy().forEach(p=>rows.push([p.proxy,p.country,p.city,p.platform,p.type,p.direction||"me",p.cardCount||1,p.envSent||"",p.envRecv||"",p.sent,p.proxyRecv,p.proxyBack,p.gotBack,proxyStatusText(p),p.note]));
+  }
+  /* P3-3：防公式注入。备注/国家/平台等是用户自由输入，以 = + - @ 或制表符开头时 Excel/Sheets 会当公式执行
+     （=HYPERLINK(...) 可外泄、=cmd| 之类在旧版可执行）。前置单引号即可 neutralize，Excel 显示时自动隐藏。 */
+  const escC=v=>{ let t=String(v==null?"":v); if(/^[=+\-@\t\r]/.test(t)) t="'"+t; return `"${t.replace(/"/g,'""')}"`; };
+  const csv="﻿"+rows.map(r=>r.map(escC).join(",")).join("\r\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name+".csv"; a.click();
+  URL.revokeObjectURL(a.href); toast("已导出 "+name+".csv");
+}
+
+function importJSON(file){
+  const r=new FileReader();
+  r.onload=async()=>{
+    try{
+      const a=JSON.parse(r.result);
+      if(!Array.isArray(a) && !(a && typeof a==="object" && ("postcards" in a || "received" in a))) throw new Error("格式不对");
+      if(!(await confirmDialog("导入将覆盖本地全部数据（寄出 + 收到 + 代寄 + 活动，及平台/类型列表、站点链接、标签名等设置）。建议先「导出 JSON」备份。确认覆盖导入？",{ok:"覆盖导入",danger:true}))){ toast("已取消导入"); return; }
+      // 数组为旧格式：确认文案已承诺「覆盖」，这里必须先清空再灌入，否则变成追加导致数据翻倍
+      if(Array.isArray(a)){ postcards=[]; received=[]; a.forEach(function(it){ if(!it || typeof it!=="object" || Array.isArray(it)) return; if(!it.id) it.id=uid(); if(it.dir==="received") received.push(it); else postcards.push(it); }); }
+      else {
+        postcards=sanitizeArr(a.postcards,{statusKeys:STATUS_ORDER,fallbackStatus:"unwritten"});
+        received=sanitizeArr(a.received,{statusKeys:RECV_STATUS_ORDER,fallbackStatus:"transit"});
+        proxies=sanitizeArr(a.proxies);
+        activities=sanitizeArr(a.activities,{statusKeys:ACT_STATUS_ORDER,fallbackStatus:"ongoing"});
+        if(Array.isArray(a.platList)&&a.platList.length) platList=a.platList;
+        if(Array.isArray(a.typeList)&&a.typeList.length) typeList=a.typeList;
+        if(Array.isArray(a.countryList)&&a.countryList.length) countryList=a.countryList;
+        if(Array.isArray(a.actKindList)&&a.actKindList.length) actKindList=a.actKindList.map(o=>({...o}));
+        if(Array.isArray(a.links)&&a.links.length){ linkList=a.links.filter(x=>x&&x.url).map(x=>({emoji:x.emoji||"", name:x.name||"", url:x.url})); saveLinks(); renderLinkBar(); }
+        if(a.tabLabels && typeof a.tabLabels==="object"){ storageSet(TAB_KEY, JSON.stringify(a.tabLabels)); }   // P2-15
+        if(a.widgetCfg && typeof a.widgetCfg==="object"){  // F2 修复：恢复自定义统计卡配置（与云同步 applyCloudSettings 同口径）
+          widgetCfg={order:a.widgetCfg.order||[],hidden:a.widgetCfg.hidden||[],custom:a.widgetCfg.custom||[],autoRename:(a.widgetCfg.autoRename&&typeof a.widgetCfg.autoRename==="object")?a.widgetCfg.autoRename:{}};
+          storageSet(WKEY, JSON.stringify(widgetCfg));   // P2-15
+        }
+        deletedIds=Array.isArray(a.deleted)?a.deleted.map(normTomb).filter(t=>t.id):[]; tombSave();
+      }
+      syncListsFromData();
+      normalizeRecv();
+      const savedImport=save(false); renderAll();
+      if(!savedImport){ toast("⚠️ 导入的数据未能写入本地（存储空间已满）。请先清理旧数据后重新导入。","danger",7000); return; }
+      toast("已导入 "+(postcards.length+received.length+proxies.length+activities.length)+" 条");
+    }catch(e){ toast("导入失败："+e.message, "danger"); }
+  };
+  r.readAsText(file);
+}
 
 /* ===== L3 Domain · P1-9 分层（2026-10-23）===== */
 
@@ -1887,16 +2195,6 @@ const KEY="wb_postcards_v1";
 const WKEY="wb_postcards_widgets_v1";
 const VIEW_NAME={sent:"寄出",received:"收到",proxy:"代寄",activity:"活动"};
 let widgetCfg={order:[],hidden:[],custom:[],autoRename:{}};
-function loadWidgets(){ try{ const s=localStorage.getItem(WKEY); if(s){ const o=JSON.parse(s); if(o&&typeof o==="object") widgetCfg={order:o.order||[],hidden:o.hidden||[],custom:o.custom||[],autoRename:(o.autoRename&&typeof o.autoRename==="object")?o.autoRename:{}}; } }catch(e){} }
-/* 自定义卡是否在当前页显示：无 scope / scope=all 视为全局（兼容老数据） */
-function widgetInScope(w){ return !w.scope || w.scope==="all" || w.scope===view; }
-/* 某张被隐藏的卡是否属于当前页 —— 让「显示已隐藏」只放出本页的卡 */
-function isHiddenHere(wid){
-  if(wid.indexOf("stat:")===0) return wid.indexOf("stat:"+view+":")===0;
-  const c=widgetCfg.custom.find(x=>x.id===wid.slice(2));
-  return c?widgetInScope(c):false;
-}
-function saveWidgets(){ storageSet(WKEY, JSON.stringify(widgetCfg)); touchCfg(); cloudAutoUpload(); }
 const SAVED_AT="wb_postcards_savedAt_v1";
 const CFG_SAVED_KEY="wb_postcards_cfgsavedat_v1";
 /* 2026-10-23 白屏事故三修：此行原先裸调 localStorage.getItem 且无 try —— 它是 IIFE 顶层
@@ -1905,7 +2203,6 @@ const CFG_SAVED_KEY="wb_postcards_cfgsavedat_v1";
    cfgsavedat 纯优化字段，读不到就退化为 0，绝不能因为它让整页挂掉。 */
 let cfgSavedAt=0;
 try{ cfgSavedAt=+(localStorage.getItem(CFG_SAVED_KEY)||0)||0; }catch(e){}
-function touchCfg(){ cfgSavedAt=Date.now(); storageSet(CFG_SAVED_KEY, String(cfgSavedAt)); }
 const CLOUD_KEY="wb_postcards_cloudsync_v1";
 const STATUS_ORDER=["unwritten","unsent","transit","arrived","returned"];
 const STATUSES={
@@ -2043,113 +2340,14 @@ function sanitizeArr(v, opts){
   });
 }
 const cleanArr=v=>sanitizeArr(v);   // 旧名保留兼容（两文件不用，但改调用点风险大时可用）
-function load(){
-  platList=PLAT_DEFAULT.slice(); typeList=TYPE_DEFAULT.slice(); countryList=COUNTRY_DEFAULT.slice();
-  try{
-    const r=localStorage.getItem(KEY);
-    if(r){
-      const a=JSON.parse(r);
-      if(Array.isArray(a)){ a.forEach(function(it){ if(!it || typeof it!=="object" || Array.isArray(it)) return; if(!it.id) it.id=uid(); if(it.dir==="received") received.push(it); else postcards.push(it); }); }
-      else if(a && typeof a==="object"){
-        postcards=sanitizeArr(a.postcards,{statusKeys:STATUS_ORDER,fallbackStatus:"unwritten"});
-        received=sanitizeArr(a.received,{statusKeys:RECV_STATUS_ORDER,fallbackStatus:"transit"});
-        proxies=sanitizeArr(a.proxies);
-        activities=sanitizeArr(a.activities,{statusKeys:ACT_STATUS_ORDER,fallbackStatus:"ongoing"});
-        if(Array.isArray(a.actKindList)&&a.actKindList.length) actKindList=a.actKindList.map(o=>({...o}));
-        if(Array.isArray(a.platList)&&a.platList.length) platList=a.platList;
-        if(Array.isArray(a.typeList)&&a.typeList.length) typeList=a.typeList;
-        if(Array.isArray(a.countryList)&&a.countryList.length) countryList=a.countryList;
-      }
-    }
-  }catch(e){}
-  syncListsFromData();
-  normalizeRecv();
-  let _migrated=false;
-  postcards.forEach(p=>{ if(p && p.status==="sent"){ p.status="transit"; _migrated=true; } });
-  // 迁移：旧互寄逻辑曾把两条腿生成完全一样（同方向、同日期）。
-  // 纠正为一正一反：me 腿保留日期；them 腿设为反向并清空被复制的日期（还原为待填态）。
-  let _mutualFixed=false;
-  const _groups={};
-  proxies.forEach(p=>{ if(p && p.pairId) (_groups[p.pairId]=_groups[p.pairId]||[]).push(p); });
-  Object.keys(_groups).forEach(pid=>{
-    const g=_groups[pid];
-    if(g.some(p=>!p.direction)){ // 存在旧腿（无 direction）→ 整对视为 legacy，需纠正
-      g.forEach((p,i)=>{
-        if(!p.direction){ p.direction=(i===0)?"me":"them"; _mutualFixed=true; }
-        if(p.direction===PDIR.THEM && (p.sent||p.proxyRecv||p.proxyBack||p.gotBack)){
-          p.sent=p.proxyRecv=p.proxyBack=p.gotBack=""; _mutualFixed=true; // 旧镜像日期是 me 腿副本，清空
-        }
-      });
-    }
-  });
-  // 迁移：活动关联从单条（linkType/linkId）升级为 links 数组，保持向后兼容
-  let _linksMigrated=false;
-  activities.forEach(a=>{
-    if(!a) return;
-    if(!Array.isArray(a.links)) a.links=[];
-    if(a.linkType && a.linkId){
-      if(!a.links.some(l=>l.type===a.linkType && l.id===a.linkId)){
-        a.links.push({type:a.linkType, id:a.linkId});
-      }
-      delete a.linkType; delete a.linkId;
-      _linksMigrated=true;
-    }
-  });
-  if(_migrated || _mutualFixed || _linksMigrated) save(); // 迁移即时落盘，避免依赖后续保存
-}
 /* ===== 本地存储统一写入口 =====
    原实现把 QuotaExceededError 静默吞掉 → 界面显示「已保存」、刷新后数据全丢且毫无提示。
    明信片含 base64 图片，极易触发配额上限，这里必须显式告警。 */
 let _quotaWarnAt=0;
-function storageSet(k,v){
-  try{ localStorage.setItem(k,v); return true; }
-  catch(e){
-    const quota = !!e && (e.name==="QuotaExceededError" || e.name==="NS_ERROR_DOM_QUOTA_REACHED" || e.code===22 || e.code===1014);
-    const now=Date.now();
-    if(now-_quotaWarnAt>30000){ // 同类告警 30s 内只弹一次，避免保存风暴刷屏
-      _quotaWarnAt=now;
-      const msg = quota
-        ? "存储空间已满，本次修改没能写入本地（明信片图片较多时容易触发）。请先删除部分图片或清理旧记录，再重新操作。"
-        : "本地存储写入失败，本次修改可能不会被保留。";
-      try{ toast(msg,"danger"); }catch(_){ try{ alert(msg); }catch(__){} }
-      if(DEBUG)console.error("[storage] setItem failed:", k, e);
-    }
-    return false;
-  }
-}
-function save(upload){
-  const ok = storageSet(KEY, JSON.stringify({postcards, received, proxies, activities, platList, typeList, actKindList, countryList}));
-  if(ok) storageSet(SAVED_AT, String(Date.now()));
-  if(upload!==false) cloudAutoUpload(); // 破坏性操作（清空/导入）传 false，避免静默覆盖云端
-  return ok;
-}
 
-function uid(){ return "pc_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
-// 给记录打「最后修改时间」戳，用于云端合并时按 last-writer-wins 更新已有记录
-function touch(rec){ if(rec && typeof rec==="object"){ try{ rec.updatedAt=Date.now(); }catch(e){} } return rec; }
-// 列表并集（不丢本地独有项）
-function unionArr(a,b){ return Array.from(new Set([].concat(a||[], b||[]))).filter(Boolean); }
-/* P1-7 本地日期串：全文件统一的「今天」取值口径。
-   原先 6 处用 new Date().toISOString() 取 UTC 后截取日期 —— toISOString 取的是 UTC，
-   东八区本地 00:00–08:00 之间操作会得到**昨天**的日期串；而所有天数计算（daysBetween/daysSince/
-   transitDays）与 rotDstr() 都按本地零点解析 → 在途天数、往返天数、逾期判定全部偏移 1 天。 */
-function todayStr(){ return rotDstr(new Date()); }
-function daysBetween(a,b){ return Math.round((Date.UTC(b.getFullYear(),b.getMonth(),b.getDate())-Date.UTC(a.getFullYear(),a.getMonth(),a.getDate()))/86400000); }
-function transitDays(p){
-  if(!p.sent) return null;
-  if(p.status==="returned") return null; // F7 修复：退回件不再「在途」，显示 —，避免天数无限增长
-  const s=new Date(p.sent+"T00:00:00");
-  if(isNaN(s)) return null;   // P1-5：脏日期串（如云同步/导入带入）防护，返回 null 让显示层走「—」分支，避免渲染 NaN 天
-  let v;
-  // P2-19：把「已到」终态判断提到外层—— 状态已 arrived 但到达日被清空时，原逻辑落进在途分支，天数每天无限增长（"已完成"卡片却显示在途 300 天）
-  if(p.status==="arrived"){ if(!p.arrived) return null; const a=new Date(p.arrived+"T00:00:00"); if(isNaN(a)) return null; v=daysBetween(s,a); }
-  else v=daysBetween(s, new Date());
-  return v<0?0:v; // 到达日若填成未来日期，归零避免显示负天数
-}
 /* ===== F1 异常件（可能丢失）提醒 ===== */
 const LOST_DAYS={平邮:60,空邮:30,挂号:120,其他:45,"":60}; // 各渠道在途超期阈值（天）（「自寄」键已删：渠道下拉无此项，永不命中）
 const PROXY_LOST_DAYS=75; // 代寄：自「我寄出」起超过该天数仍未走完，判定可能丢失
-function daysSince(dateStr){ if(!dateStr) return null; const a=new Date(dateStr+"T00:00:00"); if(isNaN(a)) return null; return Math.round((Date.now()-a)/86400000); }
 function isLostSent(p){ if(!p||p.status!=="transit") return false; const d=transitDays(p); return d!=null && d>(LOST_DAYS[p.channel]||60); }
 /* P1-6：补终止条件 —— 对方已寄回(gotBack)即闭环，无论前面节点如何都不该再报「可能丢失」 */
 function isLostProxy(p){ if(!p||!p.sent) return false; if(p.gotBack) return false; if(firstUndone(p)===-1) return false; const d=daysSince(p.sent); return d!=null && d>PROXY_LOST_DAYS; }
@@ -2233,21 +2431,6 @@ const LINKS_DEFAULT=[
   {emoji:"🖼", name:"我的收片相册",     url:"https://eu.zonerama.com/Profile/704015/1255144"}
 ];
 let linkList=[];
-function loadLinks(){
-  // 只有「从未存过」才播种默认；存过（哪怕被删成空数组）一律尊重用户的取舍
-  let v=null;
-  try{ v=JSON.parse(localStorage.getItem(LKEY)||"null"); }catch(e){ v=null; }
-  const cleaned=normLinkList(v);
-  if(cleaned){
-    linkList = cleaned;
-    try{ if(JSON.stringify(cleaned)!==JSON.stringify(v)) saveLinks(); }catch(_){}   // 清洗有实效才回写，把脏数据从存储里洗掉
-  }else{
-    linkList = LINKS_DEFAULT.map(x=>({...x}));
-    saveLinks();
-  }
-}
-function saveLinks(){ storageSet(LKEY, JSON.stringify(linkList)); touchCfg(); cloudAutoUpload(); }   /* G14（2026-10-23 修）：对齐 saveTabLabel/saveWidgets——原只写本地，书签改动不上云且不推 cfgSavedAt，「最后写入者胜出」感知不到它，可能被他端旧设置静默覆盖新编辑（cloudAutoUpload 自带 1.5s 去抖，逐键触发无害） */
-function normUrl(u){ u=String(u==null?"":u).trim(); if(!u) return ""; return /^https?:\/\//i.test(u)?u:"https://"+u; }
 /* 2026-10-23 线上事故修复：links 里混入非字符串 url（历史/云同步脏数据）时 normUrl 的 .trim() 抛 TypeError，
    且 renderLinkBar 处于 init 顶层调用链——一处异常炸掉整个主脚本初始化，页面只剩静态骨架（白屏）。
    三层防护：① 入口统一清洗（normLinkList）② normUrl 类型兜底 ③ renderAllNow 分步隔离（单区失败不拖垮其它区域）。 */
@@ -2291,9 +2474,6 @@ function linkReset(){ linkList=LINKS_DEFAULT.map(x=>({...x})); saveLinks(); rend
 /* ===== 渲染：视图切换（标签页名称可双击编辑） ===== */
 const TAB_DEFAULT={ sent:"寄出追踪", received:"收到收藏", proxy:"代寄", activity:"进行中活动" };
 const TAB_KEY="wb_postcard_tabs_v1";
-function tabLabels(){ try{ return Object.assign({}, TAB_DEFAULT, JSON.parse(localStorage.getItem(TAB_KEY)||"{}")); }catch(e){ return Object.assign({}, TAB_DEFAULT); } }
-function tabLabel(v){ return tabLabels()[v] || TAB_DEFAULT[v]; }
-function saveTabLabel(v,txt){ const m=tabLabels(); m[v]=(txt&&txt.trim())?txt.trim():TAB_DEFAULT[v]; storageSet(TAB_KEY, JSON.stringify(m)); touchCfg(); cloudAutoUpload(); }   // P2-15：走 storageSet，配额满时不再静默丢标签名
 function tabIcon(v){
   const map={
     sent:`<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>`,
@@ -2521,26 +2701,6 @@ function bindWidgetCtrls(el){
     card.addEventListener("drop", e=>{ e.preventDefault(); const tgt=card.dataset.wid; if(tgt!==dragWid) dropWidget(dragWid,tgt); card.classList.remove("drop-before","drop-after"); });
   });
 }
-function currentWidgetWids(){
-  /* P2-17：直接反推 renderStats 的真实产出，而不是再手写一份标签列表。
-     手写列表与 renderStats 的 auto 数组是两份数据，此前三次分叉（代寄 5 态短标签 / 漏「可能丢失张数」/ 漏 sent 的「可能丢失」）
-     每次都让对应卡的排序操作静默失效。_renderedAutoWids 为 null（renderStats 还没跑过，如 syncOrder 在启动早期被调）时
-     退回上一版的手写列表兜底，保证首次调用也能工作。 */
-  const auto = (_renderedAutoWids && _renderedAutoWids.length)
-    ? _renderedAutoWids
-    : (view==="sent" ? ["总计","未写","未寄","在途","已到","在途均天数","可能丢失"]
-      : view==="received" ? ["总计","在途","已收","国家/地区","平台数","有图"]
-      : view==="activity" ? ["活动总数","进行中","已结束","已关闭"].concat(actKindList.map(o=>o.label+" 活动"))
-      : ["总张数","在途张数","对方代寄在途张数","可能丢失张数"].concat(Object.values(PROXY_STAT_LABELS)))
-      .map(l=>"stat:"+view+":"+l);
-  return auto.concat(widgetCfg.custom.filter(widgetInScope).map(w=>"c:"+w.id));
-}
-function syncOrder(){
-  const cur=currentWidgetWids();
-  cur.forEach(w=>{ if(!widgetCfg.order.includes(w)) widgetCfg.order.push(w); });
-  /* 自定义卡即使限定了页面，也始终保留排序位，避免在其他页拖拽后切回时排序丢失 */
-  widgetCfg.order=widgetCfg.order.filter(w=> cur.includes(w) || widgetCfg.hidden.includes(w) || w.indexOf("c:")===0);
-}
 function moveWidget(wid, dir){
   syncOrder();
   const i=widgetCfg.order.indexOf(wid), j=i+dir;
@@ -2596,22 +2756,6 @@ function toggleWRows(t){
   document.getElementById("wRowText").style.display = t==="text"?"":"none";
   document.getElementById("wRowLink").style.display = t==="link"?"":"none";
   document.getElementById("wRowNum").style.display = t==="num"?"":"none";
-}
-function saveWidgetModal(){
-  const type=document.getElementById("wType").value;
-  const title=document.getElementById("wTitle").value.trim();
-  const text=document.getElementById("wText").value.trim();
-  const url=document.getElementById("wUrl").value.trim();
-  const num=document.getElementById("wNum").value.trim();
-  const scope=document.getElementById("wScope").value||view;
-  if(!title){ fieldError("wTitle","请填写标题"); return; }   // P2-13：聚焦+红字，不再只弹 toast
-  if(editingWid){
-    const id=editingWid.slice(2); const w=widgetCfg.custom.find(x=>x.id===id);
-    if(w){ w.type=type; w.title=title; w.text=text; w.url=url; w.num=num; w.scope=scope; }
-  }else{
-    widgetCfg.custom.push({id:"w"+Date.now().toString(36), type, title, text, url, num, scope});
-  }
-  syncOrder(); saveWidgets(); renderStats(); closeWidgetModal(); toast(editingWid?"已更新卡片":"已添加卡片");
 }
 function closeWidgetModal(){ document.getElementById("widgetModal").classList.remove("show"); }
 
@@ -3293,17 +3437,6 @@ function fillForm(dir, p){
   fillSelect(def.typeId, "type", p? (p.type||"") : "");
   fillSelect(def.countryId, "country", p? (p.country||"") : "");
 }
-/* P0-2 图片字段只收 http(s) 链接。
-   原先零校验：纯文本框只 .trim()，而 safeImg()（L3858）**只在渲染时**过滤 /^https?:\/\//——
-   data: 内嵌的 base64 早已写进 localStorage。一张 base64 图 ≈ 1.33× 原图，3~4 张即写满 5MB 配额，
-   之后所有 save() 失败（叠上 P0-1 就是静默丢数据），还会撑爆每次 syncPayload 的体积、拖慢搜索。 */
-function sanitizeImageUrl(v){
-  v=String(v==null?"":v).trim();
-  if(!v) return "";
-  if(/^data:/i.test(v)){ toast("图片只支持 http(s) 链接：data: 内嵌图片会让本地存储瞬间写满，已忽略","warn",5200); return ""; }
-  if(!/^https?:\/\//i.test(v)){ toast("图片需以 http:// 或 https:// 开头，已忽略","warn",4000); return ""; }
-  return v.slice(0,500);
-}
 function readForm(dir){
   const def=REC_DEFS[dir]; const o={};
   for(const fid in def.form){ const rf=def.form[fid]; const el=document.getElementById(fid); if(el) o[rf]=el.value.trim(); }
@@ -3554,7 +3687,6 @@ function bindLink(dir, id, tgtDir, cid){
 }
 function closeLinkModal(){ document.getElementById("linkModal").classList.remove("show"); }
 /* ===== 操作：进行中活动（RR 未满员 / TAG 未 tag / 交换进行中） ===== */
-function fmtDate(s){ return s? String(s).slice(0,10) : ""; }
 function actLinkItemLabel(type, id){
   let arr, nameF;
   if(type==="sent"){ arr=postcards; nameF="recipient"; }
@@ -3573,7 +3705,6 @@ function actLinkHtml(a){
 /* ===== RR 轮换名单：每 N 周给名单下一位寄一张，全部寄出即闭环 ===== */
 let actEditingRot=[];
 function rotSyncInput(){ const el=document.getElementById("aRotation"); if(el) el.value=JSON.stringify(actEditingRot); }
-function rotDstr(d){ const p=n=>String(n).padStart(2,"0"); return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate()); }
 function renderRotEditor(){
   const box=document.getElementById("aRotList"); if(!box) return;
   if(!actEditingRot.length){
@@ -3632,9 +3763,6 @@ function rotGenDue(){
   actEditingRot.forEach((r,i)=>{ r.due=rotDstr(new Date(base.getTime()+i*w*7*86400000)); });
   renderRotEditor(); toast("已按每 "+w+" 周生成 "+actEditingRot.length+" 轮截止日");
 }
-function nextRotIdx(a){ if(!a||!Array.isArray(a.rotation)) return -1; return a.rotation.findIndex(r=>!r||!r.sent); }
-function rotNext(a){ const i=nextRotIdx(a); if(i<0) return null; const r=a.rotation[i]||{}; return {idx:i, to:r.to||"", size:r.size||"", due:r.due||""}; }
-function rotDueState(r){ if(!r||!r.due) return ""; const t=new Date(r.due+"T00:00:00"); if(isNaN(t)) return ""; const d0=new Date(); d0.setHours(0,0,0,0); const diff=Math.round((t-d0)/86400000); return diff<0?"overdue":(diff<=3?"duesoon":"ok"); }
 function rotSummaryHtml(a){ if(!a||!Array.isArray(a.rotation)||!a.rotation.length) return ""; const n=a.rotation.length; const w=a.rotation.filter(r=>r&&r.written).length; const s=a.rotation.filter(r=>r&&r.sent).length; const rc=a.rotation.filter(r=>r&&r.received).length; return `<div class="note" style="font-size:12px;opacity:.85">进度：写完 ${w}/${n} · 寄出 ${s}/${n} · 收到 ${rc}/${n}</div>`; }
 function openActivityModal(id){
   const a=id? activities.find(x=>x.id===id):null;
@@ -4570,10 +4698,6 @@ async function withBusy(btn, fn){
   }
 }
 
-function safeImg(url){
-  if(!/^https?:\/\//i.test(url||"")) return "—";
-  return '<img class="thumb" src="'+esc(url)+'" alt="明信片图片" loading="lazy" decoding="async" width="34" height="34" title="点击放大（若显示失败提示，原图链接可能已失效）" onerror="this.classList.add(\'imgerr\');this.alt=\'图片加载失败\'" tabindex="0" role="button">';
-}
 function openLightbox(src){
   if(!src) return;
   document.getElementById("lightboxImg").src=src;
@@ -4708,97 +4832,6 @@ function applyTheme(t){
   /* P3-5：同步 <meta name="theme-color"> —— iPhone/iPad 暗色下状态栏仍是亮蓝，与页面割裂。
      浅色取 --bg、深色取 --ink2（与 body 背景一致）。首屏 <head> 里的初值在 L7，需在读取 localStorage 后立即调用本函数覆盖。 */
   try{ const m=document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute("content", t==="dark"?"#0f1320":"#f5f7fb"); }catch(_){}
-}
-/* 备份快照必须与 save()/syncPayload() 同字段，否则「导出备份 → 导入恢复」会静默丢数据。
-   旧实现只导 4 个字段，漏掉 activities 与全部自定义列表（平台/类型/国家/活动类型/标签名）。 */
-function backupPayload(){
-  return {
-    _ver:3, exportedAt:new Date().toISOString(),
-    postcards, received, proxies, activities,
-    platList, typeList, actKindList, countryList,
-    tabLabels:tabLabels(), links:linkList,
-    widgetCfg:{order:widgetCfg.order,hidden:widgetCfg.hidden,custom:widgetCfg.custom,autoRename:widgetCfg.autoRename},  // F2 修复：自定义统计卡/排序/隐藏/重命名此前漏备份，导入恢复会全丢
-    cfgSavedAt,
-    deleted:deletedIds          // 墓碑必须进备份，否则恢复后已删记录会被云端复活
-  };
-}
-function exportJSON(){
-  const blob=new Blob([JSON.stringify(backupPayload(),null,2)],{type:"application/json"});
-  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="postcards.json"; a.click();
-  /* P3-4：revoke 延后 1s —— 紧邻 a.click() 同步撤销，Firefox/Safari 上 blob 还没开始读就失效 → 下载失败。
-     setTimeout 让浏览器先取到数据；1s 后对象 URL 已用完，撤销无副作用。 */
-  setTimeout(function(){ try{ URL.revokeObjectURL(a.href); }catch(_){} }, 1000);
-  toast("已导出完整备份");
-}
-// F7 按当前视图导出 CSV（带 BOM，Excel 中文不乱码；字段按视图裁剪）
-function exportCSV(){
-  let rows=[], name="";
-  if(view==="sent"){
-    name="postcards_sent";
-    rows.push(["收件人","国家","城市","渠道","平台","类型","寄出日","到达日","状态","追踪号","图","备注"]);
-    filteredSent().forEach(p=>rows.push([p.recipient,p.country,p.city,p.channel,p.platform,p.type,p.sent,p.arrived,(STATUSES[p.status]||{}).label,p.trackingNo,p.image,p.note]));
-  }else if(view==="received"){
-    name="postcards_received";
-    rows.push(["寄件人","国家","城市","平台","类型","状态","收到日","图","备注"]);
-    filteredRecv().forEach(p=>rows.push([p.sender,p.country,p.city,p.platform,p.type,(RECV_STATUSES[p.status]||{}).label,p.received,p.image,p.note]));
-  }else if(view==="activity"){
-    // F1 修复：此前活动视图落入 else 兜底（代寄分支），导出文件名与内容都是代寄数据
-    name="postcards_activity";
-    rows.push(["活动名称","类型","平台","进度","状态","截止日","关联","轮换","备注"]);
-    filteredActivities().forEach(a=>{
-      const k=(actKindList.find(o=>o.key===a.kind)||{}).label||a.kind||"";
-      const prog=(a.max>0? (a.cur||0)+"/"+a.max : String(a.cur||0));
-      const links=(Array.isArray(a.links)?a.links:[]).map(l=>actLinkItemLabel(l.type,l.id)).filter(Boolean).join("；");
-      const rot=(Array.isArray(a.rotation)?a.rotation:[]).map(r=>[r.to||"",r.size||"",r.due||"",r.written||"",r.sent||"",r.received||""].join("|")).join(" ; ");
-      rows.push([a.title,k,a.platform,prog,(ACT_STATUS[a.status]||{}).label||a.status||"",a.deadline||"",links,rot,a.note||""]);
-    });
-  }else{
-    name="postcards_proxy";
-    rows.push(["对方","国家","城市","平台","类型","方向","张数","对方寄出","我收","我写回寄出","对方收","对方写回","我收到","状态","备注"]);
-    filteredProxy().forEach(p=>rows.push([p.proxy,p.country,p.city,p.platform,p.type,p.direction||"me",p.cardCount||1,p.envSent||"",p.envRecv||"",p.sent,p.proxyRecv,p.proxyBack,p.gotBack,proxyStatusText(p),p.note]));
-  }
-  /* P3-3：防公式注入。备注/国家/平台等是用户自由输入，以 = + - @ 或制表符开头时 Excel/Sheets 会当公式执行
-     （=HYPERLINK(...) 可外泄、=cmd| 之类在旧版可执行）。前置单引号即可 neutralize，Excel 显示时自动隐藏。 */
-  const escC=v=>{ let t=String(v==null?"":v); if(/^[=+\-@\t\r]/.test(t)) t="'"+t; return `"${t.replace(/"/g,'""')}"`; };
-  const csv="﻿"+rows.map(r=>r.map(escC).join(",")).join("\r\n");
-  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
-  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name+".csv"; a.click();
-  URL.revokeObjectURL(a.href); toast("已导出 "+name+".csv");
-}
-function importJSON(file){
-  const r=new FileReader();
-  r.onload=async()=>{
-    try{
-      const a=JSON.parse(r.result);
-      if(!Array.isArray(a) && !(a && typeof a==="object" && ("postcards" in a || "received" in a))) throw new Error("格式不对");
-      if(!(await confirmDialog("导入将覆盖本地全部数据（寄出 + 收到 + 代寄 + 活动，及平台/类型列表、站点链接、标签名等设置）。建议先「导出 JSON」备份。确认覆盖导入？",{ok:"覆盖导入",danger:true}))){ toast("已取消导入"); return; }
-      // 数组为旧格式：确认文案已承诺「覆盖」，这里必须先清空再灌入，否则变成追加导致数据翻倍
-      if(Array.isArray(a)){ postcards=[]; received=[]; a.forEach(function(it){ if(!it || typeof it!=="object" || Array.isArray(it)) return; if(!it.id) it.id=uid(); if(it.dir==="received") received.push(it); else postcards.push(it); }); }
-      else {
-        postcards=sanitizeArr(a.postcards,{statusKeys:STATUS_ORDER,fallbackStatus:"unwritten"});
-        received=sanitizeArr(a.received,{statusKeys:RECV_STATUS_ORDER,fallbackStatus:"transit"});
-        proxies=sanitizeArr(a.proxies);
-        activities=sanitizeArr(a.activities,{statusKeys:ACT_STATUS_ORDER,fallbackStatus:"ongoing"});
-        if(Array.isArray(a.platList)&&a.platList.length) platList=a.platList;
-        if(Array.isArray(a.typeList)&&a.typeList.length) typeList=a.typeList;
-        if(Array.isArray(a.countryList)&&a.countryList.length) countryList=a.countryList;
-        if(Array.isArray(a.actKindList)&&a.actKindList.length) actKindList=a.actKindList.map(o=>({...o}));
-        if(Array.isArray(a.links)&&a.links.length){ linkList=a.links.filter(x=>x&&x.url).map(x=>({emoji:x.emoji||"", name:x.name||"", url:x.url})); saveLinks(); renderLinkBar(); }
-        if(a.tabLabels && typeof a.tabLabels==="object"){ storageSet(TAB_KEY, JSON.stringify(a.tabLabels)); }   // P2-15
-        if(a.widgetCfg && typeof a.widgetCfg==="object"){  // F2 修复：恢复自定义统计卡配置（与云同步 applyCloudSettings 同口径）
-          widgetCfg={order:a.widgetCfg.order||[],hidden:a.widgetCfg.hidden||[],custom:a.widgetCfg.custom||[],autoRename:(a.widgetCfg.autoRename&&typeof a.widgetCfg.autoRename==="object")?a.widgetCfg.autoRename:{}};
-          storageSet(WKEY, JSON.stringify(widgetCfg));   // P2-15
-        }
-        deletedIds=Array.isArray(a.deleted)?a.deleted.map(normTomb).filter(t=>t.id):[]; tombSave();
-      }
-      syncListsFromData();
-      normalizeRecv();
-      const savedImport=save(false); renderAll();
-      if(!savedImport){ toast("⚠️ 导入的数据未能写入本地（存储空间已满）。请先清理旧数据后重新导入。","danger",7000); return; }
-      toast("已导入 "+(postcards.length+received.length+proxies.length+activities.length)+" 条");
-    }catch(e){ toast("导入失败："+e.message, "danger"); }
-  };
-  r.readAsText(file);
 }
 async function fillSample(){
   // P2-21：与 clearAll 的同类漏判对齐 —— 原先只看寄出+收到，只有代寄/活动数据时无确认直接追加示例
