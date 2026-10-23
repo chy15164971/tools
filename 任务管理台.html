@@ -45,7 +45,10 @@
     --chip-bg:#5a6478;
     --shadow:0 2px 10px rgba(0,0,0,.32);
     --soft:#1c2233;
-  --accent:#9b8cff; }
+  --accent:#9b8cff;
+  /* G19（2026-10-23 修）：dark 补定义 --ink-strong —— 原漏覆盖仍为亮色值 #1f2430，
+     深色下 .today-sec-act:hover 等引用处深字压深底近乎隐形 */
+  --ink-strong:#e7ebf3; }
   /* === SHARED TOKENS END === */
   /* 源: _ops/_workbench/design_tokens.css · 改色请改源后跑 sync_tokens.js 一键同步 */
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
@@ -833,7 +836,8 @@
   [data-theme="dark"] .dcell:hover{ background:var(--hover); }
   [data-theme="dark"] .dcell.today:hover{ background:#26375c; }
   [data-theme="dark"] .tagchip:hover{ background:#2a3a5e; }
-  [data-theme="dark"] .toast{ background:var(--line); color:var(--ink); } /* M-12：原用 --ink-strong，暗色下不重定义仍为深色，与 --line 叠加成深底深字 */
+  /* G3（2026-10-23 修）：限定默认态——原规则把深色下 .success/.danger/.warn 状态 toast 一并压成灰底灰字，告警语义丢失（源序在 546 变体规则之后、同特异性获胜） */
+  [data-theme="dark"] .toast:not(.success):not(.danger):not(.warn){ background:var(--line); color:var(--ink); } /* M-12：原用 --ink-strong，暗色下不重定义仍为深色，与 --line 叠加成深底深字；G19 已补 dark 定义 */
   [data-theme="dark"] .sync,
   [data-theme="dark"] .nav button,
   [data-theme="dark"] .seg,
@@ -1225,7 +1229,9 @@
 .sel-mode .sel-chk{display:inline-flex;}
 .sel-chk{display:none;align-items:center;margin-right:8px;cursor:pointer;}
 .sel-chk input{width:16px;height:16px;cursor:pointer;}
-.batch-bar{position:sticky;bottom:8px;left:0;right:0;z-index:30;display:none;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;margin:10px 0;background:var(--card);border:1px solid var(--pri);border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.16);}
+/* G4（2026-10-23 修）：原 position:sticky 被 #view{overflow:hidden} 废掉——最近滚动祖先是永不滚动的 #view，
+   批量条随内容滚出视口、长列表底部按钮够不着。改 fixed 底部悬浮（复用 toast 的安全区/键盘避让变量）。 */
+.batch-bar{position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px) + var(--kb,0px));z-index:30;display:none;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--card);border:1px solid var(--pri);border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.16);max-width:860px;margin:0 auto;}
 .batch-bar.show{display:flex;}
 .batch-bar .bb-count{font-weight:600;color:var(--pri);margin-right:4px;}
 .batch-bar .btn{white-space:nowrap;}
@@ -4552,7 +4558,25 @@ function saveWidgetModal(){
   else { widgetCfg.custom.push({id:"w"+Date.now().toString(36),type,title,text,url,num}); }
   syncOrder(); saveWidgets(); applyWidgetLayout(); closeWidgetModal(); toast(editingWid?"已更新卡片":"已添加卡片");
 }
-function delWidget(wid){ const id=wid.slice(2); confirmDialog("确定删除这张自定义卡片？",{danger:true,ok:"删除"}).then(ok=>{ if(!ok)return; widgetCfg.custom=widgetCfg.custom.filter(w=>w.id!==id); saveWidgets(); applyWidgetLayout(); toast("已删除卡片"); }); }
+/* G8（2026-10-23 修）：对齐明信片 delWidget——原直接 filter 无撤销，跨页能力不对称。
+   widgetCfg 属独立存储域不走记录撤销栈，闭包捕获 custom/order/hidden 三份现场还原；
+   order/hidden 一并清理（原版留孤儿 "c:id"），撤销时整组还原。 */
+function delWidget(wid){
+  const id=wid.slice(2);
+  confirmDialog("确定删除这张自定义卡片？",{danger:true,ok:"删除"}).then(ok=>{
+    if(!ok) return;
+    const snap={custom:widgetCfg.custom.slice(), order:widgetCfg.order.slice(), hidden:widgetCfg.hidden.slice()};
+    widgetCfg.custom=widgetCfg.custom.filter(w=>w.id!==id);
+    widgetCfg.order=widgetCfg.order.filter(w=>w!=="c:"+id);
+    widgetCfg.hidden=widgetCfg.hidden.filter(w=>w!=="c:"+id);
+    saveWidgets(); applyWidgetLayout();
+    toast("已删除卡片","",8000,function(){
+      widgetCfg.custom=snap.custom; widgetCfg.order=snap.order; widgetCfg.hidden=snap.hidden;
+      saveWidgets(); applyWidgetLayout();
+      toast("已撤销");
+    });
+  });
+}
 /* ===== 功能卡（自动统计）预设 ===== */
 const FUNC_PRESETS=[
   {key:"weekDone", icon:"✅", title:"本周完成", desc:"近 7 天完成的任务数"},

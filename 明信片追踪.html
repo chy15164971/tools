@@ -2205,7 +2205,7 @@ function loadLinks(){
     saveLinks();
   }
 }
-function saveLinks(){ storageSet(LKEY, JSON.stringify(linkList)); }
+function saveLinks(){ storageSet(LKEY, JSON.stringify(linkList)); touchCfg(); cloudAutoUpload(); }   /* G14（2026-10-23 修）：对齐 saveTabLabel/saveWidgets——原只写本地，书签改动不上云且不推 cfgSavedAt，「最后写入者胜出」感知不到它，可能被他端旧设置静默覆盖新编辑（cloudAutoUpload 自带 1.5s 去抖，逐键触发无害） */
 function normUrl(u){ u=String(u==null?"":u).trim(); if(!u) return ""; return /^https?:\/\//i.test(u)?u:"https://"+u; }
 /* 2026-10-23 线上事故修复：links 里混入非字符串 url（历史/云同步脏数据）时 normUrl 的 .trim() 抛 TypeError，
    且 renderLinkBar 处于 init 顶层调用链——一处异常炸掉整个主脚本初始化，页面只剩静态骨架（白屏）。
@@ -3144,12 +3144,23 @@ function renderAllNow(){
      都会中断后续全部渲染 → 页面只剩静态骨架。改为分步隔离：单区失败只降级该区，其余照常渲染。 */
   const steps=[["页签",renderTabs],["统计卡",renderStats],["筛选栏",renderFilters],["表格",renderTable],["操作按钮",renderAddBtn]];
   for(const [nm,fn] of steps){
-    try{ fn(); }
+    try{ fn(); clearRegionWarn(nm); }
      catch(e){
        if(DEBUG)console.error("[renderAllNow] 「"+nm+"」区域渲染失败：", e);
        renderRegionWarn(nm, e);
      }
   }
+}
+/* G12（2026-10-23 修）：区域渲染成功即摘牌——红条此前只增不清，一次瞬时错误会让红条
+   驻留到刷新为止，误导后续排查（看起来一直在出错）。全部区域正常时整个横幅收起。 */
+function clearRegionWarn(nm){
+  try{
+    const box=document.getElementById("bootErr");
+    if(!box) return;
+    const item=box.querySelector('[data-region="'+CSS.escape(nm)+'"]');
+    if(item) item.remove();
+    if(!box.querySelector("[data-region]")) box.hidden=true;
+  }catch(_){}
 }
 let _regionWarnAt={};
 function renderRegionWarn(nm, e){
@@ -3288,6 +3299,7 @@ async function changeRecStatus(dir, id, status){
   if(dir==="sent" && status==="unwritten" && (p.sent||p.arrived)){
     if(!(await confirmDialog("切到「未写」会清空已填的寄出日/到达日，确定吗？",{danger:true}))){ renderAll(); return; }
   }
+  snapshot();   /* G13（2026-10-23 修）：状态变更（尤其「未写」清日期的破坏性分支）此前只有确认框没有撤销，与删除类（8s+Ctrl+Z）能力不对称——快照现成覆盖四数组+墓碑 */
   p.status=status;
   const before={sent:p.sent||"", arrived:p.arrived||"", received:p.received||""};
   normalizeRecDates(p, dir);
@@ -3302,7 +3314,7 @@ async function changeRecStatus(dir, id, status){
   renderAll();
   const dict=(dir==="sent")?STATUSES:RECV_STATUSES;
   const label=(dict[status]&&dict[status].label)||status;
-  saveAndToast("已改为「"+label+"」"+(side.length?(" · "+side.join("，")):""));
+  saveAndToast("已改为「"+label+"」"+(side.length?(" · "+side.join("，")):""));   /* G13：已入撤销栈，Ctrl+Z 可还原；toast 保持 saveAndToast（失败提示走 shared 层兼容分支） */
 }
 // 删除记录后同步摘掉活动里的关联引用，避免死链长期累积并污染 CSV 导出（原先只显示「（关联已删）」）
 function unlinkFromActivities(id){
