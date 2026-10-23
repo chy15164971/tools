@@ -367,7 +367,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   .btn.is-busy::after{content:"";display:inline-block;width:12px;height:12px;margin-left:6px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:wbspin .7s linear infinite;vertical-align:-1px;}
   
 
-  /* 响应式：跨页统一 3 档断点（>860 桌面 / 561–860 平板 / ≤560 手机；与 任务管理台.html 主断点一致） */
+  /* 响应式：本页 3 档断点（>980 桌面 / 561–980 平板 / ≤560 手机）。G20/F5 勘误：原注释写「561–860 平板、与任务管理台主断点一致」有误——本页平板档就是 980，与任务台 860 为**有意差异**，勿按 860 补块 */
   
   
 
@@ -473,7 +473,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
     .dtab{min-height:44px;padding:11px 14px;}
     .linkbtn{min-height:40px;padding:8px 12px;display:inline-flex;align-items:center;}
     .mini,.opt-del{width:42px;height:42px;}
-    .lb-edit{min-height:34px;padding:4px 14px;}
+    .lb-edit{min-height:44px;padding:4px 16px;}   /* G20/F7：原 34px，≤480 手机档补齐 44px 触控 */
     .cloud-modal-close{width:40px;height:40px;}
     .w-ctrl button{width:30px;height:30px;}
   }
@@ -665,6 +665,9 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   .seg{min-height:44px;}
   .w-ctrl button{width:40px;height:40px;font-size:16px;border-radius:8px;}
   .lb-close{width:48px;height:48px;font-size:26px;top:12px;right:12px;}
+  /* G20/F7：书签条目与缩略图补触控尺寸（.lb-edit 已在 ≤480 档抬到 44） */
+  .lb-item{min-height:44px;}
+  .thumb{width:44px;height:44px;}
   /* 触控端行高给足，避免 44px 容器内文字被挤 */
   tbody td{padding-top:10px;padding-bottom:10px;}
 }
@@ -686,7 +689,9 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   }
 
 /* [10/12] max-width:560px) */
-@media(max-width:560px){ .mrec-restore{min-height:40px;padding:9px 12px;} .btn-sm{min-height:40px;} .linkbtn{min-height:40px;} }
+/* G20/F4：原 ≤560 档把 .btn-sm/.linkbtn 压回 40px，而本块（源序靠后）盖过 hover:none 档的 44px
+   → 触屏手机 40 而 iPad 44 的倒挂。统一抬到 44：手机=iPad=触控契约，鼠标窄窗由基础样式兜底。 */
+@media(max-width:560px){ .mrec-restore{min-height:44px;padding:9px 12px;} .btn-sm{min-height:44px;} .linkbtn{min-height:44px;} }
 
 /* [11/12] max-width:640px) */
 @media(max-width:640px){ .pager{justify-content:center;} .pg-info{width:100%;text-align:center;} }
@@ -696,6 +701,19 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   .wrap{padding:14px 18px 0;}
   .chip{padding:6px 10px;font-size:13px;}
   .filters select,.filters input{min-height:38px;}
+}
+
+/* G20/F12：Windows 高对比度（forced-colors）下自绘背景/圆角会被系统抹掉，补边框保住可点可辨 */
+@media (forced-colors:active){
+  .btn,.btn-sm,.chip,.seg button,.pgbtn,.linkbtn,.mini,.lb-close,.dtab,.lb-item,.linkbtn{border:1px solid ButtonBorder;}
+  .toast{border:1px solid ButtonText;}
+  .badge{border:1px solid ButtonBorder;}
+}
+/* G20/F12：打印只留内容主体，隐藏交互 chrome */
+@media print{
+  .topbar,.mask,.toast,.skip-link,.menu,.menu-backdrop,.pager,.filters,.dtabs{display:none !important;}
+  body{background:#fff;color:#000;}
+  .card,.panel,.tablecard{border:1px solid #999;box-shadow:none;}
 }
 
 </style>

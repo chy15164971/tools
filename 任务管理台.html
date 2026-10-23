@@ -668,7 +668,10 @@
   .lcard .ladd{display:flex;gap:6px;margin-top:10px;}
   .lcard .ladd input{flex:1;border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:16px;font-family:inherit;}
   /* 清单项拖动排序 */
-  .litem[draggable], .lp-item[draggable]{cursor:grab;}
+  .litem[draggable], .lp-item[draggable], .inbox-item[draggable]{cursor:grab;}
+  .inbox-item.dragging{opacity:.4;}
+  /* 建议3：拖放落点高亮（日历格 / 时间轴列） */
+  .tcol.drop-hint,.dcell.drop-hint{outline:2px dashed var(--pri);outline-offset:-2px;}
   .litem.dragging, .lp-item.dragging{opacity:.4;background:var(--pri-soft);border-radius:8px;}
   .drag-h{color:var(--sub);cursor:grab;flex:none;font-size:15px;line-height:1;padding:0 2px;user-select:none;touch-action:none;}
   .drag-h:hover{color:var(--pri);}
@@ -1476,7 +1479,7 @@
     .today-item .t{font-size:13.5px;}
     .today-item .ibd{font-size:12px;}
     .today-item .ibs{gap:5px;font-size:11.5px;}
-    .today-item .btn-sm{padding:6px 9px;min-height:44px;font-size:12.5px;} /* M-8：主操作提至 44px（iOS HIG） */
+    .today-item .btn-sm{padding:6px 9px;min-height:44px;font-size:12.5px;} /* M-8：主操作提至 44px（iOS HIG）。G20/F2 厘清：本规则只作用于非 acts 区的 .btn-sm；acts 区（完成/不补做/推迟）按钮同特异性下由后面 ≤860 档（鼠标 40）与 hover:none 档（触屏 44）接管，三档互补不矛盾 */
     /* 图标化次要动作：触屏放宽到 44×44 触控区，并常显（无悬停可用） */
     .today-acts .today-act{width:44px;height:44px;min-height:44px;min-width:44px;font-size:15px;}
     .today-acts .btn-sec{opacity:1;pointer-events:auto;}
@@ -1485,7 +1488,7 @@
     .panel.collapsible .ptoggle{min-width:36px;min-height:36px;width:36px;height:36px;}
     .panel.collapsible .ptoggle svg{width:14px;height:14px;}
     /* 习惯打卡区更紧凑，避免 Sun 列贴边 */
-    .habitpanel h3 .btn-sm{padding:6px 9px;min-height:34px;font-size:12.5px;}
+    .habitpanel h3 .btn-sm{padding:6px 9px;min-height:40px;font-size:12.5px;}   /* G20/F3：原 34px 特异性 (0,2,1) 压过 ≤860 档 .btn-sm 的 40px，手机/平板击穿触控契约 */
     .hrow{grid-template-columns:minmax(92px,1.3fr) repeat(7,minmax(0,1fr));gap:4px;}
     .hcell{height:28px;font-size:12px;}
     .hinfo .hname{font-size:13px;}
@@ -1611,6 +1614,13 @@
   .mcard .micon,.lcard .micon,.mcard .mstep button{width:auto;height:auto;min-width:40px;min-height:40px;padding:0 8px;}
   .w-ctrl .we,.w-ctrl .grip{min-width:40px;min-height:40px;}
   .ptoggle,.lmenu,.lx,.drag-h{min-width:40px;min-height:40px;}
+  /* G20/F6：上一轮漏网的触控 <40 控件 —— 分页 30 / 标签 chip ~22 / 子任务删 ~25 / 清单上移 ~20 / LP 删 ~21 / 命中清除 ~24 / 筛选徽标 32 / 推迟 chip 32 */
+  .pgbtn{min-width:40px;min-height:40px;}
+  .tagchip{min-height:40px;display:inline-flex;align-items:center;padding:2px 12px;}
+  .subitem .sx,.litem .lup,.lp-item .lp-x{min-width:40px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;}
+  .hitbar .hb-clear{min-height:40px;padding:0 12px;display:inline-flex;align-items:center;}
+  .filter-badge{min-height:40px;padding:0 12px;}
+  .defer-pop button.dp-chip{min-height:40px;padding:7px 16px;}
   .tp-chip{min-height:44px;padding:8px 14px;} /* M-8：36→44px */
   .seg button{min-height:44px;}
   .nav button{width:44px;height:44px;}
@@ -1621,7 +1631,7 @@
   /* P1-1：今日页「完成 / 不补做 🚫 / 推迟 ⏰」此前漏出本档放大清单（.today-acts .btn-sm 特异性更高，
      不会被上面的 .btn-sm 规则覆盖）→ 手机端主操作仅 26px，误点「不补做」直接改数据代价最高 */
   .today-acts .btn-sm{min-height:40px;}
-  .today-sec-act{min-height:36px;padding:5px 10px;font-size:12px;}   /* 批量顺延是高频操作，移动端保证可点 */
+  .today-sec-act{min-height:40px;padding:5px 10px;font-size:12px;}   /* 批量顺延是高频操作，移动端保证可点（G20/F6：36→40） */
   .qa-input{min-height:44px;font-size:16px;padding:10px 12px;}   /* C-5 iOS 聚焦缩放兜底 + 44px 触控 */
   .tp-bar{height:7px;}   /* 细条在手机上不易辨认，加高到 7px */
   .today-act{width:40px;height:40px;min-height:40px;min-width:40px;font-size:16px;}
@@ -1652,6 +1662,8 @@
   .w-menu .mitem-w{min-height:44px;padding:11px 12px;font-size:13.5px;}
   /* M-2：触屏无 HTML5 拖拽，⠿ 手柄降级为「点击上移一位」的可用入口（见 moveItemUp） */
   .drag-h{cursor:pointer;color:var(--pri);}
+  /* G20/F2：acts 区按钮在触屏（含 ≤560 手机）补 44px —— ≤860 档只给鼠标留了 40px */
+  .today-acts .btn-sm{min-height:44px;}
   /* M-7：系统高亮已关闭，需自定义 :active 给出明确按下反馈 */
   .btn:active,.btn-sm:active,.tagchip:active,.seg button:active,.menu .mitem:active,.pgbtn:active,
   .nav button:active,.ptoggle:active,.tp-chip:active{transform:scale(.97);filter:brightness(.95);}
@@ -1678,6 +1690,18 @@
   .today-acts .btn-sec{opacity:1;pointer-events:auto;}
 }
 
+/* G20/F12：Windows 高对比度（forced-colors）下自绘背景/圆角会被系统抹掉，补边框保住可点可辨 */
+@media (forced-colors:active){
+  .btn,.btn-sm,.chip,.seg button,.pgbtn,.linkbtn,.mini,.lb-close,.dtab,.tagchip,.today-act,.filter-badge{border:1px solid ButtonBorder;}
+  .toast{border:1px solid ButtonText;}
+  .badge{border:1px solid ButtonBorder;}
+}
+/* G20/F12：打印只留内容主体，隐藏交互 chrome */
+@media print{
+  .topbar,.mask,.toast,.skip-link,.menu,.menu-backdrop,#fabNew,.batch-bar,.pager,.overview-bar{display:none !important;}
+  body{background:#fff;color:#000;}
+  .card,.panel,.mcard,.lcard{border:1px solid #999;box-shadow:none;}
+}
 </style>
 </head>
 <body>
@@ -5932,7 +5956,7 @@ function renderTimeline(days){
   if(!all.length){
     const isRange=days.length>1;
     document.getElementById("view").innerHTML=emptyState("🗓", isRange?"这一周还没有安排。":"这一天还没有安排。",
-      "在日程视图里点任意时间格即可新建任务；也可以从「今日」把待办拖到这一天。");
+      "在日程视图里点任意时间格即可新建任务；也可以把收件箱里的想法直接拖到某一天来安排。");
     return;
   }
   const gutter='<div class="tgutter"><div class="ghead"></div>'+Array.from({length:24},(_,h)=>`<div class="ghr">${String(h).padStart(2,"0")}</div>`).join("")+'</div>';
@@ -6391,10 +6415,51 @@ function bindInboxDelegation(){
   __inboxDelegated=true;
 }
 
+/* ===== 建议3：收件箱条目 → 拖到日历（.dcell）/ 时间轴（.tcol）某一天 = 直接安排 =====
+   背景：收件箱正是无日期任务的集中地，此前只能点条目上的「安排」按钮（默认排进今天再改日期），
+   而今日面板的待办反而能拖 —— 交互不对称。现在把「安排」落点扩展到拖放。
+   实现要点：
+   · 拖源用自定义 MIME application/x-wb-task（与清单视图的 text/plain 拖拽区分，互不干扰）；
+   · dragover 只认该 MIME，其它拖拽（清单重排等）不出现落点高亮；
+   · 监听挂持久元素 #view（innerHTML 替换不销毁它），幂等守卫防重复绑定；
+   · 落点取 data-day，复用 planInbox(id, date) 打开编辑弹窗预填该天，时间仍可改。 */
+let __schedDropBound=false;
+function bindScheduleDropZones(){
+  if(__schedDropBound) return;
+  const view=document.getElementById("view"); if(!view) return;
+  const dayCol=e=>{ const t=e.target; return (t&&t.closest)?(t.closest(".tcol")||t.closest(".dcell")):null; };
+  view.addEventListener("dragstart", e=>{
+    const t=e.target; const el=(t&&t.closest)?t.closest(".inbox-item[data-id]"):null; if(!el) return;
+    try{ e.dataTransfer.setData("application/x-wb-task", el.dataset.id); e.dataTransfer.effectAllowed="copy"; }catch(_){}
+    el.classList.add("dragging");
+  });
+  view.addEventListener("dragend", e=>{
+    const t=e.target; const el=(t&&t.closest)?t.closest(".inbox-item"):null; if(el) el.classList.remove("dragging");
+    document.querySelectorAll(".tcol.drop-hint,.dcell.drop-hint").forEach(x=>x.classList.remove("drop-hint"));
+  });
+  view.addEventListener("dragover", e=>{
+    const col=dayCol(e); if(!col) return;
+    const dt=e.dataTransfer; if(!dt||!dt.types||dt.types.indexOf("application/x-wb-task")<0) return;
+    e.preventDefault();
+    try{ dt.dropEffect="copy"; }catch(_){}
+    document.querySelectorAll(".tcol.drop-hint,.dcell.drop-hint").forEach(x=>{ if(x!==col) x.classList.remove("drop-hint"); });
+    col.classList.add("drop-hint");
+  });
+  view.addEventListener("dragleave", e=>{ const col=dayCol(e); if(col) col.classList.remove("drop-hint"); });
+  view.addEventListener("drop", e=>{
+    const col=dayCol(e); if(!col) return;
+    e.preventDefault(); col.classList.remove("drop-hint");
+    let id=null; try{ id=e.dataTransfer.getData("application/x-wb-task"); }catch(_){}
+    if(!id) return;
+    planInbox(id, col.dataset.day);
+  });
+  __schedDropBound=true;
+}
+
 function renderInbox(){
   const v=document.getElementById("view");
   const list=inboxTasks();
-  let html='<div class="inbox-hint"><b>收件箱</b>存放没有指定日期时间的任务（想法 / 待办清单）。它们不会出现在日历与提醒里；准备好做的时候点「安排」把它排进日程即可。新建任务时勾选「不指定日期时间」就会进入这里。</div>';
+  let html='<div class="inbox-hint"><b>收件箱</b>存放没有指定日期时间的任务（想法 / 待办清单）。它们不会出现在日历与提醒里；准备好做的时候点「安排」把它排进日程，或直接把它拖到右边日历/时间轴的某一天。新建任务时勾选「不指定日期时间」就会进入这里。</div>';
   if(!list.length){
     html+='<div style="display:flex;justify-content:flex-end;margin-bottom:10px;"><button class="btn btn-pri btn-sm" id="inboxAdd">+ 添加到收件箱</button></div>';
     html+=emptyState("✨","收件箱是空的。想到什么随手丢进来，之后再安排时间。");
@@ -6410,7 +6475,7 @@ function renderInbox(){
     const done=t.status==="done";
     const pc=priColor(t.priority), cc=catColor(t.cat);
     const sub=(t.subtasks&&t.subtasks.length)?`<span class="sub-badge">子任务 ${subBadge(t).trim()}</span>`:"";
-    html+=`<div class="inbox-item ${done?'done':''} ${t.dropped?'dropped':''} ${(selMode&&selIds.has(t.id))?'sel-checked':''}" data-id="${t.id}">
+    html+=`<div class="inbox-item ${done?'done':''} ${t.dropped?'dropped':''} ${(selMode&&selIds.has(t.id))?'sel-checked':''}" data-id="${t.id}" draggable="true">   /* 建议3：可拖到日历/时间轴的某一天直接安排 */
       ${selMode?selCheckHTML(t.id):""}
       <div class="ibar" style="background:${pc}"></div>
       <div class="ibm">
@@ -6536,10 +6601,11 @@ function openInboxNew(){
   const cb=document.getElementById("f_nodate");
   if(cb && !cb.checked){ cb.checked=true; toggleNoDate(); }
 }
-// 把收件箱任务安排进日程：打开编辑弹窗预填今天，时间可改（）
-function planInbox(id){
+// 把收件箱任务安排进日程：打开编辑弹窗预填日期（默认今天，时间可改）。
+// 建议3：dateStr 支持拖放落点传入（.tcol/.dcell 的 data-day），安排到拖过去的那一天。
+function planInbox(id, dateStr){
   const t=state.tasks.find(x=>x.id===id); if(!t) return;
-  openModal(id, ymd(startOfDay(new Date())));
+  openModal(id, dateStr||ymd(startOfDay(new Date())));
 }
 
 /* ===== 渲染：统计视图（增强：时间范围 / 习惯契合度 / OKR 进度 / 导出） ===== */
@@ -7800,6 +7866,7 @@ function renderAllNow(){
   // 时间轴横向滚动位置保护（周/日 .timeline、月/甘特 .tcols），避免整页重渲染后横滚跳回
   const _hsEls = _view ? _view.querySelectorAll(".timeline,.tcols") : [];
   const _hs = Array.from(_hsEls).map(e=>e.scrollLeft);
+  bindScheduleDropZones();   // 建议3：收件箱→日历/时间轴拖放安排（幂等，挂持久元素 #view，任何首视图都能绑上）
   renderCur();
   const isMedia = state.view===VIEWS.MEDIA;
   const isFullPage = isMedia||state.view===VIEWS.STATS||state.view===VIEWS.HABIT||state.view===VIEWS.LISTS||state.view===VIEWS.PROJECTS||state.view===VIEWS.OKR||state.view===VIEWS.REVIEW||state.view===VIEWS.ANNIV||state.view===VIEWS.TODAY; // 整页视图
@@ -11228,18 +11295,23 @@ document.addEventListener("keydown", e=>{
 // ===== M9：配置跨设备同步 =====
 // 主题 / UI 折叠偏好 / 打卡样式 / 提醒 / widget 布局 / 任务模板 / 回顾笔记·快照·模板 / 甘特偏好 / OKR趋势
 // 这些目前只存 localStorage，换设备后全要重配；随云端整包与备份一并带走（cfg 域）。
+// cfg 域的键白名单：collectCfg 只采集这些键；applyCfg 也只接受这些键（G20/建议2）——
+// Gist 内容可被手工编辑，若无白名单，恶意/畸形的云端 cfg 可写入任意 localStorage 键
+// （包括 wb_taskhub_cloudsync_v1 → 换掉本机 Token/Gist、wb_taskhub_undo_v1 → 注入超大撤销栈挤爆配额）
+const CFG_KEYS=["wb_theme_v1","wb_taskhub_ui_v1","wb_taskhub_habit_style_v1","wb_taskhub_remind_v1",
+  WKEY,TPL_KEY,"wb_taskhub_review_notes_v1","wb_taskhub_review_snaps_v1","wb_taskhub_review_tpl_v1",
+  "wb_taskhub_gantt_v1","wb_taskhub_okr_trend_v1"];
+const CFG_KEY_SET=new Set(CFG_KEYS);
 function collectCfg(){
   const c={};
-  const kv=["wb_theme_v1","wb_taskhub_ui_v1","wb_taskhub_habit_style_v1","wb_taskhub_remind_v1",
-            WKEY,TPL_KEY,"wb_taskhub_review_notes_v1","wb_taskhub_review_snaps_v1","wb_taskhub_review_tpl_v1",
-            "wb_taskhub_gantt_v1","wb_taskhub_okr_trend_v1"];
-  kv.forEach(k=>{ try{ const v=localStorage.getItem(k); if(v!==null&&v!==undefined) c[k]=v; }catch(e){} });
+  CFG_KEYS.forEach(k=>{ try{ const v=localStorage.getItem(k); if(v!==null&&v!==undefined) c[k]=v; }catch(e){} });
   return c;
 }
 // 把云端/备份的 cfg 落到本地。先写 localStorage，再即时刷新有常驻内存副本的项（其余下次启动读取时自然生效）。
 function applyCfg(c){
   if(!c||typeof c!=="object") return;
   Object.keys(c).forEach(k=>{
+    if(!CFG_KEY_SET.has(k)) return;   // 白名单外的键一律丢弃（云端数据不可信）
     try{ const v=c[k]; if(typeof v==="string"||typeof v==="number"||typeof v==="boolean") localStorage.setItem(k,String(v)); }catch(e){}
   });
   try{ if(c["wb_theme_v1"]){ document.documentElement.dataset.theme=c["wb_theme_v1"]; if(typeof updateThemeBtn==="function") updateThemeBtn(); } }catch(e){}
