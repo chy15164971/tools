@@ -3983,8 +3983,687 @@ function applyTheme(t){
 }
 
 /* ===== L5 Bind · P1-9 分层（2026-10-23）===== */
+function openOpts(kind, selId){
+  optsKind=kind; optsReturn=selId||null;
+  document.getElementById("optsTitle").textContent = kind==="platform"?"管理平台选项":kind==="type"?"管理类型选项":"管理国家/地区选项";
+  renderOptsList();
+  document.getElementById("maskOpts").classList.add("show");
+  try{ document.getElementById("optsNew").focus(); }catch(e){}
+}
+
+function closeOpts(){
+  document.getElementById("maskOpts").classList.remove("show");
+  if(optsReturn){ fillSelect(optsReturn, optsKind, document.getElementById(optsReturn).value); }
+  save();
+  optsReturn=null;
+}
+
+function openLinkEditor(){ renderLinkEditor(); document.getElementById("maskLinks").classList.add("show"); }
+
+function closeLinkEditor(){ document.getElementById("maskLinks").classList.remove("show"); saveLinks(); renderLinkBar(); }
+
+function bindWidgetCtrls(el){
+  el.querySelectorAll(".w-ctrl button").forEach(b=>{
+    b.addEventListener("click", e=>{ e.stopPropagation(); const act=b.dataset.act, wid=b.dataset.wid;
+      if(act==="up") moveWidget(wid,-1);
+      else if(act==="down") moveWidget(wid,1);
+      else if(act==="hide") hideWidget(wid);
+      else if(act==="edit") openWidgetModal(wid);
+      else if(act==="rename") openRename(wid);
+      else if(act==="del") delWidget(wid);
+    });
+  });
+  /* 键盘重排：聚焦拖拽手柄后用上下方向键移动（原生拖拽的键盘替代） */
+  el.querySelectorAll(".w-ctrl .grip").forEach(g=>{
+    g.addEventListener("keydown", e=>{ const wid=g.dataset.wid;
+      if(e.key==="ArrowUp"){ e.preventDefault(); moveWidget(wid,-1); }
+      else if(e.key==="ArrowDown"){ e.preventDefault(); moveWidget(wid,1); }
+    });
+  });
+  /* 自动统计卡的标签支持双击重命名 */
+  el.querySelectorAll(".stat.widget").forEach(card=>{
+    const wid=card.dataset.wid||"";
+    if(wid.indexOf("stat:")!==0) return;
+    const l=card.querySelector(".l");
+    if(l) l.addEventListener("dblclick", e=>{ e.stopPropagation(); openRename(wid); });
+  });
+  el.querySelectorAll(".stat.widget").forEach(card=>{
+    card.addEventListener("dragstart", e=>{ dragWid=card.dataset.wid; card.classList.add("dragging"); try{e.dataTransfer.effectAllowed="move";}catch(_){} });
+    card.addEventListener("dragend", ()=>{ card.classList.remove("dragging"); dragWid=null; dragDropBefore=false; el.querySelectorAll(".stat.widget").forEach(c=>c.classList.remove("drop-before","drop-after")); });
+    card.addEventListener("dragover", e=>{ e.preventDefault(); if(card.dataset.wid===dragWid) return; const r=card.getBoundingClientRect(); dragDropBefore=(e.clientY-r.top)<r.height/2; card.classList.toggle("drop-before",dragDropBefore); card.classList.toggle("drop-after",!dragDropBefore); });
+    card.addEventListener("dragleave", ()=>card.classList.remove("drop-before","drop-after"));
+    card.addEventListener("drop", e=>{ e.preventDefault(); const tgt=card.dataset.wid; if(tgt!==dragWid) dropWidget(dragWid,tgt); card.classList.remove("drop-before","drop-after"); });
+  });
+}
+
+// M1：表格事件委托——整表 innerHTML 重建后不再逐行重绑事件，改为在 tbody 上挂一次稳定监听器（性能优化 + 避免监听器反复创建销毁）
+function bindTableDelegation(){
+  const tb=document.getElementById("tbody");
+  if(!tb || tb.__delegated) return;
+  tb.__delegated=true;
+  // 状态下拉 change（按 data-id/data-rid/data-aid 区分视图）
+  tb.addEventListener("change", e=>{
+    const s=e.target && e.target.closest ? e.target.closest(".st-sel") : null; if(!s) return;
+    if(s.dataset.id!=null) changeRecStatus("sent", s.dataset.id, s.value);
+    else if(s.dataset.rid!=null) changeRecStatus("received", s.dataset.rid, s.value);
+    else if(s.dataset.aid!=null) changeActivityStatus(s.dataset.aid, s.value);
+  });
+  // 行内按钮点击（编辑/删除/转换/配对/进度节点/关联）
+  tb.addEventListener("click", e=>{
+    const t=e.target; if(!t || typeof t.closest!=="function") return;
+    let el;
+    el=t.closest("[data-edit]"); if(el){ openRecModal("sent", el.dataset.edit); return; }
+    el=t.closest("[data-redit]"); if(el){ openRecModal("received", el.dataset.redit); return; }
+    el=t.closest("[data-pedit]"); if(el){ openProxyModal(el.dataset.pedit); return; }
+    el=t.closest("[data-aedit]"); if(el){ openActivityModal(el.dataset.aedit); return; }
+    el=t.closest("[data-alink]"); if(el){ openActivityLink(el.dataset.alink, parseInt(el.dataset.alidx||"0",10)); return; }
+    el=t.closest("[data-conv]"); if(el){ const p=el.dataset.conv.split(":"); openConvertModal(p[0], p[1]); return; }
+    el=t.closest("[data-pair]"); if(el){ openPair(el.dataset.pair, el.dataset.pid, el.dataset.cur); return; }
+    el=t.closest("[data-del]"); if(el){ delRec("sent", el.dataset.del); return; }
+    el=t.closest("[data-rdel]"); if(el){ delRec("received", el.dataset.rdel); return; }
+    el=t.closest("[data-pdel]"); if(el){ delProxy(el.dataset.pdel); return; }
+    el=t.closest("[data-ppair]"); if(el){ delProxyPair(el.dataset.ppair); return; }
+    el=t.closest("[data-adel]"); if(el){ delActivity(el.dataset.adel); return; }
+    el=t.closest(".st.clickable, .sp-node.clickable"); if(el){ toggleProxyStep(el.dataset.pid, parseInt(el.dataset.pstep,10)); return; }
+  });
+}
+
+// D8：图片输入框 → 预览图绑定（有值显示、点击放大），sent/received 共用
+function bindImgPreview(inputId, prevId){
+  const ri=document.getElementById(inputId), pv=document.getElementById(prevId);
+  /* P2-1：外链失效时预览区只出破图图标没有任何解释。现在加载失败收起图片、在提示行说明原因，成功后恢复 */
+  const hint=()=>pv.parentElement.querySelector(".hint");
+  const upd=()=>{
+    const v=ri.value.trim();
+    if(v){
+      pv.onerror=()=>{ pv.style.display="none"; const h=hint(); if(h) h.textContent="⚠️ 图片加载失败，链接可能已失效或非 http(s) 地址"; };
+      pv.onload=()=>{ const h=hint(); if(h) h.textContent="有图时点击可放大"; };
+      pv.src=v; pv.style.display="block";
+    } else { pv.style.display="none"; const h=hint(); if(h) h.textContent="有图时点击可放大"; }
+  };
+  ri.oninput=upd; upd(); pv.onclick=()=>openLightbox(pv.src);
+}
+
+function openRecModal(dir, id){
+  const def=REC_DEFS[dir];
+  const sel=document.getElementById(def.statusId);
+  sel.innerHTML=def.statusOrder.map(s=>`<option value="${s}">${def.statuses[s].label}</option>`).join("");
+  const p=id? findRec(dir,id) : null;
+  document.getElementById(def.titleId).textContent = p? def.titleEdit : def.titleNew;
+  fillForm(dir, p);
+  recSnapshot=JSON.stringify(readForm(dir)); // 记录打开时的完整表单快照，供 Esc 脏检查比对
+  document.getElementById(def.idId).value = id || ""; // 回填 id，否则保存时误判为新增而重复
+  const pchk=document.getElementById(def.pairChkId); if(pchk) pchk.checked=!!(p && p.pairId); // 已关联则勾选
+  const linkBtn=document.getElementById(dir==="sent"?"fLinkBtn":"rLinkBtn"); if(linkBtn) linkBtn.style.display = (p && p.id)?"" : "none"; // F4 仅编辑已有记录时可事后关联
+  // D8 参数化：sent/received 两分支图片预览逻辑同构，抽公共函数
+  if(dir==="received") bindImgPreview("rImage","rImgPrev");
+  else if(dir==="sent") bindImgPreview("fImage","fImgPrev");
+  document.getElementById(def.maskId).classList.add("show");
+  try{ document.getElementById(def.focusId).focus(); }catch(e){}
+}
+
+function closeRecModal(dir){ document.getElementById(REC_DEFS[dir].maskId).classList.remove("show"); recSnapshot=null; }
+
+async function tryCloseRec(dir){
+  if(formDirty(dir) && !(await confirmDialog("内容尚未保存，确定关闭吗？"))) return false;
+  closeRecModal(dir); return true;
+}
+
+async function tryCloseProxy(){
+  if(proxyDirty() && !(await confirmDialog("内容尚未保存，确定关闭吗？"))) return false;
+  closeProxyModal(); return true;
+}
+
+async function tryCloseAct(){
+  if(actDirty() && !(await confirmDialog("内容尚未保存，确定关闭吗？"))) return false;
+  closeActivityModal(); return true;
+}
+
+function makeCounterpart(dir, src){
+  const base={ id:uid(), country:src.country||"", city:src.city||"", platform:src.platform||"", type:src.type||"", exchange:src.exchange||"", note:src.note||"" };
+  if(dir==="sent") return Object.assign(base, {status:"transit", sender:src.recipient||"", received:"", image:""});
+  return Object.assign(base, {status:"unwritten", recipient:src.sender||"", channel:"", sent:"", arrived:""});
+}
+
+function openPair(dir, pairId, curId){
+  if(dir==="proxy"){
+    const list=proxies.filter(x=>x.pairId===pairId);
+    const cp=(curId && list.find(x=>x.id!==curId)) || list[0]; // 打开「另一条腿」（counterpart）
+    if(!cp){ toast("未找到关联的另一张代寄片", "danger"); return; }
+    openProxyModal(cp.id);
+    return;
+  }
+  const cpDir=dir==="sent"?"received":"sent";
+  const cp=REC_DEFS[cpDir].arr().find(x=>x.pairId===pairId);
+  if(!cp){ toast("未找到关联的对方条目", "danger"); return; }
+  openRecModal(cpDir, cp.id);
+}
+
+// F4 事后关联：把两条已存在的记录（寄出↔收到 / 代寄↔代寄）绑定成一次互换
+function openLinkModal(dir, id){
+  const src = dir==="proxy"? proxies.find(x=>x.id===id) : findRec(dir,id);
+  if(!src){ toast("请先保存该记录再关联", "danger"); return; }
+  const tgtDir = dir==="proxy"? "proxy" : (dir==="sent"?"received":"sent");
+  const tgtArr = tgtDir==="proxy"? proxies : REC_DEFS[tgtDir].arr();
+  const nameField = dir==="proxy"? "proxy" : REC_DEFS[dir].nameField;
+  const tgtNameField = tgtDir==="proxy"? "proxy" : REC_DEFS[tgtDir].nameField;
+  // P2-12：代寄候选须与源腿「同模式」（单向代寄 vs 往返互寄的字段与步进完全不同，混配出来的pair 无法正确推进）
+  const cands = tgtArr.filter(x=>x.id!==id && !(dir==="proxy" && (x.pairId || x.proxyMode!==src.proxyMode)));
+  const listEl=document.getElementById("linkPickList");
+  document.getElementById("linkHint").textContent = "选择要与此记录绑定的对方（"+esc(src[nameField]||"未命名")+"）";
+  if(!cands.length){ listEl.innerHTML=`<div class="hint" style="padding:10px 0;">没有可关联的对方记录。请先在「${tabLabel(tgtDir)}」新建一条。</div>`; }
+  else{
+    listEl.innerHTML=cands.map(c=>`<button type="button" class="mitem" data-cid="${c.id}" style="width:100%;margin-bottom:6px;text-align:left;">${esc(c[tgtNameField]||"未命名")} · ${esc(c.country||"—")} · ${esc(c.platform||"")}</button>`).join("");
+    listEl.querySelectorAll("button[data-cid]").forEach(b=>b.onclick=()=>bindLink(dir, id, tgtDir, b.dataset.cid));
+  }
+  document.getElementById("linkModal").classList.add("show");
+}
+
+function bindLink(dir, id, tgtDir, cid){
+  const src = dir==="proxy"? proxies.find(x=>x.id===id) : findRec(dir,id);
+  const tgtArr = tgtDir==="proxy"? proxies : REC_DEFS[tgtDir].arr();
+  const tgt = tgtArr.find(x=>x.id===cid);
+  if(!src||!tgt){ toast("关联失败", "danger"); return; }
+  const pid = src.pairId || tgt.pairId || ("pr_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
+  src.pairId=pid; tgt.pairId=pid;
+  /* P2-12：代寄两条腿必须方向相反。此前两条腿都保持自己的direction（新建时默认都是 me），
+     而 renderProxyPairStepper 会按 direction 给其中一条套 PROXY_STEPS_THEM 的文案 → UI 文案与数据相反；
+     更要紧的是核心 KPI「对方代寄在途张数」要求 direction==="them"，这类互寄对**永久漏计**。
+     参照 saveProxyModal 生成镜像腿的做法（mirrorDir 取反）保持一致。旧数据可能没有 direction，按 me 兜底。 */
+  if(dir==="proxy"){
+    const sd=src.direction||PDIR.ME;
+    tgt.direction = sd===PDIR.THEM ? PDIR.ME : PDIR.THEM;
+    touch(tgt);
+  }
+  if(dir==="proxy"){ syncMutualMeta(pid, src); closeProxyModal(); } else { closeRecModal(dir); }  // D8 合并：互寄两条腿描述字段对齐 + 按来源关对应弹窗
+  document.getElementById("linkModal").classList.remove("show");
+  renderAll(); saveAndToast("已关联到对方记录");
+}
+
+function closeLinkModal(){ document.getElementById("linkModal").classList.remove("show"); }
+
+function rotAddRow(){
+  actEditingRot.push({to:"",size:"",due:"",written:"",sent:"",received:""}); renderRotEditor();
+  const box=document.getElementById("aRotList");
+  const rows=box?box.querySelectorAll(".rot-row"):[];
+  const last=rows.length?rows[rows.length-1].querySelector("input"):null;
+  if(last) last.focus();
+}
+
+function openActivityModal(id){
+  const a=id? activities.find(x=>x.id===id):null;
+  document.getElementById("actModalTitle").textContent = a? "编辑活动" : "新建活动";
+  const g=pid=>{ const el=document.getElementById(pid); if(el) el.value=""; };
+  ["aTitle","aUrl","aCur","aMax","aDeadline","aNote"].forEach(g);
+  actEditingRot=[];
+  document.getElementById("aId").value=id||"";
+  fillKindSelect();
+  document.getElementById("aKind").value = a? (a.kind||"") : (actKindList[0]?actKindList[0].key:"");
+  fillSelect("aPlatform","platform", a?a.platform:"");
+  document.getElementById("aStatus").value = a? (a.status||"ongoing") : "ongoing";
+  document.getElementById("aLinkType").value = "sent";
+  actEditingLinks = a && Array.isArray(a.links) ? a.links.map(l=>({type:l.type, id:l.id})) : [];
+  if(a){
+    document.getElementById("aTitle").value=a.title||"";
+    document.getElementById("aUrl").value=a.url||"";
+    document.getElementById("aCur").value=(a.cur!=null&&a.cur!=="")?a.cur:"";
+    document.getElementById("aMax").value=(a.max!=null&&a.max!=="")?a.max:"";
+    document.getElementById("aDeadline").value=a.deadline||"";
+    document.getElementById("aNote").value=a.note||"";
+    actEditingRot = Array.isArray(a.rotation) ? a.rotation.map(r=>({to:r.to||"", size:r.size||"", due:r.due||"", written:r.written||"", sent:r.sent||"", received:r.received||""})) : [];
+  }
+  renderRotEditor();
+  renderActLinkChips();
+  refreshActLinkOptions();
+  updateActProgressVisibility();
+  actSnapshot=formSnapshot(ACT_FORM_IDS); // F9 记录打开时快照，供 Esc 脏检查比对
+  document.getElementById("maskActivity").classList.add("show");
+}
+
+function closeActivityModal(){ document.getElementById("maskActivity").classList.remove("show"); actSnapshot=null; }
+
+function openActKinds(){ renderActKindList(); document.getElementById("maskActKinds").classList.add("show"); try{document.getElementById("actKindNew").focus();}catch(e){} }
+
+function closeActKinds(){ document.getElementById("maskActKinds").classList.remove("show"); save(); fillKindSelect(); renderActiveChips(); }
+
+function openActivityLink(id, idx){
+  const a=activities.find(x=>x.id===id); if(!a||!Array.isArray(a.links)) return;
+  const l = (idx!=null) ? a.links[idx] : a.links[0];
+  if(!l) return;
+  if(l.type==="sent"){ if(findRec("sent",l.id)) openRecModal("sent", l.id); else toast("关联的寄出记录已被删除","warn"); }
+  else if(l.type==="received"){ if(findRec("received",l.id)) openRecModal("received", l.id); else toast("关联的收到记录已被删除","warn"); }
+  else if(l.type==="proxy"){ if(proxies.some(x=>x.id===l.id)) openProxyModal(l.id); else toast("关联的代寄记录已被删除","warn"); }
+}
+
+function openProxyModal(id){
+  const p=id? proxies.find(x=>x.id===id):null;
+  const g=pid=>{ const el=document.getElementById(pid); if(el) el.value=""; };
+  ["pProxy","pCountry","pCity","pExchange","pCardCount","pSent","pProxyRecv","pProxyBack","pGotBack","pEnvSent","pEnvRecv","pNote"].forEach(g);
+  document.getElementById("pId").value=id||"";
+  const pLB=document.getElementById("pLinkBtn"); if(pLB) pLB.style.display = id?"" : "none"; // F4 仅编辑已有代寄时可事后关联
+  fillOptions("pPlatform", proxies.map(x=>x.platform).concat(platList));
+  fillOptions("pType", proxies.map(x=>x.type).concat(typeList));
+  fillOptions("pCountry", proxies.map(x=>x.country).concat(countryList));
+  // 模式：编辑时沿用原条目模式（旧条目无 proxyMode 一律按往返处理）；新建默认「往返 write-back」
+  const mode = (p && p.proxyMode===PMODE.ONEWAY) ?PMODE.ONEWAY:PMODE.BACK;
+  const dir = p ? (p.direction||"me") : "me";
+  document.getElementById("pDirection").value = dir;
+  applyProxyModeUI(mode, dir, !!p);
+  document.getElementById("proxyModalTitle").textContent=(p?"编辑代寄":"新建代寄")+(mode==="oneway"?"（单向代寄）":"（write-back）");
+  if(p){
+    document.getElementById("pProxy").value=p.proxy||"";
+    document.getElementById("pCountry").value=p.country||"";
+    document.getElementById("pCity").value=p.city||"";
+    document.getElementById("pPlatform").value=p.platform||"";
+    document.getElementById("pType").value=p.type||"";
+    document.getElementById("pExchange").value=p.exchange||"";
+    document.getElementById("pCardCount").value=(p.cardCount!=null && p.cardCount!=="")?p.cardCount:"1";
+    document.getElementById("pSent").value=p.sent||"";
+    document.getElementById("pProxyRecv").value=p.proxyRecv||"";
+    document.getElementById("pProxyBack").value=p.proxyBack||"";
+    document.getElementById("pGotBack").value=p.gotBack||"";
+    document.getElementById("pEnvSent").value=p.envSent||"";
+    document.getElementById("pEnvRecv").value=p.envRecv||"";
+    document.getElementById("pNote").value=p.note||"";
+    document.getElementById("pMutualChk").checked=!!p.pairId;
+  }else{
+    document.getElementById("pMutualChk").checked=false;
+  }
+  proxySnapshot=formSnapshot(PROXY_FORM_IDS); // F9 记录打开时快照，供 Esc 脏检查比对
+  document.getElementById("maskProxy").classList.add("show");
+}
+
+function closeProxyModal(){ document.getElementById("maskProxy").classList.remove("show"); proxySnapshot=null; }
+
+function openConvertModal(dir, id){
+  const p=(dir==="sent"?postcards:dir==="received"?received:proxies).find(x=>x.id===id);
+  if(!p){ toast("未找到该条目", "danger"); return; }
+  convCtx={dir, id};
+  document.getElementById("convFrom").textContent=tabLabel(dir);
+  const sel=document.getElementById("convTarget");
+  // 同步转换下拉项为自定义分类名
+  Array.from(sel.options).forEach(o=>{ if(TAB_DEFAULT[o.value]) o.textContent=tabLabel(o.value); });
+  sel.value=dir; // 默认选中当前类，便于改成其它
+  const hint=document.getElementById("convHint");
+  const upd=()=>{ hint.textContent = sel.value===dir ? "（请选择与目标不同的归类）" : `将移动到「${tabLabel(sel.value)}」，共享字段（对方/地点/平台/类型）自动带过去，交换关联会被清除。`; };
+  sel.onchange=upd; upd();
+  document.getElementById("maskConvert").classList.add("show");
+}
+
+function closeConvertModal(){ document.getElementById("maskConvert").classList.remove("show"); }
+
+function openLightbox(src){
+  if(!src) return;
+  document.getElementById("lightboxImg").src=src;
+  document.getElementById("lightbox").classList.add("show");
+}
+
+function closeLightbox(){ document.getElementById("lightbox").classList.remove("show"); }
+
+function setPostcardDataTab(tab){
+  document.querySelectorAll("#pcDataTabs .dtab").forEach(b=>{ const on=b.dataset.dtab===tab; b.classList.toggle("active",on); b.setAttribute("aria-selected",on?"true":"false"); });
+  document.querySelectorAll("#cloudMask .dtab-panel").forEach(p=>{ p.hidden = p.dataset.dtab!==tab; });   // P3-8：改用 hidden 属性，与CSS 的 [hidden] 规则配对
+}
+
+function openPostcardDataModal(tab){
+  const m=document.getElementById("cloudMask"); if(!m) return;
+  cloudLoad(); document.getElementById("csToken").value=cloud.token; document.getElementById("csGist").value=cloud.gist;
+  setCloudStatus(cloud.token&&cloud.gist?"已配置，点击「立即同步」开始拉取":"未配置");
+  setPostcardDataTab(tab||"cloud");
+  m.classList.add("show");
+}
 
 /* ===== L6 Cloud · P1-9 分层（2026-10-23）===== */
+function cloudSave(){ try{ const s=JSON.stringify({token:cloud.token, gist:cloud.gist, auto:cloud.auto}); storageSet(CLOUD_KEY, s); storageSet(CLOUD_KEY_ALT, s); }catch(e){} }
+
+// deleted 必须随负载上传，否则其他设备无法感知本机的删除
+function syncPayload(){ return {postcards, received, proxies, activities, platList, typeList, actKindList, countryList, tabLabels:tabLabels(), widgetCfg:{order:widgetCfg.order,hidden:widgetCfg.hidden,custom:widgetCfg.custom,autoRename:widgetCfg.autoRename}, links:linkList, cfgSavedAt, deleted:deletedIds, savedAt:Date.now()}; }   // P1-2：links（顶部站点书签栏）纳入云同步——此前备份负载里有、同步负载里没有，换设备从云端恢复后书签栏静默回默认
+
+// 应用云端同步过来的「设置类」数据（标签名、自定义卡片配置），按 cfgSavedAt 做最后写入者胜出
+function applyCloudSettings(obj){
+  if(!obj || typeof obj!=="object" || !obj.cfgSavedAt || obj.cfgSavedAt<=cfgSavedAt) return false;
+  if(obj.tabLabels && typeof obj.tabLabels==="object"){ storageSet(TAB_KEY, JSON.stringify(obj.tabLabels)); }   // P2-15：走 storageSet（内部已 try/catch，配额满会给告警）
+  if(obj.widgetCfg && typeof obj.widgetCfg==="object"){
+    widgetCfg={order:obj.widgetCfg.order||[],hidden:obj.widgetCfg.hidden||[],custom:obj.widgetCfg.custom||[],autoRename:(obj.widgetCfg.autoRename&&typeof obj.widgetCfg.autoRename==="object")?obj.widgetCfg.autoRename:{}};
+    storageSet(WKEY, JSON.stringify(widgetCfg));  // P2-15：走 storageSet；直接落盘不触发上传（避免拉取后再回传形成抖动）
+  }
+  if(Array.isArray(obj.links)){   // P1-2：站点书签栏随云同步走 cfgSavedAt 最后写入者胜出
+    const cleaned=normLinkList(obj.links);   // 2026-10-23：清洗后再入列——云端脏 links 曾直接炸掉渲染（见 normLinkList 注释）
+    if(cleaned){ linkList=cleaned; saveLinks(); renderLinkBar(); }
+  }
+  cfgSavedAt=obj.cfgSavedAt; storageSet(CFG_SAVED_KEY, String(cfgSavedAt));   // P2-15：走 storageSet
+  return true;
+}
+
+// 读取云端 postcards.json 的 savedAt，用于上传冲突检测。
+// 返回 {savedAt}（读到）| {empty:true}（云端无文件，首次上传安全）| {err:true}（读失败，不可安全上传）
+async function cloudPeekSavedAt(){
+  try{
+    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 15000);
+    if(!res.ok) return {err:true};
+    const data=await res.json();
+    const f=data.files&&data.files["postcards.json"]; if(!f||!f.content) return {empty:true};
+    const obj=JSON.parse(f.content); return {savedAt: obj.savedAt||null};
+  }catch(e){ return {err:true}; }
+}
+
+async function cloudUpload(silent, keepalive){
+  /* R4：自锁下沉到函数内部。原先只靠调用方（withBusy / cloudAutoUpload）检查 _cloudBusy，
+     而 pagehide 补传、冲突自愈里的 cloudPull(true)→save()→cloudAutoUpload 等路径**不经过 withBusy**，
+     于是「30s 轮询的上传」与「pagehide 的补传」可同时在飞：后写的整包覆盖先写的，两边的改动都丢一部分。
+     这里加自锁，_cloudBusy 由本函数自己置起/释放，withBusy 退化为纯 UI 反馈。 */
+  if(_cloudBusy){ _pendingUpload=true; return false; }
+  if(!keepalive) _cloudBusy=true;
+  try{ return await _cloudUploadInner(silent, keepalive); }
+  finally{ if(!keepalive) _cloudBusy=false; }
+}
+
+async function _cloudUploadInner(silent, keepalive){
+  if(!cloud.token||!cloud.gist){ if(!silent) setCloudStatus("请先填写 Token 与 Gist ID", true); return false; }
+  const localSavedAt=Number(localStorage.getItem(SAVED_AT)||0);
+  // 冲突检测：云端有比本地更新的保存时，不应静默覆盖（多标签/多设备场景防数据丢失）
+  // H1 修复：读云端失败 → 放弃本次上传，绝不拿「可能过旧的本地整包」覆盖云端（此前"数据消失"的共同机理）
+  // keepalive 模式：卸载期只能发一次请求，跳过 peek（两次往返来不及），直接覆盖。
+  const peek=keepalive?{err:false,empty:false,savedAt:null}:await cloudPeekSavedAt();
+  if(peek.err){
+    setCloudPill("err");
+    if(!silent) setCloudStatus("无法读取云端状态，已放弃上传以避免覆盖云端数据，请稍后重试", true);
+    return false;   // 网络/鉴权问题 → 交给自动重试
+  }
+  const remote=(peek.empty?null:peek.savedAt);
+  if(remote && remote>localSavedAt+2000){
+    if(silent){
+      // 自动上传遇到云端更新：不静默暂停，改为自动拉取合并（自愈），避免「数据不同步」且不再卡在错误态
+      setCloudPill("syncing"); setCloudStatus("检测到云端有更新，自动拉取合并…", false, "syncing");
+      await cloudPull(true);   // 拉取合并后本地 save() 会重新排队上传，无需本层重试
+      return true;
+    }
+    if(!(await confirmDialog("云端数据比本地更新（"+new Date(remote).toLocaleString()+"），上传将用本地覆盖云端，继续？",{danger:true,ok:"仍上传"}))){ setCloudStatus("已取消上传", false, "warn"); return true; }   // 用户主动取消，不重试
+  }
+  if(!silent) setCloudStatus("上传中…");
+  setCloudPill("syncing");
+  try{
+    const content=JSON.stringify(syncPayload(),null,2);
+    if(keepalive && content.length>CLOUD_KEEPALIVE_MAX){
+      // 超 keepalive 上限：数据已在本地存好（save 已落盘），只是这次补传发不出去。明确告知，不静默失败。
+      try{ toast("本地数据已保存，但内容超过 "+Math.round(CLOUD_KEEPALIVE_MAX/1024)+"KB，补传被浏览器限制拦下；下次打开本页会自动同步。","warn",6000); }catch(_){}
+      return false;
+    }
+    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{
+      method:"PATCH",
+      headers:{"Authorization":authHeader(),"Content-Type":"application/json"},
+      keepalive:!!keepalive,   // P2-14：让请求在页面卸载后仍能完成
+      body:JSON.stringify({files:{"postcards.json":{content:content}}})
+    }, 15000);
+    if(!res.ok){ let d="HTTP "+res.status; try{ const ej=await res.json(); if(ej&&ej.message) d+=" · "+ej.message; }catch(_){}
+      // P2-10：把 status 挂到错误对象上，调用方才能用 explainHttp 翻成可行动文案（原先只拼进message，只能显示原始串）
+      const err=new Error(d); err.status=res.status; throw err; }
+    if(!silent) setCloudStatus("上传成功 ✓ "+new Date().toLocaleTimeString(), false, "ok");
+    setCloudPill("ok"); markSynced(); cloudRetryReset();   // 成功 → 记最后同步时间并清除重试链
+    return true;
+  }catch(e){
+    if(!silent) setCloudStatus((e&&e.status)? explainHttp(e.status,"上传") : ("上传失败："+(e&&e.message?e.message:e)), true);   // P2-10：401/404 翻成可行动文案
+    setCloudPill("err");
+    return false;   // 可重试
+  }
+}
+
+// 拉取云端并合并到本地（silent=true 用于自动同步，不弹确认；false 用于手动「下载合并」按钮）
+// 返回值约定：false = 拉取失败；"cancel" = 用户取消；true = 已合并/已是最新
+async function cloudPull(silent){
+  /* R4：同 cloudUpload —— 自锁下沉到函数内部，与上传互斥。
+     原先只有 cloudAutoDownload 查_pullBusy，手动「立即同步」、冲突自愈里的 cloudPull(true) 都不查，
+     两条pull 可并行读到同一份云端、各自 merge 一次 → _mergeChanged 重复计数。 */
+  window.__pullOk=false;
+  if(_cloudBusy||_pullBusy) return false;
+  _pullBusy=true;
+  try{ return await _cloudPullInner(silent); }
+  finally{ _pullBusy=false; }
+}
+
+async function _cloudPullInner(silent){
+  if(!cloud.token||!cloud.gist){ if(!silent) setCloudStatus("请先填写 Token 与 Gist ID", true); return false; }
+  /* P0-3：把「有弹窗打开时不拉取」的守卫从 cloudAutoDownload 下沉到这里。
+     原先只有自动轮询那一条路径检查，另外三条都没有 —— 其中 `cloudUpload` 的冲突自愈
+     （保存后自动触发）是**无感**进入的：mergeById 用 Object.assign 原地改写用户正在编辑的那条记录对象
+     （弹窗 DOM 不刷新），用户点保存时又用旧表单值覆盖掉刚合并进来的云端修改 → 静默丢数据。
+     这里只拦「承载记录编辑的弹窗」，不含数据管理/云同步设置弹窗本身，
+     否则在数据管理弹窗里点「立即同步」会被自己的守卫挡掉。 */
+  if(document.querySelector("#mask.show,#maskActivity.show,#maskProxy.show,#maskConvert.show,#maskActKinds.show,#maskOpts.show,#confirmMask.show,#linkModal.show")){
+    if(!silent) setCloudStatus("有编辑弹窗打开中，已暂缓同步（关闭弹窗后会自动继续）");
+    return false;
+  }
+  if(!silent){
+    if(!(await confirmDialog("将把云端数据合并到本地（按 id 合并：云端更新的记录覆盖本地旧版本；本地新增/更新的记录保留），确认？",{}))){ setCloudStatus("已取消下载", false, "warn"); return "cancel"; }
+  }
+  if(!silent) setCloudStatus("下载中…");
+  setCloudPill("syncing");
+  try{
+    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 15000);
+    if(!res.ok){ let d="HTTP "+res.status; try{ const ej=await res.json(); if(ej&&ej.message) d+=" · "+ej.message; }catch(_){}
+      // P2-10：把 status 挂到错误对象上，调用方才能用 explainHttp 翻成可行动文案（原先只拼进message，只能显示原始串）
+      const err=new Error(d); err.status=res.status; throw err; }
+    const data=await res.json();
+    const f=data.files&&data.files["postcards.json"];
+    if(!f||!f.content) throw new Error("云端无 postcards.json");
+    const obj=JSON.parse(f.content);
+    const remote=obj.savedAt||null;
+    _mergeChanged=0;
+    const beforeLists=JSON.stringify([platList,typeList,countryList,actKindList]);
+    const del=tombMap(obj.deleted);                 // 本地墓碑 ∪ 云端墓碑
+    postcards=mergeById(postcards, obj.postcards, del, "sent");
+    received=mergeById(received, obj.received, del, "received");
+    proxies=mergeById(proxies, obj.proxies, del, "proxy");
+    activities=mergeById(activities, obj.activities, del, "activity");   // R2-2：dir 供移动墓碑判定"原位置该删/新位置该留"
+    deletedIds=Array.from(del.tombs.values()); tombSave();   /* S2（2026-10-23 修）：用完整墓碑表重建，保留 op/to，移动墓碑不再被剥离 */
+    if(Array.isArray(obj.platList)) platList=unionArr(platList, obj.platList);
+    if(Array.isArray(obj.typeList)) typeList=unionArr(typeList, obj.typeList);
+    if(Array.isArray(obj.countryList)) countryList=unionArr(countryList, obj.countryList);
+    if(Array.isArray(obj.actKindList)&&obj.actKindList.length){ const _km=new Map(); actKindList.forEach(o=>{ if(o&&o.key) _km.set(o.key,o); }); obj.actKindList.forEach(o=>{ if(o&&o.key&&!_km.has(o.key)) _km.set(o.key,{...o}); }); actKindList=Array.from(_km.values()); }
+    const settingsApplied=applyCloudSettings(obj);   // 标签名 / 自定义卡 设置同步（最后写入者胜出）
+    syncListsFromData();
+    normalizeRecv();
+    const afterLists=JSON.stringify([platList,typeList,countryList,actKindList]);
+    const listChanged=(beforeLists!==afterLists);
+    const changed=_mergeChanged+(listChanged?1:0);  // 既统计「新增」，也统计「编辑已有记录带来的覆盖更新」
+    if(changed>0 || settingsApplied){ save(); renderAll(); } // 有变化才落盘/回传/重绘，避免 30s 轮询空写与表格抖动
+    if(remote) storageSet(SAVED_AT, String(Math.max(Date.now(), remote))); // 抬平 savedAt，避免拉取后被冲突检测误暂停（P2-15：走 storageSet，配额满时不再静默丢时间戳）
+    setCloudStatus((changed>0||settingsApplied) ? ("同步完成 ✓ 新增/更新 "+(changed+(settingsApplied?1:0))+" 项（"+new Date().toLocaleString()+"）") : ("已是最新（"+new Date().toLocaleString()+"）"), false, "ok");   // P2-11：显式标成功（原先不匹配任何正则分支，绿色成功态从不出现）
+    setCloudPill("ok"); window.__pullOk=true; markSynced();   // 拉取成功 → 标记成功并记最后同步时间
+    /* P1-5：原本此处还有一句**无条件** renderAll()，而上一行已按 changed/settingsApplied 条件渲染过 →
+       ① 云端无变化时每 15s 仍全量重绘；② 有变化时同一轮渲染两遍；
+       ③ 更要命：renderAll → renderFilters → buildFilterBar 会 wrap.innerHTML 重建整条筛选栏 ——
+          用户正在搜索框打字时光标与已输入内容被冲掉（debounce 挂在已脱离文档的旧节点上）、
+          iOS 上正展开的下拉被强制收起。
+       本批补删：上一行已在同一条件下渲染过，这里是同条件的**第二次**渲染，纯属重复（筛选栏被重建两次）。 */
+    return true;   /* 2026-10-19 审查修复：原 `returntrue;`（return 与 true 间缺空格，第3批 92785e0 引入）语法合法但运行时是引用未定义标识符 → 抛 ReferenceError 被下方 catch 吞成「下载失败：returntrue is not defined」红灯 —— 数据其实已合并成功，纯属误报；每次 30s 轮询必亮一次红灯 */
+  }catch(e){
+    if(!silent) setCloudStatus((e&&e.status)? explainHttp(e.status,"下载") : ("下载失败："+(e&&e.message?e.message:e)), true);   // P2-10
+    setCloudPill("err");
+    return false;
+  }
+}
+
+// 手动「下载合并」按钮：保留确认
+async function cloudDownload(){ return await cloudPull(false); }
+
+// 记录「最后同步时间」到状态灯悬停提示（上传/拉取成功均刷新）
+function markSynced(){
+  try{
+    window.__lastSyncAt=Date.now();
+    const el=document.getElementById("cloudPill");
+    if(el) el.title="最后同步 "+new Date(window.__lastSyncAt).toLocaleTimeString();
+  }catch(_){}
+}
+
+/* 上传失败自动重试（3→6→12→24→48s，最多 5 次后停止并亮红灯）
+   此前上传失败即静默放弃：手机端网络抖动一次，这次改动就永远只留在本机 ——
+   正是「手机端点完成、电脑端刷新却看不到」的主要成因之一。 */
+function cloudRetryReset(){ _upRetryN=0; if(_upRetryTimer){ clearTimeout(_upRetryTimer); _upRetryTimer=null; } }
+
+function cloudRetryTick(){
+  if(!(cloud.token && cloud.gist && cloud.auto)){ cloudRetryReset(); return; } // 配置被改/关闭自动同步 → 停止重试
+  if(_cloudBusy){ _upRetryTimer=setTimeout(cloudRetryTick, 3000); return; }     // 忙 → 稍后再试，不丢弃待传
+  _upRetryTimer=null;
+  cloudUpload(true).then(ok=>{ if(ok===false) scheduleCloudRetry(); });
+}
+
+function scheduleCloudRetry(){
+  if(_upRetryN>=5){
+    cloudRetryReset(); setCloudPill("err");
+    try{ toast("云同步多次失败，已停止自动重试。可稍后点「上传到云端」手动重试","danger"); }catch(_){}
+    return;
+  }
+  _upRetryN++;
+  const delay=Math.min(60000, 3000*Math.pow(2,_upRetryN-1));
+  clearTimeout(_upRetryTimer);
+  _upRetryTimer=setTimeout(cloudRetryTick, delay);
+}
+
+function cloudAutoUpload(){
+  if(_cloudBusy){ _pendingUpload=true; return; }   // P1-3：手动同步进行中，自动上传被跳过 → 标记待补传，待 withBusy 结束自动补上，避免修改永不同步到其它设备
+  if(!cloud.auto) return;
+  if(!cloud.token||!cloud.gist) return;
+  if(_upTimer) clearTimeout(_upTimer);
+  _upTimer=setTimeout(()=>{
+    _upTimer=null;
+    cloudUpload(true).then(ok=>{ if(ok===false) scheduleCloudRetry(); });
+  }, 1500);
+}
+
+// 自动拉取：防并发 + 仅前台 + 失败退避 + 节流 + 有弹窗打开时跳过（避免覆盖正在编辑的内容）
+function cloudAutoDownload(){
+  if(_cloudBusy||_pullBusy) return;
+  if(!cloud.token||!cloud.gist) return;
+  if(document.visibilityState==="hidden") return;  // 后台不轮询：省电 + 省 GitHub API 配额，切回前台会立即补拉
+  if(document.querySelector(".mask.show")) return; // 正在编辑 → 不拉
+  const now=Date.now();
+  if(_pullFailN>1 && now-_lastPull < Math.min(120000, 10000*Math.pow(2,_pullFailN-2))) return; // 连续失败才退避 10→20→40→80→120s；首次失败不减速，下一次轮询即重试
+  if(now-_lastPull < 8000) return;                 // 正常节流
+  _lastPull=now;
+  Promise.resolve(cloudPull(true))
+    .then(()=>{ if(window.__pullOk){ _pullFailN=0; markSynced(); } else { _pullFailN=Math.min(6,_pullFailN+1); } })
+    .catch(()=>{ _pullFailN=Math.min(6,_pullFailN+1); });
+}
+
+// 待传兜底：页面隐藏/卸载时若还有待传，立即补传（移动端防丢上传）
+function cloudFlush(){
+  if(_cloudBusy) return;
+  if(_upTimer){
+    clearTimeout(_upTimer); _upTimer=null;
+    // P2-14：卸载/切后台时走 keepalive，页面销毁后请求仍能完成（原来普通 fetch 会被浏览器取消 → 补传基本无效）
+    cloudUpload(true, true).then(ok=>{ if(ok===false) scheduleCloudRetry(); });
+  }
+}
+
+/* R4：withBusy 退化为「纯 UI 反馈 + 收尾补传」，**不再自己置 _cloudBusy**。
+   原实现它既置锁、又由被它包裹的 cloudPull/cloudUpload 各自置锁（现在锁已下沉到这两个函数内部），
+   两者叠加会让手动「立即同步」在进入 fn 的第一行就被自己的锁挡掉 → 点按钮没反应。
+   锁的唯一责任现在在 cloudUpload/_cloudPull 内部，withBusy 只管按钮的转圈与恢复。
+
+   ⚠️ 本注释必须放在 async **之前**。若写成「async + 换行注释 + function f(){}」，解析器会把 async 当成标签语句、
+      后面的 function 声明为普通函数，于是函数体里的 await 报"await is only valid in async functions"；
+      而单文件语法检查（把整块存成 .js 再 check）走的是脚本模式，查不出这个差异 —— 必须用 new Function 整块解析。 */
+async function withBusy(btn, fn){
+  if(_cloudBusy||_pullBusy){ toast("云同步正在进行中，请稍候","warn"); return; }
+  const b=(typeof btn==="string"?document.getElementById(btn):btn);
+  if(b){ try{ b.disabled=true; b.classList.add("is-busy"); b.setAttribute("aria-busy","true"); }catch(_){} }
+  try{ return await fn(); }
+  finally{
+    if(b){ try{ b.disabled=false; b.classList.remove("is-busy"); b.removeAttribute("aria-busy"); }catch(_){} }
+    /* 补传：这一轮同步期间产生的改动（被自锁挡下、置了 _pendingUpload）此刻补上，
+       否则用户改动会永远滞留在本地。手动同步与自动同步两条路径都要覆盖，故放在这里统一收尾。 */
+    if(_pendingUpload){ _pendingUpload=false; cloudAutoUpload(); }   // P1-3：上一轮上传因忙被跳过，此刻补上
+  }
+}
+
+async function openRecoverModal(){
+  if(_recoverBusy){ toast("正在扫描 Gist 历史，请稍候…","warn"); return; }
+  if(!cloud.token||!cloud.gist){ toast("请先在设置中填写 Token 与 Gist ID","warn"); return; }
+  const mask=document.getElementById("recoverMask");
+  const list=document.getElementById("recoverList");
+  const status=document.getElementById("recoverStatus");
+  if(!mask||!list) return;
+  mask.classList.add("show");
+  _recoverBusy=true;
+  const btn=document.getElementById("csRecover"); if(btn){ btn.disabled=true; btn.classList.add("is-busy"); }
+  list.innerHTML='<div class="mrec-empty" id="recoverProgress">正在扫描 Gist 历史版本…（0/0）</div>';
+  if(status) status.textContent="正在扫描…";
+  const done=()=>{ _recoverBusy=false; const b2=document.getElementById("csRecover"); if(b2){ b2.disabled=false; b2.classList.remove("is-busy"); } };
+  const localIds={}; RECOVER_DEFS.forEach(d=>{ localIds[d.key]=new Set((d.local()||[]).map(x=>x&&x.id).filter(Boolean)); });
+  const found={}; RECOVER_DEFS.forEach(d=>found[d.key]=new Map());
+  let scanned=0, parseErr=0, fetchFail=0;
+  try{
+    const accept={Authorization:authHeader(), Accept:"application/vnd.github+json"};
+    const base="https://api.github.com/gists/"+encodeURIComponent(cloud.gist);
+    const revRes=await fetchWithTimeout(base+"/commits",{headers:accept},15000);
+    if(!revRes.ok){ list.innerHTML='<div class="mrec-empty">'+esc(explainHttp(revRes.status,"获取 Gist 历史"))+'</div>'; done(); return; }   // P2-10 + P2-16
+    const revs=await revRes.json();
+    // 并发扫描历史版本（每批 5 个），历史版本多时不再串行逐条等待
+    const revArr=(revs||[]).filter(Boolean);
+    for(let bi=0; bi<revArr.length; bi+=5){
+      const batch=revArr.slice(bi, bi+5);
+      const pg=document.getElementById("recoverProgress");   // P2-16：扫描期间给进度，长任务不再像卡死
+      if(pg) pg.textContent="正在扫描 Gist 历史版本…（"+Math.min(bi+5,revArr.length)+"/"+revArr.length+"）";
+      const results=await Promise.all(batch.map(r=>fetchWithTimeout(base+"/"+r.version,{headers:accept},12000).then(res=>({r,res})).catch(()=>({r,res:null}))));
+      for(const {r,res} of results){
+        if(!res||!res.ok){ fetchFail++; continue; }
+        let d; try{ d=await res.json(); }catch(_){ fetchFail++; continue; }
+        const f=d.files&&d.files["postcards.json"];
+        if(!f||!f.content) continue;
+        let obj; try{ obj=JSON.parse(f.content); }catch(_){ parseErr++; continue; }
+        scanned++;
+        RECOVER_DEFS.forEach(def=>{
+          const arr=def.collect(obj);
+          if(!Array.isArray(arr)) return;
+          arr.forEach(x=>{
+            if(!x||!x.id||localIds[def.key].has(x.id)) return;
+            const prev=found[def.key].get(x.id);
+            if(!prev || def.score(x,prev)>0) found[def.key].set(x.id,x);
+          });
+        });
+      }
+    }
+    const groups=RECOVER_DEFS.map(def=>({def, items:Array.from(found[def.key].values())})).filter(g=>g.items.length);
+    const total=groups.reduce((s,g)=>s+g.items.length,0);
+    if(!total){
+      list.innerHTML='<div class="mrec-empty">在 '+scanned+' 个历史版本中，没有找到本地缺失的记录。'+(parseErr?('（'+parseErr+' 个版本解析失败）'):'')+(fetchFail?('（'+fetchFail+' 个版本读取失败）'):'')+'</div>';
+      if(status) status.textContent="扫描完成：无缺失记录";
+      done(); return;
+    }
+    list.innerHTML=groups.map(g=>{
+      const head='<div class="mrec-group-head"><span>'+g.def.icon+'</span>'+esc(g.def.label)+'<span class="cnt" aria-hidden="true">'+g.items.length+'</span></div>';
+      const items=g.items.map(x=>{
+        const nm=g.def.name(x), mt=g.def.meta(x);
+        return '<div class="mrec-item" data-key="'+g.def.key+'" data-id="'+esc(x.id)+'">'
+          +'<div class="mrec-main"><div class="mrec-name">'+esc(nm)+'</div>'+(mt?'<div class="mrec-meta">'+esc(mt)+'</div>':'')+'</div>'
+          +'<button class="btn btn-pri btn-sm mrec-restore" aria-label="恢复 '+esc(nm)+'">恢复</button></div>';
+      }).join('');
+      return '<div class="mrec-group">'+head+items+'</div>';
+    }).join('');
+    if(status) status.textContent="扫描完成：找到 "+total+" 条本地缺失记录（来自 "+scanned+" 个历史版本"+(fetchFail?("，"+fetchFail+" 个版本读取失败"):"")+"）";
+    list.querySelectorAll(".mrec-restore").forEach(b=>{
+      b.onclick=()=>{
+        const card=b.closest(".mrec-item"); if(!card) return;
+        const key=card.dataset.key, id=card.dataset.id;
+        const def=RECOVER_DEFS.find(d=>d.key===key); if(!def) return;
+        const it=found[key].get(id); if(!it) return;
+        const group=card.parentElement;
+        def.restore(it);
+        found[key].delete(id);
+        renderAll();
+        card.remove();
+        if(group && !group.querySelector(".mrec-item")) group.remove();
+        toast("已恢复「"+def.name(it)+"」");
+        const remain=RECOVER_DEFS.reduce((s,d)=>s+found[d.key].size,0);
+        if(status){ if(remain) status.textContent="已恢复 1 条，还剩 "+remain+" 条可恢复"; else { status.textContent="全部恢复完成 ✓"; list.innerHTML='<div class="mrec-empty">已全部恢复 ✓</div>'; } }
+      };
+    });
+  }catch(e){
+    list.innerHTML='<div class="mrec-empty">扫描失败：'+(e&&e.message?e.message:e)+'</div>';
+  }
+  done();   // P2-16：无论成功/失败/提前返回都要解锁，否则按钮永久禁用
+}
 
 /* ===== L7 Boot · P1-9 分层（2026-10-23）===== */
 /* ===== 数据 ===== */
@@ -4099,19 +4778,6 @@ const PROXY_LOST_DAYS=75; // 代寄：自「我寄出」起超过该天数仍未
 
 // 返回值用于 HTML 属性（href="..."），必须再过 esc，否则可用 " 提前闭合属性造成属性逃逸型 XSS
 
-function openOpts(kind, selId){
-  optsKind=kind; optsReturn=selId||null;
-  document.getElementById("optsTitle").textContent = kind==="platform"?"管理平台选项":kind==="type"?"管理类型选项":"管理国家/地区选项";
-  renderOptsList();
-  document.getElementById("maskOpts").classList.add("show");
-  try{ document.getElementById("optsNew").focus(); }catch(e){}
-}
-function closeOpts(){
-  document.getElementById("maskOpts").classList.remove("show");
-  if(optsReturn){ fillSelect(optsReturn, optsKind, document.getElementById(optsReturn).value); }
-  save();
-  optsReturn=null;
-}
 
 /* ===== 相关站点快捷链接（底部常驻 · 可管理 · 存本地） ===== */
 const LKEY="wb_postcards_links_v1";
@@ -4124,8 +4790,6 @@ const LINKS_DEFAULT=[
   {emoji:"🖼", name:"我的收片相册",     url:"https://eu.zonerama.com/Profile/704015/1255144"}
 ];
 let linkList=[];
-function openLinkEditor(){ renderLinkEditor(); document.getElementById("maskLinks").classList.add("show"); }
-function closeLinkEditor(){ document.getElementById("maskLinks").classList.remove("show"); saveLinks(); renderLinkBar(); }
 
 /* ===== 渲染：视图切换（标签页名称可双击编辑） ===== */
 const TAB_DEFAULT={ sent:"寄出追踪", received:"收到收藏", proxy:"代寄", activity:"进行中活动" };
@@ -4138,39 +4802,6 @@ let widgetEditMode=false;
 const PROXY_STAT_LABELS={ready:"准备中", sent:"寄出在途（我寄出 / 对方寄出待我收）", proxyRecv:"第一步已收（对方收 / 我收）", proxyBack:"回寄在途（对方写回 / 我写回）", gotBack:"回片已到（我收到 / 对方收到）"};
 let _renderedAutoWids=null;   // 最近一次 renderStats 实际产出的自动卡wid 列表（P2-17：供 currentWidgetWids 反推）
 let dragWid=null, dragDropBefore=false;
-function bindWidgetCtrls(el){
-  el.querySelectorAll(".w-ctrl button").forEach(b=>{
-    b.addEventListener("click", e=>{ e.stopPropagation(); const act=b.dataset.act, wid=b.dataset.wid;
-      if(act==="up") moveWidget(wid,-1);
-      else if(act==="down") moveWidget(wid,1);
-      else if(act==="hide") hideWidget(wid);
-      else if(act==="edit") openWidgetModal(wid);
-      else if(act==="rename") openRename(wid);
-      else if(act==="del") delWidget(wid);
-    });
-  });
-  /* 键盘重排：聚焦拖拽手柄后用上下方向键移动（原生拖拽的键盘替代） */
-  el.querySelectorAll(".w-ctrl .grip").forEach(g=>{
-    g.addEventListener("keydown", e=>{ const wid=g.dataset.wid;
-      if(e.key==="ArrowUp"){ e.preventDefault(); moveWidget(wid,-1); }
-      else if(e.key==="ArrowDown"){ e.preventDefault(); moveWidget(wid,1); }
-    });
-  });
-  /* 自动统计卡的标签支持双击重命名 */
-  el.querySelectorAll(".stat.widget").forEach(card=>{
-    const wid=card.dataset.wid||"";
-    if(wid.indexOf("stat:")!==0) return;
-    const l=card.querySelector(".l");
-    if(l) l.addEventListener("dblclick", e=>{ e.stopPropagation(); openRename(wid); });
-  });
-  el.querySelectorAll(".stat.widget").forEach(card=>{
-    card.addEventListener("dragstart", e=>{ dragWid=card.dataset.wid; card.classList.add("dragging"); try{e.dataTransfer.effectAllowed="move";}catch(_){} });
-    card.addEventListener("dragend", ()=>{ card.classList.remove("dragging"); dragWid=null; dragDropBefore=false; el.querySelectorAll(".stat.widget").forEach(c=>c.classList.remove("drop-before","drop-after")); });
-    card.addEventListener("dragover", e=>{ e.preventDefault(); if(card.dataset.wid===dragWid) return; const r=card.getBoundingClientRect(); dragDropBefore=(e.clientY-r.top)<r.height/2; card.classList.toggle("drop-before",dragDropBefore); card.classList.toggle("drop-after",!dragDropBefore); });
-    card.addEventListener("dragleave", ()=>card.classList.remove("drop-before","drop-after"));
-    card.addEventListener("drop", e=>{ e.preventDefault(); const tgt=card.dataset.wid; if(tgt!==dragWid) dropWidget(dragWid,tgt); card.classList.remove("drop-before","drop-after"); });
-  });
-}
 let editingWid=null;
 
 /* 自动统计卡重命名：仅覆盖显示文字，wid 与数值计算均不变 */
@@ -4262,37 +4893,6 @@ const CHIP_GROUPS = {
    列序整体错位一格，「操作」列按钮上方顶着无主的日期值：看错列会把「到达日」当成「寄出日」，
    而日期是本应用最核心的字段。手工补 class 下次加列还会漏，故改为**渲染后按可见 th 顺序统一同步**。
    同时处理反向：视口从窄变宽时要把之前加上的 hide-sm 摘掉，否则列永久消失。 */
-// M1：表格事件委托——整表 innerHTML 重建后不再逐行重绑事件，改为在 tbody 上挂一次稳定监听器（性能优化 + 避免监听器反复创建销毁）
-function bindTableDelegation(){
-  const tb=document.getElementById("tbody");
-  if(!tb || tb.__delegated) return;
-  tb.__delegated=true;
-  // 状态下拉 change（按 data-id/data-rid/data-aid 区分视图）
-  tb.addEventListener("change", e=>{
-    const s=e.target && e.target.closest ? e.target.closest(".st-sel") : null; if(!s) return;
-    if(s.dataset.id!=null) changeRecStatus("sent", s.dataset.id, s.value);
-    else if(s.dataset.rid!=null) changeRecStatus("received", s.dataset.rid, s.value);
-    else if(s.dataset.aid!=null) changeActivityStatus(s.dataset.aid, s.value);
-  });
-  // 行内按钮点击（编辑/删除/转换/配对/进度节点/关联）
-  tb.addEventListener("click", e=>{
-    const t=e.target; if(!t || typeof t.closest!=="function") return;
-    let el;
-    el=t.closest("[data-edit]"); if(el){ openRecModal("sent", el.dataset.edit); return; }
-    el=t.closest("[data-redit]"); if(el){ openRecModal("received", el.dataset.redit); return; }
-    el=t.closest("[data-pedit]"); if(el){ openProxyModal(el.dataset.pedit); return; }
-    el=t.closest("[data-aedit]"); if(el){ openActivityModal(el.dataset.aedit); return; }
-    el=t.closest("[data-alink]"); if(el){ openActivityLink(el.dataset.alink, parseInt(el.dataset.alidx||"0",10)); return; }
-    el=t.closest("[data-conv]"); if(el){ const p=el.dataset.conv.split(":"); openConvertModal(p[0], p[1]); return; }
-    el=t.closest("[data-pair]"); if(el){ openPair(el.dataset.pair, el.dataset.pid, el.dataset.cur); return; }
-    el=t.closest("[data-del]"); if(el){ delRec("sent", el.dataset.del); return; }
-    el=t.closest("[data-rdel]"); if(el){ delRec("received", el.dataset.rdel); return; }
-    el=t.closest("[data-pdel]"); if(el){ delProxy(el.dataset.pdel); return; }
-    el=t.closest("[data-ppair]"); if(el){ delProxyPair(el.dataset.ppair); return; }
-    el=t.closest("[data-adel]"); if(el){ delActivity(el.dataset.adel); return; }
-    el=t.closest(".st.clickable, .sp-node.clickable"); if(el){ toggleProxyStep(el.dataset.pid, parseInt(el.dataset.pstep,10)); return; }
-  });
-}
 let _regionWarnAt={};
 /*  重渲染合并：同一事件内的多次 renderAll 合并为 1–2 次实际渲染，且不丢最新状态
     （R4 移植，对齐任务台 7701：必须用 try/finally 释放刷新锁——此前 renderAllNow() 一旦抛异常
@@ -4334,216 +4934,13 @@ const REC_DEFS = {
    - 仅「未写」(unwritten) 视为彻底重置，才清空 sent/arrived（修复原「状态=未写却残留 arrived」污染）。
    - 正向补填保留：进入 transit 补 sent、进入 arrived 补 arrived、进入 received 补 received（为空才补）。
    - 在途天数 transitDays 仅在 status==="arrived" 时取用 arrived，故保留历史日期不会污染在途/排序/CSV。 */
-// D8：图片输入框 → 预览图绑定（有值显示、点击放大），sent/received 共用
-function bindImgPreview(inputId, prevId){
-  const ri=document.getElementById(inputId), pv=document.getElementById(prevId);
-  /* P2-1：外链失效时预览区只出破图图标没有任何解释。现在加载失败收起图片、在提示行说明原因，成功后恢复 */
-  const hint=()=>pv.parentElement.querySelector(".hint");
-  const upd=()=>{
-    const v=ri.value.trim();
-    if(v){
-      pv.onerror=()=>{ pv.style.display="none"; const h=hint(); if(h) h.textContent="⚠️ 图片加载失败，链接可能已失效或非 http(s) 地址"; };
-      pv.onload=()=>{ const h=hint(); if(h) h.textContent="有图时点击可放大"; };
-      pv.src=v; pv.style.display="block";
-    } else { pv.style.display="none"; const h=hint(); if(h) h.textContent="有图时点击可放大"; }
-  };
-  ri.oninput=upd; upd(); pv.onclick=()=>openLightbox(pv.src);
-}
-function openRecModal(dir, id){
-  const def=REC_DEFS[dir];
-  const sel=document.getElementById(def.statusId);
-  sel.innerHTML=def.statusOrder.map(s=>`<option value="${s}">${def.statuses[s].label}</option>`).join("");
-  const p=id? findRec(dir,id) : null;
-  document.getElementById(def.titleId).textContent = p? def.titleEdit : def.titleNew;
-  fillForm(dir, p);
-  recSnapshot=JSON.stringify(readForm(dir)); // 记录打开时的完整表单快照，供 Esc 脏检查比对
-  document.getElementById(def.idId).value = id || ""; // 回填 id，否则保存时误判为新增而重复
-  const pchk=document.getElementById(def.pairChkId); if(pchk) pchk.checked=!!(p && p.pairId); // 已关联则勾选
-  const linkBtn=document.getElementById(dir==="sent"?"fLinkBtn":"rLinkBtn"); if(linkBtn) linkBtn.style.display = (p && p.id)?"" : "none"; // F4 仅编辑已有记录时可事后关联
-  // D8 参数化：sent/received 两分支图片预览逻辑同构，抽公共函数
-  if(dir==="received") bindImgPreview("rImage","rImgPrev");
-  else if(dir==="sent") bindImgPreview("fImage","fImgPrev");
-  document.getElementById(def.maskId).classList.add("show");
-  try{ document.getElementById(def.focusId).focus(); }catch(e){}
-}
-function closeRecModal(dir){ document.getElementById(REC_DEFS[dir].maskId).classList.remove("show"); recSnapshot=null; }
-async function tryCloseRec(dir){
-  if(formDirty(dir) && !(await confirmDialog("内容尚未保存，确定关闭吗？"))) return false;
-  closeRecModal(dir); return true;
-}
-async function tryCloseProxy(){
-  if(proxyDirty() && !(await confirmDialog("内容尚未保存，确定关闭吗？"))) return false;
-  closeProxyModal(); return true;
-}
-async function tryCloseAct(){
-  if(actDirty() && !(await confirmDialog("内容尚未保存，确定关闭吗？"))) return false;
-  closeActivityModal(); return true;
-}
-function makeCounterpart(dir, src){
-  const base={ id:uid(), country:src.country||"", city:src.city||"", platform:src.platform||"", type:src.type||"", exchange:src.exchange||"", note:src.note||"" };
-  if(dir==="sent") return Object.assign(base, {status:"transit", sender:src.recipient||"", received:"", image:""});
-  return Object.assign(base, {status:"unwritten", recipient:src.sender||"", channel:"", sent:"", arrived:""});
-}
-function openPair(dir, pairId, curId){
-  if(dir==="proxy"){
-    const list=proxies.filter(x=>x.pairId===pairId);
-    const cp=(curId && list.find(x=>x.id!==curId)) || list[0]; // 打开「另一条腿」（counterpart）
-    if(!cp){ toast("未找到关联的另一张代寄片", "danger"); return; }
-    openProxyModal(cp.id);
-    return;
-  }
-  const cpDir=dir==="sent"?"received":"sent";
-  const cp=REC_DEFS[cpDir].arr().find(x=>x.pairId===pairId);
-  if(!cp){ toast("未找到关联的对方条目", "danger"); return; }
-  openRecModal(cpDir, cp.id);
-}
-// F4 事后关联：把两条已存在的记录（寄出↔收到 / 代寄↔代寄）绑定成一次互换
-function openLinkModal(dir, id){
-  const src = dir==="proxy"? proxies.find(x=>x.id===id) : findRec(dir,id);
-  if(!src){ toast("请先保存该记录再关联", "danger"); return; }
-  const tgtDir = dir==="proxy"? "proxy" : (dir==="sent"?"received":"sent");
-  const tgtArr = tgtDir==="proxy"? proxies : REC_DEFS[tgtDir].arr();
-  const nameField = dir==="proxy"? "proxy" : REC_DEFS[dir].nameField;
-  const tgtNameField = tgtDir==="proxy"? "proxy" : REC_DEFS[tgtDir].nameField;
-  // P2-12：代寄候选须与源腿「同模式」（单向代寄 vs 往返互寄的字段与步进完全不同，混配出来的pair 无法正确推进）
-  const cands = tgtArr.filter(x=>x.id!==id && !(dir==="proxy" && (x.pairId || x.proxyMode!==src.proxyMode)));
-  const listEl=document.getElementById("linkPickList");
-  document.getElementById("linkHint").textContent = "选择要与此记录绑定的对方（"+esc(src[nameField]||"未命名")+"）";
-  if(!cands.length){ listEl.innerHTML=`<div class="hint" style="padding:10px 0;">没有可关联的对方记录。请先在「${tabLabel(tgtDir)}」新建一条。</div>`; }
-  else{
-    listEl.innerHTML=cands.map(c=>`<button type="button" class="mitem" data-cid="${c.id}" style="width:100%;margin-bottom:6px;text-align:left;">${esc(c[tgtNameField]||"未命名")} · ${esc(c.country||"—")} · ${esc(c.platform||"")}</button>`).join("");
-    listEl.querySelectorAll("button[data-cid]").forEach(b=>b.onclick=()=>bindLink(dir, id, tgtDir, b.dataset.cid));
-  }
-  document.getElementById("linkModal").classList.add("show");
-}
-function bindLink(dir, id, tgtDir, cid){
-  const src = dir==="proxy"? proxies.find(x=>x.id===id) : findRec(dir,id);
-  const tgtArr = tgtDir==="proxy"? proxies : REC_DEFS[tgtDir].arr();
-  const tgt = tgtArr.find(x=>x.id===cid);
-  if(!src||!tgt){ toast("关联失败", "danger"); return; }
-  const pid = src.pairId || tgt.pairId || ("pr_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
-  src.pairId=pid; tgt.pairId=pid;
-  /* P2-12：代寄两条腿必须方向相反。此前两条腿都保持自己的direction（新建时默认都是 me），
-     而 renderProxyPairStepper 会按 direction 给其中一条套 PROXY_STEPS_THEM 的文案 → UI 文案与数据相反；
-     更要紧的是核心 KPI「对方代寄在途张数」要求 direction==="them"，这类互寄对**永久漏计**。
-     参照 saveProxyModal 生成镜像腿的做法（mirrorDir 取反）保持一致。旧数据可能没有 direction，按 me 兜底。 */
-  if(dir==="proxy"){
-    const sd=src.direction||PDIR.ME;
-    tgt.direction = sd===PDIR.THEM ? PDIR.ME : PDIR.THEM;
-    touch(tgt);
-  }
-  if(dir==="proxy"){ syncMutualMeta(pid, src); closeProxyModal(); } else { closeRecModal(dir); }  // D8 合并：互寄两条腿描述字段对齐 + 按来源关对应弹窗
-  document.getElementById("linkModal").classList.remove("show");
-  renderAll(); saveAndToast("已关联到对方记录");
-}
-function closeLinkModal(){ document.getElementById("linkModal").classList.remove("show"); }
 /* ===== 操作：进行中活动（RR 未满员 / TAG 未 tag / 交换进行中） ===== */
 
 /* ===== RR 轮换名单：每 N 周给名单下一位寄一张，全部寄出即闭环 ===== */
 let actEditingRot=[];
-function rotAddRow(){
-  actEditingRot.push({to:"",size:"",due:"",written:"",sent:"",received:""}); renderRotEditor();
-  const box=document.getElementById("aRotList");
-  const rows=box?box.querySelectorAll(".rot-row"):[];
-  const last=rows.length?rows[rows.length-1].querySelector("input"):null;
-  if(last) last.focus();
-}
-function openActivityModal(id){
-  const a=id? activities.find(x=>x.id===id):null;
-  document.getElementById("actModalTitle").textContent = a? "编辑活动" : "新建活动";
-  const g=pid=>{ const el=document.getElementById(pid); if(el) el.value=""; };
-  ["aTitle","aUrl","aCur","aMax","aDeadline","aNote"].forEach(g);
-  actEditingRot=[];
-  document.getElementById("aId").value=id||"";
-  fillKindSelect();
-  document.getElementById("aKind").value = a? (a.kind||"") : (actKindList[0]?actKindList[0].key:"");
-  fillSelect("aPlatform","platform", a?a.platform:"");
-  document.getElementById("aStatus").value = a? (a.status||"ongoing") : "ongoing";
-  document.getElementById("aLinkType").value = "sent";
-  actEditingLinks = a && Array.isArray(a.links) ? a.links.map(l=>({type:l.type, id:l.id})) : [];
-  if(a){
-    document.getElementById("aTitle").value=a.title||"";
-    document.getElementById("aUrl").value=a.url||"";
-    document.getElementById("aCur").value=(a.cur!=null&&a.cur!=="")?a.cur:"";
-    document.getElementById("aMax").value=(a.max!=null&&a.max!=="")?a.max:"";
-    document.getElementById("aDeadline").value=a.deadline||"";
-    document.getElementById("aNote").value=a.note||"";
-    actEditingRot = Array.isArray(a.rotation) ? a.rotation.map(r=>({to:r.to||"", size:r.size||"", due:r.due||"", written:r.written||"", sent:r.sent||"", received:r.received||""})) : [];
-  }
-  renderRotEditor();
-  renderActLinkChips();
-  refreshActLinkOptions();
-  updateActProgressVisibility();
-  actSnapshot=formSnapshot(ACT_FORM_IDS); // F9 记录打开时快照，供 Esc 脏检查比对
-  document.getElementById("maskActivity").classList.add("show");
-}
-function closeActivityModal(){ document.getElementById("maskActivity").classList.remove("show"); actSnapshot=null; }
-function openActKinds(){ renderActKindList(); document.getElementById("maskActKinds").classList.add("show"); try{document.getElementById("actKindNew").focus();}catch(e){} }
-function closeActKinds(){ document.getElementById("maskActKinds").classList.remove("show"); save(); fillKindSelect(); renderActiveChips(); }
-function openActivityLink(id, idx){
-  const a=activities.find(x=>x.id===id); if(!a||!Array.isArray(a.links)) return;
-  const l = (idx!=null) ? a.links[idx] : a.links[0];
-  if(!l) return;
-  if(l.type==="sent"){ if(findRec("sent",l.id)) openRecModal("sent", l.id); else toast("关联的寄出记录已被删除","warn"); }
-  else if(l.type==="received"){ if(findRec("received",l.id)) openRecModal("received", l.id); else toast("关联的收到记录已被删除","warn"); }
-  else if(l.type==="proxy"){ if(proxies.some(x=>x.id===l.id)) openProxyModal(l.id); else toast("关联的代寄记录已被删除","warn"); }
-}
 /* ===== 操作：代寄 / write-back / 单向代寄 ===== */
-function openProxyModal(id){
-  const p=id? proxies.find(x=>x.id===id):null;
-  const g=pid=>{ const el=document.getElementById(pid); if(el) el.value=""; };
-  ["pProxy","pCountry","pCity","pExchange","pCardCount","pSent","pProxyRecv","pProxyBack","pGotBack","pEnvSent","pEnvRecv","pNote"].forEach(g);
-  document.getElementById("pId").value=id||"";
-  const pLB=document.getElementById("pLinkBtn"); if(pLB) pLB.style.display = id?"" : "none"; // F4 仅编辑已有代寄时可事后关联
-  fillOptions("pPlatform", proxies.map(x=>x.platform).concat(platList));
-  fillOptions("pType", proxies.map(x=>x.type).concat(typeList));
-  fillOptions("pCountry", proxies.map(x=>x.country).concat(countryList));
-  // 模式：编辑时沿用原条目模式（旧条目无 proxyMode 一律按往返处理）；新建默认「往返 write-back」
-  const mode = (p && p.proxyMode===PMODE.ONEWAY) ?PMODE.ONEWAY:PMODE.BACK;
-  const dir = p ? (p.direction||"me") : "me";
-  document.getElementById("pDirection").value = dir;
-  applyProxyModeUI(mode, dir, !!p);
-  document.getElementById("proxyModalTitle").textContent=(p?"编辑代寄":"新建代寄")+(mode==="oneway"?"（单向代寄）":"（write-back）");
-  if(p){
-    document.getElementById("pProxy").value=p.proxy||"";
-    document.getElementById("pCountry").value=p.country||"";
-    document.getElementById("pCity").value=p.city||"";
-    document.getElementById("pPlatform").value=p.platform||"";
-    document.getElementById("pType").value=p.type||"";
-    document.getElementById("pExchange").value=p.exchange||"";
-    document.getElementById("pCardCount").value=(p.cardCount!=null && p.cardCount!=="")?p.cardCount:"1";
-    document.getElementById("pSent").value=p.sent||"";
-    document.getElementById("pProxyRecv").value=p.proxyRecv||"";
-    document.getElementById("pProxyBack").value=p.proxyBack||"";
-    document.getElementById("pGotBack").value=p.gotBack||"";
-    document.getElementById("pEnvSent").value=p.envSent||"";
-    document.getElementById("pEnvRecv").value=p.envRecv||"";
-    document.getElementById("pNote").value=p.note||"";
-    document.getElementById("pMutualChk").checked=!!p.pairId;
-  }else{
-    document.getElementById("pMutualChk").checked=false;
-  }
-  proxySnapshot=formSnapshot(PROXY_FORM_IDS); // F9 记录打开时快照，供 Esc 脏检查比对
-  document.getElementById("maskProxy").classList.add("show");
-}
-function closeProxyModal(){ document.getElementById("maskProxy").classList.remove("show"); proxySnapshot=null; }
 /* ===== 转换归类：将现有条目在 寄出/收到/代寄 之间重新归类 ===== */
 let convCtx={dir:null, id:null};
-function openConvertModal(dir, id){
-  const p=(dir==="sent"?postcards:dir==="received"?received:proxies).find(x=>x.id===id);
-  if(!p){ toast("未找到该条目", "danger"); return; }
-  convCtx={dir, id};
-  document.getElementById("convFrom").textContent=tabLabel(dir);
-  const sel=document.getElementById("convTarget");
-  // 同步转换下拉项为自定义分类名
-  Array.from(sel.options).forEach(o=>{ if(TAB_DEFAULT[o.value]) o.textContent=tabLabel(o.value); });
-  sel.value=dir; // 默认选中当前类，便于改成其它
-  const hint=document.getElementById("convHint");
-  const upd=()=>{ hint.textContent = sel.value===dir ? "（请选择与目标不同的归类）" : `将移动到「${tabLabel(sel.value)}」，共享字段（对方/地点/平台/类型）自动带过去，交换关联会被清除。`; };
-  sel.onchange=upd; upd();
-  document.getElementById("maskConvert").classList.add("show");
-}
-function closeConvertModal(){ document.getElementById("maskConvert").classList.remove("show"); }
 // Esc 关闭的脏检查：以「打开弹窗时的完整表单快照」比对，覆盖全部字段（含类型/交换来源/寄出日/到达日等），
 // 避免只改了某字段按 Esc 被静默丢弃（旧实现仅检查部分字段）
 let recSnapshot=null;
@@ -4569,40 +4966,11 @@ let cloud={token:"", gist:"", auto:true};
 // 与任务管理台共享同一份云配置：本应用键为空时回退读取对方键；保存时双写，做到「任一处配置，两应用生效」
 const CLOUD_KEY_ALT="wb_taskhub_cloudsync_v1";
 
-function cloudSave(){ try{ const s=JSON.stringify({token:cloud.token, gist:cloud.gist, auto:cloud.auto}); storageSet(CLOUD_KEY, s); storageSet(CLOUD_KEY_ALT, s); }catch(e){} }
 // 从「复制配置」产生的文本中解析出 Gist ID 与 Token（容错：按行匹配，顺序/空白不敏感）
 
-// deleted 必须随负载上传，否则其他设备无法感知本机的删除
-function syncPayload(){ return {postcards, received, proxies, activities, platList, typeList, actKindList, countryList, tabLabels:tabLabels(), widgetCfg:{order:widgetCfg.order,hidden:widgetCfg.hidden,custom:widgetCfg.custom,autoRename:widgetCfg.autoRename}, links:linkList, cfgSavedAt, deleted:deletedIds, savedAt:Date.now()}; }   // P1-2：links（顶部站点书签栏）纳入云同步——此前备份负载里有、同步负载里没有，换设备从云端恢复后书签栏静默回默认
-// 应用云端同步过来的「设置类」数据（标签名、自定义卡片配置），按 cfgSavedAt 做最后写入者胜出
-function applyCloudSettings(obj){
-  if(!obj || typeof obj!=="object" || !obj.cfgSavedAt || obj.cfgSavedAt<=cfgSavedAt) return false;
-  if(obj.tabLabels && typeof obj.tabLabels==="object"){ storageSet(TAB_KEY, JSON.stringify(obj.tabLabels)); }   // P2-15：走 storageSet（内部已 try/catch，配额满会给告警）
-  if(obj.widgetCfg && typeof obj.widgetCfg==="object"){
-    widgetCfg={order:obj.widgetCfg.order||[],hidden:obj.widgetCfg.hidden||[],custom:obj.widgetCfg.custom||[],autoRename:(obj.widgetCfg.autoRename&&typeof obj.widgetCfg.autoRename==="object")?obj.widgetCfg.autoRename:{}};
-    storageSet(WKEY, JSON.stringify(widgetCfg));  // P2-15：走 storageSet；直接落盘不触发上传（避免拉取后再回传形成抖动）
-  }
-  if(Array.isArray(obj.links)){   // P1-2：站点书签栏随云同步走 cfgSavedAt 最后写入者胜出
-    const cleaned=normLinkList(obj.links);   // 2026-10-23：清洗后再入列——云端脏 links 曾直接炸掉渲染（见 normLinkList 注释）
-    if(cleaned){ linkList=cleaned; saveLinks(); renderLinkBar(); }
-  }
-  cfgSavedAt=obj.cfgSavedAt; storageSet(CFG_SAVED_KEY, String(cfgSavedAt));   // P2-15：走 storageSet
-  return true;
-}
 
 // ：云同步此前裸 fetch 无超时，弱网会一直转圈；复用与任务台一致的带超时 fetch
 
-// 读取云端 postcards.json 的 savedAt，用于上传冲突检测。
-// 返回 {savedAt}（读到）| {empty:true}（云端无文件，首次上传安全）| {err:true}（读失败，不可安全上传）
-async function cloudPeekSavedAt(){
-  try{
-    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 15000);
-    if(!res.ok) return {err:true};
-    const data=await res.json();
-    const f=data.files&&data.files["postcards.json"]; if(!f||!f.content) return {empty:true};
-    const obj=JSON.parse(f.content); return {savedAt: obj.savedAt||null};
-  }catch(e){ return {err:true}; }
-}
 /* ===== 删除墓碑（tombstone）：让「删除」能跨设备传播 =====
    原合并只做「并集 + last-writer-wins」，没有删除语义：
    本地删掉一条 → 云端仍有 → 下次拉取时它被判为「云端独有」追加回来 = 删不掉（复活）。
@@ -4645,208 +5013,11 @@ let _mergeChanged=0;
    注意：走keepalive 时不能先 await cloudPeekSavedAt（卸载期没有时间做两次往返），故跳过冲突检测直接覆盖，
    这是 pagehide 场景的取舍：宁可覆盖一次（下次拉取会按 updatedAt 合并），也不要丢掉这次改动。 */
 const CLOUD_KEEPALIVE_MAX=60000;   // 留 4KB 余量给 JSON 结构
-async function cloudUpload(silent, keepalive){
-  /* R4：自锁下沉到函数内部。原先只靠调用方（withBusy / cloudAutoUpload）检查 _cloudBusy，
-     而 pagehide 补传、冲突自愈里的 cloudPull(true)→save()→cloudAutoUpload 等路径**不经过 withBusy**，
-     于是「30s 轮询的上传」与「pagehide 的补传」可同时在飞：后写的整包覆盖先写的，两边的改动都丢一部分。
-     这里加自锁，_cloudBusy 由本函数自己置起/释放，withBusy 退化为纯 UI 反馈。 */
-  if(_cloudBusy){ _pendingUpload=true; return false; }
-  if(!keepalive) _cloudBusy=true;
-  try{ return await _cloudUploadInner(silent, keepalive); }
-  finally{ if(!keepalive) _cloudBusy=false; }
-}
-async function _cloudUploadInner(silent, keepalive){
-  if(!cloud.token||!cloud.gist){ if(!silent) setCloudStatus("请先填写 Token 与 Gist ID", true); return false; }
-  const localSavedAt=Number(localStorage.getItem(SAVED_AT)||0);
-  // 冲突检测：云端有比本地更新的保存时，不应静默覆盖（多标签/多设备场景防数据丢失）
-  // H1 修复：读云端失败 → 放弃本次上传，绝不拿「可能过旧的本地整包」覆盖云端（此前"数据消失"的共同机理）
-  // keepalive 模式：卸载期只能发一次请求，跳过 peek（两次往返来不及），直接覆盖。
-  const peek=keepalive?{err:false,empty:false,savedAt:null}:await cloudPeekSavedAt();
-  if(peek.err){
-    setCloudPill("err");
-    if(!silent) setCloudStatus("无法读取云端状态，已放弃上传以避免覆盖云端数据，请稍后重试", true);
-    return false;   // 网络/鉴权问题 → 交给自动重试
-  }
-  const remote=(peek.empty?null:peek.savedAt);
-  if(remote && remote>localSavedAt+2000){
-    if(silent){
-      // 自动上传遇到云端更新：不静默暂停，改为自动拉取合并（自愈），避免「数据不同步」且不再卡在错误态
-      setCloudPill("syncing"); setCloudStatus("检测到云端有更新，自动拉取合并…", false, "syncing");
-      await cloudPull(true);   // 拉取合并后本地 save() 会重新排队上传，无需本层重试
-      return true;
-    }
-    if(!(await confirmDialog("云端数据比本地更新（"+new Date(remote).toLocaleString()+"），上传将用本地覆盖云端，继续？",{danger:true,ok:"仍上传"}))){ setCloudStatus("已取消上传", false, "warn"); return true; }   // 用户主动取消，不重试
-  }
-  if(!silent) setCloudStatus("上传中…");
-  setCloudPill("syncing");
-  try{
-    const content=JSON.stringify(syncPayload(),null,2);
-    if(keepalive && content.length>CLOUD_KEEPALIVE_MAX){
-      // 超 keepalive 上限：数据已在本地存好（save 已落盘），只是这次补传发不出去。明确告知，不静默失败。
-      try{ toast("本地数据已保存，但内容超过 "+Math.round(CLOUD_KEEPALIVE_MAX/1024)+"KB，补传被浏览器限制拦下；下次打开本页会自动同步。","warn",6000); }catch(_){}
-      return false;
-    }
-    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{
-      method:"PATCH",
-      headers:{"Authorization":authHeader(),"Content-Type":"application/json"},
-      keepalive:!!keepalive,   // P2-14：让请求在页面卸载后仍能完成
-      body:JSON.stringify({files:{"postcards.json":{content:content}}})
-    }, 15000);
-    if(!res.ok){ let d="HTTP "+res.status; try{ const ej=await res.json(); if(ej&&ej.message) d+=" · "+ej.message; }catch(_){}
-      // P2-10：把 status 挂到错误对象上，调用方才能用 explainHttp 翻成可行动文案（原先只拼进message，只能显示原始串）
-      const err=new Error(d); err.status=res.status; throw err; }
-    if(!silent) setCloudStatus("上传成功 ✓ "+new Date().toLocaleTimeString(), false, "ok");
-    setCloudPill("ok"); markSynced(); cloudRetryReset();   // 成功 → 记最后同步时间并清除重试链
-    return true;
-  }catch(e){
-    if(!silent) setCloudStatus((e&&e.status)? explainHttp(e.status,"上传") : ("上传失败："+(e&&e.message?e.message:e)), true);   // P2-10：401/404 翻成可行动文案
-    setCloudPill("err");
-    return false;   // 可重试
-  }
-}
-// 拉取云端并合并到本地（silent=true 用于自动同步，不弹确认；false 用于手动「下载合并」按钮）
-// 返回值约定：false = 拉取失败；"cancel" = 用户取消；true = 已合并/已是最新
-async function cloudPull(silent){
-  /* R4：同 cloudUpload —— 自锁下沉到函数内部，与上传互斥。
-     原先只有 cloudAutoDownload 查_pullBusy，手动「立即同步」、冲突自愈里的 cloudPull(true) 都不查，
-     两条pull 可并行读到同一份云端、各自 merge 一次 → _mergeChanged 重复计数。 */
-  window.__pullOk=false;
-  if(_cloudBusy||_pullBusy) return false;
-  _pullBusy=true;
-  try{ return await _cloudPullInner(silent); }
-  finally{ _pullBusy=false; }
-}
-async function _cloudPullInner(silent){
-  if(!cloud.token||!cloud.gist){ if(!silent) setCloudStatus("请先填写 Token 与 Gist ID", true); return false; }
-  /* P0-3：把「有弹窗打开时不拉取」的守卫从 cloudAutoDownload 下沉到这里。
-     原先只有自动轮询那一条路径检查，另外三条都没有 —— 其中 `cloudUpload` 的冲突自愈
-     （保存后自动触发）是**无感**进入的：mergeById 用 Object.assign 原地改写用户正在编辑的那条记录对象
-     （弹窗 DOM 不刷新），用户点保存时又用旧表单值覆盖掉刚合并进来的云端修改 → 静默丢数据。
-     这里只拦「承载记录编辑的弹窗」，不含数据管理/云同步设置弹窗本身，
-     否则在数据管理弹窗里点「立即同步」会被自己的守卫挡掉。 */
-  if(document.querySelector("#mask.show,#maskActivity.show,#maskProxy.show,#maskConvert.show,#maskActKinds.show,#maskOpts.show,#confirmMask.show,#linkModal.show")){
-    if(!silent) setCloudStatus("有编辑弹窗打开中，已暂缓同步（关闭弹窗后会自动继续）");
-    return false;
-  }
-  if(!silent){
-    if(!(await confirmDialog("将把云端数据合并到本地（按 id 合并：云端更新的记录覆盖本地旧版本；本地新增/更新的记录保留），确认？",{}))){ setCloudStatus("已取消下载", false, "warn"); return "cancel"; }
-  }
-  if(!silent) setCloudStatus("下载中…");
-  setCloudPill("syncing");
-  try{
-    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 15000);
-    if(!res.ok){ let d="HTTP "+res.status; try{ const ej=await res.json(); if(ej&&ej.message) d+=" · "+ej.message; }catch(_){}
-      // P2-10：把 status 挂到错误对象上，调用方才能用 explainHttp 翻成可行动文案（原先只拼进message，只能显示原始串）
-      const err=new Error(d); err.status=res.status; throw err; }
-    const data=await res.json();
-    const f=data.files&&data.files["postcards.json"];
-    if(!f||!f.content) throw new Error("云端无 postcards.json");
-    const obj=JSON.parse(f.content);
-    const remote=obj.savedAt||null;
-    _mergeChanged=0;
-    const beforeLists=JSON.stringify([platList,typeList,countryList,actKindList]);
-    const del=tombMap(obj.deleted);                 // 本地墓碑 ∪ 云端墓碑
-    postcards=mergeById(postcards, obj.postcards, del, "sent");
-    received=mergeById(received, obj.received, del, "received");
-    proxies=mergeById(proxies, obj.proxies, del, "proxy");
-    activities=mergeById(activities, obj.activities, del, "activity");   // R2-2：dir 供移动墓碑判定"原位置该删/新位置该留"
-    deletedIds=Array.from(del.tombs.values()); tombSave();   /* S2（2026-10-23 修）：用完整墓碑表重建，保留 op/to，移动墓碑不再被剥离 */
-    if(Array.isArray(obj.platList)) platList=unionArr(platList, obj.platList);
-    if(Array.isArray(obj.typeList)) typeList=unionArr(typeList, obj.typeList);
-    if(Array.isArray(obj.countryList)) countryList=unionArr(countryList, obj.countryList);
-    if(Array.isArray(obj.actKindList)&&obj.actKindList.length){ const _km=new Map(); actKindList.forEach(o=>{ if(o&&o.key) _km.set(o.key,o); }); obj.actKindList.forEach(o=>{ if(o&&o.key&&!_km.has(o.key)) _km.set(o.key,{...o}); }); actKindList=Array.from(_km.values()); }
-    const settingsApplied=applyCloudSettings(obj);   // 标签名 / 自定义卡 设置同步（最后写入者胜出）
-    syncListsFromData();
-    normalizeRecv();
-    const afterLists=JSON.stringify([platList,typeList,countryList,actKindList]);
-    const listChanged=(beforeLists!==afterLists);
-    const changed=_mergeChanged+(listChanged?1:0);  // 既统计「新增」，也统计「编辑已有记录带来的覆盖更新」
-    if(changed>0 || settingsApplied){ save(); renderAll(); } // 有变化才落盘/回传/重绘，避免 30s 轮询空写与表格抖动
-    if(remote) storageSet(SAVED_AT, String(Math.max(Date.now(), remote))); // 抬平 savedAt，避免拉取后被冲突检测误暂停（P2-15：走 storageSet，配额满时不再静默丢时间戳）
-    setCloudStatus((changed>0||settingsApplied) ? ("同步完成 ✓ 新增/更新 "+(changed+(settingsApplied?1:0))+" 项（"+new Date().toLocaleString()+"）") : ("已是最新（"+new Date().toLocaleString()+"）"), false, "ok");   // P2-11：显式标成功（原先不匹配任何正则分支，绿色成功态从不出现）
-    setCloudPill("ok"); window.__pullOk=true; markSynced();   // 拉取成功 → 标记成功并记最后同步时间
-    /* P1-5：原本此处还有一句**无条件** renderAll()，而上一行已按 changed/settingsApplied 条件渲染过 →
-       ① 云端无变化时每 15s 仍全量重绘；② 有变化时同一轮渲染两遍；
-       ③ 更要命：renderAll → renderFilters → buildFilterBar 会 wrap.innerHTML 重建整条筛选栏 ——
-          用户正在搜索框打字时光标与已输入内容被冲掉（debounce 挂在已脱离文档的旧节点上）、
-          iOS 上正展开的下拉被强制收起。
-       本批补删：上一行已在同一条件下渲染过，这里是同条件的**第二次**渲染，纯属重复（筛选栏被重建两次）。 */
-    return true;   /* 2026-10-19 审查修复：原 `returntrue;`（return 与 true 间缺空格，第3批 92785e0 引入）语法合法但运行时是引用未定义标识符 → 抛 ReferenceError 被下方 catch 吞成「下载失败：returntrue is not defined」红灯 —— 数据其实已合并成功，纯属误报；每次 30s 轮询必亮一次红灯 */
-  }catch(e){
-    if(!silent) setCloudStatus((e&&e.status)? explainHttp(e.status,"下载") : ("下载失败："+(e&&e.message?e.message:e)), true);   // P2-10
-    setCloudPill("err");
-    return false;
-  }
-}
-// 手动「下载合并」按钮：保留确认
-async function cloudDownload(){ return await cloudPull(false); }
 let _upTimer=null, _lastPull=0;
 let _pullBusy=false, _pullFailN=0;      // 拉取防并发 + 失败退避计数
 let _upRetryN=0, _upRetryTimer=null;    // 上传失败指数退避重试
 
-// 记录「最后同步时间」到状态灯悬停提示（上传/拉取成功均刷新）
-function markSynced(){
-  try{
-    window.__lastSyncAt=Date.now();
-    const el=document.getElementById("cloudPill");
-    if(el) el.title="最后同步 "+new Date(window.__lastSyncAt).toLocaleTimeString();
-  }catch(_){}
-}
-/* 上传失败自动重试（3→6→12→24→48s，最多 5 次后停止并亮红灯）
-   此前上传失败即静默放弃：手机端网络抖动一次，这次改动就永远只留在本机 ——
-   正是「手机端点完成、电脑端刷新却看不到」的主要成因之一。 */
-function cloudRetryReset(){ _upRetryN=0; if(_upRetryTimer){ clearTimeout(_upRetryTimer); _upRetryTimer=null; } }
-function cloudRetryTick(){
-  if(!(cloud.token && cloud.gist && cloud.auto)){ cloudRetryReset(); return; } // 配置被改/关闭自动同步 → 停止重试
-  if(_cloudBusy){ _upRetryTimer=setTimeout(cloudRetryTick, 3000); return; }     // 忙 → 稍后再试，不丢弃待传
-  _upRetryTimer=null;
-  cloudUpload(true).then(ok=>{ if(ok===false) scheduleCloudRetry(); });
-}
-function scheduleCloudRetry(){
-  if(_upRetryN>=5){
-    cloudRetryReset(); setCloudPill("err");
-    try{ toast("云同步多次失败，已停止自动重试。可稍后点「上传到云端」手动重试","danger"); }catch(_){}
-    return;
-  }
-  _upRetryN++;
-  const delay=Math.min(60000, 3000*Math.pow(2,_upRetryN-1));
-  clearTimeout(_upRetryTimer);
-  _upRetryTimer=setTimeout(cloudRetryTick, delay);
-}
 var _pendingUpload=false;
-function cloudAutoUpload(){
-  if(_cloudBusy){ _pendingUpload=true; return; }   // P1-3：手动同步进行中，自动上传被跳过 → 标记待补传，待 withBusy 结束自动补上，避免修改永不同步到其它设备
-  if(!cloud.auto) return;
-  if(!cloud.token||!cloud.gist) return;
-  if(_upTimer) clearTimeout(_upTimer);
-  _upTimer=setTimeout(()=>{
-    _upTimer=null;
-    cloudUpload(true).then(ok=>{ if(ok===false) scheduleCloudRetry(); });
-  }, 1500);
-}
-// 自动拉取：防并发 + 仅前台 + 失败退避 + 节流 + 有弹窗打开时跳过（避免覆盖正在编辑的内容）
-function cloudAutoDownload(){
-  if(_cloudBusy||_pullBusy) return;
-  if(!cloud.token||!cloud.gist) return;
-  if(document.visibilityState==="hidden") return;  // 后台不轮询：省电 + 省 GitHub API 配额，切回前台会立即补拉
-  if(document.querySelector(".mask.show")) return; // 正在编辑 → 不拉
-  const now=Date.now();
-  if(_pullFailN>1 && now-_lastPull < Math.min(120000, 10000*Math.pow(2,_pullFailN-2))) return; // 连续失败才退避 10→20→40→80→120s；首次失败不减速，下一次轮询即重试
-  if(now-_lastPull < 8000) return;                 // 正常节流
-  _lastPull=now;
-  Promise.resolve(cloudPull(true))
-    .then(()=>{ if(window.__pullOk){ _pullFailN=0; markSynced(); } else { _pullFailN=Math.min(6,_pullFailN+1); } })
-    .catch(()=>{ _pullFailN=Math.min(6,_pullFailN+1); });
-}
-// 待传兜底：页面隐藏/卸载时若还有待传，立即补传（移动端防丢上传）
-function cloudFlush(){
-  if(_cloudBusy) return;
-  if(_upTimer){
-    clearTimeout(_upTimer); _upTimer=null;
-    // P2-14：卸载/切后台时走 keepalive，页面销毁后请求仍能完成（原来普通 fetch 会被浏览器取消 → 补传基本无效）
-    cloudUpload(true, true).then(ok=>{ if(ok===false) scheduleCloudRetry(); });
-  }
-}
 
 /* ===== 工具 ===== */
 
@@ -4856,33 +5027,7 @@ function cloudFlush(){
    下次触发会补上，绝不并发。目的：避免重复点击触发并发请求，导致后发先至的旧数据覆盖新数据。
    注意：按钮内含 SVG 图标，故只切换 disabled/class，不用 textContent 覆盖（会抹掉 SVG）。 */
 let _cloudBusy=false;
-/* R4：withBusy 退化为「纯 UI 反馈 + 收尾补传」，**不再自己置 _cloudBusy**。
-   原实现它既置锁、又由被它包裹的 cloudPull/cloudUpload 各自置锁（现在锁已下沉到这两个函数内部），
-   两者叠加会让手动「立即同步」在进入 fn 的第一行就被自己的锁挡掉 → 点按钮没反应。
-   锁的唯一责任现在在 cloudUpload/_cloudPull 内部，withBusy 只管按钮的转圈与恢复。
 
-   ⚠️ 本注释必须放在 async **之前**。若写成「async + 换行注释 + function f(){}」，解析器会把 async 当成标签语句、
-      后面的 function 声明为普通函数，于是函数体里的 await 报"await is only valid in async functions"；
-      而单文件语法检查（把整块存成 .js 再 check）走的是脚本模式，查不出这个差异 —— 必须用 new Function 整块解析。 */
-async function withBusy(btn, fn){
-  if(_cloudBusy||_pullBusy){ toast("云同步正在进行中，请稍候","warn"); return; }
-  const b=(typeof btn==="string"?document.getElementById(btn):btn);
-  if(b){ try{ b.disabled=true; b.classList.add("is-busy"); b.setAttribute("aria-busy","true"); }catch(_){} }
-  try{ return await fn(); }
-  finally{
-    if(b){ try{ b.disabled=false; b.classList.remove("is-busy"); b.removeAttribute("aria-busy"); }catch(_){} }
-    /* 补传：这一轮同步期间产生的改动（被自锁挡下、置了 _pendingUpload）此刻补上，
-       否则用户改动会永远滞留在本地。手动同步与自动同步两条路径都要覆盖，故放在这里统一收尾。 */
-    if(_pendingUpload){ _pendingUpload=false; cloudAutoUpload(); }   // P1-3：上一轮上传因忙被跳过，此刻补上
-  }
-}
-
-function openLightbox(src){
-  if(!src) return;
-  document.getElementById("lightboxImg").src=src;
-  document.getElementById("lightbox").classList.add("show");
-}
-function closeLightbox(){ document.getElementById("lightbox").classList.remove("show"); }
 
 /* ===== 从 Gist 历史找回（统一：寄出 / 收到 / 代寄 / 活动）=====
    场景：记录被云同步整包覆盖或误删后，旧 revision 仍保留数据，可在此按类别找回。
@@ -4916,93 +5061,6 @@ const RECOVER_DEFS=[
 /* P2-16：防重入。此函数要扫 Gist 全部 commits（每批 5 个并发），历史版本多时十几秒；
    原先无自锁，用户等不及再点一次 → 两条扫描并发、互相覆盖 list.innerHTML，最后绑定的按钮指向已清空的 DOM → 恢复按钮点不动。 */
 let _recoverBusy=false;
-async function openRecoverModal(){
-  if(_recoverBusy){ toast("正在扫描 Gist 历史，请稍候…","warn"); return; }
-  if(!cloud.token||!cloud.gist){ toast("请先在设置中填写 Token 与 Gist ID","warn"); return; }
-  const mask=document.getElementById("recoverMask");
-  const list=document.getElementById("recoverList");
-  const status=document.getElementById("recoverStatus");
-  if(!mask||!list) return;
-  mask.classList.add("show");
-  _recoverBusy=true;
-  const btn=document.getElementById("csRecover"); if(btn){ btn.disabled=true; btn.classList.add("is-busy"); }
-  list.innerHTML='<div class="mrec-empty" id="recoverProgress">正在扫描 Gist 历史版本…（0/0）</div>';
-  if(status) status.textContent="正在扫描…";
-  const done=()=>{ _recoverBusy=false; const b2=document.getElementById("csRecover"); if(b2){ b2.disabled=false; b2.classList.remove("is-busy"); } };
-  const localIds={}; RECOVER_DEFS.forEach(d=>{ localIds[d.key]=new Set((d.local()||[]).map(x=>x&&x.id).filter(Boolean)); });
-  const found={}; RECOVER_DEFS.forEach(d=>found[d.key]=new Map());
-  let scanned=0, parseErr=0, fetchFail=0;
-  try{
-    const accept={Authorization:authHeader(), Accept:"application/vnd.github+json"};
-    const base="https://api.github.com/gists/"+encodeURIComponent(cloud.gist);
-    const revRes=await fetchWithTimeout(base+"/commits",{headers:accept},15000);
-    if(!revRes.ok){ list.innerHTML='<div class="mrec-empty">'+esc(explainHttp(revRes.status,"获取 Gist 历史"))+'</div>'; done(); return; }   // P2-10 + P2-16
-    const revs=await revRes.json();
-    // 并发扫描历史版本（每批 5 个），历史版本多时不再串行逐条等待
-    const revArr=(revs||[]).filter(Boolean);
-    for(let bi=0; bi<revArr.length; bi+=5){
-      const batch=revArr.slice(bi, bi+5);
-      const pg=document.getElementById("recoverProgress");   // P2-16：扫描期间给进度，长任务不再像卡死
-      if(pg) pg.textContent="正在扫描 Gist 历史版本…（"+Math.min(bi+5,revArr.length)+"/"+revArr.length+"）";
-      const results=await Promise.all(batch.map(r=>fetchWithTimeout(base+"/"+r.version,{headers:accept},12000).then(res=>({r,res})).catch(()=>({r,res:null}))));
-      for(const {r,res} of results){
-        if(!res||!res.ok){ fetchFail++; continue; }
-        let d; try{ d=await res.json(); }catch(_){ fetchFail++; continue; }
-        const f=d.files&&d.files["postcards.json"];
-        if(!f||!f.content) continue;
-        let obj; try{ obj=JSON.parse(f.content); }catch(_){ parseErr++; continue; }
-        scanned++;
-        RECOVER_DEFS.forEach(def=>{
-          const arr=def.collect(obj);
-          if(!Array.isArray(arr)) return;
-          arr.forEach(x=>{
-            if(!x||!x.id||localIds[def.key].has(x.id)) return;
-            const prev=found[def.key].get(x.id);
-            if(!prev || def.score(x,prev)>0) found[def.key].set(x.id,x);
-          });
-        });
-      }
-    }
-    const groups=RECOVER_DEFS.map(def=>({def, items:Array.from(found[def.key].values())})).filter(g=>g.items.length);
-    const total=groups.reduce((s,g)=>s+g.items.length,0);
-    if(!total){
-      list.innerHTML='<div class="mrec-empty">在 '+scanned+' 个历史版本中，没有找到本地缺失的记录。'+(parseErr?('（'+parseErr+' 个版本解析失败）'):'')+(fetchFail?('（'+fetchFail+' 个版本读取失败）'):'')+'</div>';
-      if(status) status.textContent="扫描完成：无缺失记录";
-      done(); return;
-    }
-    list.innerHTML=groups.map(g=>{
-      const head='<div class="mrec-group-head"><span>'+g.def.icon+'</span>'+esc(g.def.label)+'<span class="cnt" aria-hidden="true">'+g.items.length+'</span></div>';
-      const items=g.items.map(x=>{
-        const nm=g.def.name(x), mt=g.def.meta(x);
-        return '<div class="mrec-item" data-key="'+g.def.key+'" data-id="'+esc(x.id)+'">'
-          +'<div class="mrec-main"><div class="mrec-name">'+esc(nm)+'</div>'+(mt?'<div class="mrec-meta">'+esc(mt)+'</div>':'')+'</div>'
-          +'<button class="btn btn-pri btn-sm mrec-restore" aria-label="恢复 '+esc(nm)+'">恢复</button></div>';
-      }).join('');
-      return '<div class="mrec-group">'+head+items+'</div>';
-    }).join('');
-    if(status) status.textContent="扫描完成：找到 "+total+" 条本地缺失记录（来自 "+scanned+" 个历史版本"+(fetchFail?("，"+fetchFail+" 个版本读取失败"):"")+"）";
-    list.querySelectorAll(".mrec-restore").forEach(b=>{
-      b.onclick=()=>{
-        const card=b.closest(".mrec-item"); if(!card) return;
-        const key=card.dataset.key, id=card.dataset.id;
-        const def=RECOVER_DEFS.find(d=>d.key===key); if(!def) return;
-        const it=found[key].get(id); if(!it) return;
-        const group=card.parentElement;
-        def.restore(it);
-        found[key].delete(id);
-        renderAll();
-        card.remove();
-        if(group && !group.querySelector(".mrec-item")) group.remove();
-        toast("已恢复「"+def.name(it)+"」");
-        const remain=RECOVER_DEFS.reduce((s,d)=>s+found[d.key].size,0);
-        if(status){ if(remain) status.textContent="已恢复 1 条，还剩 "+remain+" 条可恢复"; else { status.textContent="全部恢复完成 ✓"; list.innerHTML='<div class="mrec-empty">已全部恢复 ✓</div>'; } }
-      };
-    });
-  }catch(e){
-    list.innerHTML='<div class="mrec-empty">扫描失败：'+(e&&e.message?e.message:e)+'</div>';
-  }
-  done();   // P2-16：无论成功/失败/提前返回都要解锁，否则按钮永久禁用
-}
 
 
 /* ===== 事件绑定 ===== */
@@ -5097,17 +5155,6 @@ document.getElementById("miClear").onclick=()=>{ document.getElementById("menu")
 document.getElementById("miRenameTab").onclick=()=>{ document.getElementById("menu").classList.remove("show"); const seg=document.querySelector('.seg[data-v="'+view+'"]'); if(seg) enterTabEdit(seg, seg.querySelector(".tab-label")); };
 document.getElementById("fileInput").onchange=e=>{ if(e.target.files[0]) importJSON(e.target.files[0]); e.target.value=""; };
 document.getElementById("cloudPill").onclick=()=>openPostcardDataModal("cloud");
-function setPostcardDataTab(tab){
-  document.querySelectorAll("#pcDataTabs .dtab").forEach(b=>{ const on=b.dataset.dtab===tab; b.classList.toggle("active",on); b.setAttribute("aria-selected",on?"true":"false"); });
-  document.querySelectorAll("#cloudMask .dtab-panel").forEach(p=>{ p.hidden = p.dataset.dtab!==tab; });   // P3-8：改用 hidden 属性，与CSS 的 [hidden] 规则配对
-}
-function openPostcardDataModal(tab){
-  const m=document.getElementById("cloudMask"); if(!m) return;
-  cloudLoad(); document.getElementById("csToken").value=cloud.token; document.getElementById("csGist").value=cloud.gist;
-  setCloudStatus(cloud.token&&cloud.gist?"已配置，点击「立即同步」开始拉取":"未配置");
-  setPostcardDataTab(tab||"cloud");
-  m.classList.add("show");
-}
 (function(){
   const tabs=document.getElementById("pcDataTabs");
   if(tabs) tabs.addEventListener("click",e=>{ const b=e.target.closest(".dtab"); if(b) setPostcardDataTab(b.dataset.dtab); });

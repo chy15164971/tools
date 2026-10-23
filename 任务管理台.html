@@ -9631,10 +9631,1533 @@ function refreshHabitProgress(id){
 }
 
 /* ===== L5 Bind · P1-9 分层（2026-10-23）===== */
+// 时间轴（周/日）事件：纵向拖改时间，周视图可横向拖改天
+function attachEvDrag(ev, isWeek){
+  ev.style.touchAction="none";
+  ev.addEventListener("pointerdown", e=>{
+    e.stopPropagation();
+    const t=state.tasks.find(x=>x.id===ev.dataset.id); if(!t) return;
+    const rec = t.recurrence && t.recurrence.freq!=="none";
+    const instDate = parseLocal(ev.dataset.date+"T00:00");
+    const base = parseLocal(t.start);
+    let sDT, eDT;
+    if(rec){
+      const ov=getRecOverride(t, instDate);
+      const _os2=ov&&ov.start ? parseLocal(ov.start) : null;
+      sDT = (_os2 && !isNaN(_os2.getTime())) ? _os2 : new Date(instDate.getFullYear(),instDate.getMonth(),instDate.getDate(),base.getHours(),base.getMinutes());   // G6：非法 override 回落模板锚点
+      const _oe2=ov&&ov.end ? parseLocal(ov.end) : null;
+      eDT = (_oe2 && !isNaN(_oe2.getTime())) ? _oe2 : new Date(sDT.getTime()+(parseLocal(t.end)-base));
+    } else { sDT=parseLocal(t.start); eDT=parseLocal(t.end); }
+    const origTop=(sDT.getHours()+sDT.getMinutes()/60)*44;
+    const sy=e.clientY, sx=e.clientX; let moved=false;
+    try{ ev.setPointerCapture(e.pointerId); }catch(_){}
+    const mv=ev2=>{
+      const dy=ev2.clientY-sy, dx=ev2.clientX-sx;
+      if(Math.abs(dy)+Math.abs(dx)>4) moved=true;
+      ev.style.top=(origTop+dy)+"px";
+      if(isWeek) ev.style.transform="translateX("+dx+"px)";
+    };
+    const up=ev2=>{
+      ev.removeEventListener("pointermove",mv); ev.removeEventListener("pointerup",up);
+      ev.style.transform="";
+      if(!moved) return;
+      tlSuppressClick=true;   // P1-10：抑制标志改挂模块级变量（原 ev._suppressClick 随 DOM 重建即丢，且依赖逐元素 onclick 存在）
+      /* G5（2026-10-23 修）：拖拽后若浏览器因目标节点已脱离文档而不派生合成 click，标志无人消费会滞留，
+         用户下一次点任意事件块被静默吞掉一次。宏任务兜底复位：若合成 click 正常到来它先行消费，此复位无害。 */
+      setTimeout(()=>{ tlSuppressClick=false; },0);
+      snapshot();   // P1-6：日/周视图拖拽改期此前不可撤销
+      const dy=ev2.clientY-sy, dx=ev2.clientX-sx;
+      const dm=Math.round(dy/44*60/15)*15; // 吸附 15 分钟
+      let deltaDays=0;
+      if(isWeek){ const col=ev.closest(".tcol"); const cw=col?col.offsetWidth:120; deltaDays=Math.round(dx/cw); }
+      const shift=deltaDays*DAY + dm*60000;
+      if(rec){
+        if(deltaDays!==0){
+          moveRecInstance(t, instDate, deltaDays);
+          toast("已把该日任务移到 "+(deltaDays>0?deltaDays+" 天后":"-"+-deltaDays+" 天前"));
+        } else {
+          const ns=new Date(sDT.getTime()+shift), ne=new Date(eDT.getTime()+shift);
+          setRecOverride(t, instDate, {start:toStr(ns), end:toStr(ne)});
+          toast("已调整该日任务时间");
+        }
+      } else {
+        t.start=toStr(new Date(sDT.getTime()+shift));
+        t.end=toStr(new Date(eDT.getTime()+shift));
+        toast("已改期");
+      }
+      touchTask(t); save(); renderAll();
+    };
+    ev.addEventListener("pointermove",mv); ev.addEventListener("pointerup",up);
+  });
+}
+
+// 月视图任务块：拖到其它日期格 → 整体平移 N 天
+function attachChipDrag(ch){
+  ch.addEventListener("pointerdown", e=>{
+    if(e.pointerType==="mouse" && e.button!==0) return;
+    e.stopPropagation();
+    const id=ch.dataset.id, orig=ch.dataset.date;
+    const sx=e.clientX, sy=e.clientY; let moved=false, hover=null;
+    try{ ch.setPointerCapture(e.pointerId); }catch(_){}
+    const mv=ev2=>{
+      const dx=ev2.clientX-sx, dy=ev2.clientY-sy;
+      if(Math.abs(dx)+Math.abs(dy)>4) moved=true;
+      ch.style.transform="translate("+dx+"px,"+dy+"px)"; ch.style.zIndex=20; ch.style.position="relative";
+      const el=document.elementFromPoint(ev2.clientX,ev2.clientY);
+      const cell=el&&el.closest?el.closest(".dcell"):null;
+      if(hover&&hover!==cell) hover.classList.remove("drop");
+      if(cell&&cell.dataset.day!==orig){ cell.classList.add("drop"); hover=cell; } else hover=null;
+    };
+    const up=ev2=>{
+      ch.removeEventListener("pointermove",mv); ch.removeEventListener("pointerup",up);
+      ch.style.transform=""; ch.style.zIndex=""; ch.style.position="";
+      if(hover) hover.classList.remove("drop");
+      if(moved && hover){
+        const deltaDays=Math.round((parseLocal(hover.dataset.day+"T00:00")-parseLocal(orig+"T00:00"))/DAY);
+        if(deltaDays) applyDayShift(id, deltaDays, orig);
+        ch._suppressClick=true;
+      }
+    };
+    ch.addEventListener("pointermove",mv); ch.addEventListener("pointerup",up);
+  });
+}
+
+function bindAnnivModalOnce(){
+  if(_annivBound) return; _annivBound=true;
+  const save=document.getElementById("btnAnnivSave"); if(save) save.onclick=saveAnnivModal;
+  const cancel=document.getElementById("btnAnnivCancel"); if(cancel) cancel.onclick=closeAnnivModal;
+  const m=document.getElementById("annivMask"); if(m) m.addEventListener("click", e=>{ if(e.target.id==="annivMask") closeAnnivModal(); });
+  const da=document.getElementById("aDate"); if(da) da.addEventListener("input", updateAnnivLunar);
+  const ca=document.getElementById("aCal"); if(ca) ca.addEventListener("change", updateAnnivLunar);
+  window.addEventListener("keydown", e=>{ if(e.key==="Escape"){ const mm=document.getElementById("annivMask"); if(mm&&mm.classList.contains("show")) closeAnnivModal(); } });
+}
+
+function openAnnivModal(id){
+  bindAnnivModalOnce();
+  const a = id ? (state.anniv||[]).find(x=>x.id===id) : null;
+  document.getElementById("aId").value = id||"";
+  document.getElementById("aName").value = a?a.name:"";
+  document.getElementById("aCat").value = a?a.cat:ANNIV_CATS[0].name;
+  document.getElementById("aDate").value = a&&a.date ? String(a.date).slice(0,10) : ymd(startOfDay(new Date()));
+  document.getElementById("aCal").value = a? (a.calType||"solar") : "solar";
+  document.getElementById("aYearly").checked = a? !!a.yearly : true;
+  document.getElementById("aNote").value = a?a.note:"";
+  document.getElementById("annivModalTitle").textContent = a?"编辑纪念日":"新建纪念日";
+  updateAnnivLunar();
+  document.getElementById("annivMask").classList.add("show");
+  setTimeout(()=>{ try{ document.getElementById("aName").focus(); }catch(_){} },50);
+}
+
+function closeAnnivModal(){ const m=document.getElementById("annivMask"); if(m) m.classList.remove("show"); }
+
+function bindWidgetDrag(node, wid){
+  if(node.__dragBound) return; node.__dragBound=true; // 守卫：容器节点在重渲染时不被替换，重复 bind 会累积监听器（拖放时重复触发）
+  const grip=node.querySelector(".w-ctrl .grip");
+  if(grip) grip.addEventListener("mousedown",()=>node.setAttribute("draggable","true"));
+  node.addEventListener("dragstart",e=>{ dragWid=wid; node.classList.add("dragging"); try{e.dataTransfer.effectAllowed="move";}catch(_){} });
+  node.addEventListener("dragend",()=>{ node.removeAttribute("draggable"); node.classList.remove("dragging"); document.querySelectorAll("#widgetRow .panel,#widgetRow .custom-card").forEach(c=>c.classList.remove("drop-before","drop-after")); });
+  node.addEventListener("dragover",e=>{ if(dragWid===wid)return; e.preventDefault(); const r=node.getBoundingClientRect(); dragDropBefore=(e.clientX-r.left)<r.width/2; node.classList.toggle("drop-before",dragDropBefore); node.classList.toggle("drop-after",!dragDropBefore); });
+  node.addEventListener("dragleave",()=>node.classList.remove("drop-before","drop-after"));
+  node.addEventListener("drop",e=>{ e.preventDefault(); const tgt=wid; if(dragWid&&tgt!==dragWid) dropWidget(dragWid,tgt); node.classList.remove("drop-before","drop-after"); node.removeAttribute("draggable"); });
+}
+
+function bindCustomCard(node,wid){
+  bindWidgetDrag(node,wid);
+  node.querySelectorAll(".w-ctrl button").forEach(b=>b.addEventListener("click",e=>{ e.stopPropagation(); handleCtrlAct(b.dataset.act, wid, b); }));
+}
+
+function handleTodayClick(e, rerender){
+  const el=e.target; if(!el || !el.closest) return;
+  const dall=el.closest("[data-deferall]"); if(dall){ deferOverdueAllToday(); return; }   // 逾期分区头「全部顺延到今天」
+  const done=el.closest("[data-done]");      if(done){ toggleDone(done.dataset.done, done.dataset.date); return; }
+  const rest=el.closest("[data-restore]");   if(rest){ restoreTask(rest.dataset.restore, rest.dataset.date); return; }
+  const sk=el.closest("[data-skip]");        if(sk){ skipTask(sk.dataset.skip, sk.dataset.date); return; }
+  const df=el.closest("[data-defer]");       if(df){ openDeferFromCard(df.dataset.id, df.dataset.date); return; }
+  const so=el.closest("[data-subopen]");     if(so){ const id=so.dataset.subopen; if(subOpenIds.has(id)) subOpenIds.delete(id); else subOpenIds.add(id); persistSubOpen(); rerender(); return; }
+  const st=el.closest("[data-subtick]");     if(st){
+    const t=state.tasks.find(x=>x.id===st.dataset.subtick); if(!t) return;
+    const s=(t.subtasks||[]).find(x=>x.id===st.dataset.sid); if(!s) return;
+    const date=st.dataset.date;
+    const beforeAll=t.subtasks.every(x=>subIsDone(t,x,date));
+    snapshot();
+    subToggle(t, s, date);
+    syncDoneFromSubtasks(t, date, beforeAll);
+    touchTask(t);   /* G1（2026-10-23 修）：勾选改变了任务数据但不更新 updated → mergeTasks 按整条 last-writer-wins，他端旧副本会把勾选静默回吞 */
+    save();
+    rerender(); return;
+  }
+  const tc=el.closest(".tagchip");           if(tc){
+    state.filter={q:tc.dataset.tag, cat:"", pri:"", tag:""};
+    document.getElementById("fSearch").value=tc.dataset.tag;
+    document.getElementById("fCat").value=""; document.getElementById("fPri").value=""; document.getElementById("fTag").value="";
+    document.getElementById("fClear").style.display="inline-flex";
+    renderAll(); return;
+  }
+  const ds=el.closest("[data-donesec]");     if(ds){ todayDoneExpanded=!todayDoneExpanded; todayUiSet("done",todayDoneExpanded); rerender(); return; }
+  const op=el.closest("[data-open]");
+  if(op && !el.closest(".today-acts,.subtoggle,[data-subtick],.tagchip")){ openTaskDetail(op.dataset.open, op.dataset.openDate); }
+}
+
+function bindTodayDelegation(){
+  if(__todayDelegated) return;
+  const list=document.getElementById("todayList");
+  const view=document.getElementById("view");
+  const onFocusIn=e=>{ const b=e.target.closest && e.target.closest(".btn-sec"); if(b) b.setAttribute("aria-hidden","false"); };
+  const onFocusOut=e=>{ const b=e.target.closest && e.target.closest(".btn-sec"); if(b) b.setAttribute("aria-hidden","true"); };
+  if(list){
+    list.addEventListener("click", e=>handleTodayClick(e, renderToday));
+    list.addEventListener("focusin", onFocusIn);
+    list.addEventListener("focusout", onFocusOut);
+  }
+  if(view){
+    view.addEventListener("click", e=>{ if(!e.target.closest(".today-page")) return; handleTodayClick(e, renderAll); });
+    view.addEventListener("focusin", e=>{ if(!e.target.closest(".today-page")) return; onFocusIn(e); });
+    view.addEventListener("focusout", e=>{ if(!e.target.closest(".today-page")) return; onFocusOut(e); });
+  }
+  __todayDelegated=true;
+}
+
+/* 顶部 widget 头部的「密度 / 最大化」：空态也必须绑定，否则首次进入空列表时按钮是死的 */
+function bindTodayHeader(){
+  const densBtn=document.getElementById("todayDensityBtn");
+  if(densBtn){ densBtn.textContent = todayDensity==="compact" ? "简" : "详"; densBtn.onclick=()=>{ todayDensity = todayDensity==="compact"?"detail":"compact"; todayUiSet("dens",todayDensity); renderToday(); }; }
+  const maxBtn=document.getElementById("todayMaxBtn");
+  if(maxBtn){ maxBtn.onclick=()=>{ todayMax=!todayMax; todayUiSet("max",todayMax); const p=document.querySelector('.toppanel[data-wid="today"]'); if(p) p.classList.toggle('today-max', todayMax); renderToday(); }; }
+}
+
+/* 输入框回车提交（keydown 而非 form submit：少一个活动部件，且委托到两个常驻容器即可） */
+function bindQuickAdd(root){
+  if(!root) return;
+  const inp=root.querySelector("[data-qa-input]");
+  if(!inp || inp.__qaBound) return;
+  inp.__qaBound=true;
+  inp.addEventListener("keydown", e=>{
+    if(e.key!=="Enter") return;
+    e.preventDefault();
+    if(quickAddTask(inp.value)) inp.value="";
+  });
+}
+
+function openTaskDetail(id, date){
+  const t=state.tasks.find(x=>x.id===id);
+  if(!t){ toast("任务不存在或已删除"); return; }
+  detailId=id;
+  detailDate = date || (noDate(t) ? "" : ymd(startOfDay(new Date())));
+  renderTaskDetail();
+  document.getElementById("detailMask").classList.add("show");
+}
+
+function closeTaskDetail(){ const m=document.getElementById("detailMask"); if(m) m.classList.remove("show"); detailId=null; detailDate=null; }
+
+// 一次性绑定（完成时间区块是静态 DOM，不会随渲染重建）
+function bindDoneAtField(){
+  const d=document.getElementById("f_done_date"), t=document.getElementById("f_done_time");
+  if(d) d.addEventListener("change", ()=>applyDoneTime());
+  if(t) t.addEventListener("change", ()=>applyDoneTime());
+  const p=document.getElementById("btnDonePrev"); if(p) p.onclick=()=>shiftDoneDate(-1);
+  const n=document.getElementById("btnDoneNext"); if(n) n.onclick=()=>shiftDoneDate(1);
+  const w=document.getElementById("btnDoneNow");  if(w) w.onclick=setDoneTimeNow;
+  const c=document.getElementById("btnDoneClear"); if(c) c.onclick=clearDoneTime;
+}
+
+function handleTimelineClick(e){
+  const el=e.target; if(!el || !el.closest) return;
+  const ev=el.closest(".ev");
+  if(ev){
+    if(tlSuppressClick){ tlSuppressClick=false; return; }
+    if(ev.dataset.kr) okrOpenKR(ev.dataset.kr); else openModal(ev.dataset.id, ev.dataset.date);
+    return;
+  }
+  const tb=el.closest(".tbody");
+  if(tb){
+    const col=tb.closest(".tcol"); if(!col) return;
+    openModal(null, ymd(parseLocal(col.dataset.day+"T09:00")));
+  }
+}
+
+function bindTimelineDelegation(){
+  if(__tlDelegated) return;
+  const view=document.getElementById("view");
+  if(view) view.addEventListener("click", e=>{ if(!e.target.closest(".timeline")) return; handleTimelineClick(e); });
+  __tlDelegated=true;
+}
+
+function attachGanttDrag(bar, colW){
+  // ：Pointer Events 统一鼠标 + 触屏（pointerdown 移动端亦可拖拽平移；轻点仍打开任务）
+  const cw=colW||30;
+  bar.addEventListener("pointerdown", e=>{
+    if(e.pointerType==="mouse" && e.button!==0) return;
+    e.preventDefault();
+    const id=bar.dataset.id; const startX=e.clientX; let moved=false;
+    bar.classList.add("dragging");
+    try{ if(bar.setPointerCapture) bar.setPointerCapture(e.pointerId); }catch(_){}
+    const move=ev=>{ const dx=ev.clientX-startX; bar.style.transform="translateX("+dx+"px)"; if(Math.abs(dx)>4) moved=true; };
+    const up=ev=>{
+      document.removeEventListener("pointermove",move); document.removeEventListener("pointerup",up);
+      bar.classList.remove("dragging"); bar.style.transform="";
+      if(!moved){ openModal(id, bar.dataset.date); return; }
+      const delta=Math.round((ev.clientX-startX)/cw);
+      if(delta!==0){ shiftTaskDates(id, delta, bar.dataset.date); saveAndToast("已平移 "+Math.abs(delta)+" 天"); renderAll(); }
+      else { openModal(id, bar.dataset.date); }
+    };
+    document.addEventListener("pointermove",move); document.addEventListener("pointerup",up);
+  });
+}
+
+function handleInboxClick(e){
+  const el=e.target; if(!el || !el.closest) return;
+  const add=el.closest("#inboxAdd");         if(add){ openInboxNew(); return; }
+  const sb=el.closest("#inboxSel");          if(sb){ selToggle("inbox"); return; }
+  if(selMode) return;   // 选择模式下整行不触发打开，避免误触（与原逐项绑定行为一致）
+  const rest=el.closest("[data-restore]");   if(rest){ restoreTask(rest.dataset.restore||rest.closest(".inbox-item").dataset.id); return; }
+  const row=el.closest(".inbox-item");       if(!row || !row.dataset.id) return;
+  const id=row.dataset.id;
+  if(el.closest("[data-edit]")){ openModal(id,null); return; }
+  if(el.closest("[data-done]")){ toggleDone(id, ymd(startOfDay(new Date()))); return; }
+  if(el.closest("[data-plan]")){ planInbox(id); return; }
+}
+
+function bindInboxDelegation(){
+  if(__inboxDelegated) return;
+  const view=document.getElementById("view");
+  if(view) view.addEventListener("click", e=>{ if(!e.target.closest(".inbox-wrap")) return; handleInboxClick(e); });
+  __inboxDelegated=true;
+}
+
+function bindScheduleDropZones(){
+  if(__schedDropBound) return;
+  const view=document.getElementById("view"); if(!view) return;
+  const dayCol=e=>{ const t=e.target; return (t&&t.closest)?(t.closest(".tcol")||t.closest(".dcell")):null; };
+  view.addEventListener("dragstart", e=>{
+    const t=e.target; const el=(t&&t.closest)?t.closest(".inbox-item[data-id]"):null; if(!el) return;
+    try{ e.dataTransfer.setData("application/x-wb-task", el.dataset.id); e.dataTransfer.effectAllowed="copy"; }catch(_){}
+    el.classList.add("dragging");
+  });
+  view.addEventListener("dragend", e=>{
+    const t=e.target; const el=(t&&t.closest)?t.closest(".inbox-item"):null; if(el) el.classList.remove("dragging");
+    document.querySelectorAll(".tcol.drop-hint,.dcell.drop-hint").forEach(x=>x.classList.remove("drop-hint"));
+  });
+  view.addEventListener("dragover", e=>{
+    const col=dayCol(e); if(!col) return;
+    const dt=e.dataTransfer; if(!dt||!dt.types||dt.types.indexOf("application/x-wb-task")<0) return;
+    e.preventDefault();
+    try{ dt.dropEffect="copy"; }catch(_){}
+    document.querySelectorAll(".tcol.drop-hint,.dcell.drop-hint").forEach(x=>{ if(x!==col) x.classList.remove("drop-hint"); });
+    col.classList.add("drop-hint");
+  });
+  view.addEventListener("dragleave", e=>{ const col=dayCol(e); if(col) col.classList.remove("drop-hint"); });
+  view.addEventListener("drop", e=>{
+    const col=dayCol(e); if(!col) return;
+    e.preventDefault(); col.classList.remove("drop-hint");
+    let id=null; try{ id=e.dataTransfer.getData("application/x-wb-task"); }catch(_){}
+    if(!id) return;
+    planInbox(id, col.dataset.day);
+  });
+  __schedDropBound=true;
+}
+
+// 新建时默认勾选「不指定日期」
+function openInboxNew(){
+  openModal(null,null);
+  const cb=document.getElementById("f_nodate");
+  if(cb && !cb.checked){ cb.checked=true; toggleNoDate(); }
+}
+
+function togglePanel(k){
+  uiPrefs.touched=true;
+  const el=document.querySelector("."+PANEL_KEYS[k]);
+  // 以当前实际显示态为准翻转，再写回偏好（整页视图默认折叠时存储值可能≠显示态）
+  const now = el ? el.classList.contains("collapsed") : !!uiPrefs.collapsed[k];
+  uiPrefs.collapsed[k]=!now;
+  saveUIPrefs();
+  if(el){
+    el.classList.toggle("collapsed", !now);
+    // R10：手动折叠后同步「完整视图」跳转显隐（自动收起 dup-hidden 不显示，因用户已在完整视图）
+    const gf=el.querySelector(".goto-full");
+    if(gf) gf.style.display = (!now && !el.classList.contains("dup-hidden")) ? "inline-flex":"none";
+  }
+}
+
+function toggleTopOverview(){
+  uiPrefs.topOpen=!uiPrefs.topOpen; saveUIPrefs();
+  applyTopOverview();
+}
+
+function openMerge(kind){
+  mgKind=kind||"okr";
+  document.querySelectorAll("#mergeMask .mg-tab").forEach(b=>b.classList.toggle("active", b.dataset.mgkind===mgKind));
+  mgFill(); mgRender();
+  document.getElementById("mergeMask").classList.add("show");
+}
+
+function openModal(id, date, scope){
+  // 重复任务从「收件箱/命令面板/项目页/OKR」等未带具体日期的入口打开时，
+  // 自动锁定到「今天或最近一次未来发生」的那一天，避免出现 editingDate 为空 →
+  // 保存时 once 分支不命中、误把整组模板（start/end/title）全改的「批量全部改」问题。
+  let autoLock=false;
+  if(id){
+    const _t = state.tasks.find(x=>x.id===id);
+    if(_t && _t.recurrence && _t.recurrence.freq!=="none" && (!date || date==="")){
+      date = nextOccurrenceYmd(_t, new Date());
+      autoLock=true;
+    }
+  }
+  editingId=id||null; editingDate=date||null; editingScope=scope||"once"; editingDateAuto=autoLock;
+  rebuildCatPriSelects();   // 确保弹窗里的分类/优先级下拉是最新的
+  const f={
+    title:document.getElementById("f_title"), priority:document.getElementById("f_priority"),
+    cat:document.getElementById("f_cat"), desc:document.getElementById("f_desc"),
+    sdate:document.getElementById("f_sdate"), stime:document.getElementById("f_stime"),
+    edate:document.getElementById("f_edate"), etime:document.getElementById("f_etime"),
+    rec:document.getElementById("f_rec"), interval:document.getElementById("f_interval"),
+    runtil:document.getElementById("f_runtil"), tags:document.getElementById("f_tags")
+  };
+  document.getElementById("modalTitle").textContent = id? "编辑任务":"新建任务";
+  document.getElementById("btnDelete").style.display = id? "inline-flex":"none";
+  // 「推迟」按钮：仅编辑已有任务时可用；打开时收起菜单
+  const deferBtn=document.getElementById("btnDefer"); if(deferBtn) deferBtn.style.display = id? "inline-flex":"none";
+  const dupBtn=document.getElementById("btnDup"); if(dupBtn) dupBtn.style.display = id? "inline-flex":"none";       // M7
+  const tplBtn=document.getElementById("btnSaveTpl"); if(tplBtn) tplBtn.style.display = id? "inline-flex":"none";   // M7
+  // 「标记不补做 / 标记该日不补做」按钮：编辑普通任务或重复任务单次时显示，整组编辑/新建时隐藏
+  const dropBtn=document.getElementById("btnDrop");
+  if(dropBtn){
+    if(!id){ dropBtn.style.display="none"; }
+    else {
+      const _dt=state.tasks.find(x=>x.id===id);
+      if(!_dt){ dropBtn.style.display="none"; }
+      else if(isRecTask(_dt)){ dropBtn.style.display="inline-flex"; dropBtn.textContent="标记该日不补做"; }
+      else { dropBtn.style.display="inline-flex"; dropBtn.textContent="标记不补做"; }
+    }
+  }
+  const deferPop=document.getElementById("deferPop"); if(deferPop) deferPop.style.display="none";
+  // 新建默认「快速」模式降低门槛；编辑时强制「完整」模式（需看到所有字段）
+  setModalMode(id? "full":"quick");
+  fillProjectSelect();   // 先填充项目下拉，否则 f_project.value=原项目会因无 option 降级为「无」，保存时清空 project
+  // 完成按钮：仅在编辑已有任务时显示（含非当天任务）
+  const doneBtn=document.getElementById("btnDone");
+  doneBtn.style.display = id? "inline-flex":"none";
+  syncDoneBtn();
+  if(id){
+    const t=state.tasks.find(x=>x.id===id);
+    f.title.value=t.title; f.priority.value=t.priority; f.cat.value=t.cat; f.desc.value=t.desc||"";
+    f.tags.value=(t.tags||[]).join(", ");
+    const nodate=noDate(t);
+    document.getElementById("f_nodate").checked=nodate;
+    if(nodate){
+      f.sdate.value=""; f.stime.value=""; f.edate.value=""; f.etime.value="";
+    } else {
+      f.sdate.value=ymd(parseLocal(t.start)); f.stime.value=fmtTime(parseLocal(t.start));
+      f.edate.value=ymd(parseLocal(t.end)); f.etime.value=fmtTime(parseLocal(t.end));
+    }
+    f.rec.value=(t.recurrence&&t.recurrence.freq)||"none";
+    f.interval.value=(t.recurrence&&t.recurrence.interval)||1;
+    f.runtil.value=(t.recurrence&&t.recurrence.until)?ymd(parseLocal(t.recurrence.until)):"";
+    setWeekChecks(t.recurrence&&t.recurrence.daysOfWeek);
+    document.getElementById("f_skipMissed").checked=!!t.skipMissed;
+    document.getElementById("f_project").value=t.project||"";
+    document.getElementById("f_gw").value=t.gw||"next";
+    document.getElementById("f_ctx").value=t.ctx||"";
+    document.getElementById("f_energy").value=t.energy||"";
+    document.getElementById("f_est").value=t.est||"";
+    fillKrSelect(document.getElementById("f_kr"), t.krId||"");
+    curSubtasks=(t.subtasks||[]).map(x=>({id:x.id,title:x.title,done:!!x.done})); renderSubList();
+  } else {
+    const base=date?parseLocal(date+"T09:00"):new Date();
+    f.title.value=""; f.priority.value=defPri(); f.cat.value=defCat(); f.desc.value=""; f.tags.value="";
+    document.getElementById("f_nodate").checked=false;
+    f.sdate.value=ymd(base); f.stime.value="09:00";
+    f.edate.value=ymd(base); f.etime.value="10:00";
+    f.rec.value="none"; f.interval.value=1; f.runtil.value="";
+    setWeekChecks([base.getDay()]);
+    document.getElementById("f_skipMissed").checked=false;
+    document.getElementById("f_project").value="";
+    document.getElementById("f_gw").value="next";
+    document.getElementById("f_ctx").value="";
+    document.getElementById("f_energy").value="";
+    document.getElementById("f_est").value="";
+    fillKrSelect(document.getElementById("f_kr"), "");
+    curSubtasks=[]; renderSubList();
+  }
+  renderDoneLog(id? state.tasks.find(x=>x.id===id) : null);   // M13：打开弹窗即刷新完成履历
+  // 重复任务「单次单独修改」范围处理
+  const scopeWrap=document.getElementById("scopeField");
+  const tScope = id ? state.tasks.find(x=>x.id===id) : null;
+  const isRecInstance = !!(tScope && tScope.recurrence && tScope.recurrence.freq!=="none" && editingDate);
+  if(isRecInstance){
+    scopeWrap.style.display="block";
+    applyEditingDate();           // 用当前 editingDate 填充表单（整组模板 + 该天 override）
+    const edEl=document.getElementById("f_editdate");
+    if(edEl){ edEl.value=(editingDate||"").slice(0,10); edEl.onchange=onEditDateChange; }
+    const note=document.getElementById("editDateNote");
+    if(note) note.textContent = editingDateAuto ? "（已自动定位到下一次发生日，可改成任意一次）" : "";
+    applyScopeUI();
+  } else {
+    scopeWrap.style.display="none";
+    // R11：清除上一次「仅此一次」编辑遗留的 disabled——closeModal 只重置 editingScope 不清表单
+    // 禁用态，否则下一次新建任务 / 编辑普通任务时「重复」等框点不动（点不动 bug 根因）
+    ["f_rec","f_interval","f_runtil"].forEach(id=>{ const el=document.getElementById(id); if(el) el.disabled=false; });
+    document.querySelectorAll("#weekDays input").forEach(cb=>cb.disabled=false);
+  }
+  toggleNoDate();
+  toggleRecOpts();
+  renderTagPicker();
+  renderDoneAtField();   // 完成时间：编辑已有任务时显示，新建时隐藏
+  document.getElementById("mask").classList.add("show");
+  _formSnap=formSnapshot();   // P0-2：表单填完后再取脏检查基线（toggleRecOpts 会改写默认值）
+}
+
+function closeModal(){ document.getElementById("mask").classList.remove("show"); editingId=null; editingDate=null; editingScope="once"; editingDateAuto=false; _formSnap=null; }   // P0-2：清空脏检查基线
+
+/* 用户在「编辑哪一次」里切换发生日：校验必须是该重复任务的真实发生日，否则还原并提示 */
+function onEditDateChange(){
+  const ed=document.getElementById("f_editdate"); const v=ed?ed.value:""; if(!v) return;
+  const tScope = editingId ? state.tasks.find(x=>x.id===editingId) : null;
+  if(!tScope || !tScope.recurrence || tScope.recurrence.freq==="none") return;
+  const d=parseLocal(v+"T00:00");
+  if(!recMatch(d, tScope.recurrence, parseLocal(tScope.start))){
+    toast("该日不是此重复任务的发生日，已还原");
+    if(ed) ed.value=(editingDate||"").slice(0,10);
+    return;
+  }
+  editingDate=v;
+  applyEditingDate();
+  _formSnap=formSnapshot();   // P0-2：切换编辑日期会重填表单，基线需同步刷新，避免误判为脏
+  toast("已切换到 "+v.slice(5).replace("-","/")+" 的这次");
+}
+
+function toggleTplMenu(){ const m=document.getElementById("tplMenu"); if(!m) return; if(m.style.display==="block"){ m.style.display="none"; } else { renderTplMenu(); } }
+
+/* 从「今日要处理」卡片 / 详情弹窗直达推迟：直接加载编辑弹窗并展开「推迟/延期」菜单，
+   用户选幅度后由 shiftTaskByDays 落盘、__afterDeferShift 自动关弹窗并刷新。 */
+function openDeferFromCard(taskId, date){
+  const t=state.tasks.find(x=>x.id===taskId); if(!t){ toast("任务不存在"); return; }
+  __deferCloseAfter=true;
+  openModal(taskId, date, "once");
+  const dp=document.getElementById("deferPop");
+  if(dp) dp.style.display="flex";
+}
+
+function bindColorPair(colorEl, hexEl, onChange){
+  const syncFromColor=()=>{ const v=colorEl.value.toUpperCase(); hexEl.value=v; hexEl.classList.remove("invalid"); onChange(v); };
+  const syncFromHex=()=>{
+    const v=parseHex(hexEl.value);
+    if(v){ colorEl.value=v; hexEl.value=v; hexEl.classList.remove("invalid"); onChange(v); }
+    else { hexEl.classList.add("invalid"); }   // 非法色号仅标红，不污染颜色
+  };
+  colorEl.addEventListener("input", syncFromColor);
+  colorEl.addEventListener("change", syncFromColor);
+  hexEl.addEventListener("input", syncFromHex);
+  hexEl.addEventListener("change", syncFromHex);
+}
+
+function openOpts(){ renderOptList(); renderStaleList(); const sa=document.getElementById("staleAuto"); if(sa) sa.onclick=mergeAllStale; document.getElementById("optMask").classList.add("show"); }
+
+// 统计视图里点「整理 N 个遗留值」进入
+function openStaleFix(){
+  openOpts();
+  const box=document.getElementById("staleField");
+  if(!box) return;
+  try{ box.scrollIntoView({behavior:"smooth",block:"center"}); }catch(e){}   // 部分内嵌 WebView 无此方法
+  box.style.boxShadow="0 0 0 3px rgba(255,159,69,.4)";
+  setTimeout(()=>{ box.style.boxShadow=""; },1600);
+}
+
+function openTags(){ syncTagsFromTasks(); renderTagList(); document.getElementById("tagMask").classList.add("show"); }
+
+function openMedia(id, kind){
+  mediaEditId=id||null; mediaEditKind=kind||null;
+  const t = id ? ((media[kind]||[]).find(x=>x.id===id) || null) : null;
+  document.getElementById("mediaTitle").textContent = id ? "编辑媒体进度" : "添加媒体进度";
+  document.getElementById("mDelete").style.display = id ? "inline-flex" : "none";
+  document.getElementById("m_type").value = t ? (kind==="tvs"?"tv":kind==="auds"?"aud":"book") : "book";
+  document.getElementById("m_title").value = t ? t.title : "";
+  document.getElementById("m_current").value = t ? t.current : 0;
+  document.getElementById("m_total").value = t ? t.total : 1;
+  document.getElementById("m_unit").value = t ? (t.unit===undefined ? defaultUnit(kind) : (t.unit||"")) : defaultUnit(kind);
+  document.getElementById("m_percent").checked = !!(t && t.percent);
+  document.getElementById("m_platform").value = t ? (t.platform||"") : "";
+  applyPercentMode();
+  document.getElementById("mediaMask").classList.add("show");
+  mediaSnapshot();
+}
+
+function closeMedia(){ document.getElementById("mediaMask").classList.remove("show"); mediaEditId=null; mediaEditKind=null; }
+
+function inlineEditItem(row, lid, iid){
+  const txt=row.querySelector(".ltxt[data-edit]"); if(!txt) return;
+  const l=lists.find(x=>x.id===lid); if(!l) return;
+  const it=l.items.find(x=>x.id===iid); if(!it) return;
+  if(row.querySelector(".ltxt-input")) return;
+  const input=document.createElement("input");
+  input.className="ltxt-input"; input.value=it.text;
+  txt.replaceWith(input); input.focus(); input.select();
+  let done=false;
+  const commit=()=>{ if(done) return; done=true; const v=input.value.trim(); if(v && v!==it.text){ snapshot(); it.text=v; it.ut=Date.now(); l.updated=Date.now(); listsSave(); } renderAll(); };
+  input.addEventListener("blur", commit);
+  input.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); commit(); } else if(e.key==="Escape"){ done=true; renderAll(); } });
+}
+
+async function dueEditItem(lid, iid){
+  const l=lists.find(x=>x.id===lid); if(!l) return;
+  const it=l.items.find(x=>x.id===iid); if(!it) return;
+  const v=await promptModal("格式 YYYY-MM-DD；留空表示清除截止日期",{title:"设置截止日期",value:it.due||"",placeholder:"2026-09-20"}); if(v===null) return;
+  setItemDue(lid, iid, v.trim());
+}
+
+async function editListEmoji(lid){
+  const l=lists.find(x=>x.id===lid); if(!l) return;
+  const v=await promptModal("可粘贴任意 emoji（如 📚 ✉️ 🎯），留空恢复默认",{title:"设置清单图标",value:l.emoji||"",placeholder:"📋"});
+  if(v===null) return;
+  snapshot();
+  const e=v.trim().slice(0,16);   // 防滥用：限长，emoji 组合串一般远小于此
+  l.emoji = (e===LIST_DEFAULT_EMOJI) ? "" : e;   // 与默认一致则不冗余存储
+  l.updated=Date.now(); listsSave(); renderAll(); toast("已更新图标");
+}
+
+async function editItem(lid,iid){
+  const l=lists.find(x=>x.id===lid); if(!l) return;
+  const it=l.items.find(x=>x.id===iid); if(!it) return;
+  const text=await promptModal("修改这条清单条目的内容",{title:"编辑条目",value:it.text});
+  if(text===null) return;
+  const t=text.trim(); if(!t) return;
+  snapshot();
+  it.text=t; it.ut=Date.now(); l.updated=Date.now(); listsSave(); renderAll(); toast("已更新");
+}
+
+function toggleListsAll(){
+  const anyOpen = lists.some(l=>openLists[l.id]);
+  lists.forEach(l=>{ openLists[l.id]=!anyOpen; });
+  renderListsPanel();
+}
+
+function setupListsEvents(){
+  const v=document.getElementById("view"); if(!v) return;
+  /* ：删除条目是 div[role=button]，补键盘可达（Enter / 空格触发 click） */
+  v.addEventListener("keydown", e=>{
+    if(state.view!==VIEWS.LISTS) return;
+    if(e.key!=="Enter" && e.key!==" ") return;
+    const del=e.target.closest && e.target.closest(".lx[data-del]");
+    if(!del) return;
+    e.preventDefault(); del.click();
+  });
+  v.addEventListener("click", e=>{
+    if(state.view!==VIEWS.LISTS) return;
+    const t=e.target;
+    if(t.closest("#listAdd")){ newList(); return; }
+    if(t.closest("#listSel")){ selToggle("lists"); return; }
+    const treeRow=t.closest(".ltree-item[data-lid]");
+    if(treeRow){
+      if(t.closest("[data-del]")) delList(treeRow.dataset.lid); else { state.selList=treeRow.dataset.lid; renderLists(); }
+      return;
+    }
+    const card=t.closest(".lcard"); if(!card) return;
+    const lid=state.selList;
+    if(t.closest("[data-emojiedit]")){ editListEmoji(lid); return; }
+    if(t.closest("[data-rename]")){ renameList(lid); return; }
+    if(t.closest("[data-ldel]")){ delList(lid); return; }
+    if(t.closest("[data-newadd]")){ const inp=card.querySelector("[data-new]"); addItem(lid, inp?inp.value:""); return; }
+    if(t.closest("[data-import]")){ const box=card.querySelector("#lImport"); if(box) box.style.display = box.style.display==="none"?"block":"none"; return; }
+    if(t.closest("[data-importgo]")){ const box=card.querySelector("[data-importbox]"); importListLines(lid, box?box.value:""); return; }
+    const item=t.closest(".litem[data-iid]");
+    if(item){
+      if(t.closest("[data-edit]")){ if(selMode) return; inlineEditItem(item, lid, item.dataset.iid); return; }
+      if(t.closest("[data-del]")){ delItem(lid, item.dataset.iid); return; }
+      if(t.closest("[data-convert]")){ convertListItem(lid, item.dataset.iid); return; }
+      if(t.closest("[data-dueedit]")){ dueEditItem(lid, item.dataset.iid); return; }
+    }
+  });
+  v.addEventListener("change", e=>{
+    if(state.view!==VIEWS.LISTS) return;
+    const t=e.target;
+    if(t.id==="listSort"){ if(t.value){ sortLists(t.value); t.value=""; } return; }
+    if(t.id==="itemSort"){ const s=t.value; t.value=""; if(s){ sortItems(state.selList, s); } return; }
+    const row=t.closest(".litem[data-iid]");
+    if(row && t.matches("input[data-toggle]")) toggleItem(row.dataset.lid||state.selList, row.dataset.iid);
+  });
+  v.addEventListener("keydown", e=>{
+    if(state.view!==VIEWS.LISTS) return;
+    if(e.target && e.target.matches("input[data-new]") && e.key==="Enter"){ e.preventDefault(); addItem(state.selList, e.target.value); }
+  });
+  const R=".litem[data-iid],.ltree-item[data-lid]";
+  v.addEventListener("dragstart", e=>{ if(state.view!==VIEWS.LISTS) return; const el=e.target.closest(R); if(!el){ e.preventDefault(); return; } e.dataTransfer.setData("text/plain", el.dataset.iid||el.dataset.lid); el.classList.add("dragging"); e.dataTransfer.effectAllowed="move"; });
+  v.addEventListener("dragend", e=>{ const el=e.target.closest(R); if(el) el.classList.remove("dragging"); });
+  v.addEventListener("dragover", e=>{ if(state.view!==VIEWS.LISTS) return; const el=e.target.closest(R); if(el){ e.preventDefault(); e.dataTransfer.dropEffect="move"; el.classList.add("dragover"); } });
+  v.addEventListener("dragleave", e=>{ const el=e.target.closest(R); if(el) el.classList.remove("dragover"); });
+  v.addEventListener("drop", e=>{ if(state.view!==VIEWS.LISTS) return; const el=e.target.closest(R); if(!el) return; e.preventDefault(); el.classList.remove("dragover"); const fromId=e.dataTransfer.getData("text/plain"); if(!fromId) return; if(el.dataset.iid){ const L=lists.find(x=>x.id===state.selList); if(L && L.items.some(x=>x.id===fromId) && fromId!==el.dataset.iid) reorderItem(state.selList, fromId, el.dataset.iid); } else if(fromId!==el.dataset.lid && lists.some(x=>x.id===fromId)){ reorderList(fromId, el.dataset.lid); } });
+}
+
+function setupListsPanelEvents(){
+  const el=document.getElementById("listsPanelBody"); if(!el) return;
+  el.addEventListener("click", e=>{
+    const t=e.target;
+    const emo=t.closest(".lp-emoji"); if(emo){ editListEmoji(emo.dataset.lid); return; }
+    if(t.closest(".lp-go")){ state.view=VIEWS.LISTS; syncSeg(); renderAll(); return; }
+    const head=t.closest(".lp-head"); if(head){ openLists[head.dataset.lid]=!openLists[head.dataset.lid]; renderListsPanel(); return; }
+    if(t.closest("[data-newadd]")){ const box=t.closest(".lp-list"); const inp=box?box.querySelector("[data-new]"):null; addItem(box?box.dataset.lid:"", inp?inp.value:""); return; }
+    const row=t.closest(".lp-item[data-iid]"); if(!row) return;
+    if(t.closest(".lp-x")) delItem(row.dataset.lid, row.dataset.iid); else if(t.closest(".lp-txt")) editItem(row.dataset.lid, row.dataset.iid);
+  });
+  el.addEventListener("change", e=>{
+    const row=e.target.closest(".lp-item[data-iid]");
+    if(row && e.target.matches("input[data-toggle]")) toggleItem(row.dataset.lid, row.dataset.iid);
+  });
+  el.addEventListener("keydown", e=>{
+    if(e.target && e.target.matches("input[data-new]") && e.key==="Enter"){ e.preventDefault(); const box=e.target.closest(".lp-list"); addItem(box?box.dataset.lid:"", e.target.value); }
+  });
+  el.addEventListener("dragstart", e=>{ const row=e.target.closest(".lp-item[data-iid]"); if(!row) return; e.dataTransfer.setData("text/plain", row.dataset.iid); row.classList.add("dragging"); e.dataTransfer.effectAllowed="move"; });
+  el.addEventListener("dragend", e=>{ const row=e.target.closest(".lp-item"); if(row) row.classList.remove("dragging"); });
+  el.addEventListener("dragover", e=>{ const row=e.target.closest(".lp-item"); if(row){ e.preventDefault(); e.dataTransfer.dropEffect="move"; } });
+  el.addEventListener("drop", e=>{ const row=e.target.closest(".lp-item[data-iid]"); if(!row) return; e.preventDefault(); const fromId=e.dataTransfer.getData("text/plain"); const L=lists.find(x=>x.id===row.dataset.lid); if(L && L.items.some(x=>x.id===fromId)){ reorderItem(row.dataset.lid, fromId, row.dataset.iid); e.stopPropagation(); } });
+}
+
+function selBind(actions){
+  const bar=document.getElementById("batchBar"); if(!bar) return;
+  bar.classList.add("show");
+  actions.forEach((a,i)=>{ const b=bar.querySelector('[data-ba="'+i+'"]'); if(b) b.onclick=()=>a.fn(); });
+  const c=bar.querySelector("#bbCancel"); if(c) c.onclick=()=>{ selClear(); renderAll(); };
+  bindSelChecks(); // 关键：绑定各视图勾选框的 onchange，否则点击「选不中」
+  updateSelCount();
+}
+
+function bindSelChecks(view, after){
+  if(!selMode) return;
+  document.querySelectorAll('#view input[data-sel]').forEach(c=>{
+    c.onchange=()=>{ const id=c.dataset.sel; if(c.checked) selIds.add(id); else selIds.delete(id);
+      const row=c.closest('.proj-card, .inbox-item, .litem'); if(row) row.classList.toggle('sel-checked', c.checked);
+      updateSelCount(); };
+  });
+  if(after) after();
+}
+
+function nav(dir){
+  const v=state.view;
+  if(v!=="month"&&v!=="week"&&v!=="day"&&v!=="gantt") return;   // 收件箱/进度/统计/习惯无分页
+  if(v==="month") state.cur=addMonths(state.cur,dir);
+  else if(v==="week") state.cur=addDays(state.cur,7*dir);
+  else if(v==="day") state.cur=addDays(state.cur,dir);
+  else state.cur=addMonths(state.cur,dir);
+  renderAll();
+}
+
+// 自然语言输入：新建任务标题失焦时自动识别日期/时间
+function applyNL(){
+  if(editingId) return;
+  const inp=document.getElementById("f_title");
+  const raw=inp.value.trim(); if(!raw) return;
+  const r=parseNL(raw); if(!r) return;
+  inp.value=r.title;
+  /* 标签 / 优先级 / 情境（parseNL 新增，Todoist 式 `#求职 p1 @电脑`）——回填时并入已有值，不覆盖用户手填的 */
+  const noted=[];
+  if(r.tags&&r.tags.length){
+    const g=document.getElementById("f_tags");
+    if(g){
+      const cur=g.value.split(/[,，\s]+/).map(x=>x.trim()).filter(Boolean);
+      const add=r.tags.filter(t=>!cur.includes(t));
+      if(add.length){ g.value=cur.concat(add).join(", "); renderTagPicker(); noted.push(add.length+" 个标签"); }
+    }
+  }
+  if(r.priority){ const p=document.getElementById("f_priority"); if(p){ p.value=r.priority; noted.push("优先级"); } }
+  if(r.ctx){ const c=document.getElementById("f_ctx"); if(c){ c.value=r.ctx; noted.push("情境"); } }
+  /* 纯属性输入（无日期）：只回填标签/优先级/情境，不动日期区 —— 否则会给"收件箱任务"硬塞一个今天 */
+  if(!r.start){ if(noted.length) toast("已智能识别："+noted.join(" · ")+" ✓"); return; }
+  document.getElementById("f_sdate").value=ymd(parseLocal(r.start));
+  document.getElementById("f_stime").value=fmtTime(parseLocal(r.start));
+  document.getElementById("f_edate").value=ymd(parseLocal(r.end));
+  document.getElementById("f_etime").value=fmtTime(parseLocal(r.end));
+  if(r.rec){
+    const frec=document.getElementById("f_rec"); frec.value=r.rec.freq; toggleRecOpts();
+    if(r.rec.freq==="weekly" && r.rec.day!=null) setWeekChecks([r.rec.day]);
+    toast("已智能识别时间 + 重复"+(noted.length?(" + "+noted.join(" · ")):"")+" ✓");
+  } else {
+    toast("已智能识别时间"+(noted.length?(" + "+noted.join(" · ")):"")+" ✓");
+  }
+}
+
+function bindKrToday(){ document.querySelectorAll("#todayList .kr-today-item[data-kr], #view .kr-today-item[data-kr]").forEach(b=>b.onclick=()=>okrOpenKR(b.dataset.kr)); }
+
+function inField(){ const a=document.activeElement; return a && (a.tagName==="INPUT"||a.tagName==="TEXTAREA"||a.tagName==="SELECT"||a.isContentEditable); }
+
+/* P1-12：任一弹层（含嵌套确认框/详情/顶菜单）是否打开。用于屏蔽全局单键快捷键，
+   避免在弹窗里按 N / 1~9 / U 静默丢弃编辑内容或改状态。Esc 不受此影响（由各自的 Esc 链处理）。 */
+function modalAnyOpen(){
+  if(document.querySelector(".mask.show")) return true;
+  if(document.getElementById("detailMask") && document.getElementById("detailMask").classList.contains("show")) return true;
+  if(document.getElementById("topMenu") && document.getElementById("topMenu").classList.contains("show")) return true;
+  return false;
+}
+
+function toggleTheme(){ const cur=document.documentElement.dataset.theme==="dark"?"light":"dark"; applyTheme(cur); updateThemeBtn(); }
+
+function openHabitStyle(){
+  const s=getHabitStyle();
+  document.getElementById("hsDone").value=s.doneColor;
+  document.getElementById("hsTodayRing").checked=!!s.todayRing;
+  document.getElementById("hsTodayColor").value=s.todayColor;
+  document.getElementById("hsTargetOn").checked=!!s.targetOn;
+  document.getElementById("hsTargetColor").value=s.targetColor;
+  document.getElementById("hsFont").value=s.cellFont;
+  document.getElementById("hsRadius").value=s.cellRadius;
+  document.getElementById("hbStyleMask").classList.add("show");
+}
+
+function closeHabitStyle(){ document.getElementById("hbStyleMask").classList.remove("show"); }
+
+function bindNoSearchNote(root){
+  const b=root.querySelector("#nsClear"); if(!b) return;
+  b.onclick=()=>{ const c=document.getElementById("fClear"); if(c) c.click(); };
+}
+
+function bindHabitActions(root){
+  if(!root) return;
+  const a=root.querySelector("#habitAdd"); if(a) a.onclick=()=>openHabit(null);
+  const st=root.querySelector("#habitStyle"); if(st) st.onclick=openHabitStyle;
+  const bf=root.querySelector("#habitBackfill"); if(bf) bf.onclick=openHabitBackfill;
+}
+
+function openHabitBackfill(){
+  const mask=document.getElementById("habitBackfillMask"); if(!mask) return;
+  setBfMode("add");
+  const today=startOfDay(new Date());
+  const s=document.getElementById("bfStart"), e=document.getElementById("bfEnd");
+  s.value=ymd(addDays(today,-5));   // 默认补回最近约 5 天
+  e.value=ymd(addDays(today,-1));   // 默认截止到昨天（今天用格子点）
+  const sel=document.getElementById("bfHabit");
+  const active=habits.filter(h=>!h.archived);
+  sel.innerHTML='<option value="all">全部进行中习惯（'+active.length+'）</option>'+
+    active.map(h=>'<option value="'+h.id+'">'+esc(h.emoji||"🌟")+" "+esc(h.name)+'</option>').join("");
+  document.getElementById("bfTargetOnly").checked=false;
+  mask.classList.add("show");
+  setTimeout(()=>s.focus(),50);
+}
+
+function closeHabitBackfill(){ const m=document.getElementById("habitBackfillMask"); if(m) m.classList.remove("show"); }
+
+function openHabit(id){
+  habitEditId=id||null;
+  const h=id?habits.find(x=>x.id===id):null;
+  document.getElementById("habitTitle").textContent=id?"编辑习惯":"添加习惯";
+  document.getElementById("habitName").value=h?h.name:"";
+  document.getElementById("habitEmoji").value=h?h.emoji||"🌟":"🌟";
+  document.getElementById("habitFreq").value=h?h.freq:"daily";
+  document.getElementById("habitFreqN").value=h&&h.freqN?h.freqN:3;
+  document.getElementById("habitTime").value=h?h.time||"":"";
+  const dowsWrap=document.getElementById("habitDows");
+  if(dowsWrap){ dowsWrap.querySelectorAll("input").forEach(c=>c.checked=!!(h&&Array.isArray(h.targetDows)&&h.targetDows.includes(+c.value))); }
+  toggleFreqExtra(h?h.freq:"daily");
+  document.getElementById("habitDelete").style.display=id?"inline-flex":"none";
+  const pBtn=document.getElementById("habitPause"), aBtn=document.getElementById("habitArchive");
+  if(h){
+    pBtn.style.display="inline-flex"; pBtn.textContent=h.paused?"继续":"暂停";
+    aBtn.style.display="inline-flex"; aBtn.textContent=h.archived?"恢复归档":"归档";
+  } else { pBtn.style.display="none"; aBtn.style.display="none"; }
+  const fe=document.getElementById("habitFreq");
+  if(fe) fe.onchange=()=>toggleFreqExtra(fe.value);
+  document.getElementById("habitMask").classList.add("show");
+}
+
+function closeHabit(){ document.getElementById("habitMask").classList.remove("show"); habitEditId=null; }
 
 /* ===== L6 Cloud · P1-9 分层（2026-10-23）===== */
+function mediaAdoptCloud(incoming, cloudDeleted){
+  if(!incoming || typeof incoming!=="object") return media;
+  // 与 mediaMergeKeep 同语义（按 updated 取较新者），不再无脑云端优先 —— 否则云端陈旧快照会回退本地较新进度
+  return {
+    books: mediaMergeNewer(media.books, incoming.books, cloudDeleted),
+    tvs:   mediaMergeNewer(media.tvs,   incoming.tvs,   cloudDeleted),
+    auds:  mediaMergeNewer(media.auds,  incoming.auds,  cloudDeleted)
+  };
+}
+
+async function openRecoverModal(opts){
+  opts=opts||{};
+  const mask=document.getElementById("recoverMask");
+  const status=document.getElementById("recoverStatus");
+  const cloudBox=document.getElementById("recoverCloud");
+  if(!mask) return;
+  mask.classList.add("show");
+  if(status) status.textContent="";
+  if(cloudBox) cloudBox.innerHTML="";
+  renderUnifiedRecovery(opts);
+  if(opts.focus && cloud.token && cloud.gist){ runGistScan(opts); }
+}
+
+function renderUnifiedRecovery(opts){
+  opts=opts||{};
+  const box=document.getElementById("recoverLocal"); if(!box) return;
+  const parts=[];
+  // 自动备份（全量快照环）
+  const ring=fullRingLoad();
+  if(ring.length){
+    parts.push('<div class="mrec-group-head"><span>&#8634;</span>自动备份<span class="cnt" aria-hidden="true">'+ring.length+'</span></div>');
+    ring.slice().reverse().forEach((sn,ix)=>{
+      const idx=ring.length-1-ix;
+      const mv=sn.media||{}; const mcnt=((mv.books||[]).length+(mv.tvs||[]).length+(mv.auds||[]).length);
+      const cnt=(sn.tasks||[]).length+" 任务 · "+(sn.habits||[]).length+" 习惯 · "+(sn.lists||[]).length+" 清单 · "+mcnt+" 媒体";
+      parts.push('<div class="mrec-item"><div class="mrec-main"><div class="mrec-name">'+ringTimeStr(sn.t)+'</div><div class="mrec-meta">'+esc(cnt)+'</div></div>'
+        +'<button class="btn btn-pri btn-sm mrec-restore" data-type="full" data-idx="'+idx+'" aria-label="恢复此自动备份">恢复</button></div>');
+    });
+  }
+  // 撤销历史（刷新后仍可撤销）
+  if(undoStack.length){
+    parts.push('<div class="mrec-group-head"><span>&#8635;</span>撤销历史<span class="cnt" aria-hidden="true">'+undoStack.length+'</span></div>');
+    undoStack.slice().reverse().forEach((s,ix)=>{
+      const uidx=undoStack.length-1-ix;
+      const mc=(s.media&&((s.media.books||[]).length+(s.media.tvs||[]).length+(s.media.auds||[]).length))?("媒体 "+((s.media.books||[]).length+(s.media.tvs||[]).length+(s.media.auds||[]).length)):null;
+      const cnt=[(s.tasks||[]).length+" 任务", mc, (s.habits||[]).length+" 习惯", (s.lists||[]).length+" 清单"].filter(Boolean).join(" · ");
+      parts.push('<div class="mrec-item"><div class="mrec-main"><div class="mrec-name">'+ringTimeStr(s.t)+'</div><div class="mrec-meta">'+(cnt||"空快照")+'</div></div>'
+        +'<button class="btn btn-pri btn-sm mrec-restore" data-type="undo" data-uidx="'+uidx+'" aria-label="恢复到此操作前">恢复</button></div>');
+    });
+  }
+  // 回收站
+  const trash=trashLoad();
+  if(trash.length){
+    parts.push('<div class="mrec-group-head"><span>&#9851;</span>回收站<span class="cnt" aria-hidden="true">'+trash.length+'</span></div>');
+    trash.slice().reverse().forEach((it,ix)=>{
+      const idx=trash.length-1-ix; const t=it.task||{};
+      const meta=[t.cat,t.status==="done"?"已完成":"",t.start?String(t.start).slice(0,10):""].filter(Boolean).join(" · ");
+      parts.push('<div class="mrec-item"><div class="mrec-main"><div class="mrec-name">'+esc(t.title||"(无标题)")+'</div><div class="mrec-meta">删除于 '+ringTimeStr(it.at)+(meta?" · "+esc(meta):"")+'</div></div>'
+        +'<div style="display:flex;gap:6px;flex:none;"><button class="btn btn-pri btn-sm mrec-restore" data-type="trash" data-idx="'+idx+'" aria-label="恢复此任务">恢复</button>'
+        +'<button class="btn btn-ghost btn-sm mrec-drop" data-idx="'+idx+'" aria-label="彻底删除" title="彻底删除">✕</button></div></div>');
+    });
+  }
+  if(!parts.length) parts.push('<div class="mrec-empty">暂无可恢复的数据。改动数据后会自动生成备份；删除的任务会出现在回收站。</div>');
+  box.innerHTML=parts.join("");
+  box.querySelectorAll(".mrec-restore").forEach(b=>{
+    b.onclick=()=>{
+      const ty=b.dataset.type, idx=+b.dataset.idx, uidx=+b.dataset.uidx;
+      if(ty==="full") restoreFullBackup(idx);
+      else if(ty==="undo") restoreUndoPoint(uidx);
+      else if(ty==="trash") restoreTrash(idx);
+      renderUnifiedRecovery();
+    };
+  });
+  box.querySelectorAll(".mrec-drop").forEach(b=>{ b.onclick=()=>{ dropTrash(+b.dataset.idx); renderUnifiedRecovery(); }; });
+}
+
+async function runGistScan(opts){
+  opts=opts||{};
+  const cloudBox=document.getElementById("recoverCloud"); if(!cloudBox) return;
+  const status=document.getElementById("recoverStatus");
+  if(!(cloud.token&&cloud.gist)){ cloudBox.innerHTML='<div class="mrec-empty">未配置云端，无法扫描 Gist 历史。请先在数据管理 → 云同步 填写 Token 与 Gist ID。</div>'; return; }
+  cloudBox.innerHTML='<div class="mrec-empty">正在扫描 Gist 历史版本…</div>';
+  if(status) status.textContent="";
+  const localIds={}; RECOVER_DEFS.forEach(d=>{ localIds[d.key]=new Set((d.local()||[]).map(x=>x&&x.id).filter(Boolean)); });
+  const found={}; RECOVER_DEFS.forEach(d=>found[d.key]=new Map());
+  let scanned=0, parseErr=0, fetchFail=0;
+  try{
+    const accept={Authorization:authHeader(), Accept:"application/vnd.github+json"};
+    const base="https://api.github.com/gists/"+encodeURIComponent(cloud.gist);
+    const revRes=await fetchWithTimeout(base+"/commits",{headers:accept},15000);
+    if(!revRes.ok){ cloudBox.innerHTML='<div class="mrec-empty">获取 Gist 历史失败：HTTP '+revRes.status+(revRes.status===401?"（Token 无效或无权限）":"")+'</div>'; return; }
+    const revs=await revRes.json();
+    const revArr=(revs||[]).filter(Boolean);
+    for(let bi=0; bi<revArr.length; bi+=5){
+      const batch=revArr.slice(bi, bi+5);
+      const results=await Promise.all(batch.map(r=>fetchWithTimeout(base+"/"+r.version,{headers:accept},12000).then(res=>({r,res})).catch(()=>({r,res:null}))));
+      for(const {r,res} of results){
+        if(!res||!res.ok){ fetchFail++; continue; }
+        let d; try{ d=await res.json(); }catch(_){ fetchFail++; continue; }
+        const f=d.files&&d.files["taskhub.json"];
+        if(!f||!f.content) continue;
+        let obj; try{ obj=JSON.parse(f.content); }catch(_){ parseErr++; continue; }
+        scanned++;
+        RECOVER_DEFS.forEach(def=>{
+          const arr=def.collect(obj);
+          if(!Array.isArray(arr)) return;
+          arr.forEach(x=>{
+            if(!x||!x.id||localIds[def.key].has(x.id)) return;
+            const prev=found[def.key].get(x.id);
+            if(!prev || def.score(x,prev)>0) found[def.key].set(x.id,x);
+          });
+        });
+      }
+    }
+    const groups=RECOVER_DEFS.map(def=>({def, items:Array.from(found[def.key].values())})).filter(g=>g.items.length);
+    const total=groups.reduce((s,g)=>s+g.items.length,0);
+    const head='<div class="mrec-group-head"><span>&#9729;</span>云端历史（Gist）<span class="cnt" aria-hidden="true">'+total+'</span></div>';
+    if(!total){
+      cloudBox.innerHTML=head+'<div class="mrec-empty">在 '+scanned+' 个历史版本中，没有找到本地缺失的记录。</div>';
+      return;
+    }
+    cloudBox.innerHTML=head+groups.map(g=>{
+      const items=g.items.map(x=>{
+        const nm=g.def.name(x), mt=g.def.meta(x);
+        return '<div class="mrec-item" data-key="'+g.def.key+'" data-id="'+esc(x.id)+'">'
+          +'<div class="mrec-main"><div class="mrec-name">'+esc(nm)+'</div>'+(mt?'<div class="mrec-meta">'+esc(mt)+'</div>':'')+'</div>'
+          +'<button class="btn btn-pri btn-sm mrec-restore" aria-label="恢复 '+esc(nm)+'">恢复</button></div>';
+      }).join('');
+      return '<div class="mrec-group">'+items+'</div>';
+    }).join('');
+    if(status) status.textContent="扫描完成：找到 "+total+" 条本地缺失记录（来自 "+scanned+" 个历史版本"+(fetchFail?("，"+fetchFail+" 个版本读取失败"):"")+"）";
+    cloudBox.querySelectorAll(".mrec-restore").forEach(b=>{
+      b.onclick=()=>{
+        const card=b.closest(".mrec-item"); if(!card) return;
+        const key=card.dataset.key, id=card.dataset.id;
+        const def=RECOVER_DEFS.find(d=>d.key===key); if(!def) return;
+        const it=found[key].get(id); if(!it) return;
+        def.restore(it);
+        found[key].delete(id);
+        renderAll();
+        card.remove();
+        toast("已恢复「"+def.name(it)+"」");
+      };
+    });
+    if(opts.focus){
+      const g=[].slice.call(cloudBox.querySelectorAll(".mrec-group")).find(x=>x.querySelector('.mrec-item[data-key="'+opts.focus+'"]'));
+      if(g) g.scrollIntoView({block:"start",behavior:"smooth"});
+    }
+  }catch(e){
+    cloudBox.innerHTML='<div class="mrec-empty">扫描失败：'+(e&&e.message?e.message:e)+'</div>';
+  }
+}
+
+function cloudSave(){ try{ const s=JSON.stringify({token:cloud.token, gist:cloud.gist, auto:cloud.auto}); localStorage.setItem(CLOUD_KEY, s); try{ localStorage.setItem(CLOUD_KEY_ALT, s); }catch(e){} }catch(e){} }
+
+function setDataTab(tab){
+  document.querySelectorAll("#dataTabs .dtab").forEach(b=>{
+    const on=b.dataset.dtab===tab;
+    b.classList.toggle("active",on); b.setAttribute("aria-selected",on?"true":"false");
+  });
+  document.querySelectorAll("#dataMask .dtab-panel").forEach(p=>{
+    p.style.display = p.dataset.dtab===tab ? "" : "none";
+  });
+}
+
+function openDataModal(tab){
+  const m=document.getElementById("dataMask"); if(!m) return;
+  setDataTab(tab||"local");
+  renderFullBackup(); renderTrash(); renderDataHealth();
+  m.classList.add("show");
+  if(tab==="cloud"){ setTimeout(()=>{ const t=document.getElementById("csToken"); try{ t&&t.focus(); }catch(_){} },120); }
+}
+
+function closeDataModal(){
+  const m=document.getElementById("dataMask"); if(!m) return;
+  m.classList.remove("show");
+}
+
+function collectCfg(){
+  const c={};
+  CFG_KEYS.forEach(k=>{ try{ const v=localStorage.getItem(k); if(v!==null&&v!==undefined) c[k]=v; }catch(e){} });
+  return c;
+}
+
+// 把云端/备份的 cfg 落到本地。先写 localStorage，再即时刷新有常驻内存副本的项（其余下次启动读取时自然生效）。
+function applyCfg(c){
+  if(!c||typeof c!=="object") return;
+  Object.keys(c).forEach(k=>{
+    if(!CFG_KEY_SET.has(k)) return;   // 白名单外的键一律丢弃（云端数据不可信）
+    try{ const v=c[k]; if(typeof v==="string"||typeof v==="number"||typeof v==="boolean") localStorage.setItem(k,String(v)); }catch(e){}
+  });
+  try{ if(c["wb_theme_v1"]){ document.documentElement.dataset.theme=c["wb_theme_v1"]; if(typeof updateThemeBtn==="function") updateThemeBtn(); } }catch(e){}
+  try{ if(c["wb_taskhub_ui_v1"]){ const _o=JSON.parse(c["wb_taskhub_ui_v1"]); if(_o&&_o.collapsed) uiPrefs.collapsed=Object.assign({top:false,habit:false,list:false},_o.collapsed); if(_o.touched!==undefined) uiPrefs.touched=!!_o.touched; if(_o.topOpen!==undefined) uiPrefs.topOpen=!!_o.topOpen; } }catch(e){}
+  try{ if(c[WKEY]){ const w=JSON.parse(c[WKEY]); if(w&&typeof w==="object"){ widgetCfg=Object.assign({order:[],hidden:[],custom:[]},w); if(typeof applyWidgetLayout==="function") applyWidgetLayout(); } } }catch(e){}
+  try{ if(c["wb_taskhub_habit_style_v1"] && typeof applyHabitStyle==="function") applyHabitStyle(); }catch(e){}
+  try{ if(c["wb_taskhub_remind_v1"] && typeof loadRemind==="function") loadRemind(); }catch(e){}
+}
+
+function syncPayload(){ return {tasks:state.tasks, media, habits, cats, pris, lists, tagTree, projects:state.projects, okrs:state.okrs, anniv:state.anniv, deleted:deletedIds, cfg:collectCfg(), savedAt:Date.now()}; }   // R8：stats(完成流水缓存)不上云 —— 权威口径=任务 doneDates，可本地重建，避免每包 5000 条冗余
+
+/* R4 移植（对齐明信片 4106）：自锁下沉到函数内部。原先锁只在 withBusy 里置起，
+   而自动上传的三条路径（1.5s 防抖定时器 / flushSave / scheduleCloudRetry）不经过 withBusy，
+   两条上传可同时在飞：后写的整包 PATCH 覆盖先写的，先写方改动被静默吞掉一次（读改写窗口最宽 35s）。 */
+async function cloudUpload(silent, keepalive){
+  if(_cloudBusy){ _pendingUpload=true; return false; }   // 忙 → 排队，收尾统一补传
+  if(!keepalive) _cloudBusy=true;
+  try{ return await _cloudUploadInner(silent, keepalive); }
+  finally{ if(!keepalive) _cloudBusy=false; }
+}
+
+async function _cloudUploadInner(silent, keepalive){
+  if(!cloud.token||!cloud.gist){ if(!silent) setCloudStatus("请先填写 Token 与 Gist ID", true); return false; }
+  if(!silent) setCloudStatus("上传中…");
+  setCloudPill("syncing");
+  let phase="read";
+  try{
+    // 先读云端、把云端任务合并进本地，再整体写回 —— 杜绝「本地保存即整体覆盖云端」丢失另一设备改动（A-merge）
+    // H1 修复：读云端失败（网络不可达 / HTTP 非 2xx）→ 放弃本次上传，仅保留本地已落盘，
+    //          绝不拿「可能过旧的本地整包」覆盖云端（此前多次"数据消失"的共同机理）。
+    const r2=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 20000);
+    /* 修复：原 gistErrText 全文件无定义 → HTTP 非 2xx 时抛 ReferenceError「gistErrText is not defined」，
+       真实状态码与可行动建议全丢，且 scheduleCloudRetry 的 /HTTP 429/ 专项退避永远匹配不上。改用 SHARED 的 explainHttp。 */
+    if(!r2.ok){ const e2=new Error(explainHttp(r2.status,"上传")); e2.status=r2.status; throw e2; }
+    const d2=await r2.json();
+    const ff=d2.files&&d2.files["taskhub.json"];
+    if(ff&&ff.content){
+      // 编辑弹窗打开时不做云端合并：mergeTasksIntoLocal 会就地改写/删除 state.tasks，正在编辑的任务可能被移走（P0-2 的另一半）。
+      // 改为排队补传；设置弹窗不受影响（这里只拦任务编辑 #mask 与详情 #detailMask 两个数据弹窗）。
+      if(document.querySelector("#mask.show,#detailMask.show")){ _pendingUpload=true; setCloudPill("ok"); return false; }
+      const o2=JSON.parse(ff.content); mergeTasksIntoLocal(o2); if(Array.isArray(o2.habits)) habits=mergeHabits(habits, o2.habits, o2.deleted); if(o2.media) media=mediaMergeKeep(o2.media, o2.deleted);
+    }
+    phase="write";
+    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{
+      method:"PATCH",
+      headers:{"Authorization":authHeader(),"Content-Type":"application/json"},
+      body:JSON.stringify({files:{"taskhub.json":{content:JSON.stringify(syncPayload(),null,2)}}})
+    }, 15000);
+    if(!res.ok){ const e2=new Error(explainHttp(res.status,"上传")); e2.status=res.status; throw e2; }
+    const t=new Date().toLocaleTimeString();
+    // M4：把「本次同步云端改了什么」告诉用户 —— 静默覆盖不再无感知
+    const S=window.__lastMergeStats;
+    const mSum = (S && (S.cloudNew+S.cloudWin+S.deleted)>0)
+      ? (" · 云合并：新增 "+S.cloudNew+"，云端更新 "+S.cloudWin+"，本地保留 "+S.localKept+(S.deleted?"，云端删除 "+S.deleted:""))
+      : "";
+    if(!silent) setCloudStatus("上传成功 ✓ "+t+mSum);
+    else if(mSum){ const _n=Date.now(); if(_n-(window._lastCloudMergeToast||0)>30000){ window._lastCloudMergeToast=_n; toast("云同步"+mSum, "info"); } }
+    setCloudPill("ok");
+    markSynced();   // 上传成功同样算一次成功同步，刷新「最后同步」时间
+    if(_upRetryN>0){ _upRetryN=0; clearTimeout(_upRetryTimer); }   // O7：成功后重置重试计数
+  }catch(e){
+    if(phase==="read"){
+      // 读云端失败：放弃上传以保护云端数据。自动上传静默跳过等下次重试；手动上传明确提示。
+      setCloudPill("err");
+      if(!silent) setCloudStatus("无法读取云端，已放弃本次上传以避免覆盖云端数据，请稍后重试", true);
+      else { const _n=Date.now(); const _reason=(e&&e.message)?e.message:"未知错误"; window.__lastCloudReadErr=_reason; if(_n-(window._lastCloudErrToast||0)>30000){ window._lastCloudErrToast=_n; toast("云同步跳过：读取云端失败（"+_reason+"），本次不上传以保护数据", "warn"); } scheduleCloudRetry(/HTTP 429/.test(_reason)?30000:undefined); }
+      return;
+    }
+    setCloudPill("err");
+    if(!silent) setCloudStatus("上传失败："+(e&&e.message?e.message:e), true);
+    else { scheduleCloudRetry(); const _n=Date.now(); if(_n-(window._lastCloudErrToast||0)>30000){ window._lastCloudErrToast=_n; toast("云同步失败："+(e&&e.message?e.message:e)+"（将自动重试）", "danger"); } }
+  }
+}
+
+async function cloudDownload(){
+  if(_cloudBusy||_pullBusy){ toast("云同步正在进行中，请稍候","warn"); return; }
+  _pullBusy=true;
+  try{ return await _cloudDownloadInner(); } finally{ _pullBusy=false; }
+}
+
+async function _cloudDownloadInner(){
+  if(!cloud.token||!cloud.gist){ setCloudStatus("请先在设置中填写 Token 与 Gist ID", true); toast("请先在设置中填写 GitHub Token 与 Gist ID，再下载", "danger"); return; }
+  setCloudStatus("下载中…");
+  try{
+    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 15000);
+    if(!res.ok){ const e2=new Error(explainHttp(res.status,"下载")); e2.status=res.status; throw e2; }
+    const data=await res.json();
+    const _files=data.files||{};
+    let f=_files["taskhub.json"];
+    if(!f){ const _k=Object.keys(_files).find(k=>/\.(json|txt)$/i.test(k)); f=_k?_files[_k]:null; }
+    if(!f||!f.content){ setCloudStatus("云端暂无数据", true); toast("云端 Gist 还没有数据，请先点「上传到云端」", "danger"); return; }
+    const obj=JSON.parse(f.content);
+    // 新鲜度检测：本地比云端新时，覆盖会丢失本地未同步的改动，提前警告（B）
+    const localT=+(localStorage.getItem("wb_taskhub_local_savedAt_v1")||0);
+    const cloudT=obj.savedAt||0;
+    let warn="";
+    if(localT>0 && cloudT>0 && localT>cloudT){
+      warn="\n⚠️ 本地数据比云端更新（本地 "+new Date(localT).toLocaleString()+"，云端 "+new Date(cloudT).toLocaleString()+"）。覆盖将丢失本地尚未同步到云端的改动。";
+    }
+    if(!(await confirmDialog("将用云端数据覆盖本地任务 / 媒体进度 / 习惯，确认？"+warn,{danger:true}))){ setCloudStatus("已取消下载"); return; }
+    if(Array.isArray(obj.tasks)){ state.tasks=obj.tasks; save(); }
+    if(obj.media){ media=mediaMergeKeep(obj.media, obj.deleted); mediaSave(); }
+    if(Array.isArray(obj.habits)){ habits=mergeHabits(habits, obj.habits, obj.deleted); habitSave(); }
+    if(Array.isArray(obj.lists)){ lists=dropTombed("list", obj.lists, obj.deleted); listsSave(); }
+    if(Array.isArray(obj.cats)){ cats=obj.cats; catsSave(); }
+    if(Array.isArray(obj.pris)){ pris=obj.pris; prisSave(); }
+    if(Array.isArray(obj.tagTree)){ tagTree=obj.tagTree; saveTags(); }
+    if(Array.isArray(obj.projects)){ state.projects=obj.projects; projectsSave(); }
+    if(Array.isArray(obj.okrs)){ state.okrs=obj.okrs; okrsSave(); }
+    if(Array.isArray(obj.anniv)){ state.anniv=obj.anniv; annivSave(); }
+    deletedIds=(obj.deleted||[]).map(normTomb); deletedIdsSave();
+    rebuildCatPriSelects();
+    applyCfg(obj.cfg);   // M9：手动下载同步配置
+    setLocalSaveAt(obj.savedAt||Date.now());
+    setCloudStatus("下载成功 ✓ "+new Date().toLocaleString());
+    setCloudPill("ok");
+    renderAll();
+  }catch(e){ if(DEBUG)console.error("云下载失败：", e);
+    let msg=(e&&e.message)?e.message:e;
+    if(e&&e.name==="AbortError") msg="网络超时：无法在 15 秒内连接 GitHub（可能受网络限制）。可改用「离线恢复书签」一键恢复数据。";
+    else if(/Failed to fetch|NetworkError|Load failed/i.test(msg)) msg="网络不可达：浏览器无法连接 GitHub（可能受网络限制）。可改用「离线恢复书签」一键恢复数据。";
+    setCloudStatus("下载失败："+msg, true); toast("下载失败："+msg, "danger");
+  }
+}
+
+// 粘贴配置后专用：用户明确要「加入该云端」，应以云端数据为准做恢复，
+// 绝不能再走 cloudStartupPull 的时间戳合并——新设备本地是示例/默认数据、时间戳更新，
+// 会被误判为「本地更新」而把错误数据上传覆盖云端（用户反馈的「粘贴后自动上传错误默认数据」根因）。
+async function restoreFromCloudAfterPaste(){
+  if(!cloud.token||!cloud.gist){ setCloudStatus("配置未填好，无法拉取云端", true); return; }
+  setCloudStatus("正在连接云端…");
+  let data;
+  try{
+    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 15000);
+    if(!res.ok){ setCloudStatus("云端读取失败：HTTP "+res.status, true); toast("云端读取失败：HTTP "+res.status, "danger"); return; }
+    data=await res.json();
+  }catch(e){ let m=(e&&e.message)?e.message:e; if(e&&e.name==="AbortError") m="网络超时，无法连接 GitHub（可能受网络限制）"; setCloudStatus("云端读取失败："+m, true); toast("云端读取失败："+m, "danger"); return; }
+  const f=data.files&&data.files["taskhub.json"];
+  if(!f||!f.content){ setCloudStatus("云端暂无数据，已保留本机数据（如需备份请点「上传到云端」）"); setCloudPill("ok"); return; }
+  const obj=JSON.parse(f.content);
+  const ok=await confirmDialog("已填入云端配置。将用云端数据覆盖本机当前数据（包括本机的示例 / 默认任务），继续？\n如本机有尚未备份的重要改动，请先取消并点「上传到云端」。", {danger:true, ok:"用云端覆盖", cancel:"取消"});
+  if(!ok){ setCloudStatus("已取消，保留本机数据"); return; }
+  applyCloudObj(obj);
+  setLocalSaveAt(obj.savedAt||Date.now());
+  _bootSyncAllowed=true;   // 已证明云端可达且数据正确：放开自动上传（否则新设备粘贴配置后，一段时间内改动传不出去）
+  setCloudStatus("已从云端恢复数据 ✓ "+new Date().toLocaleTimeString());
+  setCloudPill("ok");
+  renderAll();
+}
+
+// O7：云同步失败指数退避重试（3s→6s→12s→24s→48s，最多 5 次后停止，避免网络长期不可达时风暴刷 GitHub）
+// G2（2026-10-23 修）：新增 minDelay 参数 —— 读云端失败分支传 429 专项退避 30000，此前定义无参被静默忽略，429 限流期仍按 3s 起步重试反而加剧限流
+function scheduleCloudRetry(minDelay){
+  if(_upRetryN>=5){
+    _upRetryN=0; clearTimeout(_upRetryTimer);
+    setCloudPill("err");
+    try{ toast("云同步多次失败，已停止自动重试。可稍后点「上传到云端」手动重试","danger"); }catch(_){}
+    return;
+  }
+  _upRetryN++;
+  const delay=Math.max(minDelay||0, Math.min(60000, 3000*Math.pow(2,_upRetryN-1)));
+  clearTimeout(_upRetryTimer);
+  _upRetryTimer=setTimeout(()=>{
+    _upRetryTimer=null;
+    if(cloud.token && cloud.gist && cloud.auto && _bootSyncAllowed && !_cloudBusy) cloudUpload(true);
+    else _upRetryN=0;
+  }, delay);
+}
+
+function cloudAutoUpload(){
+  if(_cloudBusy){ if(cloud.auto&&cloud.token&&cloud.gist) _pendingUpload=true; return; }   // 忙 → 排队，收尾统一补传（对齐明信片 4276）
+  if(!cloud.auto) return;
+  if(!cloud.token||!cloud.gist) return;
+  // 启动拉取未完成/失败前不自动上传（保护 Gist 不被空数据覆盖），但要记下「有待传改动」。
+  // 说明：当前各合并分支（情形 1/2/4）末尾都会调用 mediaSave/habitSave/... 间接触发上传，
+  // 所以多数情况下补传是「顺带」发生的，并非已知的丢数据缺陷。此处显式记录，是为了让
+  // 「拉取一旦恢复必补传」成为不依赖分支实现细节的硬保证（内容一致的分支不与任何 *Save() 相连）。
+  if(!_bootSyncAllowed){ _pendingUpload=true; return; }
+  if(_upTimer) clearTimeout(_upTimer);
+  _upTimer=setTimeout(()=>{ cloudUpload(true); }, 1500);   // 防抖：连续保存只触发一次上传
+}
+
+// 把云端对象应用为本地数据（统一入口，供启动拉取复用）
+function applyCloudObj(obj){
+  if(Array.isArray(obj.tasks)) state.tasks=obj.tasks;
+  if(obj.media) media=mediaMergeKeep(obj.media, obj.deleted);
+  if(Array.isArray(obj.habits)) habits=mergeHabits(habits, obj.habits, obj.deleted);
+  if(Array.isArray(obj.lists)) lists=dropTombed("list", obj.lists, obj.deleted);
+  if(Array.isArray(obj.cats)) cats=obj.cats;
+  if(Array.isArray(obj.tagTree)) tagTree=obj.tagTree;
+  if(Array.isArray(obj.pris)) pris=obj.pris;
+  if(Array.isArray(obj.projects)) state.projects=obj.projects;
+  if(Array.isArray(obj.okrs)) state.okrs=obj.okrs;
+  if(Array.isArray(obj.anniv)){ state.anniv=obj.anniv; annivSave(); }
+  deletedIds=(obj.deleted||[]).map(normTomb); deletedIdsSave();
+  const cloudT=obj.savedAt||0;
+  _markSave=false; saveQuiet(); mediaSave(); habitSave(); listsSave(); catsSave(); prisSave(); projectsSave(); okrsSave(); saveTags(); _markSave=true;
+  if(cloudT) setLocalSaveAt(cloudT);
+  rebuildCatPriSelects();
+  applyCfg(obj.cfg);   // M9：配置随云端一并落地（主题/偏好/模板/回顾…）
+}
+
+// 仅采用云端的「次级集合」(项目/目标/清单/习惯/媒体/分类/标签)，不动任务（任务已由 mergeTasksIntoLocal 逐条合并）
+function applyCloudSecondary(obj){
+  if(obj.media) media=mediaAdoptCloud(obj.media, obj.deleted);   // 媒体按 updated 取较新者：不再无脑云端优先，既防回退本地较新进度，也让手机端能看到电脑端更新
+  if(Array.isArray(obj.habits)) habits=mergeHabits(habits, obj.habits, obj.deleted);
+  if(Array.isArray(obj.lists)) lists=dropTombed("list", obj.lists, obj.deleted);
+  if(Array.isArray(obj.cats)) cats=obj.cats;
+  if(Array.isArray(obj.tagTree)) tagTree=obj.tagTree;
+  if(Array.isArray(obj.pris)) pris=obj.pris;
+  if(Array.isArray(obj.projects)) state.projects=obj.projects;
+  if(Array.isArray(obj.okrs)) state.okrs=obj.okrs;
+  if(Array.isArray(obj.anniv)){ state.anniv=obj.anniv; annivSave(); }
+  mediaSave(); habitSave(); listsSave(); catsSave(); prisSave(); projectsSave(); okrsSave(); saveTags();
+  rebuildCatPriSelects();
+}
+
+// 与 applyCloudSecondary（整文件覆盖）互补：仅把「云端有、本地缺」的次级项并入本地，
+// 同名项保留本地（localT>cloudT 时本地视为较新），用于启动拉取里「本地整体较新」分支，
+// 让手机端也能收到其他设备新建的项目/目标/清单/习惯等，而不必用旧云数据整体覆盖本地。
+function mergeCloudSecondaryUnion(obj){
+  const idk=x=>x&&x.id, namek=x=>x&&x.name;
+  const union=(loc,cloud,key)=>{
+    if(!Array.isArray(cloud)) return loc;
+    const m=new Map();
+    (loc||[]).forEach(x=>{ if(x) m.set(key(x), x); });
+    cloud.forEach(x=>{ if(!x) return; const k=key(x); if(!m.has(k)) m.set(k, x); });
+    return Array.from(m.values());
+  };
+  if(obj.media) media=mediaMergeKeep(obj.media, obj.deleted);
+  if(Array.isArray(obj.habits)) habits=mergeHabits(habits, obj.habits, obj.deleted);
+  if(Array.isArray(obj.lists)) lists=dropTombed("list", union(lists,obj.lists,idk), obj.deleted);
+  if(Array.isArray(obj.cats)) cats=union(cats,obj.cats,namek);
+  if(Array.isArray(obj.tagTree)) tagTree=union(tagTree,obj.tagTree,namek);
+  if(Array.isArray(obj.pris)) pris=union(pris,obj.pris,namek);
+  if(Array.isArray(obj.projects)) state.projects=union(state.projects,obj.projects,idk);
+  if(Array.isArray(obj.okrs)) state.okrs=union(state.okrs,obj.okrs,idk);
+  if(Array.isArray(obj.anniv)) mergeAnnivIntoLocal(obj);
+  mediaSave(); habitSave(); listsSave(); catsSave(); prisSave(); projectsSave(); okrsSave(); saveTags();
+  rebuildCatPriSelects();
+}
+
+// 逐任务合并：本地与云端按 id 对齐，updated 较大者胜（云端更新→采云端）；任一侧独有的任务都保留（并集）；
+// 删除用 tombstone 集合传播。墓碑带时间戳，遵循「最新操作胜出」：
+//  · 带时间戳的删除(ts>0) 仅当 任务.updated < ts（任务更旧）才生效 —— 用户之后编辑过的任务不会被旧删除抹掉；
+//  · 旧格式墓碑(ts=0，时间未知) 仅删除「从未被编辑过」(无 updated) 的任务，遇到已编辑任务则丢弃该墓碑，避免反复误杀。
+// 新设备演示任务(seed)在云端已有数据时自动丢弃，避免演示任务污染真实数据。
+function mergeTasks(localArr, cloudArr, cloudDeleted){
+  const cloudHas = (cloudArr||[]).length>0;
+  window.__lastMergeStats={cloudNew:0, cloudWin:0, localKept:0, deleted:0, at:Date.now()};   // M4：合并可见统计
+  const del=new Map();
+  const addDel=(o)=>{ const t=normTomb(o); if(t.id) del.set(t.id, t.ts); };
+  (deletedIds||[]).forEach(addDel); (cloudDeleted||[]).forEach(addDel);
+  const map=new Map();
+  (localArr||[]).forEach(t=>{
+    if(!t) return;
+    if(t.seed && cloudHas) return; // 演示任务在云端有数据时丢弃
+    const dts = del.has(t.id) ? del.get(t.id) : -1;
+    const remove = dts>0 ? ((t.updated||0) < dts)            // 时间戳删除：任务更旧才删
+                 : dts===0 ? (!t.updated)                     // 旧墓碑：仅删从未编辑过的任务
+                 : false;
+    if(remove) return;                          // 墓碑胜出 → 任务被删
+    if(dts===0 && t.updated) del.delete(t.id); // 旧墓碑遇到已编辑任务 → 丢弃该墓碑，避免后续同步反复误杀
+    map.set(t.id, t);
+  });
+  (cloudArr||[]).forEach(t=>{
+    if(!t || del.has(t.id)) return;
+    const cur=map.get(t.id);
+    if(!cur){ map.set(t.id, t); window.__lastMergeStats.cloudNew++; return; }   // 云端独有 → 并入本地
+    if((t.updated||0) > (cur.updated||0)){ map.set(t.id, t); window.__lastMergeStats.cloudWin++; } // 云端更新 → 采用云端
+    else window.__lastMergeStats.localKept++;                                     // 本地较新/同新 → 保留本地
+  });
+  deletedIds=Array.from(del.entries()).map(([id,ts])=>({id, ts}));
+  return Array.from(map.values());
+}
+
+function mergeTasksIntoLocal(obj){
+  const before=state.tasks.map(t=>String(t.id));
+  state.tasks = mergeTasks(state.tasks, obj.tasks, obj.deleted);
+  const after=new Set(state.tasks.map(t=>String(t.id)));
+  const gone=before.filter(id=>!after.has(id));
+  if(gone.length) dropHistoryOfIds(gone);   // 云端墓碑删掉的任务：顺手清掉它的完成流水（幽灵记录）
+  deletedIdsSave();
+  saveQuiet();
+}
+
+// 本地数据轻量签名：用于启动拉取时判断本地与云端是否真有内容分歧（避免单纯时间戳差异也弹窗）
+function mergeHabits(loc, cloud, cloudDeleted){
+  loc=(loc||[]); cloud=(cloud||[]);
+  const deadDays=kindTombMap("habitday", cloudDeleted);   // 已取消打卡的天（habitId:ymd）→ 墓碑时刻
+  /* 打卡时刻胜过墓碑：墓碑本无「新旧」概念，一旦写入就永久有效，于是「云端残留墓碑」会把用户
+     之后重新打的卡一路抹掉 —— 表现为「点了变绿、过会儿又变灰，这天永远打不上」（2026-09-26 实报）。
+     给每次打卡记 dayTs（该天的打卡时刻），合并时若打卡时刻 ≥ 墓碑时刻 ⇒ 视作用户主动重新打卡，
+     墓碑让位。旧数据没有 dayTs 时退化为原行为（墓碑胜出），保证向后兼容。 */
+  const fdays=(h, days)=>{
+    const hid=String((h&&h.id)||"");
+    if(!hid || !deadDays.size) return days||[];
+    const ts=(h&&h.dayTs)||{};
+    return (days||[]).filter(d=>{
+      const t=+(ts[d]||0), tomb=deadDays.get(hid+":"+d);
+      if(tomb===undefined) return true;   // 这天没有墓碑 → 保留
+      if(!t) return false;                // 旧数据没记打卡时刻 → 墓碑胜出（向后兼容）
+      return t>=tomb;                     // 打卡不早于墓碑 → 新打卡胜出
+    });
+  };
+  const m=new Map();
+  // 本地一侧也要过墓碑：否则「云端只带墓碑、不带该习惯」时本地那份会被原样保留（墓碑失效）
+  loc.forEach(h=>{ if(h){ const cp=JSON.parse(JSON.stringify(h)); cp.days=fdays(cp, cp.days); m.set(h.id, cp); } });
+  cloud.forEach(h=>{
+    if(!h) return;
+    const cur=m.get(h.id);
+    if(!cur){ const nh=JSON.parse(JSON.stringify(h)); nh.days=fdays(nh, nh.days); m.set(h.id, nh); return; }
+    const ds=new Set((cur.days||[]).concat(h.days||[]));
+    // dayTs 合并：同一天取较晚时刻（较新的一次打卡动作胜出）
+    const ta=cur.dayTs||{}, tb=h.dayTs||{}, tm=Object.assign({}, ta);
+    Object.keys(tb).forEach(k=>{ if(!(k in tm) || +((tb[k])||0) > +((tm[k])||0)) tm[k]=tb[k]; });
+    const lu=+(cur.updated||0), cu=+(h.updated||0);
+    if(cu>lu){ const {days, archived, paused, ...rest}=h; Object.assign(cur, rest); }  // 归档/暂停不同步：避免云端旧状态把本端活动习惯藏进归档
+    cur.dayTs=tm;   // 必须在 Object.assign 之后：rest 含 dayTs，会整体覆盖掉刚合好的 tm
+    cur.days=fdays(cur, Array.from(ds).sort());
+  });
+  // 删除传播：并集只增不减，本地删掉的习惯/取消的打卡若云端或其他设备仍持有会被并回 → 墓碑胜出
+  return dropTombed("habit", Array.from(m.values()), cloudDeleted);
+}
+
+// 媒体看板签名：dataSig 此前完全不含媒体 → 「本地与云端仅媒体有差异」会被判为情形 3「已是最新」而整段跳过合并，
+// 于是另一台设备新增/删除的媒体条目永远落不到本端（删除传播也失效）。补进签名后此类差异会走正常合并分支。
+function mediaSig(m){
+  const one=a=>(a||[]).map(x=>[x.id,x.current,x.total,x.done?1:0,x.title||""]).sort((p,q)=>String(p[0]).localeCompare(String(q[0])));   // 2026-10-19：签名补 title——只改媒体标题（不改进度）时签名也要变，否则该修改被「内容一致」判据吞掉、永远同步不出去
+  const mm=m||{};
+  return one(mm.books).concat(one(mm.tvs),one(mm.auds));
+}
+
+function dataSig(){
+  const s=x=>JSON.stringify(x||[]);
+  return [
+    state.tasks.length,(habits||[]).length,(lists||[]).length,(cats||[]).length,(pris||[]).length,(tagTree||[]).length,(state.projects||[]).length,(state.okrs||[]).length
+  ].join(",")+"|"+s(state.tasks.map(t=>[t.id,t.done,t.updated||JSON.stringify(t.doneAt||null)||"",t.title||""]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))
+   +"|"+s((habits||[]).map(h=>[h.id,(h.days||[]).length]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))
+   +"|"+s(mediaSig(media));
+}
+
+function dataSigOf(obj){
+  const s=x=>JSON.stringify(x||[]);
+  const tasks=obj.tasks||[], habits=obj.habits||[], lists=obj.lists||[], cats=obj.cats||[], pris=obj.pris||[], tagTree=obj.tagTree||[], projects=obj.projects||[], okrs=obj.okrs||[];
+  return [
+    tasks.length,habits.length,lists.length,cats.length,pris.length,tagTree.length,projects.length,okrs.length
+  ].join(",")+"|"+s(tasks.map(t=>[t.id,t.done,t.updated||JSON.stringify(t.doneAt||null)||"",t.title||""]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))
+   +"|"+s(habits.map(h=>[h.id,(h.days||[]).length]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))
+   +"|"+s(mediaSig(obj.media));
+}
+
+async function cloudStartupPull(silent){
+  if(_cloudBusy||_pullBusy){ window.__pullOk=false; return; }   // 与上传/手动下载互斥；被挡下也要重置成败标志，防调用方误判成功
+  _pullBusy=true;
+  try{ return await _cloudStartupPullInner(silent); } finally{ _pullBusy=false; }
+}
+
+async function _cloudStartupPullInner(silent){
+  window.__pullOk=false;   // 供静默轮询判定本次拉取成败（本函数内部自行 catch，不向外抛错）
+  try{
+    if(!silent) setCloudPill("syncing");   // 拉取中给可见反馈（静默轮询不闪灯，避免每 15s 抖动）
+    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 20000);
+    if(!res.ok){ const e2=new Error(explainHttp(res.status,"读取")); e2.status=res.status; throw e2; }   // H2：云不可达/认证失败 → 走 catch，不放开自动上传（原 gistErrText 未定义，已修）
+    _bootSyncAllowed=true;   // 云可达且有数据，启动期内的自动上传/落盘上传均放开
+    window.__pullOk=true;
+    const data=await res.json();
+    const f=data.files&&data.files["taskhub.json"];
+    if(!f||!f.content){ setCloudPill("ok"); return; }
+    const obj=JSON.parse(f.content);
+    const localT=+(localStorage.getItem("wb_taskhub_local_savedAt_v1")||0);
+    const cloudT=obj.savedAt||0;
+    const localEmpty = !state.tasks.length && !(habits&&habits.length) && !(lists&&lists.length) && !(cats&&cats.length) && !(pris&&pris.length) && !(tagTree&&tagTree.length) && !(state.projects&&state.projects.length) && !(state.okrs&&state.okrs.length) && !(media&&media.books&&media.books.length) && !(media&&media.tvs&&media.tvs.length) && !(media&&media.auds&&media.auds.length);
+    // 情形 1：新实例 / 云端无时间戳 → 直接采用云端（静默）
+    if(localEmpty || cloudT===0){ applyCloudObj(obj); setCloudPill("ok"); setCloudStatus("已从云端恢复数据 ✓ "+new Date().toLocaleTimeString()); renderAll(); return; }
+    // 逐任务合并（始终安全、非破坏）：云端较新的任务覆盖本地，本地独有任务保留，删除经 tombstone 传播
+    const beforeSig=dataSig();
+    mergeTasksIntoLocal(obj);
+    renderAll();
+    // 次级集合沿用旧的整文件语义，避免引入新的分叉/丢失本地独有项
+    if(localT>cloudT){
+      // 情形 2：本地整体较新 → 任务已合并；次级集合改走「并集并入」，把云端新增项收进来（保留本地已有项，不整体覆盖）
+      mergeCloudSecondaryUnion(obj); renderAll();
+      setCloudPill("ok"); if(!silent) setCloudStatus("已合并云端任务 ✓ "+new Date().toLocaleTimeString());
+    } else if(beforeSig===dataSigOf(obj)){
+      // 情形 3：内容完全一致 → 无需处理（静默轮询不再重复落盘/上传）
+      setCloudPill("ok"); if(!silent) setCloudStatus("已是最新 ✓ "+new Date().toLocaleTimeString());
+    } else {
+      // 情形 4：内容分歧且本地不更新 → 采用云端的次级集合（任务已先合并，不会丢失本地独有任务）
+      applyCloudSecondary(obj); renderAll();
+      setCloudPill("ok"); if(!silent) setCloudStatus("已合并云端更新 ✓ "+new Date().toLocaleTimeString());
+    }
+  }catch(e){
+    const _m=(e&&e.name==="AbortError")?"网络超时（20 秒内未连上 GitHub）":((e&&e.message)?e.message:String(e));
+    window.__lastPullErr=_m;
+    if(DEBUG)console.error("启动时云拉取失败：", e);
+    setCloudPill("err");
+    // 首拉失败此前「只置红灯、无任何提示」，是「一直同步失败却查不出原因」的主因。
+    // 这里低频（60s 节流）把真实原因弹给用户，并写入状态灯悬浮提示，便于自查。
+    try{
+      const _el=document.getElementById("cloudPill");
+      if(_el) _el.title="云同步失败："+_m+"（后台自动重试中，最后尝试 "+new Date().toLocaleTimeString()+"）";
+      const _n=Date.now();
+      if(_n-(window.__lastPullErrToast||0)>60000){ window.__lastPullErrToast=_n; toast("云同步失败："+_m+"（后台自动重试中）","danger"); }
+    }catch(_){}
+  }
+}
+
+function markSynced(){
+  try{
+    window.__lastSyncAt=Date.now();
+    const el=document.getElementById("cloudPill");
+    if(el) el.title="最后同步 "+new Date(window.__lastSyncAt).toLocaleTimeString();
+  }catch(_){}
+}
+
+async function cloudSilentPull(){
+  if(!cloud.token||!cloud.gist) return;
+  if(_pullBusy) return;                            // 防并发拉取
+  if(document.visibilityState==="hidden") return;   // 后台不轮询：省电 + 省 GitHub API 配额，切回前台会立即补拉
+  if(document.querySelector(".mask.show:not(#introMask)")) return;  // 弹窗操作中不打扰（欢迎引导框不计入，避免首启时阻断后台自愈轮询）
+  if(_pullFailN>0 && Date.now()-(window.__lastPullTry||0) < Math.min(120000, 15000*Math.pow(2,_pullFailN-1))) return; // 失败退避 15→30→60→120s
+  window.__lastPullTry=Date.now();
+  _pullBusy=true;
+  try{
+    await _cloudStartupPullInner(true);   // 本函数已自置 _pullBusy，须调内层（薄壳会直接 return）
+    if(window.__pullOk){
+      _pullFailN=0; markSynced();
+      // 自愈补传：此前被 _bootSyncAllowed 拦下的改动在此刻补传（cloudUpload 先读云端再合并写回，不会覆盖其他设备数据）
+      if(_pendingUpload){ _pendingUpload=false; cloudAutoUpload(); }
+    } else { _pullFailN=Math.min(6,_pullFailN+1); }
+  }catch(e){ _pullFailN=Math.min(6,_pullFailN+1); }
+  finally{ _pullBusy=false; }
+}
 
 /* ===== L7 Boot · P1-9 分层（2026-10-23）===== */
+function loadRemind(){
+  try{ const r=localStorage.getItem("wb_taskhub_remind_v1");
+    if(r){ const o=JSON.parse(r); remind={on:!!o.on, lead:o.lead||10, reminded:Array.isArray(o.reminded)?o.reminded:[]}; }
+  }catch(e){}
+}
+
+function saveRemind(){
+  try{
+    const KEY="wb_taskhub_remind_v1";
+    // O15：写入前与已存值合并去重，避免多标签页各自覆盖导致重复 / 漏提醒
+    try{ const ex=JSON.parse(localStorage.getItem(KEY)||"null"); if(ex&&Array.isArray(ex.reminded)){ const set=new Set(remind.reminded); ex.reminded.forEach(k=>set.add(k)); remind.reminded=Array.from(set); } }catch(e){}
+    localStorage.setItem(KEY, JSON.stringify(remind));
+  }catch(e){}
+}
+
+function pushRemindPlan(){
+  try{
+    if(typeof caches==="undefined") return;                 // 非 https / 不支持的环境静默跳过
+    const now=new Date(), end=new Date(now.getTime()+12*3600*1000);
+    const items=getInstances(now,end)
+      .filter(i=>!isDone(i) && !i.dropped && i.start>now)   // 「不补做」不进提醒计划
+      .map(i=>({key:i.task.id+"|"+ymd(i.date), title:i.task.title, at:i.start.getTime(),
+                body:fmtRange(i.start,i.end)+" · "+(i.task.cat||"")}));
+    caches.open("wb-remind-plan").then(function(c){
+      return c.put("plan", new Response(JSON.stringify({items, at:Date.now()}),
+        {headers:{"Content-Type":"application/json"}}));
+    }).catch(function(){});
+  }catch(e){}
+}
+
+function checkReminders(){
+  if(!("Notification" in window) || Notification.permission!=="granted") return;
+  const now=new Date(), end=new Date(now.getTime()+remind.lead*60000);
+  const insts=getInstances(now, end);
+  for(const i of insts){
+    if(isDone(i) || i.dropped) continue;   // 「不补做」不发通知
+    const diff=i.start-now;
+    if(diff>=0 && diff<=remind.lead*60000){
+      const key=i.task.id+"|"+ymd(i.date);
+      if(!remind.reminded.includes(key)){
+        try{ new Notification("任务提醒 · "+i.task.title, {body:fmtRange(i.start,i.end)+" · "+i.task.cat}); }catch(e){}
+        remind.reminded.push(key);
+      }
+    }
+  }
+  const cut=new Date(now.getTime()-7*DAY);
+  remind.reminded=remind.reminded.filter(k=>new Date(k.split("|")[1])>=cut);
+  if(remind.reminded.length>500) remind.reminded=remind.reminded.slice(-500); // 硬上限，防止极端情况下数组无限增长
+  checkHabitReminders();
+  pushRemindPlan();   // M2：同步最新计划给后台 SW（页面开着也顺带刷新，SW 到点可立即投递）
+  saveRemind();
+}
+
+function startReminderLoop(){
+  if(remindTimer){ clearInterval(remindTimer); remindTimer=null; }
+  if(remind.on && "Notification" in window && Notification.permission==="granted"){ checkReminders(); remindTimer=setInterval(checkReminders,30000); }
+}
+
+function updateRemindBtn(){
+  const b=document.getElementById("btnRemind");
+  const lead=document.getElementById("fLead"); if(lead){ lead.value=String(remind.lead); lead.classList.toggle("lead-disabled", !remind.on); }
+  const bell='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
+  if(remind.on){ b.innerHTML=bell+" 提醒 开"; b.classList.add("on-remind"); b.classList.remove("btn-remind-off"); }
+  else { b.innerHTML=bell+" 提醒 关"; b.classList.remove("on-remind"); b.classList.add("btn-remind-off"); }
+}
+
+function toggleRemind(){
+  if(!("Notification" in window)){ toast("当前浏览器不支持通知"); return; }
+  if(!remind.on){
+    Notification.requestPermission().then(p=>{
+      if(p==="granted"){ remind.on=true; saveRemind(); startReminderLoop(); updateRemindBtn(); toast("提醒已开启"); }
+      else toast("未获得通知权限");
+    });
+  } else { remind.on=false; saveRemind(); startReminderLoop(); updateRemindBtn(); toast("提醒已关闭"); }
+}
 /* 视图名常量枚举：单一事实源，避免散落字符串拼写错误静默失效（审计 B1）*/
 const VIEWS = {
   TODAY:"today", MONTH:"month", WEEK:"week", DAY:"day", GANTT:"gantt",
@@ -9728,100 +11251,15 @@ const DONE_AT_CSS="background:var(--ok);color:#fff";
 /* ===== 自然语言输入解析 ===== */
 
 /* ===== 拖拽改期 ===== */
-// 时间轴（周/日）事件：纵向拖改时间，周视图可横向拖改天
-function attachEvDrag(ev, isWeek){
-  ev.style.touchAction="none";
-  ev.addEventListener("pointerdown", e=>{
-    e.stopPropagation();
-    const t=state.tasks.find(x=>x.id===ev.dataset.id); if(!t) return;
-    const rec = t.recurrence && t.recurrence.freq!=="none";
-    const instDate = parseLocal(ev.dataset.date+"T00:00");
-    const base = parseLocal(t.start);
-    let sDT, eDT;
-    if(rec){
-      const ov=getRecOverride(t, instDate);
-      const _os2=ov&&ov.start ? parseLocal(ov.start) : null;
-      sDT = (_os2 && !isNaN(_os2.getTime())) ? _os2 : new Date(instDate.getFullYear(),instDate.getMonth(),instDate.getDate(),base.getHours(),base.getMinutes());   // G6：非法 override 回落模板锚点
-      const _oe2=ov&&ov.end ? parseLocal(ov.end) : null;
-      eDT = (_oe2 && !isNaN(_oe2.getTime())) ? _oe2 : new Date(sDT.getTime()+(parseLocal(t.end)-base));
-    } else { sDT=parseLocal(t.start); eDT=parseLocal(t.end); }
-    const origTop=(sDT.getHours()+sDT.getMinutes()/60)*44;
-    const sy=e.clientY, sx=e.clientX; let moved=false;
-    try{ ev.setPointerCapture(e.pointerId); }catch(_){}
-    const mv=ev2=>{
-      const dy=ev2.clientY-sy, dx=ev2.clientX-sx;
-      if(Math.abs(dy)+Math.abs(dx)>4) moved=true;
-      ev.style.top=(origTop+dy)+"px";
-      if(isWeek) ev.style.transform="translateX("+dx+"px)";
-    };
-    const up=ev2=>{
-      ev.removeEventListener("pointermove",mv); ev.removeEventListener("pointerup",up);
-      ev.style.transform="";
-      if(!moved) return;
-      tlSuppressClick=true;   // P1-10：抑制标志改挂模块级变量（原 ev._suppressClick 随 DOM 重建即丢，且依赖逐元素 onclick 存在）
-      /* G5（2026-10-23 修）：拖拽后若浏览器因目标节点已脱离文档而不派生合成 click，标志无人消费会滞留，
-         用户下一次点任意事件块被静默吞掉一次。宏任务兜底复位：若合成 click 正常到来它先行消费，此复位无害。 */
-      setTimeout(()=>{ tlSuppressClick=false; },0);
-      snapshot();   // P1-6：日/周视图拖拽改期此前不可撤销
-      const dy=ev2.clientY-sy, dx=ev2.clientX-sx;
-      const dm=Math.round(dy/44*60/15)*15; // 吸附 15 分钟
-      let deltaDays=0;
-      if(isWeek){ const col=ev.closest(".tcol"); const cw=col?col.offsetWidth:120; deltaDays=Math.round(dx/cw); }
-      const shift=deltaDays*DAY + dm*60000;
-      if(rec){
-        if(deltaDays!==0){
-          moveRecInstance(t, instDate, deltaDays);
-          toast("已把该日任务移到 "+(deltaDays>0?deltaDays+" 天后":"-"+-deltaDays+" 天前"));
-        } else {
-          const ns=new Date(sDT.getTime()+shift), ne=new Date(eDT.getTime()+shift);
-          setRecOverride(t, instDate, {start:toStr(ns), end:toStr(ne)});
-          toast("已调整该日任务时间");
-        }
-      } else {
-        t.start=toStr(new Date(sDT.getTime()+shift));
-        t.end=toStr(new Date(eDT.getTime()+shift));
-        toast("已改期");
-      }
-      touchTask(t); save(); renderAll();
-    };
-    ev.addEventListener("pointermove",mv); ev.addEventListener("pointerup",up);
-  });
-}
-// 月视图任务块：拖到其它日期格 → 整体平移 N 天
-function attachChipDrag(ch){
-  ch.addEventListener("pointerdown", e=>{
-    if(e.pointerType==="mouse" && e.button!==0) return;
-    e.stopPropagation();
-    const id=ch.dataset.id, orig=ch.dataset.date;
-    const sx=e.clientX, sy=e.clientY; let moved=false, hover=null;
-    try{ ch.setPointerCapture(e.pointerId); }catch(_){}
-    const mv=ev2=>{
-      const dx=ev2.clientX-sx, dy=ev2.clientY-sy;
-      if(Math.abs(dx)+Math.abs(dy)>4) moved=true;
-      ch.style.transform="translate("+dx+"px,"+dy+"px)"; ch.style.zIndex=20; ch.style.position="relative";
-      const el=document.elementFromPoint(ev2.clientX,ev2.clientY);
-      const cell=el&&el.closest?el.closest(".dcell"):null;
-      if(hover&&hover!==cell) hover.classList.remove("drop");
-      if(cell&&cell.dataset.day!==orig){ cell.classList.add("drop"); hover=cell; } else hover=null;
-    };
-    const up=ev2=>{
-      ch.removeEventListener("pointermove",mv); ch.removeEventListener("pointerup",up);
-      ch.style.transform=""; ch.style.zIndex=""; ch.style.position="";
-      if(hover) hover.classList.remove("drop");
-      if(moved && hover){
-        const deltaDays=Math.round((parseLocal(hover.dataset.day+"T00:00")-parseLocal(orig+"T00:00"))/DAY);
-        if(deltaDays) applyDayShift(id, deltaDays, orig);
-        ch._suppressClick=true;
-      }
-    };
-    ch.addEventListener("pointermove",mv); ch.addEventListener("pointerup",up);
-  });
-}
 
 /* ===== 持久化 ===== */
 /* 本地最近保存时间：用于云同步启动冲突检测（种子数据不记录） */
 let _markSave=true;
-/* S1（2026-10-23 修）：数据版本号声明提前到 markLocalSave 之前 —— markLocalSave 现在也自增版本号。
+/* S1（2026-10-23 修；2026-10-24 描述订正）：_dataVer 初始化为顶层 var 语句，
+   保证在任何会自增它的代码执行前完成初始化 —— markLocalSave 现在也自增版本号。
+   ⚠️ P1-9 分层后 markLocalSave 已归组进 L2 区、源码位置在本行之前；但函数声明整体提升，
+   求值时机由「可执行语句顺序」决定、与源码位置无关，该顺序由守卫 G10（语句骨架不变）看守。
+   切勿照本注释把函数重新排回来——那会与 P1-9 位移直接冲突。
    背景：P2-5 的 snapshot 短路前提是「所有数据变更都走 save/saveQuiet/saveNow」，但
    media/habit/lists/proj/okr/anniv/tag/widget 各域 saver 只调 markLocalSave、不增版本 →
    这些域编辑后 snapshot() 被 10109 误跳过 → 撤销快照缺级、Ctrl+Z 跨域连坐回滚。
@@ -9968,31 +11406,6 @@ const Lunar=(function(){
   return { text, toLunar:solar2lunar, toSolar, lunarMD };
 })();
 let _annivBound=false;
-function bindAnnivModalOnce(){
-  if(_annivBound) return; _annivBound=true;
-  const save=document.getElementById("btnAnnivSave"); if(save) save.onclick=saveAnnivModal;
-  const cancel=document.getElementById("btnAnnivCancel"); if(cancel) cancel.onclick=closeAnnivModal;
-  const m=document.getElementById("annivMask"); if(m) m.addEventListener("click", e=>{ if(e.target.id==="annivMask") closeAnnivModal(); });
-  const da=document.getElementById("aDate"); if(da) da.addEventListener("input", updateAnnivLunar);
-  const ca=document.getElementById("aCal"); if(ca) ca.addEventListener("change", updateAnnivLunar);
-  window.addEventListener("keydown", e=>{ if(e.key==="Escape"){ const mm=document.getElementById("annivMask"); if(mm&&mm.classList.contains("show")) closeAnnivModal(); } });
-}
-function openAnnivModal(id){
-  bindAnnivModalOnce();
-  const a = id ? (state.anniv||[]).find(x=>x.id===id) : null;
-  document.getElementById("aId").value = id||"";
-  document.getElementById("aName").value = a?a.name:"";
-  document.getElementById("aCat").value = a?a.cat:ANNIV_CATS[0].name;
-  document.getElementById("aDate").value = a&&a.date ? String(a.date).slice(0,10) : ymd(startOfDay(new Date()));
-  document.getElementById("aCal").value = a? (a.calType||"solar") : "solar";
-  document.getElementById("aYearly").checked = a? !!a.yearly : true;
-  document.getElementById("aNote").value = a?a.note:"";
-  document.getElementById("annivModalTitle").textContent = a?"编辑纪念日":"新建纪念日";
-  updateAnnivLunar();
-  document.getElementById("annivMask").classList.add("show");
-  setTimeout(()=>{ try{ document.getElementById("aName").focus(); }catch(_){} },50);
-}
-function closeAnnivModal(){ const m=document.getElementById("annivMask"); if(m) m.classList.remove("show"); }
 
 
 /* ===== 顶部 widget 可配置化（今天要处理 / 习惯打卡 / 待办清单 + 自定义卡） ===== */
@@ -10005,20 +11418,6 @@ let dragWid=null, dragDropBefore=false;
 document.addEventListener("click",function(e){ if(!(e.target&&e.target.closest&&e.target.closest(".w-more-wrap"))) closeWMenus(); });
 document.addEventListener("keydown",function(e){ if(e.key==="Escape") closeWMenus(); });
 
-function bindWidgetDrag(node, wid){
-  if(node.__dragBound) return; node.__dragBound=true; // 守卫：容器节点在重渲染时不被替换，重复 bind 会累积监听器（拖放时重复触发）
-  const grip=node.querySelector(".w-ctrl .grip");
-  if(grip) grip.addEventListener("mousedown",()=>node.setAttribute("draggable","true"));
-  node.addEventListener("dragstart",e=>{ dragWid=wid; node.classList.add("dragging"); try{e.dataTransfer.effectAllowed="move";}catch(_){} });
-  node.addEventListener("dragend",()=>{ node.removeAttribute("draggable"); node.classList.remove("dragging"); document.querySelectorAll("#widgetRow .panel,#widgetRow .custom-card").forEach(c=>c.classList.remove("drop-before","drop-after")); });
-  node.addEventListener("dragover",e=>{ if(dragWid===wid)return; e.preventDefault(); const r=node.getBoundingClientRect(); dragDropBefore=(e.clientX-r.left)<r.width/2; node.classList.toggle("drop-before",dragDropBefore); node.classList.toggle("drop-after",!dragDropBefore); });
-  node.addEventListener("dragleave",()=>node.classList.remove("drop-before","drop-after"));
-  node.addEventListener("drop",e=>{ e.preventDefault(); const tgt=wid; if(dragWid&&tgt!==dragWid) dropWidget(dragWid,tgt); node.classList.remove("drop-before","drop-after"); node.removeAttribute("draggable"); });
-}
-function bindCustomCard(node,wid){
-  bindWidgetDrag(node,wid);
-  node.querySelectorAll(".w-ctrl button").forEach(b=>b.addEventListener("click",e=>{ e.stopPropagation(); handleCtrlAct(b.dataset.act, wid, b); }));
-}
 let editingWid=null;
 /* ===== 功能卡（自动统计）预设 ===== */
 const FUNC_PRESETS=[
@@ -10074,63 +11473,7 @@ const TODAY_SEC_HEAD=(label, n, cls, actionHtml)=>`<div class="today-sec-h" data
    避免每次重绘都全量重新绑定。⚠️ 必须限定作用域：#view 里其他视图也有 data-done 等同名属性，
    故整页侧用 .today-page 收口，防止误触发别的渲染器。 */
 let __todayDelegated=false;
-function handleTodayClick(e, rerender){
-  const el=e.target; if(!el || !el.closest) return;
-  const dall=el.closest("[data-deferall]"); if(dall){ deferOverdueAllToday(); return; }   // 逾期分区头「全部顺延到今天」
-  const done=el.closest("[data-done]");      if(done){ toggleDone(done.dataset.done, done.dataset.date); return; }
-  const rest=el.closest("[data-restore]");   if(rest){ restoreTask(rest.dataset.restore, rest.dataset.date); return; }
-  const sk=el.closest("[data-skip]");        if(sk){ skipTask(sk.dataset.skip, sk.dataset.date); return; }
-  const df=el.closest("[data-defer]");       if(df){ openDeferFromCard(df.dataset.id, df.dataset.date); return; }
-  const so=el.closest("[data-subopen]");     if(so){ const id=so.dataset.subopen; if(subOpenIds.has(id)) subOpenIds.delete(id); else subOpenIds.add(id); persistSubOpen(); rerender(); return; }
-  const st=el.closest("[data-subtick]");     if(st){
-    const t=state.tasks.find(x=>x.id===st.dataset.subtick); if(!t) return;
-    const s=(t.subtasks||[]).find(x=>x.id===st.dataset.sid); if(!s) return;
-    const date=st.dataset.date;
-    const beforeAll=t.subtasks.every(x=>subIsDone(t,x,date));
-    snapshot();
-    subToggle(t, s, date);
-    syncDoneFromSubtasks(t, date, beforeAll);
-    touchTask(t);   /* G1（2026-10-23 修）：勾选改变了任务数据但不更新 updated → mergeTasks 按整条 last-writer-wins，他端旧副本会把勾选静默回吞 */
-    save();
-    rerender(); return;
-  }
-  const tc=el.closest(".tagchip");           if(tc){
-    state.filter={q:tc.dataset.tag, cat:"", pri:"", tag:""};
-    document.getElementById("fSearch").value=tc.dataset.tag;
-    document.getElementById("fCat").value=""; document.getElementById("fPri").value=""; document.getElementById("fTag").value="";
-    document.getElementById("fClear").style.display="inline-flex";
-    renderAll(); return;
-  }
-  const ds=el.closest("[data-donesec]");     if(ds){ todayDoneExpanded=!todayDoneExpanded; todayUiSet("done",todayDoneExpanded); rerender(); return; }
-  const op=el.closest("[data-open]");
-  if(op && !el.closest(".today-acts,.subtoggle,[data-subtick],.tagchip")){ openTaskDetail(op.dataset.open, op.dataset.openDate); }
-}
-function bindTodayDelegation(){
-  if(__todayDelegated) return;
-  const list=document.getElementById("todayList");
-  const view=document.getElementById("view");
-  const onFocusIn=e=>{ const b=e.target.closest && e.target.closest(".btn-sec"); if(b) b.setAttribute("aria-hidden","false"); };
-  const onFocusOut=e=>{ const b=e.target.closest && e.target.closest(".btn-sec"); if(b) b.setAttribute("aria-hidden","true"); };
-  if(list){
-    list.addEventListener("click", e=>handleTodayClick(e, renderToday));
-    list.addEventListener("focusin", onFocusIn);
-    list.addEventListener("focusout", onFocusOut);
-  }
-  if(view){
-    view.addEventListener("click", e=>{ if(!e.target.closest(".today-page")) return; handleTodayClick(e, renderAll); });
-    view.addEventListener("focusin", e=>{ if(!e.target.closest(".today-page")) return; onFocusIn(e); });
-    view.addEventListener("focusout", e=>{ if(!e.target.closest(".today-page")) return; onFocusOut(e); });
-  }
-  __todayDelegated=true;
-}
 
-/* 顶部 widget 头部的「密度 / 最大化」：空态也必须绑定，否则首次进入空列表时按钮是死的 */
-function bindTodayHeader(){
-  const densBtn=document.getElementById("todayDensityBtn");
-  if(densBtn){ densBtn.textContent = todayDensity==="compact" ? "简" : "详"; densBtn.onclick=()=>{ todayDensity = todayDensity==="compact"?"detail":"compact"; todayUiSet("dens",todayDensity); renderToday(); }; }
-  const maxBtn=document.getElementById("todayMaxBtn");
-  if(maxBtn){ maxBtn.onclick=()=>{ todayMax=!todayMax; todayUiSet("max",todayMax); const p=document.querySelector('.toppanel[data-wid="today"]'); if(p) p.classList.toggle('today-max', todayMax); renderToday(); }; }
-}
 /* ===== 今日页分区主体：顶部 widget 与底部整页**共用同一份渲染** =====
    此前 renderToday / renderTodayPage 各自写了一遍「逾期 / 今天 / 已完成」的拼接、空态判断与空态文案，
    改一处忘另一处就会出不一致（本文件已因 emptyState 重复定义、formDirtyTask 漏字段踩过同类坑）。 */
@@ -10138,18 +11481,6 @@ function bindTodayHeader(){
    此前今日页自身没有任何新建入口，空态文案却让用户「点上方『新建任务』」——
    在底部整页要滚回顶部才能建任务，而"随手记一条"恰恰是每天最频繁的动作。
    输入走 parseNL：`明天9点 #求职 p1 @电脑` 一行录入，回车即建。 */
-/* 输入框回车提交（keydown 而非 form submit：少一个活动部件，且委托到两个常驻容器即可） */
-function bindQuickAdd(root){
-  if(!root) return;
-  const inp=root.querySelector("[data-qa-input]");
-  if(!inp || inp.__qaBound) return;
-  inp.__qaBound=true;
-  inp.addEventListener("keydown", e=>{
-    if(e.key!=="Enter") return;
-    e.preventDefault();
-    if(quickAddTask(inp.value)) inp.value="";
-  });
-}
 
 
 
@@ -10158,30 +11489,11 @@ function bindQuickAdd(root){
 
 /* 任务详情：点击今日任务项打开只读预览，可跳编辑 / 完成 / 不补做 / 子任务勾选 */
 let detailId=null, detailDate=null;
-function openTaskDetail(id, date){
-  const t=state.tasks.find(x=>x.id===id);
-  if(!t){ toast("任务不存在或已删除"); return; }
-  detailId=id;
-  detailDate = date || (noDate(t) ? "" : ymd(startOfDay(new Date())));
-  renderTaskDetail();
-  document.getElementById("detailMask").classList.add("show");
-}
-function closeTaskDetail(){ const m=document.getElementById("detailMask"); if(m) m.classList.remove("show"); detailId=null; detailDate=null; }
 
 
 /* ===== 完成时间（补打卡 / 事后修正实际完成时刻）=====
    场景：任务做完了但当时忘了点完成，隔一阵才补打卡；或打卡时间不准需要改。
    数据落点不变——普通任务写 t.doneAt.self，重复任务写 t.doneAt[发生日] + t.doneDates。 */
-// 一次性绑定（完成时间区块是静态 DOM，不会随渲染重建）
-function bindDoneAtField(){
-  const d=document.getElementById("f_done_date"), t=document.getElementById("f_done_time");
-  if(d) d.addEventListener("change", ()=>applyDoneTime());
-  if(t) t.addEventListener("change", ()=>applyDoneTime());
-  const p=document.getElementById("btnDonePrev"); if(p) p.onclick=()=>shiftDoneDate(-1);
-  const n=document.getElementById("btnDoneNext"); if(n) n.onclick=()=>shiftDoneDate(1);
-  const w=document.getElementById("btnDoneNow");  if(w) w.onclick=setDoneTimeNow;
-  const c=document.getElementById("btnDoneClear"); if(c) c.onclick=clearDoneTime;
-}
 
 /* ===== 子任务清单（弹窗内编辑，工作副本） ===== */
 let curSubtasks=[];
@@ -10223,26 +11535,6 @@ const HISTORY_MAX=5000;   // 完成流水上限（原 500 会静默丢弃老记�
 /* 日/周视图委托处理器：.ev 优先（内含拖拽后的点击抑制），否则落到 .tbody 空白处新建 */
 let __tlDelegated=false;
 let tlSuppressClick=false;   // 拖拽改期后抑制紧接着的合成 click（原实现挂在 ev._suppressClick 上，随 DOM 重建丢弃）
-function handleTimelineClick(e){
-  const el=e.target; if(!el || !el.closest) return;
-  const ev=el.closest(".ev");
-  if(ev){
-    if(tlSuppressClick){ tlSuppressClick=false; return; }
-    if(ev.dataset.kr) okrOpenKR(ev.dataset.kr); else openModal(ev.dataset.id, ev.dataset.date);
-    return;
-  }
-  const tb=el.closest(".tbody");
-  if(tb){
-    const col=tb.closest(".tcol"); if(!col) return;
-    openModal(null, ymd(parseLocal(col.dataset.day+"T09:00")));
-  }
-}
-function bindTimelineDelegation(){
-  if(__tlDelegated) return;
-  const view=document.getElementById("view");
-  if(view) view.addEventListener("click", e=>{ if(!e.target.closest(".timeline")) return; handleTimelineClick(e); });
-  __tlDelegated=true;
-}
 
 /* ===== 渲染：甘特图（增强：范围切换 / 今日线 / 拖拽改期 / 单日任务可隐藏） ===== */
 let ganttRange="month";
@@ -10264,27 +11556,6 @@ try{ const _g=localStorage.getItem("wb_taskhub_gantt_v1"); if(_g){ const _o=JSON
   if(_o&&Array.isArray(_o.groups)) _o.groups.forEach(k=>ganttGroupCollapsed.add(k));
 } }catch(e){}
 
-function attachGanttDrag(bar, colW){
-  // ：Pointer Events 统一鼠标 + 触屏（pointerdown 移动端亦可拖拽平移；轻点仍打开任务）
-  const cw=colW||30;
-  bar.addEventListener("pointerdown", e=>{
-    if(e.pointerType==="mouse" && e.button!==0) return;
-    e.preventDefault();
-    const id=bar.dataset.id; const startX=e.clientX; let moved=false;
-    bar.classList.add("dragging");
-    try{ if(bar.setPointerCapture) bar.setPointerCapture(e.pointerId); }catch(_){}
-    const move=ev=>{ const dx=ev.clientX-startX; bar.style.transform="translateX("+dx+"px)"; if(Math.abs(dx)>4) moved=true; };
-    const up=ev=>{
-      document.removeEventListener("pointermove",move); document.removeEventListener("pointerup",up);
-      bar.classList.remove("dragging"); bar.style.transform="";
-      if(!moved){ openModal(id, bar.dataset.date); return; }
-      const delta=Math.round((ev.clientX-startX)/cw);
-      if(delta!==0){ shiftTaskDates(id, delta, bar.dataset.date); saveAndToast("已平移 "+Math.abs(delta)+" 天"); renderAll(); }
-      else { openModal(id, bar.dataset.date); }
-    };
-    document.addEventListener("pointermove",move); document.addEventListener("pointerup",up);
-  });
-}
 
 /* ===== 顶部日期文案 ===== */
 
@@ -10301,24 +11572,6 @@ function attachGanttDrag(bar, colW){
    重建 DOM 后漏绑一次就静默失效。现改为：容器常驻只换 innerHTML，#view 上一次性委托，
    用 .inbox-wrap 收口作用域（#view 里其他视图也有 data-done 等同名属性，防误触发）。 */
 let __inboxDelegated=false;
-function handleInboxClick(e){
-  const el=e.target; if(!el || !el.closest) return;
-  const add=el.closest("#inboxAdd");         if(add){ openInboxNew(); return; }
-  const sb=el.closest("#inboxSel");          if(sb){ selToggle("inbox"); return; }
-  if(selMode) return;   // 选择模式下整行不触发打开，避免误触（与原逐项绑定行为一致）
-  const rest=el.closest("[data-restore]");   if(rest){ restoreTask(rest.dataset.restore||rest.closest(".inbox-item").dataset.id); return; }
-  const row=el.closest(".inbox-item");       if(!row || !row.dataset.id) return;
-  const id=row.dataset.id;
-  if(el.closest("[data-edit]")){ openModal(id,null); return; }
-  if(el.closest("[data-done]")){ toggleDone(id, ymd(startOfDay(new Date()))); return; }
-  if(el.closest("[data-plan]")){ planInbox(id); return; }
-}
-function bindInboxDelegation(){
-  if(__inboxDelegated) return;
-  const view=document.getElementById("view");
-  if(view) view.addEventListener("click", e=>{ if(!e.target.closest(".inbox-wrap")) return; handleInboxClick(e); });
-  __inboxDelegated=true;
-}
 
 /* ===== 建议3：收件箱条目 → 拖到日历（.dcell）/ 时间轴（.tcol）某一天 = 直接安排 =====
    背景：收件箱正是无日期任务的集中地，此前只能点条目上的「安排」按钮（默认排进今天再改日期），
@@ -10329,44 +11582,7 @@ function bindInboxDelegation(){
    · 监听挂持久元素 #view（innerHTML 替换不销毁它），幂等守卫防重复绑定；
    · 落点取 data-day，复用 planInbox(id, date) 打开编辑弹窗预填该天，时间仍可改。 */
 let __schedDropBound=false;
-function bindScheduleDropZones(){
-  if(__schedDropBound) return;
-  const view=document.getElementById("view"); if(!view) return;
-  const dayCol=e=>{ const t=e.target; return (t&&t.closest)?(t.closest(".tcol")||t.closest(".dcell")):null; };
-  view.addEventListener("dragstart", e=>{
-    const t=e.target; const el=(t&&t.closest)?t.closest(".inbox-item[data-id]"):null; if(!el) return;
-    try{ e.dataTransfer.setData("application/x-wb-task", el.dataset.id); e.dataTransfer.effectAllowed="copy"; }catch(_){}
-    el.classList.add("dragging");
-  });
-  view.addEventListener("dragend", e=>{
-    const t=e.target; const el=(t&&t.closest)?t.closest(".inbox-item"):null; if(el) el.classList.remove("dragging");
-    document.querySelectorAll(".tcol.drop-hint,.dcell.drop-hint").forEach(x=>x.classList.remove("drop-hint"));
-  });
-  view.addEventListener("dragover", e=>{
-    const col=dayCol(e); if(!col) return;
-    const dt=e.dataTransfer; if(!dt||!dt.types||dt.types.indexOf("application/x-wb-task")<0) return;
-    e.preventDefault();
-    try{ dt.dropEffect="copy"; }catch(_){}
-    document.querySelectorAll(".tcol.drop-hint,.dcell.drop-hint").forEach(x=>{ if(x!==col) x.classList.remove("drop-hint"); });
-    col.classList.add("drop-hint");
-  });
-  view.addEventListener("dragleave", e=>{ const col=dayCol(e); if(col) col.classList.remove("drop-hint"); });
-  view.addEventListener("drop", e=>{
-    const col=dayCol(e); if(!col) return;
-    e.preventDefault(); col.classList.remove("drop-hint");
-    let id=null; try{ id=e.dataTransfer.getData("application/x-wb-task"); }catch(_){}
-    if(!id) return;
-    planInbox(id, col.dataset.day);
-  });
-  __schedDropBound=true;
-}
 
-// 新建时默认勾选「不指定日期」
-function openInboxNew(){
-  openModal(null,null);
-  const cb=document.getElementById("f_nodate");
-  if(cb && !cb.checked){ cb.checked=true; toggleNoDate(); }
-}
 
 /* ===== 渲染：统计视图（增强：时间范围 / 习惯契合度 / OKR 进度 / 导出） ===== */
 let statsRange=7;
@@ -10383,20 +11599,6 @@ const PANEL_KEYS={top:"toppanel",habit:"habitpanel",list:"listpanel"};
    注：「清单」视图曾用同一规则自动收起顶部「清单速览」，导致该栏只剩空白卡片；
    按用户反馈已移除该映射——清单视图下顶部「清单速览」与其他视图一致，正常展开、内容照常渲染。 */
 const VIEW_DUP_PANEL={habit:"habit", today:"top"};
-function togglePanel(k){
-  uiPrefs.touched=true;
-  const el=document.querySelector("."+PANEL_KEYS[k]);
-  // 以当前实际显示态为准翻转，再写回偏好（整页视图默认折叠时存储值可能≠显示态）
-  const now = el ? el.classList.contains("collapsed") : !!uiPrefs.collapsed[k];
-  uiPrefs.collapsed[k]=!now;
-  saveUIPrefs();
-  if(el){
-    el.classList.toggle("collapsed", !now);
-    // R10：手动折叠后同步「完整视图」跳转显隐（自动收起 dup-hidden 不显示，因用户已在完整视图）
-    const gf=el.querySelector(".goto-full");
-    if(gf) gf.style.display = (!now && !el.classList.contains("dup-hidden")) ? "inline-flex":"none";
-  }
-}
 document.querySelectorAll(".panel.collapsible .ptoggle").forEach(b=>{
   b.addEventListener("click", e=>{
     e.stopPropagation();
@@ -10406,10 +11608,6 @@ document.querySelectorAll(".panel.collapsible .ptoggle").forEach(b=>{
 });
 
 /* ===== 顶部概览条（默认收起三栏，点开才展开） ===== */
-function toggleTopOverview(){
-  uiPrefs.topOpen=!uiPrefs.topOpen; saveUIPrefs();
-  applyTopOverview();
-}
 
 /* ===== 总渲染 ===== */
 /* ===== 通用 helpers（项目 / OKR / 回顾 共用） ===== */
@@ -10422,12 +11620,6 @@ const KR_BUCKETS=[
   {key:"offer",     label:"Offer 类", re:/offer|录用|入职|拿到/i}
 ];
 let mgKind="okr";
-function openMerge(kind){
-  mgKind=kind||"okr";
-  document.querySelectorAll("#mergeMask .mg-tab").forEach(b=>b.classList.toggle("active", b.dataset.mgkind===mgKind));
-  mgFill(); mgRender();
-  document.getElementById("mergeMask").classList.add("show");
-}
 
 
 /* ===== 项目视图（P0） ===== */
@@ -10468,138 +11660,6 @@ let __deferCloseAfter=false;   // 从「今日要处理」卡片/详情直接推
 document.querySelectorAll("#modeToggle .mt-btn").forEach(b=>{
   b.addEventListener("click", ()=>setModalMode(b.dataset.mode));
 });
-function openModal(id, date, scope){
-  // 重复任务从「收件箱/命令面板/项目页/OKR」等未带具体日期的入口打开时，
-  // 自动锁定到「今天或最近一次未来发生」的那一天，避免出现 editingDate 为空 →
-  // 保存时 once 分支不命中、误把整组模板（start/end/title）全改的「批量全部改」问题。
-  let autoLock=false;
-  if(id){
-    const _t = state.tasks.find(x=>x.id===id);
-    if(_t && _t.recurrence && _t.recurrence.freq!=="none" && (!date || date==="")){
-      date = nextOccurrenceYmd(_t, new Date());
-      autoLock=true;
-    }
-  }
-  editingId=id||null; editingDate=date||null; editingScope=scope||"once"; editingDateAuto=autoLock;
-  rebuildCatPriSelects();   // 确保弹窗里的分类/优先级下拉是最新的
-  const f={
-    title:document.getElementById("f_title"), priority:document.getElementById("f_priority"),
-    cat:document.getElementById("f_cat"), desc:document.getElementById("f_desc"),
-    sdate:document.getElementById("f_sdate"), stime:document.getElementById("f_stime"),
-    edate:document.getElementById("f_edate"), etime:document.getElementById("f_etime"),
-    rec:document.getElementById("f_rec"), interval:document.getElementById("f_interval"),
-    runtil:document.getElementById("f_runtil"), tags:document.getElementById("f_tags")
-  };
-  document.getElementById("modalTitle").textContent = id? "编辑任务":"新建任务";
-  document.getElementById("btnDelete").style.display = id? "inline-flex":"none";
-  // 「推迟」按钮：仅编辑已有任务时可用；打开时收起菜单
-  const deferBtn=document.getElementById("btnDefer"); if(deferBtn) deferBtn.style.display = id? "inline-flex":"none";
-  const dupBtn=document.getElementById("btnDup"); if(dupBtn) dupBtn.style.display = id? "inline-flex":"none";       // M7
-  const tplBtn=document.getElementById("btnSaveTpl"); if(tplBtn) tplBtn.style.display = id? "inline-flex":"none";   // M7
-  // 「标记不补做 / 标记该日不补做」按钮：编辑普通任务或重复任务单次时显示，整组编辑/新建时隐藏
-  const dropBtn=document.getElementById("btnDrop");
-  if(dropBtn){
-    if(!id){ dropBtn.style.display="none"; }
-    else {
-      const _dt=state.tasks.find(x=>x.id===id);
-      if(!_dt){ dropBtn.style.display="none"; }
-      else if(isRecTask(_dt)){ dropBtn.style.display="inline-flex"; dropBtn.textContent="标记该日不补做"; }
-      else { dropBtn.style.display="inline-flex"; dropBtn.textContent="标记不补做"; }
-    }
-  }
-  const deferPop=document.getElementById("deferPop"); if(deferPop) deferPop.style.display="none";
-  // 新建默认「快速」模式降低门槛；编辑时强制「完整」模式（需看到所有字段）
-  setModalMode(id? "full":"quick");
-  fillProjectSelect();   // 先填充项目下拉，否则 f_project.value=原项目会因无 option 降级为「无」，保存时清空 project
-  // 完成按钮：仅在编辑已有任务时显示（含非当天任务）
-  const doneBtn=document.getElementById("btnDone");
-  doneBtn.style.display = id? "inline-flex":"none";
-  syncDoneBtn();
-  if(id){
-    const t=state.tasks.find(x=>x.id===id);
-    f.title.value=t.title; f.priority.value=t.priority; f.cat.value=t.cat; f.desc.value=t.desc||"";
-    f.tags.value=(t.tags||[]).join(", ");
-    const nodate=noDate(t);
-    document.getElementById("f_nodate").checked=nodate;
-    if(nodate){
-      f.sdate.value=""; f.stime.value=""; f.edate.value=""; f.etime.value="";
-    } else {
-      f.sdate.value=ymd(parseLocal(t.start)); f.stime.value=fmtTime(parseLocal(t.start));
-      f.edate.value=ymd(parseLocal(t.end)); f.etime.value=fmtTime(parseLocal(t.end));
-    }
-    f.rec.value=(t.recurrence&&t.recurrence.freq)||"none";
-    f.interval.value=(t.recurrence&&t.recurrence.interval)||1;
-    f.runtil.value=(t.recurrence&&t.recurrence.until)?ymd(parseLocal(t.recurrence.until)):"";
-    setWeekChecks(t.recurrence&&t.recurrence.daysOfWeek);
-    document.getElementById("f_skipMissed").checked=!!t.skipMissed;
-    document.getElementById("f_project").value=t.project||"";
-    document.getElementById("f_gw").value=t.gw||"next";
-    document.getElementById("f_ctx").value=t.ctx||"";
-    document.getElementById("f_energy").value=t.energy||"";
-    document.getElementById("f_est").value=t.est||"";
-    fillKrSelect(document.getElementById("f_kr"), t.krId||"");
-    curSubtasks=(t.subtasks||[]).map(x=>({id:x.id,title:x.title,done:!!x.done})); renderSubList();
-  } else {
-    const base=date?parseLocal(date+"T09:00"):new Date();
-    f.title.value=""; f.priority.value=defPri(); f.cat.value=defCat(); f.desc.value=""; f.tags.value="";
-    document.getElementById("f_nodate").checked=false;
-    f.sdate.value=ymd(base); f.stime.value="09:00";
-    f.edate.value=ymd(base); f.etime.value="10:00";
-    f.rec.value="none"; f.interval.value=1; f.runtil.value="";
-    setWeekChecks([base.getDay()]);
-    document.getElementById("f_skipMissed").checked=false;
-    document.getElementById("f_project").value="";
-    document.getElementById("f_gw").value="next";
-    document.getElementById("f_ctx").value="";
-    document.getElementById("f_energy").value="";
-    document.getElementById("f_est").value="";
-    fillKrSelect(document.getElementById("f_kr"), "");
-    curSubtasks=[]; renderSubList();
-  }
-  renderDoneLog(id? state.tasks.find(x=>x.id===id) : null);   // M13：打开弹窗即刷新完成履历
-  // 重复任务「单次单独修改」范围处理
-  const scopeWrap=document.getElementById("scopeField");
-  const tScope = id ? state.tasks.find(x=>x.id===id) : null;
-  const isRecInstance = !!(tScope && tScope.recurrence && tScope.recurrence.freq!=="none" && editingDate);
-  if(isRecInstance){
-    scopeWrap.style.display="block";
-    applyEditingDate();           // 用当前 editingDate 填充表单（整组模板 + 该天 override）
-    const edEl=document.getElementById("f_editdate");
-    if(edEl){ edEl.value=(editingDate||"").slice(0,10); edEl.onchange=onEditDateChange; }
-    const note=document.getElementById("editDateNote");
-    if(note) note.textContent = editingDateAuto ? "（已自动定位到下一次发生日，可改成任意一次）" : "";
-    applyScopeUI();
-  } else {
-    scopeWrap.style.display="none";
-    // R11：清除上一次「仅此一次」编辑遗留的 disabled——closeModal 只重置 editingScope 不清表单
-    // 禁用态，否则下一次新建任务 / 编辑普通任务时「重复」等框点不动（点不动 bug 根因）
-    ["f_rec","f_interval","f_runtil"].forEach(id=>{ const el=document.getElementById(id); if(el) el.disabled=false; });
-    document.querySelectorAll("#weekDays input").forEach(cb=>cb.disabled=false);
-  }
-  toggleNoDate();
-  toggleRecOpts();
-  renderTagPicker();
-  renderDoneAtField();   // 完成时间：编辑已有任务时显示，新建时隐藏
-  document.getElementById("mask").classList.add("show");
-  _formSnap=formSnapshot();   // P0-2：表单填完后再取脏检查基线（toggleRecOpts 会改写默认值）
-}
-function closeModal(){ document.getElementById("mask").classList.remove("show"); editingId=null; editingDate=null; editingScope="once"; editingDateAuto=false; _formSnap=null; }   // P0-2：清空脏检查基线
-/* 用户在「编辑哪一次」里切换发生日：校验必须是该重复任务的真实发生日，否则还原并提示 */
-function onEditDateChange(){
-  const ed=document.getElementById("f_editdate"); const v=ed?ed.value:""; if(!v) return;
-  const tScope = editingId ? state.tasks.find(x=>x.id===editingId) : null;
-  if(!tScope || !tScope.recurrence || tScope.recurrence.freq==="none") return;
-  const d=parseLocal(v+"T00:00");
-  if(!recMatch(d, tScope.recurrence, parseLocal(tScope.start))){
-    toast("该日不是此重复任务的发生日，已还原");
-    if(ed) ed.value=(editingDate||"").slice(0,10);
-    return;
-  }
-  editingDate=v;
-  applyEditingDate();
-  _formSnap=formSnapshot();   // P0-2：切换编辑日期会重填表单，基线需同步刷新，避免误判为脏
-  toast("已切换到 "+v.slice(5).replace("-","/")+" 的这次");
-}
 /* P0-2：全字段表单快照 —— 旧脏检查只看 title/desc/tags，
    「只改开始日期 / 优先级 / 所属项目 / 关联 KR / 子任务 / 重复规则」后关闭会静默丢弃改动。
    改为 openModal 时存快照、关闭/放弃时全字段比对（含周重复勾选与子任务列表）。 */
@@ -10610,82 +11670,23 @@ const FORM_TEXT_FIELDS=["f_title","f_desc","f_tags","f_sdate","f_stime","f_edate
 const FORM_CHECK_FIELDS=["f_nodate","f_skipMissed","f_skip"];
 /* ===== M7：任务模板 / 复制任务 ===== */
 const TPL_KEY="wb_taskhub_templates_v1";
-function toggleTplMenu(){ const m=document.getElementById("tplMenu"); if(!m) return; if(m.style.display==="block"){ m.style.display="none"; } else { renderTplMenu(); } }
 document.addEventListener("click",e=>{ const m=document.getElementById("tplMenu"); if(m && m.style.display==="block" && !m.contains(e.target) && e.target.id!=="btnTpl") m.style.display="none"; });
-/* 从「今日要处理」卡片 / 详情弹窗直达推迟：直接加载编辑弹窗并展开「推迟/延期」菜单，
-   用户选幅度后由 shiftTaskByDays 落盘、__afterDeferShift 自动关弹窗并刷新。 */
-function openDeferFromCard(taskId, date){
-  const t=state.tasks.find(x=>x.id===taskId); if(!t){ toast("任务不存在"); return; }
-  __deferCloseAfter=true;
-  openModal(taskId, date, "once");
-  const dp=document.getElementById("deferPop");
-  if(dp) dp.style.display="flex";
-}
 
 /* ===== 分类 / 优先级 管理 ===== */
-function bindColorPair(colorEl, hexEl, onChange){
-  const syncFromColor=()=>{ const v=colorEl.value.toUpperCase(); hexEl.value=v; hexEl.classList.remove("invalid"); onChange(v); };
-  const syncFromHex=()=>{
-    const v=parseHex(hexEl.value);
-    if(v){ colorEl.value=v; hexEl.value=v; hexEl.classList.remove("invalid"); onChange(v); }
-    else { hexEl.classList.add("invalid"); }   // 非法色号仅标红，不污染颜色
-  };
-  colorEl.addEventListener("input", syncFromColor);
-  colorEl.addEventListener("change", syncFromColor);
-  hexEl.addEventListener("input", syncFromHex);
-  hexEl.addEventListener("change", syncFromHex);
-}
-function openOpts(){ renderOptList(); renderStaleList(); const sa=document.getElementById("staleAuto"); if(sa) sa.onclick=mergeAllStale; document.getElementById("optMask").classList.add("show"); }
 
 /* ===== 遗留值整理 =====
    场景：优先级从「P0」改名为「P0 重要且紧急」后，仍有任务挂着旧的 P0，
    统计的分布图里就会多出一行旧名称。这里把它们找出来，一次性合并到现行名称。 */
-// 统计视图里点「整理 N 个遗留值」进入
-function openStaleFix(){
-  openOpts();
-  const box=document.getElementById("staleField");
-  if(!box) return;
-  try{ box.scrollIntoView({behavior:"smooth",block:"center"}); }catch(e){}   // 部分内嵌 WebView 无此方法
-  box.style.boxShadow="0 0 0 3px rgba(255,159,69,.4)";
-  setTimeout(()=>{ box.style.boxShadow=""; },1600);
-}
 
 /* ===== 标签树管理 ===== */
-function openTags(){ syncTagsFromTasks(); renderTagList(); document.getElementById("tagMask").classList.add("show"); }
 
 /* ===== 备份 ===== */
 
 /* ===== 媒体进度看板（可编辑） ===== */
 let media = { books:[], tvs:[], auds:[] };
 const MEDIA_KEY = "wb_taskhub_mediaboard_v1";
-function mediaAdoptCloud(incoming, cloudDeleted){
-  if(!incoming || typeof incoming!=="object") return media;
-  // 与 mediaMergeKeep 同语义（按 updated 取较新者），不再无脑云端优先 —— 否则云端陈旧快照会回退本地较新进度
-  return {
-    books: mediaMergeNewer(media.books, incoming.books, cloudDeleted),
-    tvs:   mediaMergeNewer(media.tvs,   incoming.tvs,   cloudDeleted),
-    auds:  mediaMergeNewer(media.auds,  incoming.auds,  cloudDeleted)
-  };
-}
 const M_KINDS={books:{cls:"",verb:"已读",unit:"章"},tvs:{cls:"tv",verb:"已看",unit:"集"},auds:{cls:"aud",verb:"已听",unit:"集"}};
 let mediaEditId=null, mediaEditKind=null;
-function openMedia(id, kind){
-  mediaEditId=id||null; mediaEditKind=kind||null;
-  const t = id ? ((media[kind]||[]).find(x=>x.id===id) || null) : null;
-  document.getElementById("mediaTitle").textContent = id ? "编辑媒体进度" : "添加媒体进度";
-  document.getElementById("mDelete").style.display = id ? "inline-flex" : "none";
-  document.getElementById("m_type").value = t ? (kind==="tvs"?"tv":kind==="auds"?"aud":"book") : "book";
-  document.getElementById("m_title").value = t ? t.title : "";
-  document.getElementById("m_current").value = t ? t.current : 0;
-  document.getElementById("m_total").value = t ? t.total : 1;
-  document.getElementById("m_unit").value = t ? (t.unit===undefined ? defaultUnit(kind) : (t.unit||"")) : defaultUnit(kind);
-  document.getElementById("m_percent").checked = !!(t && t.percent);
-  document.getElementById("m_platform").value = t ? (t.platform||"") : "";
-  applyPercentMode();
-  document.getElementById("mediaMask").classList.add("show");
-  mediaSnapshot();
-}
-function closeMedia(){ document.getElementById("mediaMask").classList.remove("show"); mediaEditId=null; mediaEditKind=null; }
 
 /* ===== 从 Gist 历史找回（统一：任务 / 媒体 / 习惯 / 清单 / 项目 / OKR）=====
    场景：某类记录被云同步整包覆盖或误删后，旧 revision 仍保留数据，可在此按类别找回。
@@ -10736,146 +11737,6 @@ const RECOVER_DEFS=[
     restore:x=>{ state.okrs.push(x); okrsSave(); }}
 ];
 /* ===== 历史与恢复（统一弹窗）：自动备份 / 撤销历史 / 回收站 / 云端历史，按时间倒序汇聚一处 ===== */
-async function openRecoverModal(opts){
-  opts=opts||{};
-  const mask=document.getElementById("recoverMask");
-  const status=document.getElementById("recoverStatus");
-  const cloudBox=document.getElementById("recoverCloud");
-  if(!mask) return;
-  mask.classList.add("show");
-  if(status) status.textContent="";
-  if(cloudBox) cloudBox.innerHTML="";
-  renderUnifiedRecovery(opts);
-  if(opts.focus && cloud.token && cloud.gist){ runGistScan(opts); }
-}
-function renderUnifiedRecovery(opts){
-  opts=opts||{};
-  const box=document.getElementById("recoverLocal"); if(!box) return;
-  const parts=[];
-  // 自动备份（全量快照环）
-  const ring=fullRingLoad();
-  if(ring.length){
-    parts.push('<div class="mrec-group-head"><span>&#8634;</span>自动备份<span class="cnt" aria-hidden="true">'+ring.length+'</span></div>');
-    ring.slice().reverse().forEach((sn,ix)=>{
-      const idx=ring.length-1-ix;
-      const mv=sn.media||{}; const mcnt=((mv.books||[]).length+(mv.tvs||[]).length+(mv.auds||[]).length);
-      const cnt=(sn.tasks||[]).length+" 任务 · "+(sn.habits||[]).length+" 习惯 · "+(sn.lists||[]).length+" 清单 · "+mcnt+" 媒体";
-      parts.push('<div class="mrec-item"><div class="mrec-main"><div class="mrec-name">'+ringTimeStr(sn.t)+'</div><div class="mrec-meta">'+esc(cnt)+'</div></div>'
-        +'<button class="btn btn-pri btn-sm mrec-restore" data-type="full" data-idx="'+idx+'" aria-label="恢复此自动备份">恢复</button></div>');
-    });
-  }
-  // 撤销历史（刷新后仍可撤销）
-  if(undoStack.length){
-    parts.push('<div class="mrec-group-head"><span>&#8635;</span>撤销历史<span class="cnt" aria-hidden="true">'+undoStack.length+'</span></div>');
-    undoStack.slice().reverse().forEach((s,ix)=>{
-      const uidx=undoStack.length-1-ix;
-      const mc=(s.media&&((s.media.books||[]).length+(s.media.tvs||[]).length+(s.media.auds||[]).length))?("媒体 "+((s.media.books||[]).length+(s.media.tvs||[]).length+(s.media.auds||[]).length)):null;
-      const cnt=[(s.tasks||[]).length+" 任务", mc, (s.habits||[]).length+" 习惯", (s.lists||[]).length+" 清单"].filter(Boolean).join(" · ");
-      parts.push('<div class="mrec-item"><div class="mrec-main"><div class="mrec-name">'+ringTimeStr(s.t)+'</div><div class="mrec-meta">'+(cnt||"空快照")+'</div></div>'
-        +'<button class="btn btn-pri btn-sm mrec-restore" data-type="undo" data-uidx="'+uidx+'" aria-label="恢复到此操作前">恢复</button></div>');
-    });
-  }
-  // 回收站
-  const trash=trashLoad();
-  if(trash.length){
-    parts.push('<div class="mrec-group-head"><span>&#9851;</span>回收站<span class="cnt" aria-hidden="true">'+trash.length+'</span></div>');
-    trash.slice().reverse().forEach((it,ix)=>{
-      const idx=trash.length-1-ix; const t=it.task||{};
-      const meta=[t.cat,t.status==="done"?"已完成":"",t.start?String(t.start).slice(0,10):""].filter(Boolean).join(" · ");
-      parts.push('<div class="mrec-item"><div class="mrec-main"><div class="mrec-name">'+esc(t.title||"(无标题)")+'</div><div class="mrec-meta">删除于 '+ringTimeStr(it.at)+(meta?" · "+esc(meta):"")+'</div></div>'
-        +'<div style="display:flex;gap:6px;flex:none;"><button class="btn btn-pri btn-sm mrec-restore" data-type="trash" data-idx="'+idx+'" aria-label="恢复此任务">恢复</button>'
-        +'<button class="btn btn-ghost btn-sm mrec-drop" data-idx="'+idx+'" aria-label="彻底删除" title="彻底删除">✕</button></div></div>');
-    });
-  }
-  if(!parts.length) parts.push('<div class="mrec-empty">暂无可恢复的数据。改动数据后会自动生成备份；删除的任务会出现在回收站。</div>');
-  box.innerHTML=parts.join("");
-  box.querySelectorAll(".mrec-restore").forEach(b=>{
-    b.onclick=()=>{
-      const ty=b.dataset.type, idx=+b.dataset.idx, uidx=+b.dataset.uidx;
-      if(ty==="full") restoreFullBackup(idx);
-      else if(ty==="undo") restoreUndoPoint(uidx);
-      else if(ty==="trash") restoreTrash(idx);
-      renderUnifiedRecovery();
-    };
-  });
-  box.querySelectorAll(".mrec-drop").forEach(b=>{ b.onclick=()=>{ dropTrash(+b.dataset.idx); renderUnifiedRecovery(); }; });
-}
-async function runGistScan(opts){
-  opts=opts||{};
-  const cloudBox=document.getElementById("recoverCloud"); if(!cloudBox) return;
-  const status=document.getElementById("recoverStatus");
-  if(!(cloud.token&&cloud.gist)){ cloudBox.innerHTML='<div class="mrec-empty">未配置云端，无法扫描 Gist 历史。请先在数据管理 → 云同步 填写 Token 与 Gist ID。</div>'; return; }
-  cloudBox.innerHTML='<div class="mrec-empty">正在扫描 Gist 历史版本…</div>';
-  if(status) status.textContent="";
-  const localIds={}; RECOVER_DEFS.forEach(d=>{ localIds[d.key]=new Set((d.local()||[]).map(x=>x&&x.id).filter(Boolean)); });
-  const found={}; RECOVER_DEFS.forEach(d=>found[d.key]=new Map());
-  let scanned=0, parseErr=0, fetchFail=0;
-  try{
-    const accept={Authorization:authHeader(), Accept:"application/vnd.github+json"};
-    const base="https://api.github.com/gists/"+encodeURIComponent(cloud.gist);
-    const revRes=await fetchWithTimeout(base+"/commits",{headers:accept},15000);
-    if(!revRes.ok){ cloudBox.innerHTML='<div class="mrec-empty">获取 Gist 历史失败：HTTP '+revRes.status+(revRes.status===401?"（Token 无效或无权限）":"")+'</div>'; return; }
-    const revs=await revRes.json();
-    const revArr=(revs||[]).filter(Boolean);
-    for(let bi=0; bi<revArr.length; bi+=5){
-      const batch=revArr.slice(bi, bi+5);
-      const results=await Promise.all(batch.map(r=>fetchWithTimeout(base+"/"+r.version,{headers:accept},12000).then(res=>({r,res})).catch(()=>({r,res:null}))));
-      for(const {r,res} of results){
-        if(!res||!res.ok){ fetchFail++; continue; }
-        let d; try{ d=await res.json(); }catch(_){ fetchFail++; continue; }
-        const f=d.files&&d.files["taskhub.json"];
-        if(!f||!f.content) continue;
-        let obj; try{ obj=JSON.parse(f.content); }catch(_){ parseErr++; continue; }
-        scanned++;
-        RECOVER_DEFS.forEach(def=>{
-          const arr=def.collect(obj);
-          if(!Array.isArray(arr)) return;
-          arr.forEach(x=>{
-            if(!x||!x.id||localIds[def.key].has(x.id)) return;
-            const prev=found[def.key].get(x.id);
-            if(!prev || def.score(x,prev)>0) found[def.key].set(x.id,x);
-          });
-        });
-      }
-    }
-    const groups=RECOVER_DEFS.map(def=>({def, items:Array.from(found[def.key].values())})).filter(g=>g.items.length);
-    const total=groups.reduce((s,g)=>s+g.items.length,0);
-    const head='<div class="mrec-group-head"><span>&#9729;</span>云端历史（Gist）<span class="cnt" aria-hidden="true">'+total+'</span></div>';
-    if(!total){
-      cloudBox.innerHTML=head+'<div class="mrec-empty">在 '+scanned+' 个历史版本中，没有找到本地缺失的记录。</div>';
-      return;
-    }
-    cloudBox.innerHTML=head+groups.map(g=>{
-      const items=g.items.map(x=>{
-        const nm=g.def.name(x), mt=g.def.meta(x);
-        return '<div class="mrec-item" data-key="'+g.def.key+'" data-id="'+esc(x.id)+'">'
-          +'<div class="mrec-main"><div class="mrec-name">'+esc(nm)+'</div>'+(mt?'<div class="mrec-meta">'+esc(mt)+'</div>':'')+'</div>'
-          +'<button class="btn btn-pri btn-sm mrec-restore" aria-label="恢复 '+esc(nm)+'">恢复</button></div>';
-      }).join('');
-      return '<div class="mrec-group">'+items+'</div>';
-    }).join('');
-    if(status) status.textContent="扫描完成：找到 "+total+" 条本地缺失记录（来自 "+scanned+" 个历史版本"+(fetchFail?("，"+fetchFail+" 个版本读取失败"):"")+"）";
-    cloudBox.querySelectorAll(".mrec-restore").forEach(b=>{
-      b.onclick=()=>{
-        const card=b.closest(".mrec-item"); if(!card) return;
-        const key=card.dataset.key, id=card.dataset.id;
-        const def=RECOVER_DEFS.find(d=>d.key===key); if(!def) return;
-        const it=found[key].get(id); if(!it) return;
-        def.restore(it);
-        found[key].delete(id);
-        renderAll();
-        card.remove();
-        toast("已恢复「"+def.name(it)+"」");
-      };
-    });
-    if(opts.focus){
-      const g=[].slice.call(cloudBox.querySelectorAll(".mrec-group")).find(x=>x.querySelector('.mrec-item[data-key="'+opts.focus+'"]'));
-      if(g) g.scrollIntoView({block:"start",behavior:"smooth"});
-    }
-  }catch(e){
-    cloudBox.innerHTML='<div class="mrec-empty">扫描失败：'+(e&&e.message?e.message:e)+'</div>';
-  }
-}
 let _mediaSnap="";
 
 /* ===== 待办清单 / 库存（轻量模块，与媒体/习惯平级） ===== */
@@ -10916,43 +11777,6 @@ const MIGRATIONS={
     if(typeof migrateBooksToList==="function") migrateBooksToList();
   }
 };
-function inlineEditItem(row, lid, iid){
-  const txt=row.querySelector(".ltxt[data-edit]"); if(!txt) return;
-  const l=lists.find(x=>x.id===lid); if(!l) return;
-  const it=l.items.find(x=>x.id===iid); if(!it) return;
-  if(row.querySelector(".ltxt-input")) return;
-  const input=document.createElement("input");
-  input.className="ltxt-input"; input.value=it.text;
-  txt.replaceWith(input); input.focus(); input.select();
-  let done=false;
-  const commit=()=>{ if(done) return; done=true; const v=input.value.trim(); if(v && v!==it.text){ snapshot(); it.text=v; it.ut=Date.now(); l.updated=Date.now(); listsSave(); } renderAll(); };
-  input.addEventListener("blur", commit);
-  input.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); commit(); } else if(e.key==="Escape"){ done=true; renderAll(); } });
-}
-async function dueEditItem(lid, iid){
-  const l=lists.find(x=>x.id===lid); if(!l) return;
-  const it=l.items.find(x=>x.id===iid); if(!it) return;
-  const v=await promptModal("格式 YYYY-MM-DD；留空表示清除截止日期",{title:"设置截止日期",value:it.due||"",placeholder:"2026-09-20"}); if(v===null) return;
-  setItemDue(lid, iid, v.trim());
-}
-async function editListEmoji(lid){
-  const l=lists.find(x=>x.id===lid); if(!l) return;
-  const v=await promptModal("可粘贴任意 emoji（如 📚 ✉️ 🎯），留空恢复默认",{title:"设置清单图标",value:l.emoji||"",placeholder:"📋"});
-  if(v===null) return;
-  snapshot();
-  const e=v.trim().slice(0,16);   // 防滥用：限长，emoji 组合串一般远小于此
-  l.emoji = (e===LIST_DEFAULT_EMOJI) ? "" : e;   // 与默认一致则不冗余存储
-  l.updated=Date.now(); listsSave(); renderAll(); toast("已更新图标");
-}
-async function editItem(lid,iid){
-  const l=lists.find(x=>x.id===lid); if(!l) return;
-  const it=l.items.find(x=>x.id===iid); if(!it) return;
-  const text=await promptModal("修改这条清单条目的内容",{title:"编辑条目",value:it.text});
-  if(text===null) return;
-  const t=text.trim(); if(!t) return;
-  snapshot();
-  it.text=t; it.ut=Date.now(); l.updated=Date.now(); listsSave(); renderAll(); toast("已更新");
-}
 
 document.addEventListener("click",function(e){
   const h=e.target && e.target.closest ? e.target.closest(".drag-h") : null; if(!h) return;
@@ -10967,91 +11791,8 @@ document.addEventListener("keydown",function(e){
   const row=h.closest(".litem[data-iid],.lp-item[data-iid]"); if(!row) return;
   e.preventDefault(); moveItemUp(row.dataset.lid, row.dataset.iid);
 });
-function toggleListsAll(){
-  const anyOpen = lists.some(l=>openLists[l.id]);
-  lists.forEach(l=>{ openLists[l.id]=!anyOpen; });
-  renderListsPanel();
-}
 
 /* ===== 清单视图 / 顶部清单面板：容器级事件委托（只绑定一次，避免每次渲染逐行重绑） ===== */
-function setupListsEvents(){
-  const v=document.getElementById("view"); if(!v) return;
-  /* ：删除条目是 div[role=button]，补键盘可达（Enter / 空格触发 click） */
-  v.addEventListener("keydown", e=>{
-    if(state.view!==VIEWS.LISTS) return;
-    if(e.key!=="Enter" && e.key!==" ") return;
-    const del=e.target.closest && e.target.closest(".lx[data-del]");
-    if(!del) return;
-    e.preventDefault(); del.click();
-  });
-  v.addEventListener("click", e=>{
-    if(state.view!==VIEWS.LISTS) return;
-    const t=e.target;
-    if(t.closest("#listAdd")){ newList(); return; }
-    if(t.closest("#listSel")){ selToggle("lists"); return; }
-    const treeRow=t.closest(".ltree-item[data-lid]");
-    if(treeRow){
-      if(t.closest("[data-del]")) delList(treeRow.dataset.lid); else { state.selList=treeRow.dataset.lid; renderLists(); }
-      return;
-    }
-    const card=t.closest(".lcard"); if(!card) return;
-    const lid=state.selList;
-    if(t.closest("[data-emojiedit]")){ editListEmoji(lid); return; }
-    if(t.closest("[data-rename]")){ renameList(lid); return; }
-    if(t.closest("[data-ldel]")){ delList(lid); return; }
-    if(t.closest("[data-newadd]")){ const inp=card.querySelector("[data-new]"); addItem(lid, inp?inp.value:""); return; }
-    if(t.closest("[data-import]")){ const box=card.querySelector("#lImport"); if(box) box.style.display = box.style.display==="none"?"block":"none"; return; }
-    if(t.closest("[data-importgo]")){ const box=card.querySelector("[data-importbox]"); importListLines(lid, box?box.value:""); return; }
-    const item=t.closest(".litem[data-iid]");
-    if(item){
-      if(t.closest("[data-edit]")){ if(selMode) return; inlineEditItem(item, lid, item.dataset.iid); return; }
-      if(t.closest("[data-del]")){ delItem(lid, item.dataset.iid); return; }
-      if(t.closest("[data-convert]")){ convertListItem(lid, item.dataset.iid); return; }
-      if(t.closest("[data-dueedit]")){ dueEditItem(lid, item.dataset.iid); return; }
-    }
-  });
-  v.addEventListener("change", e=>{
-    if(state.view!==VIEWS.LISTS) return;
-    const t=e.target;
-    if(t.id==="listSort"){ if(t.value){ sortLists(t.value); t.value=""; } return; }
-    if(t.id==="itemSort"){ const s=t.value; t.value=""; if(s){ sortItems(state.selList, s); } return; }
-    const row=t.closest(".litem[data-iid]");
-    if(row && t.matches("input[data-toggle]")) toggleItem(row.dataset.lid||state.selList, row.dataset.iid);
-  });
-  v.addEventListener("keydown", e=>{
-    if(state.view!==VIEWS.LISTS) return;
-    if(e.target && e.target.matches("input[data-new]") && e.key==="Enter"){ e.preventDefault(); addItem(state.selList, e.target.value); }
-  });
-  const R=".litem[data-iid],.ltree-item[data-lid]";
-  v.addEventListener("dragstart", e=>{ if(state.view!==VIEWS.LISTS) return; const el=e.target.closest(R); if(!el){ e.preventDefault(); return; } e.dataTransfer.setData("text/plain", el.dataset.iid||el.dataset.lid); el.classList.add("dragging"); e.dataTransfer.effectAllowed="move"; });
-  v.addEventListener("dragend", e=>{ const el=e.target.closest(R); if(el) el.classList.remove("dragging"); });
-  v.addEventListener("dragover", e=>{ if(state.view!==VIEWS.LISTS) return; const el=e.target.closest(R); if(el){ e.preventDefault(); e.dataTransfer.dropEffect="move"; el.classList.add("dragover"); } });
-  v.addEventListener("dragleave", e=>{ const el=e.target.closest(R); if(el) el.classList.remove("dragover"); });
-  v.addEventListener("drop", e=>{ if(state.view!==VIEWS.LISTS) return; const el=e.target.closest(R); if(!el) return; e.preventDefault(); el.classList.remove("dragover"); const fromId=e.dataTransfer.getData("text/plain"); if(!fromId) return; if(el.dataset.iid){ const L=lists.find(x=>x.id===state.selList); if(L && L.items.some(x=>x.id===fromId) && fromId!==el.dataset.iid) reorderItem(state.selList, fromId, el.dataset.iid); } else if(fromId!==el.dataset.lid && lists.some(x=>x.id===fromId)){ reorderList(fromId, el.dataset.lid); } });
-}
-function setupListsPanelEvents(){
-  const el=document.getElementById("listsPanelBody"); if(!el) return;
-  el.addEventListener("click", e=>{
-    const t=e.target;
-    const emo=t.closest(".lp-emoji"); if(emo){ editListEmoji(emo.dataset.lid); return; }
-    if(t.closest(".lp-go")){ state.view=VIEWS.LISTS; syncSeg(); renderAll(); return; }
-    const head=t.closest(".lp-head"); if(head){ openLists[head.dataset.lid]=!openLists[head.dataset.lid]; renderListsPanel(); return; }
-    if(t.closest("[data-newadd]")){ const box=t.closest(".lp-list"); const inp=box?box.querySelector("[data-new]"):null; addItem(box?box.dataset.lid:"", inp?inp.value:""); return; }
-    const row=t.closest(".lp-item[data-iid]"); if(!row) return;
-    if(t.closest(".lp-x")) delItem(row.dataset.lid, row.dataset.iid); else if(t.closest(".lp-txt")) editItem(row.dataset.lid, row.dataset.iid);
-  });
-  el.addEventListener("change", e=>{
-    const row=e.target.closest(".lp-item[data-iid]");
-    if(row && e.target.matches("input[data-toggle]")) toggleItem(row.dataset.lid, row.dataset.iid);
-  });
-  el.addEventListener("keydown", e=>{
-    if(e.target && e.target.matches("input[data-new]") && e.key==="Enter"){ e.preventDefault(); const box=e.target.closest(".lp-list"); addItem(box?box.dataset.lid:"", e.target.value); }
-  });
-  el.addEventListener("dragstart", e=>{ const row=e.target.closest(".lp-item[data-iid]"); if(!row) return; e.dataTransfer.setData("text/plain", row.dataset.iid); row.classList.add("dragging"); e.dataTransfer.effectAllowed="move"; });
-  el.addEventListener("dragend", e=>{ const row=e.target.closest(".lp-item"); if(row) row.classList.remove("dragging"); });
-  el.addEventListener("dragover", e=>{ const row=e.target.closest(".lp-item"); if(row){ e.preventDefault(); e.dataTransfer.dropEffect="move"; } });
-  el.addEventListener("drop", e=>{ const row=e.target.closest(".lp-item[data-iid]"); if(!row) return; e.preventDefault(); const fromId=e.dataTransfer.getData("text/plain"); const L=lists.find(x=>x.id===row.dataset.lid); if(L && L.items.some(x=>x.id===fromId)){ reorderItem(row.dataset.lid, fromId, row.dataset.iid); e.stopPropagation(); } });
-}
 
 /* ===== 工具 ===== */
 
@@ -11065,23 +11806,6 @@ let _cloudBusy=false;
 
 /* ===== 选择模式 + 批量操作（任务/清单/项目通用） ===== */
 let selMode=false, selView="", selIds=new Set();
-function selBind(actions){
-  const bar=document.getElementById("batchBar"); if(!bar) return;
-  bar.classList.add("show");
-  actions.forEach((a,i)=>{ const b=bar.querySelector('[data-ba="'+i+'"]'); if(b) b.onclick=()=>a.fn(); });
-  const c=bar.querySelector("#bbCancel"); if(c) c.onclick=()=>{ selClear(); renderAll(); };
-  bindSelChecks(); // 关键：绑定各视图勾选框的 onchange，否则点击「选不中」
-  updateSelCount();
-}
-function bindSelChecks(view, after){
-  if(!selMode) return;
-  document.querySelectorAll('#view input[data-sel]').forEach(c=>{
-    c.onchange=()=>{ const id=c.dataset.sel; if(c.checked) selIds.add(id); else selIds.delete(id);
-      const row=c.closest('.proj-card, .inbox-item, .litem'); if(row) row.classList.toggle('sel-checked', c.checked);
-      updateSelCount(); };
-  });
-  if(after) after();
-}
 
 /* ===== 全局搜索 / 命令面板 ===== */
 const CmdPalette = (() => {
@@ -11175,19 +11899,6 @@ const UNDO_MAX=20;   // 落盘上限：刷新后仍可撤销，但不过度占�
 
 /* ===== 浏览器提醒 ===== */
 let remind={on:false, lead:10, reminded:[]};
-function loadRemind(){
-  try{ const r=localStorage.getItem("wb_taskhub_remind_v1");
-    if(r){ const o=JSON.parse(r); remind={on:!!o.on, lead:o.lead||10, reminded:Array.isArray(o.reminded)?o.reminded:[]}; }
-  }catch(e){}
-}
-function saveRemind(){
-  try{
-    const KEY="wb_taskhub_remind_v1";
-    // O15：写入前与已存值合并去重，避免多标签页各自覆盖导致重复 / 漏提醒
-    try{ const ex=JSON.parse(localStorage.getItem(KEY)||"null"); if(ex&&Array.isArray(ex.reminded)){ const set=new Set(remind.reminded); ex.reminded.forEach(k=>set.add(k)); remind.reminded=Array.from(set); } }catch(e){}
-    localStorage.setItem(KEY, JSON.stringify(remind));
-  }catch(e){}
-}
 let _mergingFromStorage=false;
 // P1-3：多标签页同设备——另一标签写入任务键时，逐任务合并到本地（mergeTasks 幂等），变化才落盘+重渲染，避免静默互相覆盖导致数据丢失
 window.addEventListener("storage", e=>{
@@ -11214,62 +11925,6 @@ let remindTimer=null;
    页面关闭后浏览器仍可能运行 sw.js —— 把「未来 12h 内的提醒计划」写入同源 Cache Storage，
    sw.js 每 30s 读取并到点弹系统通知。注意：这是尽力而为（iOS Safari / 部分后台节流下不可靠），
    页面开着时仍由下方 checkReminders 30s 轮询为准。 */
-function pushRemindPlan(){
-  try{
-    if(typeof caches==="undefined") return;                 // 非 https / 不支持的环境静默跳过
-    const now=new Date(), end=new Date(now.getTime()+12*3600*1000);
-    const items=getInstances(now,end)
-      .filter(i=>!isDone(i) && !i.dropped && i.start>now)   // 「不补做」不进提醒计划
-      .map(i=>({key:i.task.id+"|"+ymd(i.date), title:i.task.title, at:i.start.getTime(),
-                body:fmtRange(i.start,i.end)+" · "+(i.task.cat||"")}));
-    caches.open("wb-remind-plan").then(function(c){
-      return c.put("plan", new Response(JSON.stringify({items, at:Date.now()}),
-        {headers:{"Content-Type":"application/json"}}));
-    }).catch(function(){});
-  }catch(e){}
-}
-function checkReminders(){
-  if(!("Notification" in window) || Notification.permission!=="granted") return;
-  const now=new Date(), end=new Date(now.getTime()+remind.lead*60000);
-  const insts=getInstances(now, end);
-  for(const i of insts){
-    if(isDone(i) || i.dropped) continue;   // 「不补做」不发通知
-    const diff=i.start-now;
-    if(diff>=0 && diff<=remind.lead*60000){
-      const key=i.task.id+"|"+ymd(i.date);
-      if(!remind.reminded.includes(key)){
-        try{ new Notification("任务提醒 · "+i.task.title, {body:fmtRange(i.start,i.end)+" · "+i.task.cat}); }catch(e){}
-        remind.reminded.push(key);
-      }
-    }
-  }
-  const cut=new Date(now.getTime()-7*DAY);
-  remind.reminded=remind.reminded.filter(k=>new Date(k.split("|")[1])>=cut);
-  if(remind.reminded.length>500) remind.reminded=remind.reminded.slice(-500); // 硬上限，防止极端情况下数组无限增长
-  checkHabitReminders();
-  pushRemindPlan();   // M2：同步最新计划给后台 SW（页面开着也顺带刷新，SW 到点可立即投递）
-  saveRemind();
-}
-function startReminderLoop(){
-  if(remindTimer){ clearInterval(remindTimer); remindTimer=null; }
-  if(remind.on && "Notification" in window && Notification.permission==="granted"){ checkReminders(); remindTimer=setInterval(checkReminders,30000); }
-}
-function updateRemindBtn(){
-  const b=document.getElementById("btnRemind");
-  const lead=document.getElementById("fLead"); if(lead){ lead.value=String(remind.lead); lead.classList.toggle("lead-disabled", !remind.on); }
-  const bell='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
-  if(remind.on){ b.innerHTML=bell+" 提醒 开"; b.classList.add("on-remind"); b.classList.remove("btn-remind-off"); }
-  else { b.innerHTML=bell+" 提醒 关"; b.classList.remove("on-remind"); b.classList.add("btn-remind-off"); }
-}
-function toggleRemind(){
-  if(!("Notification" in window)){ toast("当前浏览器不支持通知"); return; }
-  if(!remind.on){
-    Notification.requestPermission().then(p=>{
-      if(p==="granted"){ remind.on=true; saveRemind(); startReminderLoop(); updateRemindBtn(); toast("提醒已开启"); }
-      else toast("未获得通知权限");
-    });
-  } else { remind.on=false; saveRemind(); startReminderLoop(); updateRemindBtn(); toast("提醒已关闭"); }
-}
 
 /* ===== 事件 ===== */
 document.getElementById("seg").onclick=e=>{ const b=e.target.closest("button"); if(!b)return; state.view=b.dataset.v; syncSeg(); renderAll(); };
@@ -11288,15 +11943,6 @@ const listOpenAllBtn=document.getElementById("listOpenAll"); if(listOpenAllBtn) 
 document.getElementById("prev").onclick=()=>nav(-1);
 document.getElementById("next").onclick=()=>nav(1);
 document.getElementById("todayBtn").onclick=()=>{ state.cur=new Date(); renderAll(); };
-function nav(dir){
-  const v=state.view;
-  if(v!=="month"&&v!=="week"&&v!=="day"&&v!=="gantt") return;   // 收件箱/进度/统计/习惯无分页
-  if(v==="month") state.cur=addMonths(state.cur,dir);
-  else if(v==="week") state.cur=addDays(state.cur,7*dir);
-  else if(v==="day") state.cur=addDays(state.cur,dir);
-  else state.cur=addMonths(state.cur,dir);
-  renderAll();
-}
 document.getElementById("btnNew").onclick=()=>openModal(null,null);
   const _fab=document.getElementById("fabNew"); if(_fab) _fab.onclick=()=>{ openModal(null,null); };   // ：移动端底部快捷新建
 bindDoneAtField();   // 完成时间（补打卡）字段：静态 DOM，只需绑一次
@@ -11358,39 +12004,6 @@ if(deferBtn&&deferPop){
   };
 }
 document.getElementById("f_rec").onchange=toggleRecOpts;
-// 自然语言输入：新建任务标题失焦时自动识别日期/时间
-function applyNL(){
-  if(editingId) return;
-  const inp=document.getElementById("f_title");
-  const raw=inp.value.trim(); if(!raw) return;
-  const r=parseNL(raw); if(!r) return;
-  inp.value=r.title;
-  /* 标签 / 优先级 / 情境（parseNL 新增，Todoist 式 `#求职 p1 @电脑`）——回填时并入已有值，不覆盖用户手填的 */
-  const noted=[];
-  if(r.tags&&r.tags.length){
-    const g=document.getElementById("f_tags");
-    if(g){
-      const cur=g.value.split(/[,，\s]+/).map(x=>x.trim()).filter(Boolean);
-      const add=r.tags.filter(t=>!cur.includes(t));
-      if(add.length){ g.value=cur.concat(add).join(", "); renderTagPicker(); noted.push(add.length+" 个标签"); }
-    }
-  }
-  if(r.priority){ const p=document.getElementById("f_priority"); if(p){ p.value=r.priority; noted.push("优先级"); } }
-  if(r.ctx){ const c=document.getElementById("f_ctx"); if(c){ c.value=r.ctx; noted.push("情境"); } }
-  /* 纯属性输入（无日期）：只回填标签/优先级/情境，不动日期区 —— 否则会给"收件箱任务"硬塞一个今天 */
-  if(!r.start){ if(noted.length) toast("已智能识别："+noted.join(" · ")+" ✓"); return; }
-  document.getElementById("f_sdate").value=ymd(parseLocal(r.start));
-  document.getElementById("f_stime").value=fmtTime(parseLocal(r.start));
-  document.getElementById("f_edate").value=ymd(parseLocal(r.end));
-  document.getElementById("f_etime").value=fmtTime(parseLocal(r.end));
-  if(r.rec){
-    const frec=document.getElementById("f_rec"); frec.value=r.rec.freq; toggleRecOpts();
-    if(r.rec.freq==="weekly" && r.rec.day!=null) setWeekChecks([r.rec.day]);
-    toast("已智能识别时间 + 重复"+(noted.length?(" + "+noted.join(" · ")):"")+" ✓");
-  } else {
-    toast("已智能识别时间"+(noted.length?(" + "+noted.join(" · ")):"")+" ✓");
-  }
-}
 document.getElementById("f_title").addEventListener("blur", applyNL);
 document.getElementById("subAddBtn").onclick=addSub;
 document.getElementById("subInput").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); addSub(); } });
@@ -11581,18 +12194,8 @@ document.getElementById("mgKeep").onchange=mgRender;
 document.getElementById("mgDrop").onchange=mgRender;
 document.getElementById("okrSave").onclick=okrSave;
 document.getElementById("okrDelete").onclick=okrDelete;
-function bindKrToday(){ document.querySelectorAll("#todayList .kr-today-item[data-kr], #view .kr-today-item[data-kr]").forEach(b=>b.onclick=()=>okrOpenKR(b.dataset.kr)); }
 
 /* ===== 键盘快捷键 ===== */
-function inField(){ const a=document.activeElement; return a && (a.tagName==="INPUT"||a.tagName==="TEXTAREA"||a.tagName==="SELECT"||a.isContentEditable); }
-/* P1-12：任一弹层（含嵌套确认框/详情/顶菜单）是否打开。用于屏蔽全局单键快捷键，
-   避免在弹窗里按 N / 1~9 / U 静默丢弃编辑内容或改状态。Esc 不受此影响（由各自的 Esc 链处理）。 */
-function modalAnyOpen(){
-  if(document.querySelector(".mask.show")) return true;
-  if(document.getElementById("detailMask") && document.getElementById("detailMask").classList.contains("show")) return true;
-  if(document.getElementById("topMenu") && document.getElementById("topMenu").classList.contains("show")) return true;
-  return false;
-}
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape"){ const ms=["helpMask","okrMask","projMask"]; for(const id of ms){ const m=document.getElementById(id); if(m&&m.classList.contains("show")) m.classList.remove("show"); } return; }
   if(inField() || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -11633,7 +12236,6 @@ document.addEventListener("keydown",e=>{
 
 /* ===== 明/暗主题 ===== */
 const THEME_KEY="wb_theme_v1";
-function toggleTheme(){ const cur=document.documentElement.dataset.theme==="dark"?"light":"dark"; applyTheme(cur); updateThemeBtn(); }
 
 /* ===== 习惯打卡 ===== */
 let habits=[];
@@ -11641,72 +12243,11 @@ const HABIT_KEY="wb_taskhub_habits_v1";
 /* 习惯改动直接写入全量备份环（FULL_RING，已含 habits）：被云同步 / 缓存页覆盖时可在「历史与恢复」离线还原，不再单独维护一套习惯环 */
 /* ===== 打卡格子样式（用户可编辑） ===== */
 const HABIT_STYLE_KEY="wb_taskhub_habit_style_v1";
-function openHabitStyle(){
-  const s=getHabitStyle();
-  document.getElementById("hsDone").value=s.doneColor;
-  document.getElementById("hsTodayRing").checked=!!s.todayRing;
-  document.getElementById("hsTodayColor").value=s.todayColor;
-  document.getElementById("hsTargetOn").checked=!!s.targetOn;
-  document.getElementById("hsTargetColor").value=s.targetColor;
-  document.getElementById("hsFont").value=s.cellFont;
-  document.getElementById("hsRadius").value=s.cellRadius;
-  document.getElementById("hbStyleMask").classList.add("show");
-}
-function closeHabitStyle(){ document.getElementById("hbStyleMask").classList.remove("show"); }
 /* 每周目标：freq==="weekly" 时 freqN 即「每周完成几次就算完成」；其余频率无目标 */
 
-function bindNoSearchNote(root){
-  const b=root.querySelector("#nsClear"); if(!b) return;
-  b.onclick=()=>{ const c=document.getElementById("fClear"); if(c) c.click(); };
-}
-function bindHabitActions(root){
-  if(!root) return;
-  const a=root.querySelector("#habitAdd"); if(a) a.onclick=()=>openHabit(null);
-  const st=root.querySelector("#habitStyle"); if(st) st.onclick=openHabitStyle;
-  const bf=root.querySelector("#habitBackfill"); if(bf) bf.onclick=openHabitBackfill;
-}
 /* 补打 / 取消 多天卡：选日期范围 + 习惯，把漏掉的打卡一次性补上，或撤销误打的卡 */
 let bfMode="add";
-function openHabitBackfill(){
-  const mask=document.getElementById("habitBackfillMask"); if(!mask) return;
-  setBfMode("add");
-  const today=startOfDay(new Date());
-  const s=document.getElementById("bfStart"), e=document.getElementById("bfEnd");
-  s.value=ymd(addDays(today,-5));   // 默认补回最近约 5 天
-  e.value=ymd(addDays(today,-1));   // 默认截止到昨天（今天用格子点）
-  const sel=document.getElementById("bfHabit");
-  const active=habits.filter(h=>!h.archived);
-  sel.innerHTML='<option value="all">全部进行中习惯（'+active.length+'）</option>'+
-    active.map(h=>'<option value="'+h.id+'">'+esc(h.emoji||"🌟")+" "+esc(h.name)+'</option>').join("");
-  document.getElementById("bfTargetOnly").checked=false;
-  mask.classList.add("show");
-  setTimeout(()=>s.focus(),50);
-}
-function closeHabitBackfill(){ const m=document.getElementById("habitBackfillMask"); if(m) m.classList.remove("show"); }
 let habitEditId=null;
-function openHabit(id){
-  habitEditId=id||null;
-  const h=id?habits.find(x=>x.id===id):null;
-  document.getElementById("habitTitle").textContent=id?"编辑习惯":"添加习惯";
-  document.getElementById("habitName").value=h?h.name:"";
-  document.getElementById("habitEmoji").value=h?h.emoji||"🌟":"🌟";
-  document.getElementById("habitFreq").value=h?h.freq:"daily";
-  document.getElementById("habitFreqN").value=h&&h.freqN?h.freqN:3;
-  document.getElementById("habitTime").value=h?h.time||"":"";
-  const dowsWrap=document.getElementById("habitDows");
-  if(dowsWrap){ dowsWrap.querySelectorAll("input").forEach(c=>c.checked=!!(h&&Array.isArray(h.targetDows)&&h.targetDows.includes(+c.value))); }
-  toggleFreqExtra(h?h.freq:"daily");
-  document.getElementById("habitDelete").style.display=id?"inline-flex":"none";
-  const pBtn=document.getElementById("habitPause"), aBtn=document.getElementById("habitArchive");
-  if(h){
-    pBtn.style.display="inline-flex"; pBtn.textContent=h.paused?"继续":"暂停";
-    aBtn.style.display="inline-flex"; aBtn.textContent=h.archived?"恢复归档":"归档";
-  } else { pBtn.style.display="none"; aBtn.style.display="none"; }
-  const fe=document.getElementById("habitFreq");
-  if(fe) fe.onchange=()=>toggleFreqExtra(fe.value);
-  document.getElementById("habitMask").classList.add("show");
-}
-function closeHabit(){ document.getElementById("habitMask").classList.remove("show"); habitEditId=null; }
 
 /* ===== 云同步（GitHub Gist） ===== */
 /* ==== 云同步公共模块 CLOUD-COMMON v1（与「明信片追踪.html」保持一致）====
@@ -11725,33 +12266,12 @@ let _bootSyncAllowed=false;   // 启动拉取成功前禁止自动上传，避�
 const CLOUD_KEY="wb_taskhub_cloudsync_v1";
 const CLOUD_KEY_ALT="wb_postcards_cloudsync_v1";   // 与明信片追踪共享同一份云配置
 
-function cloudSave(){ try{ const s=JSON.stringify({token:cloud.token, gist:cloud.gist, auto:cloud.auto}); localStorage.setItem(CLOUD_KEY, s); try{ localStorage.setItem(CLOUD_KEY_ALT, s); }catch(e){} }catch(e){} }
 // 从「复制配置」产生的文本中解析出 Gist ID 与 Token（容错：按行匹配，顺序/空白不敏感）
 
 /* ===== 数据管理弹窗（）=====
    唯一入口：顶栏云 pill → 居中弹窗 + 双 Tab（本地备份 / 云同步），
    取代原页面底部 #backupPanel（点击后页面跳到最底部、标题与入口语义不符）。
    注：「更多」菜单里的「云同步 / 备份」已于 2026-08-30 移除，避免同一功能两处入口。 */
-function setDataTab(tab){
-  document.querySelectorAll("#dataTabs .dtab").forEach(b=>{
-    const on=b.dataset.dtab===tab;
-    b.classList.toggle("active",on); b.setAttribute("aria-selected",on?"true":"false");
-  });
-  document.querySelectorAll("#dataMask .dtab-panel").forEach(p=>{
-    p.style.display = p.dataset.dtab===tab ? "" : "none";
-  });
-}
-function openDataModal(tab){
-  const m=document.getElementById("dataMask"); if(!m) return;
-  setDataTab(tab||"local");
-  renderFullBackup(); renderTrash(); renderDataHealth();
-  m.classList.add("show");
-  if(tab==="cloud"){ setTimeout(()=>{ const t=document.getElementById("csToken"); try{ t&&t.focus(); }catch(_){} },120); }
-}
-function closeDataModal(){
-  const m=document.getElementById("dataMask"); if(!m) return;
-  m.classList.remove("show");
-}
 // ：云 pill 点击 / 键盘 → 打开数据管理弹窗并直接定位到「云同步」Tab
 (function(){
   const pill=document.getElementById("cloudPill"); if(!pill) return;
@@ -11786,25 +12306,6 @@ const CFG_KEYS=["wb_theme_v1","wb_taskhub_ui_v1","wb_taskhub_habit_style_v1","wb
   WKEY,TPL_KEY,"wb_taskhub_review_notes_v1","wb_taskhub_review_snaps_v1","wb_taskhub_review_tpl_v1",
   "wb_taskhub_gantt_v1","wb_taskhub_okr_trend_v1"];
 const CFG_KEY_SET=new Set(CFG_KEYS);
-function collectCfg(){
-  const c={};
-  CFG_KEYS.forEach(k=>{ try{ const v=localStorage.getItem(k); if(v!==null&&v!==undefined) c[k]=v; }catch(e){} });
-  return c;
-}
-// 把云端/备份的 cfg 落到本地。先写 localStorage，再即时刷新有常驻内存副本的项（其余下次启动读取时自然生效）。
-function applyCfg(c){
-  if(!c||typeof c!=="object") return;
-  Object.keys(c).forEach(k=>{
-    if(!CFG_KEY_SET.has(k)) return;   // 白名单外的键一律丢弃（云端数据不可信）
-    try{ const v=c[k]; if(typeof v==="string"||typeof v==="number"||typeof v==="boolean") localStorage.setItem(k,String(v)); }catch(e){}
-  });
-  try{ if(c["wb_theme_v1"]){ document.documentElement.dataset.theme=c["wb_theme_v1"]; if(typeof updateThemeBtn==="function") updateThemeBtn(); } }catch(e){}
-  try{ if(c["wb_taskhub_ui_v1"]){ const _o=JSON.parse(c["wb_taskhub_ui_v1"]); if(_o&&_o.collapsed) uiPrefs.collapsed=Object.assign({top:false,habit:false,list:false},_o.collapsed); if(_o.touched!==undefined) uiPrefs.touched=!!_o.touched; if(_o.topOpen!==undefined) uiPrefs.topOpen=!!_o.topOpen; } }catch(e){}
-  try{ if(c[WKEY]){ const w=JSON.parse(c[WKEY]); if(w&&typeof w==="object"){ widgetCfg=Object.assign({order:[],hidden:[],custom:[]},w); if(typeof applyWidgetLayout==="function") applyWidgetLayout(); } } }catch(e){}
-  try{ if(c["wb_taskhub_habit_style_v1"] && typeof applyHabitStyle==="function") applyHabitStyle(); }catch(e){}
-  try{ if(c["wb_taskhub_remind_v1"] && typeof loadRemind==="function") loadRemind(); }catch(e){}
-}
-function syncPayload(){ return {tasks:state.tasks, media, habits, cats, pris, lists, tagTree, projects:state.projects, okrs:state.okrs, anniv:state.anniv, deleted:deletedIds, cfg:collectCfg(), savedAt:Date.now()}; }   // R8：stats(完成流水缓存)不上云 —— 权威口径=任务 doneDates，可本地重建，避免每包 5000 条冗余
 // 兼容 classic token(ghp_/token 前缀) 与 fine-grained token(github_pat_/Bearer 前缀)，避免换细粒度 token 后 401
 
 // 带超时的 fetch：国内访问 api.github.com 常被静默挂起，必须超时兜底，否则界面一直转圈无反馈
@@ -11821,419 +12322,15 @@ const TASK_ALLOW=new Set([                             // O11-1：导入字段�
   "est","energy","seed","archived","done",
   "gw","ctx","createdAt"        // P1-9：GTD 三态 / 情境 / 创建时间——缺失会让导入任务 GTD 回落 next、情境徽标消失、收件箱排序与"停滞>14天"判定失真
 ]);
-/* R4 移植（对齐明信片 4106）：自锁下沉到函数内部。原先锁只在 withBusy 里置起，
-   而自动上传的三条路径（1.5s 防抖定时器 / flushSave / scheduleCloudRetry）不经过 withBusy，
-   两条上传可同时在飞：后写的整包 PATCH 覆盖先写的，先写方改动被静默吞掉一次（读改写窗口最宽 35s）。 */
-async function cloudUpload(silent, keepalive){
-  if(_cloudBusy){ _pendingUpload=true; return false; }   // 忙 → 排队，收尾统一补传
-  if(!keepalive) _cloudBusy=true;
-  try{ return await _cloudUploadInner(silent, keepalive); }
-  finally{ if(!keepalive) _cloudBusy=false; }
-}
-async function _cloudUploadInner(silent, keepalive){
-  if(!cloud.token||!cloud.gist){ if(!silent) setCloudStatus("请先填写 Token 与 Gist ID", true); return false; }
-  if(!silent) setCloudStatus("上传中…");
-  setCloudPill("syncing");
-  let phase="read";
-  try{
-    // 先读云端、把云端任务合并进本地，再整体写回 —— 杜绝「本地保存即整体覆盖云端」丢失另一设备改动（A-merge）
-    // H1 修复：读云端失败（网络不可达 / HTTP 非 2xx）→ 放弃本次上传，仅保留本地已落盘，
-    //          绝不拿「可能过旧的本地整包」覆盖云端（此前多次"数据消失"的共同机理）。
-    const r2=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 20000);
-    /* 修复：原 gistErrText 全文件无定义 → HTTP 非 2xx 时抛 ReferenceError「gistErrText is not defined」，
-       真实状态码与可行动建议全丢，且 scheduleCloudRetry 的 /HTTP 429/ 专项退避永远匹配不上。改用 SHARED 的 explainHttp。 */
-    if(!r2.ok){ const e2=new Error(explainHttp(r2.status,"上传")); e2.status=r2.status; throw e2; }
-    const d2=await r2.json();
-    const ff=d2.files&&d2.files["taskhub.json"];
-    if(ff&&ff.content){
-      // 编辑弹窗打开时不做云端合并：mergeTasksIntoLocal 会就地改写/删除 state.tasks，正在编辑的任务可能被移走（P0-2 的另一半）。
-      // 改为排队补传；设置弹窗不受影响（这里只拦任务编辑 #mask 与详情 #detailMask 两个数据弹窗）。
-      if(document.querySelector("#mask.show,#detailMask.show")){ _pendingUpload=true; setCloudPill("ok"); return false; }
-      const o2=JSON.parse(ff.content); mergeTasksIntoLocal(o2); if(Array.isArray(o2.habits)) habits=mergeHabits(habits, o2.habits, o2.deleted); if(o2.media) media=mediaMergeKeep(o2.media, o2.deleted);
-    }
-    phase="write";
-    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{
-      method:"PATCH",
-      headers:{"Authorization":authHeader(),"Content-Type":"application/json"},
-      body:JSON.stringify({files:{"taskhub.json":{content:JSON.stringify(syncPayload(),null,2)}}})
-    }, 15000);
-    if(!res.ok){ const e2=new Error(explainHttp(res.status,"上传")); e2.status=res.status; throw e2; }
-    const t=new Date().toLocaleTimeString();
-    // M4：把「本次同步云端改了什么」告诉用户 —— 静默覆盖不再无感知
-    const S=window.__lastMergeStats;
-    const mSum = (S && (S.cloudNew+S.cloudWin+S.deleted)>0)
-      ? (" · 云合并：新增 "+S.cloudNew+"，云端更新 "+S.cloudWin+"，本地保留 "+S.localKept+(S.deleted?"，云端删除 "+S.deleted:""))
-      : "";
-    if(!silent) setCloudStatus("上传成功 ✓ "+t+mSum);
-    else if(mSum){ const _n=Date.now(); if(_n-(window._lastCloudMergeToast||0)>30000){ window._lastCloudMergeToast=_n; toast("云同步"+mSum, "info"); } }
-    setCloudPill("ok");
-    markSynced();   // 上传成功同样算一次成功同步，刷新「最后同步」时间
-    if(_upRetryN>0){ _upRetryN=0; clearTimeout(_upRetryTimer); }   // O7：成功后重置重试计数
-  }catch(e){
-    if(phase==="read"){
-      // 读云端失败：放弃上传以保护云端数据。自动上传静默跳过等下次重试；手动上传明确提示。
-      setCloudPill("err");
-      if(!silent) setCloudStatus("无法读取云端，已放弃本次上传以避免覆盖云端数据，请稍后重试", true);
-      else { const _n=Date.now(); const _reason=(e&&e.message)?e.message:"未知错误"; window.__lastCloudReadErr=_reason; if(_n-(window._lastCloudErrToast||0)>30000){ window._lastCloudErrToast=_n; toast("云同步跳过：读取云端失败（"+_reason+"），本次不上传以保护数据", "warn"); } scheduleCloudRetry(/HTTP 429/.test(_reason)?30000:undefined); }
-      return;
-    }
-    setCloudPill("err");
-    if(!silent) setCloudStatus("上传失败："+(e&&e.message?e.message:e), true);
-    else { scheduleCloudRetry(); const _n=Date.now(); if(_n-(window._lastCloudErrToast||0)>30000){ window._lastCloudErrToast=_n; toast("云同步失败："+(e&&e.message?e.message:e)+"（将自动重试）", "danger"); } }
-  }
-}
-async function cloudDownload(){
-  if(_cloudBusy||_pullBusy){ toast("云同步正在进行中，请稍候","warn"); return; }
-  _pullBusy=true;
-  try{ return await _cloudDownloadInner(); } finally{ _pullBusy=false; }
-}
-async function _cloudDownloadInner(){
-  if(!cloud.token||!cloud.gist){ setCloudStatus("请先在设置中填写 Token 与 Gist ID", true); toast("请先在设置中填写 GitHub Token 与 Gist ID，再下载", "danger"); return; }
-  setCloudStatus("下载中…");
-  try{
-    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 15000);
-    if(!res.ok){ const e2=new Error(explainHttp(res.status,"下载")); e2.status=res.status; throw e2; }
-    const data=await res.json();
-    const _files=data.files||{};
-    let f=_files["taskhub.json"];
-    if(!f){ const _k=Object.keys(_files).find(k=>/\.(json|txt)$/i.test(k)); f=_k?_files[_k]:null; }
-    if(!f||!f.content){ setCloudStatus("云端暂无数据", true); toast("云端 Gist 还没有数据，请先点「上传到云端」", "danger"); return; }
-    const obj=JSON.parse(f.content);
-    // 新鲜度检测：本地比云端新时，覆盖会丢失本地未同步的改动，提前警告（B）
-    const localT=+(localStorage.getItem("wb_taskhub_local_savedAt_v1")||0);
-    const cloudT=obj.savedAt||0;
-    let warn="";
-    if(localT>0 && cloudT>0 && localT>cloudT){
-      warn="\n⚠️ 本地数据比云端更新（本地 "+new Date(localT).toLocaleString()+"，云端 "+new Date(cloudT).toLocaleString()+"）。覆盖将丢失本地尚未同步到云端的改动。";
-    }
-    if(!(await confirmDialog("将用云端数据覆盖本地任务 / 媒体进度 / 习惯，确认？"+warn,{danger:true}))){ setCloudStatus("已取消下载"); return; }
-    if(Array.isArray(obj.tasks)){ state.tasks=obj.tasks; save(); }
-    if(obj.media){ media=mediaMergeKeep(obj.media, obj.deleted); mediaSave(); }
-    if(Array.isArray(obj.habits)){ habits=mergeHabits(habits, obj.habits, obj.deleted); habitSave(); }
-    if(Array.isArray(obj.lists)){ lists=dropTombed("list", obj.lists, obj.deleted); listsSave(); }
-    if(Array.isArray(obj.cats)){ cats=obj.cats; catsSave(); }
-    if(Array.isArray(obj.pris)){ pris=obj.pris; prisSave(); }
-    if(Array.isArray(obj.tagTree)){ tagTree=obj.tagTree; saveTags(); }
-    if(Array.isArray(obj.projects)){ state.projects=obj.projects; projectsSave(); }
-    if(Array.isArray(obj.okrs)){ state.okrs=obj.okrs; okrsSave(); }
-    if(Array.isArray(obj.anniv)){ state.anniv=obj.anniv; annivSave(); }
-    deletedIds=(obj.deleted||[]).map(normTomb); deletedIdsSave();
-    rebuildCatPriSelects();
-    applyCfg(obj.cfg);   // M9：手动下载同步配置
-    setLocalSaveAt(obj.savedAt||Date.now());
-    setCloudStatus("下载成功 ✓ "+new Date().toLocaleString());
-    setCloudPill("ok");
-    renderAll();
-  }catch(e){ if(DEBUG)console.error("云下载失败：", e);
-    let msg=(e&&e.message)?e.message:e;
-    if(e&&e.name==="AbortError") msg="网络超时：无法在 15 秒内连接 GitHub（可能受网络限制）。可改用「离线恢复书签」一键恢复数据。";
-    else if(/Failed to fetch|NetworkError|Load failed/i.test(msg)) msg="网络不可达：浏览器无法连接 GitHub（可能受网络限制）。可改用「离线恢复书签」一键恢复数据。";
-    setCloudStatus("下载失败："+msg, true); toast("下载失败："+msg, "danger");
-  }
-}
 
-// 粘贴配置后专用：用户明确要「加入该云端」，应以云端数据为准做恢复，
-// 绝不能再走 cloudStartupPull 的时间戳合并——新设备本地是示例/默认数据、时间戳更新，
-// 会被误判为「本地更新」而把错误数据上传覆盖云端（用户反馈的「粘贴后自动上传错误默认数据」根因）。
-async function restoreFromCloudAfterPaste(){
-  if(!cloud.token||!cloud.gist){ setCloudStatus("配置未填好，无法拉取云端", true); return; }
-  setCloudStatus("正在连接云端…");
-  let data;
-  try{
-    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 15000);
-    if(!res.ok){ setCloudStatus("云端读取失败：HTTP "+res.status, true); toast("云端读取失败：HTTP "+res.status, "danger"); return; }
-    data=await res.json();
-  }catch(e){ let m=(e&&e.message)?e.message:e; if(e&&e.name==="AbortError") m="网络超时，无法连接 GitHub（可能受网络限制）"; setCloudStatus("云端读取失败："+m, true); toast("云端读取失败："+m, "danger"); return; }
-  const f=data.files&&data.files["taskhub.json"];
-  if(!f||!f.content){ setCloudStatus("云端暂无数据，已保留本机数据（如需备份请点「上传到云端」）"); setCloudPill("ok"); return; }
-  const obj=JSON.parse(f.content);
-  const ok=await confirmDialog("已填入云端配置。将用云端数据覆盖本机当前数据（包括本机的示例 / 默认任务），继续？\n如本机有尚未备份的重要改动，请先取消并点「上传到云端」。", {danger:true, ok:"用云端覆盖", cancel:"取消"});
-  if(!ok){ setCloudStatus("已取消，保留本机数据"); return; }
-  applyCloudObj(obj);
-  setLocalSaveAt(obj.savedAt||Date.now());
-  _bootSyncAllowed=true;   // 已证明云端可达且数据正确：放开自动上传（否则新设备粘贴配置后，一段时间内改动传不出去）
-  setCloudStatus("已从云端恢复数据 ✓ "+new Date().toLocaleTimeString());
-  setCloudPill("ok");
-  renderAll();
-}
 
-// O7：云同步失败指数退避重试（3s→6s→12s→24s→48s，最多 5 次后停止，避免网络长期不可达时风暴刷 GitHub）
-// G2（2026-10-23 修）：新增 minDelay 参数 —— 读云端失败分支传 429 专项退避 30000，此前定义无参被静默忽略，429 限流期仍按 3s 起步重试反而加剧限流
-function scheduleCloudRetry(minDelay){
-  if(_upRetryN>=5){
-    _upRetryN=0; clearTimeout(_upRetryTimer);
-    setCloudPill("err");
-    try{ toast("云同步多次失败，已停止自动重试。可稍后点「上传到云端」手动重试","danger"); }catch(_){}
-    return;
-  }
-  _upRetryN++;
-  const delay=Math.max(minDelay||0, Math.min(60000, 3000*Math.pow(2,_upRetryN-1)));
-  clearTimeout(_upRetryTimer);
-  _upRetryTimer=setTimeout(()=>{
-    _upRetryTimer=null;
-    if(cloud.token && cloud.gist && cloud.auto && _bootSyncAllowed && !_cloudBusy) cloudUpload(true);
-    else _upRetryN=0;
-  }, delay);
-}
 let _upTimer=null;
 let _pendingUpload=false;   // 已被启动门禁拦下的待传改动（拉取一旦成功必须补传，否则永久搁置）
-function cloudAutoUpload(){
-  if(_cloudBusy){ if(cloud.auto&&cloud.token&&cloud.gist) _pendingUpload=true; return; }   // 忙 → 排队，收尾统一补传（对齐明信片 4276）
-  if(!cloud.auto) return;
-  if(!cloud.token||!cloud.gist) return;
-  // 启动拉取未完成/失败前不自动上传（保护 Gist 不被空数据覆盖），但要记下「有待传改动」。
-  // 说明：当前各合并分支（情形 1/2/4）末尾都会调用 mediaSave/habitSave/... 间接触发上传，
-  // 所以多数情况下补传是「顺带」发生的，并非已知的丢数据缺陷。此处显式记录，是为了让
-  // 「拉取一旦恢复必补传」成为不依赖分支实现细节的硬保证（内容一致的分支不与任何 *Save() 相连）。
-  if(!_bootSyncAllowed){ _pendingUpload=true; return; }
-  if(_upTimer) clearTimeout(_upTimer);
-  _upTimer=setTimeout(()=>{ cloudUpload(true); }, 1500);   // 防抖：连续保存只触发一次上传
-}
-// 把云端对象应用为本地数据（统一入口，供启动拉取复用）
-function applyCloudObj(obj){
-  if(Array.isArray(obj.tasks)) state.tasks=obj.tasks;
-  if(obj.media) media=mediaMergeKeep(obj.media, obj.deleted);
-  if(Array.isArray(obj.habits)) habits=mergeHabits(habits, obj.habits, obj.deleted);
-  if(Array.isArray(obj.lists)) lists=dropTombed("list", obj.lists, obj.deleted);
-  if(Array.isArray(obj.cats)) cats=obj.cats;
-  if(Array.isArray(obj.tagTree)) tagTree=obj.tagTree;
-  if(Array.isArray(obj.pris)) pris=obj.pris;
-  if(Array.isArray(obj.projects)) state.projects=obj.projects;
-  if(Array.isArray(obj.okrs)) state.okrs=obj.okrs;
-  if(Array.isArray(obj.anniv)){ state.anniv=obj.anniv; annivSave(); }
-  deletedIds=(obj.deleted||[]).map(normTomb); deletedIdsSave();
-  const cloudT=obj.savedAt||0;
-  _markSave=false; saveQuiet(); mediaSave(); habitSave(); listsSave(); catsSave(); prisSave(); projectsSave(); okrsSave(); saveTags(); _markSave=true;
-  if(cloudT) setLocalSaveAt(cloudT);
-  rebuildCatPriSelects();
-  applyCfg(obj.cfg);   // M9：配置随云端一并落地（主题/偏好/模板/回顾…）
-}
-// 仅采用云端的「次级集合」(项目/目标/清单/习惯/媒体/分类/标签)，不动任务（任务已由 mergeTasksIntoLocal 逐条合并）
-function applyCloudSecondary(obj){
-  if(obj.media) media=mediaAdoptCloud(obj.media, obj.deleted);   // 媒体按 updated 取较新者：不再无脑云端优先，既防回退本地较新进度，也让手机端能看到电脑端更新
-  if(Array.isArray(obj.habits)) habits=mergeHabits(habits, obj.habits, obj.deleted);
-  if(Array.isArray(obj.lists)) lists=dropTombed("list", obj.lists, obj.deleted);
-  if(Array.isArray(obj.cats)) cats=obj.cats;
-  if(Array.isArray(obj.tagTree)) tagTree=obj.tagTree;
-  if(Array.isArray(obj.pris)) pris=obj.pris;
-  if(Array.isArray(obj.projects)) state.projects=obj.projects;
-  if(Array.isArray(obj.okrs)) state.okrs=obj.okrs;
-  if(Array.isArray(obj.anniv)){ state.anniv=obj.anniv; annivSave(); }
-  mediaSave(); habitSave(); listsSave(); catsSave(); prisSave(); projectsSave(); okrsSave(); saveTags();
-  rebuildCatPriSelects();
-}
-// 与 applyCloudSecondary（整文件覆盖）互补：仅把「云端有、本地缺」的次级项并入本地，
-// 同名项保留本地（localT>cloudT 时本地视为较新），用于启动拉取里「本地整体较新」分支，
-// 让手机端也能收到其他设备新建的项目/目标/清单/习惯等，而不必用旧云数据整体覆盖本地。
-function mergeCloudSecondaryUnion(obj){
-  const idk=x=>x&&x.id, namek=x=>x&&x.name;
-  const union=(loc,cloud,key)=>{
-    if(!Array.isArray(cloud)) return loc;
-    const m=new Map();
-    (loc||[]).forEach(x=>{ if(x) m.set(key(x), x); });
-    cloud.forEach(x=>{ if(!x) return; const k=key(x); if(!m.has(k)) m.set(k, x); });
-    return Array.from(m.values());
-  };
-  if(obj.media) media=mediaMergeKeep(obj.media, obj.deleted);
-  if(Array.isArray(obj.habits)) habits=mergeHabits(habits, obj.habits, obj.deleted);
-  if(Array.isArray(obj.lists)) lists=dropTombed("list", union(lists,obj.lists,idk), obj.deleted);
-  if(Array.isArray(obj.cats)) cats=union(cats,obj.cats,namek);
-  if(Array.isArray(obj.tagTree)) tagTree=union(tagTree,obj.tagTree,namek);
-  if(Array.isArray(obj.pris)) pris=union(pris,obj.pris,namek);
-  if(Array.isArray(obj.projects)) state.projects=union(state.projects,obj.projects,idk);
-  if(Array.isArray(obj.okrs)) state.okrs=union(state.okrs,obj.okrs,idk);
-  if(Array.isArray(obj.anniv)) mergeAnnivIntoLocal(obj);
-  mediaSave(); habitSave(); listsSave(); catsSave(); prisSave(); projectsSave(); okrsSave(); saveTags();
-  rebuildCatPriSelects();
-}
-// 逐任务合并：本地与云端按 id 对齐，updated 较大者胜（云端更新→采云端）；任一侧独有的任务都保留（并集）；
-// 删除用 tombstone 集合传播。墓碑带时间戳，遵循「最新操作胜出」：
-//  · 带时间戳的删除(ts>0) 仅当 任务.updated < ts（任务更旧）才生效 —— 用户之后编辑过的任务不会被旧删除抹掉；
-//  · 旧格式墓碑(ts=0，时间未知) 仅删除「从未被编辑过」(无 updated) 的任务，遇到已编辑任务则丢弃该墓碑，避免反复误杀。
-// 新设备演示任务(seed)在云端已有数据时自动丢弃，避免演示任务污染真实数据。
-function mergeTasks(localArr, cloudArr, cloudDeleted){
-  const cloudHas = (cloudArr||[]).length>0;
-  window.__lastMergeStats={cloudNew:0, cloudWin:0, localKept:0, deleted:0, at:Date.now()};   // M4：合并可见统计
-  const del=new Map();
-  const addDel=(o)=>{ const t=normTomb(o); if(t.id) del.set(t.id, t.ts); };
-  (deletedIds||[]).forEach(addDel); (cloudDeleted||[]).forEach(addDel);
-  const map=new Map();
-  (localArr||[]).forEach(t=>{
-    if(!t) return;
-    if(t.seed && cloudHas) return; // 演示任务在云端有数据时丢弃
-    const dts = del.has(t.id) ? del.get(t.id) : -1;
-    const remove = dts>0 ? ((t.updated||0) < dts)            // 时间戳删除：任务更旧才删
-                 : dts===0 ? (!t.updated)                     // 旧墓碑：仅删从未编辑过的任务
-                 : false;
-    if(remove) return;                          // 墓碑胜出 → 任务被删
-    if(dts===0 && t.updated) del.delete(t.id); // 旧墓碑遇到已编辑任务 → 丢弃该墓碑，避免后续同步反复误杀
-    map.set(t.id, t);
-  });
-  (cloudArr||[]).forEach(t=>{
-    if(!t || del.has(t.id)) return;
-    const cur=map.get(t.id);
-    if(!cur){ map.set(t.id, t); window.__lastMergeStats.cloudNew++; return; }   // 云端独有 → 并入本地
-    if((t.updated||0) > (cur.updated||0)){ map.set(t.id, t); window.__lastMergeStats.cloudWin++; } // 云端更新 → 采用云端
-    else window.__lastMergeStats.localKept++;                                     // 本地较新/同新 → 保留本地
-  });
-  deletedIds=Array.from(del.entries()).map(([id,ts])=>({id, ts}));
-  return Array.from(map.values());
-}
-function mergeTasksIntoLocal(obj){
-  const before=state.tasks.map(t=>String(t.id));
-  state.tasks = mergeTasks(state.tasks, obj.tasks, obj.deleted);
-  const after=new Set(state.tasks.map(t=>String(t.id)));
-  const gone=before.filter(id=>!after.has(id));
-  if(gone.length) dropHistoryOfIds(gone);   // 云端墓碑删掉的任务：顺手清掉它的完成流水（幽灵记录）
-  deletedIdsSave();
-  saveQuiet();
-}
-// 本地数据轻量签名：用于启动拉取时判断本地与云端是否真有内容分歧（避免单纯时间戳差异也弹窗）
-function mergeHabits(loc, cloud, cloudDeleted){
-  loc=(loc||[]); cloud=(cloud||[]);
-  const deadDays=kindTombMap("habitday", cloudDeleted);   // 已取消打卡的天（habitId:ymd）→ 墓碑时刻
-  /* 打卡时刻胜过墓碑：墓碑本无「新旧」概念，一旦写入就永久有效，于是「云端残留墓碑」会把用户
-     之后重新打的卡一路抹掉 —— 表现为「点了变绿、过会儿又变灰，这天永远打不上」（2026-09-26 实报）。
-     给每次打卡记 dayTs（该天的打卡时刻），合并时若打卡时刻 ≥ 墓碑时刻 ⇒ 视作用户主动重新打卡，
-     墓碑让位。旧数据没有 dayTs 时退化为原行为（墓碑胜出），保证向后兼容。 */
-  const fdays=(h, days)=>{
-    const hid=String((h&&h.id)||"");
-    if(!hid || !deadDays.size) return days||[];
-    const ts=(h&&h.dayTs)||{};
-    return (days||[]).filter(d=>{
-      const t=+(ts[d]||0), tomb=deadDays.get(hid+":"+d);
-      if(tomb===undefined) return true;   // 这天没有墓碑 → 保留
-      if(!t) return false;                // 旧数据没记打卡时刻 → 墓碑胜出（向后兼容）
-      return t>=tomb;                     // 打卡不早于墓碑 → 新打卡胜出
-    });
-  };
-  const m=new Map();
-  // 本地一侧也要过墓碑：否则「云端只带墓碑、不带该习惯」时本地那份会被原样保留（墓碑失效）
-  loc.forEach(h=>{ if(h){ const cp=JSON.parse(JSON.stringify(h)); cp.days=fdays(cp, cp.days); m.set(h.id, cp); } });
-  cloud.forEach(h=>{
-    if(!h) return;
-    const cur=m.get(h.id);
-    if(!cur){ const nh=JSON.parse(JSON.stringify(h)); nh.days=fdays(nh, nh.days); m.set(h.id, nh); return; }
-    const ds=new Set((cur.days||[]).concat(h.days||[]));
-    // dayTs 合并：同一天取较晚时刻（较新的一次打卡动作胜出）
-    const ta=cur.dayTs||{}, tb=h.dayTs||{}, tm=Object.assign({}, ta);
-    Object.keys(tb).forEach(k=>{ if(!(k in tm) || +((tb[k])||0) > +((tm[k])||0)) tm[k]=tb[k]; });
-    const lu=+(cur.updated||0), cu=+(h.updated||0);
-    if(cu>lu){ const {days, archived, paused, ...rest}=h; Object.assign(cur, rest); }  // 归档/暂停不同步：避免云端旧状态把本端活动习惯藏进归档
-    cur.dayTs=tm;   // 必须在 Object.assign 之后：rest 含 dayTs，会整体覆盖掉刚合好的 tm
-    cur.days=fdays(cur, Array.from(ds).sort());
-  });
-  // 删除传播：并集只增不减，本地删掉的习惯/取消的打卡若云端或其他设备仍持有会被并回 → 墓碑胜出
-  return dropTombed("habit", Array.from(m.values()), cloudDeleted);
-}
-// 媒体看板签名：dataSig 此前完全不含媒体 → 「本地与云端仅媒体有差异」会被判为情形 3「已是最新」而整段跳过合并，
-// 于是另一台设备新增/删除的媒体条目永远落不到本端（删除传播也失效）。补进签名后此类差异会走正常合并分支。
-function mediaSig(m){
-  const one=a=>(a||[]).map(x=>[x.id,x.current,x.total,x.done?1:0,x.title||""]).sort((p,q)=>String(p[0]).localeCompare(String(q[0])));   // 2026-10-19：签名补 title——只改媒体标题（不改进度）时签名也要变，否则该修改被「内容一致」判据吞掉、永远同步不出去
-  const mm=m||{};
-  return one(mm.books).concat(one(mm.tvs),one(mm.auds));
-}
-function dataSig(){
-  const s=x=>JSON.stringify(x||[]);
-  return [
-    state.tasks.length,(habits||[]).length,(lists||[]).length,(cats||[]).length,(pris||[]).length,(tagTree||[]).length,(state.projects||[]).length,(state.okrs||[]).length
-  ].join(",")+"|"+s(state.tasks.map(t=>[t.id,t.done,t.updated||JSON.stringify(t.doneAt||null)||"",t.title||""]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))
-   +"|"+s((habits||[]).map(h=>[h.id,(h.days||[]).length]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))
-   +"|"+s(mediaSig(media));
-}
-function dataSigOf(obj){
-  const s=x=>JSON.stringify(x||[]);
-  const tasks=obj.tasks||[], habits=obj.habits||[], lists=obj.lists||[], cats=obj.cats||[], pris=obj.pris||[], tagTree=obj.tagTree||[], projects=obj.projects||[], okrs=obj.okrs||[];
-  return [
-    tasks.length,habits.length,lists.length,cats.length,pris.length,tagTree.length,projects.length,okrs.length
-  ].join(",")+"|"+s(tasks.map(t=>[t.id,t.done,t.updated||JSON.stringify(t.doneAt||null)||"",t.title||""]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))
-   +"|"+s(habits.map(h=>[h.id,(h.days||[]).length]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))
-   +"|"+s(mediaSig(obj.media));
-}
-async function cloudStartupPull(silent){
-  if(_cloudBusy||_pullBusy){ window.__pullOk=false; return; }   // 与上传/手动下载互斥；被挡下也要重置成败标志，防调用方误判成功
-  _pullBusy=true;
-  try{ return await _cloudStartupPullInner(silent); } finally{ _pullBusy=false; }
-}
-async function _cloudStartupPullInner(silent){
-  window.__pullOk=false;   // 供静默轮询判定本次拉取成败（本函数内部自行 catch，不向外抛错）
-  try{
-    if(!silent) setCloudPill("syncing");   // 拉取中给可见反馈（静默轮询不闪灯，避免每 15s 抖动）
-    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 20000);
-    if(!res.ok){ const e2=new Error(explainHttp(res.status,"读取")); e2.status=res.status; throw e2; }   // H2：云不可达/认证失败 → 走 catch，不放开自动上传（原 gistErrText 未定义，已修）
-    _bootSyncAllowed=true;   // 云可达且有数据，启动期内的自动上传/落盘上传均放开
-    window.__pullOk=true;
-    const data=await res.json();
-    const f=data.files&&data.files["taskhub.json"];
-    if(!f||!f.content){ setCloudPill("ok"); return; }
-    const obj=JSON.parse(f.content);
-    const localT=+(localStorage.getItem("wb_taskhub_local_savedAt_v1")||0);
-    const cloudT=obj.savedAt||0;
-    const localEmpty = !state.tasks.length && !(habits&&habits.length) && !(lists&&lists.length) && !(cats&&cats.length) && !(pris&&pris.length) && !(tagTree&&tagTree.length) && !(state.projects&&state.projects.length) && !(state.okrs&&state.okrs.length) && !(media&&media.books&&media.books.length) && !(media&&media.tvs&&media.tvs.length) && !(media&&media.auds&&media.auds.length);
-    // 情形 1：新实例 / 云端无时间戳 → 直接采用云端（静默）
-    if(localEmpty || cloudT===0){ applyCloudObj(obj); setCloudPill("ok"); setCloudStatus("已从云端恢复数据 ✓ "+new Date().toLocaleTimeString()); renderAll(); return; }
-    // 逐任务合并（始终安全、非破坏）：云端较新的任务覆盖本地，本地独有任务保留，删除经 tombstone 传播
-    const beforeSig=dataSig();
-    mergeTasksIntoLocal(obj);
-    renderAll();
-    // 次级集合沿用旧的整文件语义，避免引入新的分叉/丢失本地独有项
-    if(localT>cloudT){
-      // 情形 2：本地整体较新 → 任务已合并；次级集合改走「并集并入」，把云端新增项收进来（保留本地已有项，不整体覆盖）
-      mergeCloudSecondaryUnion(obj); renderAll();
-      setCloudPill("ok"); if(!silent) setCloudStatus("已合并云端任务 ✓ "+new Date().toLocaleTimeString());
-    } else if(beforeSig===dataSigOf(obj)){
-      // 情形 3：内容完全一致 → 无需处理（静默轮询不再重复落盘/上传）
-      setCloudPill("ok"); if(!silent) setCloudStatus("已是最新 ✓ "+new Date().toLocaleTimeString());
-    } else {
-      // 情形 4：内容分歧且本地不更新 → 采用云端的次级集合（任务已先合并，不会丢失本地独有任务）
-      applyCloudSecondary(obj); renderAll();
-      setCloudPill("ok"); if(!silent) setCloudStatus("已合并云端更新 ✓ "+new Date().toLocaleTimeString());
-    }
-  }catch(e){
-    const _m=(e&&e.name==="AbortError")?"网络超时（20 秒内未连上 GitHub）":((e&&e.message)?e.message:String(e));
-    window.__lastPullErr=_m;
-    if(DEBUG)console.error("启动时云拉取失败：", e);
-    setCloudPill("err");
-    // 首拉失败此前「只置红灯、无任何提示」，是「一直同步失败却查不出原因」的主因。
-    // 这里低频（60s 节流）把真实原因弹给用户，并写入状态灯悬浮提示，便于自查。
-    try{
-      const _el=document.getElementById("cloudPill");
-      if(_el) _el.title="云同步失败："+_m+"（后台自动重试中，最后尝试 "+new Date().toLocaleTimeString()+"）";
-      const _n=Date.now();
-      if(_n-(window.__lastPullErrToast||0)>60000){ window.__lastPullErrToast=_n; toast("云同步失败："+_m+"（后台自动重试中）","danger"); }
-    }catch(_){}
-  }
-}
 // 静默轮询 + 切回前台拉取（长开页面也能及时同步其他端；遇到冲突不弹窗，交由用户手动处理）
 // 自愈关键：不再以 _bootSyncAllowed 作为前置 —— 首拉失败时仍持续尝试（拉取只读，绝不会上传覆盖云端），
 // 一旦拉取成功即自动恢复「自动上传」能力。此前首拉失败会让该端整个会话彻底失去自动同步，
 // 是「手机端已完成、电脑端刷新却没变化」的主要根因之一。
 let _pullBusy=false, _pullFailN=0;
-function markSynced(){
-  try{
-    window.__lastSyncAt=Date.now();
-    const el=document.getElementById("cloudPill");
-    if(el) el.title="最后同步 "+new Date(window.__lastSyncAt).toLocaleTimeString();
-  }catch(_){}
-}
-async function cloudSilentPull(){
-  if(!cloud.token||!cloud.gist) return;
-  if(_pullBusy) return;                            // 防并发拉取
-  if(document.visibilityState==="hidden") return;   // 后台不轮询：省电 + 省 GitHub API 配额，切回前台会立即补拉
-  if(document.querySelector(".mask.show:not(#introMask)")) return;  // 弹窗操作中不打扰（欢迎引导框不计入，避免首启时阻断后台自愈轮询）
-  if(_pullFailN>0 && Date.now()-(window.__lastPullTry||0) < Math.min(120000, 15000*Math.pow(2,_pullFailN-1))) return; // 失败退避 15→30→60→120s
-  window.__lastPullTry=Date.now();
-  _pullBusy=true;
-  try{
-    await _cloudStartupPullInner(true);   // 本函数已自置 _pullBusy，须调内层（薄壳会直接 return）
-    if(window.__pullOk){
-      _pullFailN=0; markSynced();
-      // 自愈补传：此前被 _bootSyncAllowed 拦下的改动在此刻补传（cloudUpload 先读云端再合并写回，不会覆盖其他设备数据）
-      if(_pendingUpload){ _pendingUpload=false; cloudAutoUpload(); }
-    } else { _pullFailN=Math.min(6,_pullFailN+1); }
-  }catch(e){ _pullFailN=Math.min(6,_pullFailN+1); }
-  finally{ _pullBusy=false; }
-}
 setInterval(()=>{ cloudSilentPull(); }, 15000);   // 每 15s 一次（仅可见时真正发起）；Gist 方案的下限，秒级实时需服务端推送
 document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState!=="hidden") cloudSilentPull(); });
 window.addEventListener("pageshow", ()=>{ cloudSilentPull(); }); // iOS 从后台/bfcache 恢复时立即拉取
