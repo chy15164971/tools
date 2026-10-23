@@ -1859,6 +1859,29 @@ function emptyState(icon, text, sub, actionHtml){
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function escIcon(s){ return iconify(esc(s)); }
 /* <<< SHARED:END */
+
+/* ===== 分层地图 · P1-9 分层（2026-10-23）=====
+ * 主脚本按七层组织，自上而下：L1 Util/Date（纯函数工具）→ L2 Store（持久化与配置）
+ * → L3 Domain（业务规则）→ L4 Render（视图产出）→ L5 Bind（事件绑定）
+ * → L6 Cloud（Gist 同步协议）→ L7 Boot（启动序列）。
+ * 层横幅可 grep「P1-9 分层」定位；各层归属裁定与边界域名单见
+ * _ops/_整理记录/P1-9分层_设计方案_20261023.md。层内既有话题横幅为领域文档，与层横幅并存。
+ * 结构守卫：_ops/_测试/单文件_P1-9分层守卫_20261023.cjs。
+ */
+
+/* ===== L1 Util/Date · P1-9 分层（2026-10-23）===== */
+
+/* ===== L2 Store · P1-9 分层（2026-10-23）===== */
+
+/* ===== L3 Domain · P1-9 分层（2026-10-23）===== */
+
+/* ===== L4 Render · P1-9 分层（2026-10-23）===== */
+
+/* ===== L5 Bind · P1-9 分层（2026-10-23）===== */
+
+/* ===== L6 Cloud · P1-9 分层（2026-10-23）===== */
+
+/* ===== L7 Boot · P1-9 分层（2026-10-23）===== */
 /* ===== 数据 ===== */
 const KEY="wb_postcards_v1";
 const WKEY="wb_postcards_widgets_v1";
