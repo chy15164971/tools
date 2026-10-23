@@ -425,9 +425,10 @@ function emptyState(icon, text, sub, actionHtml){
   });
 })();
 
-/* ---------- esc / escIcon（审查 C3：从两文件宿主代码下沉，单一事实源）----------
- * 2026-09-17 P1-1 已把 esc 改为纯 HTML 转义（不再内嵌 iconify），并新增 escIcon
- * 作为「显式图标化」入口；此处统一维护，避免两文件双份定义随编辑漂移。
- * escIcon 依赖同块的 iconify（函数声明提升，文本顺序无关）。 */
+/* ---------- esc（审查 C3：从两文件宿主代码下沉，单一事实源）----------
+ * 2026-09-17 P1-1 已把 esc 改为纯 HTML 转义（不再内嵌 iconify）；此处统一维护，
+ * 避免两文件双份定义随编辑漂移。
+ * 注：原 escIcon（「转义 + 图标化」组合入口）已于 2026-10-24 清理——经 acorn 全量
+ *     扫描确认两文件引用数 / 调用数 / HTML 内联 / window[] 引用皆为 0。
+ *     需要图标化时请显式写 iconify(esc(x))，勿再引用 escIcon 这个名字。 */
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
-function escIcon(s){ return iconify(esc(s)); }

@@ -3096,12 +3096,13 @@ function emptyState(icon, text, sub, actionHtml){
   });
 })();
 
-/* ---------- esc / escIcon（审查 C3：从两文件宿主代码下沉，单一事实源）----------
- * 2026-09-17 P1-1 已把 esc 改为纯 HTML 转义（不再内嵌 iconify），并新增 escIcon
- * 作为「显式图标化」入口；此处统一维护，避免两文件双份定义随编辑漂移。
- * escIcon 依赖同块的 iconify（函数声明提升，文本顺序无关）。 */
+/* ---------- esc（审查 C3：从两文件宿主代码下沉，单一事实源）----------
+ * 2026-09-17 P1-1 已把 esc 改为纯 HTML 转义（不再内嵌 iconify）；此处统一维护，
+ * 避免两文件双份定义随编辑漂移。
+ * 注：原 escIcon（「转义 + 图标化」组合入口）已于 2026-10-24 清理——经 acorn 全量
+ *     扫描确认两文件引用数 / 调用数 / HTML 内联 / window[] 引用皆为 0。
+ *     需要图标化时请显式写 iconify(esc(x))，勿再引用 escIcon 这个名字。 */
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
-function escIcon(s){ return iconify(esc(s)); }
 /* <<< SHARED:END */
 
 /* ===== 分层地图 · P1-9 分层（2026-10-23）=====
@@ -4834,24 +4835,6 @@ function doneOnDate(t, k){   // 趋势柱状图按天判断：重复看 doneDate
   const x=parseLocal(self); return x instanceof Date && !isNaN(x) && ymd(x)===k;
 }
 
-function taskOverdueNow(t, refDay){
-  if(!t || !t.end) return false;
-  const today=refDay||startOfDay(new Date());
-  const isRec=!!(t.recurrence && t.recurrence.freq!=="none");
-  if(!isRec) return parseLocal(t.end) < today;
-  // 重复任务：取最近一个已到期、未完成、且未被标记不补做的实例
-  // G10（2026-10-23 用户确认）：逾期判定绕过视图筛选——搜索关键词不应改变统计卡/导出周报/项目徽标的逾期总数
-  const insts=getInstances(addDays(today,-90), today);
-  let worst=null;
-  for(const i of insts){
-    if(i.task && i.task.id!==t.id) continue;
-    if(isDropped(i.task, i.date)) continue;
-    if(isDone(i)) continue;
-    if(i.end < today){ if(!worst || i.end < worst.end) worst=i; }
-  }
-  return !!worst;
-}
-
 /* 批量版：一次实例展开，供多视图统计共用（避免 4 处各展开一遍） */
 function collectOverdueSet(refDay){
   const today=refDay||startOfDay(new Date());
@@ -5155,9 +5138,6 @@ function statsEarliestDay(){
   const cap=addDays(today,-729);
   return min<cap ? cap : min;
 }
-
-/* 区间内每天的完成数（供「全部」等长区间聚合用） */
-function doneOnDay(d){ const k=ymd(d); return stats.history.filter(h=>h.d===k).length; }
 
 // 动态刷新标签下拉（去重排序）
 function refreshTagFilter(){
@@ -11522,9 +11502,10 @@ const HISTORY_MAX=5000;   // 完成流水上限（原 500 会静默丢弃老记�
    今天没打卡就恒满足 t.end < today → 成批误判「逾期」（只有 skipMissed=true 的任务被排除，
    历史/导入的 skipMissed=false 任务全部误报）。而 buildTodayModel 用的是**实例** i.end，是正确的。
    口径统一为：取该任务「最近一个已到期且未完成」的实例判定期限。
-   为避免逐条任务展开实例导致 O(任务数 × 实例数)，提供两种形态：
-     - taskOverdueNow(t)  单条判定（内部按需展开）
-     - collectOverdueSet() 批量判定，返回 Set（一次展开，供 4 处统计共用） */
+   为避免逐条任务展开实例导致 O(任务数 × 实例数)，统一只用批量形态：
+     - collectOverdueSet() 一次展开返回 Set，供 4 处统计共用
+   （原「taskOverdueNow(t) 单条判定」经 acorn 全量扫描确认零调用，已于 2026-10-24
+     清理；本文所指口径不变，但勿再引用该函数名） */
 
 
 /* ===== 渲染：月视图 ===== */
