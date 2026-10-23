@@ -2182,6 +2182,964 @@ function importJSON(file){
 }
 
 /* ===== L3 Domain · P1-9 分层（2026-10-23）===== */
+function proxyStepsOf(p){
+  if(p && p.proxyMode===PMODE.ONEWAY) return PROXY_STEPS_ONEWAY;
+  if(p && p.direction===PDIR.THEM) return PROXY_STEPS_THEM;
+  return PROXY_STEPS;
+}
+
+function actKindLabel(k){ const x=actKindList.find(o=>o.key===k); return x?x.label:(k||"其他"); }
+
+function actKindProgress(k){ const x=actKindList.find(o=>o.key===k); return x?!!x.progress:false; }
+
+// 状态由「首个未完成步骤索引 firstUndone」派生，而非裸计数：跳过中间节点直接勾第 3/4 步时，
+// 状态/计数与步进条（firstUndone 驱动）保持一致，不会出现「中间空却显示已完成」的自相矛盾
+function proxyStatusOf(p){
+  /* 2026-10-05：改用 highestDone（原 firstUndone 返回值当状态下标用，只完成第1步时被判成「我已收」）。
+     步进下标 +1 即状态链下标；全空（-1）落在 READY，全完成（3）落在 GOT_BACK，无需特判。 */
+  const i=highestDone(p)+1;
+  if(p && p.proxyMode===PMODE.ONEWAY) return [PSTEP.READY,PSTEP.ENV_SENT,PSTEP.ENV_RECV,PSTEP.SENT,PSTEP.GOT_BACK][i];
+  return [PSTEP.READY,PSTEP.SENT,PSTEP.PROXY_RECV,PSTEP.PROXY_BACK,PSTEP.GOT_BACK][i];
+}
+
+// 状态文字随模式/方向翻转；单向代寄为「对方寄出→我收→我写回寄出→对方收到」
+function proxyStatusText(p){
+  const i=highestDone(p)+1;   // 2026-10-05：同 proxyStatusOf，改用 highestDone 消除「高亮与状态互相矛盾」
+  if(p && p.proxyMode===PMODE.ONEWAY) return ["准备中","对方已寄出（待我收）","我已收（待我写回寄出）","我写回寄出在途","对方已收"][i]||"准备中";
+  if(p && p.direction===PDIR.THEM) return ["准备中","对方已寄出","我已收","我写回中","对方已收"][i]||"准备中";
+  return ["准备中","我寄出在途","对方已收","对方寄回中","我已收"][i]||"准备中";
+}
+
+function proxyReturnDays(p){ // 我收到日 − 我寄出日
+  if(!p||!p.sent||!p.gotBack) return null;
+  const a=new Date(p.sent), b=new Date(p.gotBack);
+  if(isNaN(a)||isNaN(b)) return null;
+  const d=Math.round((b-a)/86400000);
+  return d<0?0:d; // 收到日若误填成未来日期，归零避免负天数
+}
+
+// 脏数据兜底：导入/云端合并都可能把 null 或原始值塞进数组，
+// 一旦入表，后续 `p.status` 之类访问会直接抛 TypeError 导致整页白屏。
+/* R2-1（治P1-3）：sanitizeArr 是「记录入数组」的唯一入口，取代原先只做 filter 的 cleanArr。
+   原实现有两个问题：
+   ① **不补 id** —— 从 JSON 导入的记录若缺 id（手写备份、早期版本、或手工编辑过），findRec/delRec/edit 一律按 id 找不到
+      → 点「编辑」提示未找到、点「删除」没反应，且它们会被 mergeById 当「新记录」与云端并成两条（数据翻倍）。
+   ② **不校验 status** —— 脏 status 会让 transitDays/proxyStatusOf 的分支全走错。
+   load() / importJSON() / mergeById() 三处必须统一走这里，避免第三次分叉。 */
+function sanitizeArr(v, opts){
+  opts=opts||{};
+  if(!Array.isArray(v)) return [];
+  const allowStatus=opts.statusKeys;   // 可选的 status 白名单（如 STATUS_ORDER）
+  return v.filter(x=>x && typeof x==="object" && !Array.isArray(x)).map(x=>{
+    if(!x.id) x.id=uid();               // 补 id —— 缺 id 是「不可编辑不可删 + 跨设备变两条」的共同根因
+    if(typeof x.updatedAt!=="number") x.updatedAt=0;   // 统一为数字，mergeById 的比较才可靠
+    if(allowStatus && allowStatus.indexOf(x.status)<0) x.status=opts.fallbackStatus||allowStatus[0];
+    return x;
+  });
+}
+
+function isLostSent(p){ if(!p||p.status!=="transit") return false; const d=transitDays(p); return d!=null && d>(LOST_DAYS[p.channel]||60); }
+
+/* P1-6：补终止条件 —— 对方已寄回(gotBack)即闭环，无论前面节点如何都不该再报「可能丢失」 */
+function isLostProxy(p){ if(!p||!p.sent) return false; if(p.gotBack) return false; if(firstUndone(p)===-1) return false; const d=daysSince(p.sent); return d!=null && d>PROXY_LOST_DAYS; }
+
+/* 活动 deadline 预警：与 sent/proxy 的丢失预警对齐——过期标红、临近(≤3天)提示 */
+function actOverdue(a){ if(!a||!a.deadline) return false; if(a.status==="done"||a.status==="closed") return false; const t=new Date(a.deadline+"T00:00:00"); if(isNaN(t)) return false; const today0=new Date(); today0.setHours(0,0,0,0); return t<today0; }
+
+function actDueSoon(a){ if(!a||!a.deadline) return false; if(a.status==="done"||a.status==="closed") return false; const t=new Date(a.deadline+"T00:00:00"); if(isNaN(t)) return false; const today0=new Date(); today0.setHours(0,0,0,0); const diff=Math.round((t-today0)/86400000); return diff>=0 && diff<=3; }
+
+function normalizeRecv(){ received.forEach(p=>{ if(p && !p.status) p.status = p.received ? "received" : "transit"; }); }
+
+function syncListsFromData(){
+  const add=(list,v)=>{ if(v && !list.includes(v)) list.push(v); };
+  postcards.forEach(p=>{ if(p){ add(platList,p.platform); add(typeList,p.type); add(countryList,p.country); } });
+  received.forEach(p=>{ if(p){ add(platList,p.platform); add(typeList,p.type); add(countryList,p.country); } });
+  proxies.forEach(p=>{ if(p){ add(platList,p.platform); add(typeList,p.type); add(countryList,p.country); } });
+  // 活动的平台也并入平台选项池，保证「活动平台」与明信片共用同一份可编辑列表
+  activities.forEach(a=>{ if(a){ add(platList,a.platform); } });
+}
+
+function optsListOf(kind){ return kind==="platform"?platList : kind==="type"?typeList : countryList; }
+
+function poolUsed(kind){
+  const pick=p=> kind==="platform"?p.platform : kind==="type"?p.type : p.country;
+  const arr=[];
+  postcards.forEach(p=>{ if(p&&pick(p)) arr.push(pick(p)); });
+  received.forEach(p=>{ if(p&&pick(p)) arr.push(pick(p)); });
+  proxies.forEach(p=>{ if(p&&pick(p)) arr.push(pick(p)); });
+  if(kind==="platform") activities.forEach(a=>{ if(a&&a.platform) arr.push(a.platform); });
+  return arr;
+}
+
+// D3：countUses 与 poolUsed 遍历逻辑重复，复用之（数据量小，性能无虞）
+function countUses(kind, v){ return poolUsed(kind).filter(x=>x===v).length; }
+
+function optsAdd(){
+  const inp=document.getElementById("optsNew"); const v=inp.value.trim(); if(!v) return;
+  const list = optsListOf(optsKind);
+  if(list.includes(v)){ toast("已存在该选项", "danger"); return; }
+  list.push(v); inp.value=""; save(); renderOptsList();
+  // 新增后自动选中该项，省去用户再手动选一次（对平台下拉同样生效）
+  if(optsReturn) fillSelect(optsReturn, optsKind, v);
+}
+
+/* 2026-10-23 线上事故修复：links 里混入非字符串 url（历史/云同步脏数据）时 normUrl 的 .trim() 抛 TypeError，
+   且 renderLinkBar 处于 init 顶层调用链——一处异常炸掉整个主脚本初始化，页面只剩静态骨架（白屏）。
+   三层防护：① 入口统一清洗（normLinkList）② normUrl 类型兜底 ③ renderAllNow 分步隔离（单区失败不拖垮其它区域）。 */
+function normLinkList(v){
+  if(!Array.isArray(v)) return null;
+  return v.filter(x=>x && x.url!=null && String(x.url).trim())
+    .map(x=>({emoji:String(x.emoji==null?"":x.emoji).slice(0,4), name:String(x.name==null?"":x.name).slice(0,60), url:String(x.url).trim()}));
+}
+
+function linkAdd(){
+  const e=document.getElementById("linkNewEmoji").value.trim();
+  const n=document.getElementById("linkNewName").value.trim();
+  const u=document.getElementById("linkNewUrl").value.trim();
+  if(!n||!u){ toast("名称与网址都要填", "danger"); return; }
+  linkList.push({emoji:e||"🔗", name:n, url:normUrl(u)});
+  ["linkNewEmoji","linkNewName","linkNewUrl"].forEach(id=>document.getElementById(id).value="");
+  saveLinks(); renderLinkEditor(); renderLinkBar(); toast("已添加链接");
+}
+
+function linkReset(){ linkList=LINKS_DEFAULT.map(x=>({...x})); saveLinks(); renderLinkEditor(); renderLinkBar(); toast("已恢复默认站点"); }
+
+function moveWidget(wid, dir){
+  syncOrder();
+  const i=widgetCfg.order.indexOf(wid), j=i+dir;
+  if(i<0||j<0||j>=widgetCfg.order.length) return;
+  const t=widgetCfg.order[i]; widgetCfg.order[i]=widgetCfg.order[j]; widgetCfg.order[j]=t;
+  saveWidgets(); renderStats();
+}
+
+function dropWidget(src, tgt){
+  syncOrder();
+  const i=widgetCfg.order.indexOf(src), j=widgetCfg.order.indexOf(tgt);
+  if(i<0||j<0) return;
+  widgetCfg.order.splice(i,1);
+  const k=widgetCfg.order.indexOf(tgt);
+  widgetCfg.order.splice(dragDropBefore?k:k+1, 0, src);
+  saveWidgets(); renderStats();
+}
+
+function hideWidget(wid){ if(!widgetCfg.hidden.includes(wid)) widgetCfg.hidden.push(wid); saveWidgets(); renderStats(); }
+
+function delWidget(wid){
+  const id=wid.slice(2);
+  confirmDialog("确定删除这张自定义卡片？", {danger:true, ok:"删除"}).then(ok=>{
+    if(!ok) return;
+    /* 撤销：自定义卡片属于 widgetCfg（独立存储域），不走记录撤销栈，闭包捕获三份数组现场还原 */
+    const snap={custom:widgetCfg.custom.slice(), order:widgetCfg.order.slice(), hidden:widgetCfg.hidden.slice()};
+    widgetCfg.custom=widgetCfg.custom.filter(w=>w.id!==id);
+    widgetCfg.order=widgetCfg.order.filter(w=>w!=="c:"+id);
+    widgetCfg.hidden=widgetCfg.hidden.filter(w=>w!=="c:"+id);
+    saveWidgets(); renderStats();
+    toast("已删除卡片","",8000,function(){
+      widgetCfg.custom=snap.custom; widgetCfg.order=snap.order; widgetCfg.hidden=snap.hidden;
+      saveWidgets(); renderStats(); save();   // save() 会把还原后的 widgetCfg 推给云端
+      toast("已撤销");
+    });
+  });
+}
+
+function saveRename(){
+  if(!renamingWid) return;
+  const orig=renamingWid.split(":").slice(2).join(":");
+  const v=document.getElementById("rnText").value.trim();
+  if(!v || v===orig) delete widgetCfg.autoRename[renamingWid];
+  else widgetCfg.autoRename[renamingWid]=v;
+  saveWidgets(); renderStats(); closeRename();
+  toast(v&&v!==orig?"已重命名":"已恢复默认名称");
+}
+
+function resetRename(){
+  if(!renamingWid) return;
+  delete widgetCfg.autoRename[renamingWid];
+  saveWidgets(); renderStats(); closeRename(); toast("已恢复默认名称");
+}
+
+function resetFilter(){
+  // status 必须回到 "all"（与初始化一致）：置为 "" 会被 `status!=="all"` 判定为「筛某个具体状态」而滤空全表
+  if(view==="sent"){ filter.q="";filter.country="";filter.platform="";filter.type="";filter.status="all"; }
+  else if(view==="received"){ rfilter.q="";rfilter.country="";rfilter.platform="";rfilter.type="";rfilter.status="all"; }
+  else if(view==="proxy"){ pfilter.q="";pfilter.country="";pfilter.platform="";pfilter.type="";pfilter.status="all"; }
+  else { afilter.q="";afilter.kind="all";afilter.status="all"; }
+  renderFilters(); renderTable();
+}
+
+/* P0-4（2026-10-04 紧急修复）：补回 filteredSent / filteredRecv / filteredActivities。
+   **这三个函数此前只有调用、零定义**，而 renderTable 的四个分支与exportCSV 都调它们
+   → `renderAll()` 一跑到 renderTable 就抛 ReferenceError，整个 script 中断，
+     页面只剩 HTML 里写死的静态部分（标签栏/统计卡/表格全空），与 TDZ 那次白屏症状完全一样。
+   为什么一直没被发现：node --check 只做语法检查，运行期 ReferenceError 查不出；
+   而此前的断言只验证「函数体存在与否」，没验证「**被调用的函数是否都有定义**」。
+   口径与下方 filteredProxy 保持一致（status/country/platform/type/关键词 + applySort）。 */
+function filteredSent(){
+  const list=postcards.filter(p=>{
+    if(!p) return false;
+    if(filter.status!=="all" && p.status!==filter.status) return false;
+    if(filter.country && p.country!==filter.country) return false;
+    if(filter.platform && p.platform!==filter.platform) return false;
+    if(filter.type && p.type!==filter.type) return false;
+    if(filter.channel && p.channel!==filter.channel) return false;
+    if(filter.q){ const q=filter.q.toLowerCase();
+      const hay=[p.recipient,p.country,p.city,p.platform,p.type,p.channel,p.trackingNo,p.note].filter(Boolean).join(" ").toLowerCase();
+      if(!hay.includes(q)) return false; }
+    return true;
+  });
+  return applySort(list, "sent");
+}
+
+function filteredRecv(){
+  const list=received.filter(p=>{
+    if(!p) return false;
+    if(rfilter.status!=="all" && p.status!==rfilter.status) return false;
+    if(rfilter.country && p.country!==rfilter.country) return false;
+    if(rfilter.platform && p.platform!==rfilter.platform) return false;
+    if(rfilter.type && p.type!==rfilter.type) return false;
+    if(rfilter.q){ const q=rfilter.q.toLowerCase();
+      const hay=[p.sender,p.country,p.city,p.platform,p.type,p.note].filter(Boolean).join(" ").toLowerCase();
+      if(!hay.includes(q)) return false; }
+    return true;
+  });
+  return applySort(list, "received");
+}
+
+function filteredActivities(){
+  const list=activities.filter(a=>{
+    if(!a) return false;
+    if(afilter.kind!=="all" && a.kind!==afilter.kind) return false;
+    if(afilter.status!=="all" && a.status!==afilter.status) return false;
+    if(afilter.q){ const q=afilter.q.toLowerCase();
+      const hay=[a.title,a.platform,a.type||"",a.note].filter(Boolean).join(" ").toLowerCase();
+      if(!hay.includes(q)) return false; }
+    return true;
+  });
+  // 活动排序键与代寄共用 sort.proxy（活动表无独立排序键，历史如此）
+  return applySort(list, "proxy");
+}
+
+function filteredProxy(){
+  const list=proxies.filter(p=>{
+    if(pfilter.status!=="all" && proxyStatusOf(p)!==pfilter.status) return false;
+    if(pfilter.country && p.country!==pfilter.country) return false;
+    if(pfilter.platform && p.platform!==pfilter.platform) return false;
+    if(pfilter.type && p.type!==pfilter.type) return false;
+    if(pfilter.q){ const q=pfilter.q.toLowerCase(); const hay=(p.proxy+" "+(p.country||"")+" "+(p.city||"")+" "+(p.platform||"")+" "+(p.type||"")+" "+(p.note||"")).toLowerCase(); if(!hay.includes(q)) return false; }
+    return true;
+  });
+  return applySort(list, "proxy");
+}
+
+// F5 排序：date=按起始日(新→旧)，arr=按到达/收到日(新→旧)，country/platform=按中文序
+function applySort(arr, dir){
+  const k=sort[dir]; if(!k) return arr;
+  const c=arr.slice();
+  if(k==="date") c.sort((a,b)=> (b.sent||b.proxyRecv||"").localeCompare(a.sent||a.proxyRecv||""));
+  else if(k==="arr") c.sort((a,b)=> (b.arrived||b.received||b.gotBack||"").localeCompare(a.arrived||a.received||a.gotBack||""));
+  else if(k==="country") c.sort((a,b)=>(a.country||"").localeCompare(b.country||"","zh"));
+  else if(k==="platform") c.sort((a,b)=>(a.platform||"").localeCompare(b.platform||"","zh"));
+  return c;
+}
+
+function firstUndone(p){ const steps=proxyStepsOf(p); for(let j=steps.length-1;j>=0;j--) if(!p[steps[j].k]) return j; return -1; }
+
+function highestDone(p){
+  const steps=proxyStepsOf(p);
+  for(let j=steps.length-1;j>=0;j--) if(p[steps[j].k]) return j;
+  return -1;
+}
+
+/* 各视图「已完成/已到」判定：用于把这类行稳定沉底 + 弱化 */
+function isSentDone(p){ return p && p.status==="arrived"; }            // 寄出：已到
+
+function isRecvDone(p){ return p && p.status==="received"; }           // 收到：已收(=已到)
+
+function proxyUnitDone(u){                                             // 代寄：四节点全完成
+  if(!u) return false;
+  if(u.type==="pair"){ const d=l=> (l? firstUndone(l)===-1 : false); return d(u.me)&&d(u.them); }
+  return firstUndone(u.p)===-1;
+}
+
+function isActDone(a){ return a && (a.status==="done"||a.status==="closed"); } // 活动：已结束/已关闭
+
+/* 稳定把「已完成」沉到列表最末（各组内原有相对顺序不变），与 applySort 排序叠加 */
+function sinkDoneLast(list, isDone){
+  const keep=[], sink=[];
+  for(let i=0;i<list.length;i++){ (isDone(list[i])?sink:keep).push(list[i]); }
+  return keep.concat(sink);
+}
+
+// 点击节点切换代寄步骤状态：仅切换该步自身（完成↔回退），不级联、不触碰其它步骤的日期
+function toggleProxyStep(pid, idx){
+  const p=proxies.find(x=>x.id===pid); if(!p) return;
+  const steps=proxyStepsOf(p);
+  const k=steps[idx].k;
+  p[k] = p[k] ? "" : todayStr();   // P1-7：同上，改本地取值
+  touch(p);
+  save(); renderAll();
+}
+
+// 互寄对整体状态：两条腿都完成 / 一方完成 / 均未寄出 / 进行中
+function proxyPairStatus(me, them){
+  /* done 用 firstUndone（P1-6 语义：最后一个节点没填就未完成，跳步不产生矛盾），不动。
+     started 原用 firstUndone(p)!==0 —— 但全空时 firstUndone 从后往前扫返回 3（不是 0），
+     于是「均未寄出」这个状态**永远不出现**，截图里所有互寄对都显示「互寄进行中」即此症状。
+     2026-10-05 改用 highestDone(p)!==-1（真的一个节点都没填），与步进高亮同一口径。 */
+  const done=p=> p? firstUndone(p)===-1 : false;
+  const started=p=> p? highestDone(p)!==-1 : false;
+  const dm=done(me), dt=done(them);
+  // P2-2：ink 供 badge 文字（对比度达AA），color 供色点/图表
+  if(dm && dt) return {label:"双方已收", color:"#22b07d", ink:"#0a7a53"};
+  if(dm) return {label:"我方已收·对方进行中", color:"#f5a623", ink:"#8a5200"};
+  if(dt) return {label:"对方已收·我方进行中", color:"#f5a623", ink:"#8a5200"};
+  if(!started(me) && !started(them)) return {label:"均未寄出", color:"#9aa3b2", ink:"#5b6472"};
+  return {label:"互寄进行中", color:"#4aa3ff", ink:"#0b5fa5"};
+}
+
+// 把互寄对（共享 pairId 的两条腿）合并为「代寄视图」的一个展示单元；无 pairId 的单条各自独立
+// src 缺省取 filteredProxy()（表格用，随筛选变化）；统计传入全量 proxies 以反映全部数据
+function buildProxyUnits(src){
+  const fp=src||filteredProxy();
+  const groups=new Map();
+  fp.forEach(p=>{ if(p.pairId) groups.set(p.pairId,(groups.get(p.pairId)||[]).concat(p)); });
+  const units=[];
+  groups.forEach((legs,pid)=>{
+    if(legs.length>=2){
+      const me=legs.find(x=>x.direction===PDIR.ME)||legs[0];
+      const them=legs.find(x=>x.direction===PDIR.THEM)||legs.find(x=>x!==me);
+      units.push({type:"pair", pairId:pid, me, them});
+    }else{
+      units.push({type:"single", p:legs[0]});
+    }
+  });
+  fp.filter(p=>!p.pairId).forEach(p=>units.push({type:"single", p}));
+  return units;
+}
+
+function findRec(dir, id){ return REC_DEFS[dir].arr().find(x=>x.id===id); }
+
+/* P3-1：SENT_RANK 已删 —— 它声明了「寄出链等级 未写0<未寄1<在途2<已到3，退回4」，但 normalizeRecDates 从未引用；
+   声明与实现脱节，留着会让人误以为状态回退有等级比较逻辑。真正的回退规则就是上面那段注释。 */
+function normalizeRecDates(rec, dir){
+  if(!rec) return rec;
+  const today=todayStr();   // P1-7：原 toISOString() 取 UTC，东八区本地 00:00–08:00 会得到「昨天」
+  if(dir==="sent"){
+    // D1（审查建议）：保留历史轨迹——状态回退不再清空已填日期；仅「未写」视为彻底重置才清零
+    if(rec.status==="unwritten"){ rec.sent=""; rec.arrived=""; }
+    if(rec.status==="transit" && !rec.sent) rec.sent=today;
+    if(rec.status==="arrived" && !rec.arrived) rec.arrived=today;
+  }else{
+    // 收到链：收到为终态；回退（如收到→在途）保留 received 作历史轨迹，仅终态补填
+    if(rec.status==="received" && !rec.received) rec.received=today;
+  }
+  return rec;
+}
+
+/* P0（2026-10-23 修）：状态下拉改一下就即时落盘，此前存在两类静默问题——
+   ① 切「未写」会直接清空已填的寄出日/到达日，无任何确认也无回收；
+   ② 切「在途/已到」会自动把日期回填成今天，toast 只说「状态已更新」，用户不知道日期被动过。
+   现在：销毁已有数据前先确认；变更后在提示里如实列出所有被系统改动的字段。 */
+async function changeRecStatus(dir, id, status){
+  const p=findRec(dir,id); if(!p) return;
+  const old=p.status;
+  if(old===status){ toast("状态未变化"); return; }
+  if(dir==="sent" && status==="unwritten" && (p.sent||p.arrived)){
+    if(!(await confirmDialog("切到「未写」会清空已填的寄出日/到达日，确定吗？",{danger:true}))){ renderAll(); return; }
+  }
+  snapshot();   /* G13（2026-10-23 修）：状态变更（尤其「未写」清日期的破坏性分支）此前只有确认框没有撤销，与删除类（8s+Ctrl+Z）能力不对称——快照现成覆盖四数组+墓碑 */
+  p.status=status;
+  const before={sent:p.sent||"", arrived:p.arrived||"", received:p.received||""};
+  normalizeRecDates(p, dir);
+  const after={sent:p.sent||"", arrived:p.arrived||"", received:p.received||""};
+  const side=[];
+  if(before.sent && !after.sent) side.push("寄出日已清空");
+  if(before.arrived && !after.arrived) side.push("到达日已清空");
+  if(!before.sent && after.sent) side.push("寄出日已自动填今天 "+after.sent);
+  if(!before.arrived && after.arrived) side.push("到达日已自动填今天 "+after.arrived);
+  if(!before.received && after.received) side.push("收到日已自动填今天 "+after.received);
+  touch(p);   // P1-1：全文件 22 处 touch() 唯独这条主路径漏了 → updatedAt 不更新，mergeById 判「云端更新」会把本地状态覆盖回去（状态自己跳回）
+  renderAll();
+  const dict=(dir==="sent")?STATUSES:RECV_STATUSES;
+  const label=(dict[status]&&dict[status].label)||status;
+  saveAndToast("已改为「"+label+"」"+(side.length?(" · "+side.join("，")):""));   /* G13：已入撤销栈，Ctrl+Z 可还原；toast 保持 saveAndToast（失败提示走 shared 层兼容分支） */
+}
+
+// 删除记录后同步摘掉活动里的关联引用，避免死链长期累积并污染 CSV 导出（原先只显示「（关联已删）」）
+function unlinkFromActivities(id){
+  let n=0;
+  activities.forEach(a=>{
+    if(a && Array.isArray(a.links) && a.links.length){
+      const before=a.links.length;
+      a.links=a.links.filter(l=>l && l.id!==id);
+      if(a.links.length!==before){ n+=before-a.links.length; touch(a); }
+    }
+  });
+  return n;
+}
+
+/* P2-7：删掉一条互寄腿后，若该 pairId 组只剩 ≤1 条，解除残留的 pairId，否则另一腿仍显示「↔ 对方」而点击报「未找到关联」。原先只有 delProxy 有此修复，delRec 缺失。
+   注意：寄出↔收到的pairId 是**跨数组**的（counterpart 落在另一个数组），故须扫全四个数组，只查 proxies 会漏。 */
+function unlinkPartnerIfOrphan(pid){
+  if(!pid) return;
+  const rest=REC_DEFS.sent.arr().concat(REC_DEFS.received.arr(), proxies).filter(x=>x && x.pairId===pid);
+  if(rest.length<=1) rest.forEach(p=>{ delete p.pairId; touch(p); });
+}
+
+async function delRec(dir, id){
+  const p=findRec(dir,id); if(!p) return;
+  const nm=p[REC_DEFS[dir].nameField]||"未命名";
+  if(!(await confirmDialog("删除「"+nm+"」这张"+(dir==="sent"?"寄出":"收到")+"记录？",{danger:true}))) return;
+  snapshot();   // 撤销栈：删除前留整份快照（含墓碑），8s 内可点提示条或 Ctrl+Z 还原
+  const arr=REC_DEFS[dir].arr(); const idx=arr.findIndex(x=>x.id===id);
+  if(idx>=0){ arr.splice(idx,1); unlinkFromActivities(id); unlinkPartnerIfOrphan(p.pairId); pushTomb(id); tombSave(); }   // 墓碑：让删除能跨设备传播
+  renderAll();
+  toastUndo("已删除「"+nm+"」", 8000, save()===false);
+}
+
+function saveRecModal(dir){
+  const def=REC_DEFS[dir];
+  const nameVal=document.getElementById(def.focusId).value.trim();
+  if(!nameVal){ fieldError(def.focusId,"请填写"+def.nameLabel); return; }   // P2-13：focusId 即姓名输入框（REC_DEFS 无 nameId）
+  const id=document.getElementById(def.idId).value;
+  const data=readForm(dir);
+  normalizeRecDates(data, dir);   // 补填 + 回退清退，保证状态与日期自洽
+  let cur;
+  if(id){
+    cur=findRec(dir,id);
+    /* P0-3：原 `if(cur)` 静默跳过 → cur 保持 undefined，随后读 cur.id 直接抛 TypeError（弹窗卡死、无提示）。
+       真实触发路径：云同步把这条记录按墓碑删掉后，用户仍在旧弹窗里点保存。 */
+    if(!cur){ toast("该记录已在其它设备被删除，无法保存。请关闭窗口后重新添加。","danger",6000); closeRecModal(dir); return; }
+    Object.assign(cur, data);
+  }
+  else { cur=Object.assign({id:uid()}, data); REC_DEFS[dir].arr().unshift(cur); }
+  touch(cur);
+  // 关联对方：勾选且当前条目尚未关联 → 自动生成对方条目并共享 pairId（只建一次）
+  const chk=document.getElementById(def.pairChkId);
+  const wantPair = chk && chk.checked;
+  if(wantPair && cur && !cur.pairId){
+    const pid=uid(); cur.pairId=pid;
+    const cp=makeCounterpart(dir, cur); cp.pairId=pid; touch(cp);
+    REC_DEFS[dir==="sent"?"received":"sent"].arr().unshift(cp);
+    toast("已自动生成并关联对方条目，可点「↔ 对方」补填");
+  }
+  // F6 重复检测：同视图内「同名 + 同国家 + 同平台」视为疑似重复，仅提示不阻断
+  const sameName=REC_DEFS[dir].arr().filter(x=>x.id!==cur.id && (x[REC_DEFS[dir].nameField]||"")===(cur[REC_DEFS[dir].nameField]||"") && x.country===cur.country && x.platform===cur.platform);
+  if(sameName.length) toast("提示：已有相似记录（同"+(REC_DEFS[dir].nameLabel)+"·同国家·同平台），请确认是否重复", "danger");
+  const saved=save(); closeRecModal(dir); renderAll();
+  if(!saved){ toast("⚠️ "+SAVE_FAIL_TXT,"danger",7000); return; }   // P0-1：失败提示不被成功 toast 覆盖
+  // P1-1：有重复警告时不弹成功 toast，避免立即覆盖警告
+  if(!sameName.length) toast(id?"已更新":(wantPair?"已添加（含对方）":"已添加"));
+}
+
+function actLinkItemLabel(type, id){
+  let arr, nameF;
+  if(type==="sent"){ arr=postcards; nameF="recipient"; }
+  else if(type==="received"){ arr=received; nameF="sender"; }
+  else if(type==="proxy"){ arr=proxies; nameF="proxy"; }
+  else return "";
+  const t=arr.find(x=>x.id===id);
+  if(!t) return "（关联已删）";
+  return (LINK_LABEL[type]||type)+"："+(t[nameF]||"未命名");
+}
+
+function rotSyncInput(){ const el=document.getElementById("aRotation"); if(el) el.value=JSON.stringify(actEditingRot); }
+
+function rotBulkImport(){
+  const ta=document.getElementById("aRotBulk");
+  const lines=(ta?ta.value:"").split("\n").map(x=>x.trim()).filter(Boolean);
+  if(!lines.length){ toast("请先粘贴名单（一行一轮）","danger"); return; }
+  lines.forEach(l=>{
+    const m=l.match(/^(\S+)\s*([\s\S]*)$/);
+    actEditingRot.push({to:m?m[1]:l, size:m?(m[2]||"").trim():"", due:"", written:"", sent:"", received:""});
+  });
+  if(ta) ta.value="";
+  renderRotEditor(); toast("已导入 "+lines.length+" 轮，可再点「推算各轮日期」");
+}
+
+function rotGenDue(){
+  const sv=(document.getElementById("aRotStart")||{}).value||"";
+  const w=parseInt((document.getElementById("aRotWeeks")||{}).value,10)||3;
+  if(!sv){ toast("请先填第一轮起始日","danger"); return; }
+  if(!actEditingRot.length){ toast("请先添加轮次","danger"); return; }
+  const base=new Date(sv+"T00:00:00"); if(isNaN(base)){ toast("起始日无效","danger"); return; }
+  actEditingRot.forEach((r,i)=>{ r.due=rotDstr(new Date(base.getTime()+i*w*7*86400000)); });
+  renderRotEditor(); toast("已按每 "+w+" 周生成 "+actEditingRot.length+" 轮截止日");
+}
+
+function refreshActLinkOptions(){
+  const typeSel=document.getElementById("aLinkType");
+  const sel=document.getElementById("aLinkId");
+  const linkType=typeSel.value;
+  let opts='<option value="">—</option>';
+  let arr, nameF;
+  if(linkType==="sent"){ arr=postcards; nameF="recipient"; }
+  else if(linkType==="received"){ arr=received; nameF="sender"; }
+  else if(linkType==="proxy"){ arr=proxies; nameF="proxy"; }
+  else { sel.innerHTML=opts; return; }
+  const selectedIds=new Set(actEditingLinks.filter(l=>l.type===linkType).map(l=>l.id));
+  arr.forEach(t=>{ if(!selectedIds.has(t.id)) opts+='<option value="'+t.id+'">'+esc((t[nameF]||"未命名")+" · "+(t.country||"—"))+'</option>'; });
+  sel.innerHTML=opts;
+}
+
+function addActLink(){
+  const type=document.getElementById("aLinkType").value;
+  const id=document.getElementById("aLinkId").value;
+  if(!type||!id){ toast("请先选择要关联的记录", "danger"); return; }
+  if(actEditingLinks.some(l=>l.type===type && l.id===id)){ toast("该记录已关联", "danger"); return; }
+  actEditingLinks.push({type,id});
+  renderActLinkChips();
+  refreshActLinkOptions();
+  document.getElementById("aLinkId").value="";
+}
+
+function actKindAdd(){
+  const inp=document.getElementById("actKindNew"); const v=inp.value.trim(); if(!v) return;
+  if(actKindList.some(o=>o.label===v)){ toast("已存在该类型","danger"); return; }
+  const key="k"+(Date.now().toString(36))+Math.floor(Math.random()*1000);
+  actKindList.push({key,label:v,progress:false}); inp.value=""; save(); renderActKindList(); fillKindSelect(); renderActiveChips();
+}
+
+function saveActivityModal(){
+  const id=document.getElementById("aId").value.trim();
+  const data={
+    title: document.getElementById("aTitle").value.trim(),
+    kind: document.getElementById("aKind").value,
+    platform: document.getElementById("aPlatform").value.trim(),
+    url: document.getElementById("aUrl").value.trim(),
+    cur: document.getElementById("aCur").value.trim(),
+    max: document.getElementById("aMax").value.trim(),
+    deadline: document.getElementById("aDeadline").value.trim(),
+    status: document.getElementById("aStatus").value,
+    links: actEditingLinks.map(l=>({type:l.type, id:l.id})),
+    note: document.getElementById("aNote").value.trim(),
+    rotation: actEditingRot.map(r=>({to:(r.to||"").trim(), size:(r.size||"").trim(), due:r.due||"", written:r.written||"", sent:r.sent||"", received:r.received||""}))
+  };
+  // 轮换名单非空时，进度由「已寄轮数 / 总轮数」派生，避免手填漂移
+  if(data.rotation.length){
+    data.max=String(data.rotation.length);
+    data.cur=String(data.rotation.filter(r=>r.sent).length);
+  }
+  // RR 三节点日期先后：只提示不拦截（补录历史时允许乱序），异常项列出前 3 个
+  const rotWarn=[];
+  data.rotation.forEach((r,i)=>{
+    const seq=[["已写完",r.written],["已寄出",r.sent],["已收到",r.received]].filter(x=>x[1]);
+    for(let j=1;j<seq.length;j++){ if(seq[j][1] < seq[j-1][1]) rotWarn.push("R"+(i+1)+" "+seq[j-1][0]+"晚于"+seq[j][0]); }
+  });
+  if(rotWarn.length) toast("注意："+rotWarn.length+" 轮日期先后异常（"+rotWarn.slice(0,3).join("、")+"），已保存请核对", "warn");
+  if(!data.title){ fieldError("aTitle","请填写活动名称"); return; }   // P2-13
+  if(id){
+    const a=activities.find(x=>x.id===id);
+    if(!a){ toast("未找到该活动", "danger"); return; }
+    if(data.status==="done") data.doneAt = (a.status==="done" && a.doneAt)? a.doneAt : todayStr();
+    else data.doneAt="";
+    delete a.linkType; delete a.linkId;
+    Object.assign(a, data); touch(a);
+  }else{
+    data.doneAt = (data.status==="done")? todayStr() : "";
+    activities.unshift(touch(Object.assign({id:uid()}, data)));
+  }
+  closeActivityModal(); renderAll(); saveAndToast(id?"已更新":"已添加");
+}
+
+function changeActivityStatus(id, status){
+  const a=activities.find(x=>x.id===id); if(!a) return;
+  a.status=status; touch(a);
+  if(status==="done"){ if(!a.doneAt) a.doneAt=todayStr(); }
+  else a.doneAt="";
+  renderAll(); saveAndToast("状态已更新");
+}
+
+async function delActivity(id){
+  const a=activities.find(x=>x.id===id); if(!a) return;
+  if(!(await confirmDialog("确定删除活动「"+(a.title||"未命名")+"」？",{danger:true, ok:"删除"}))) return;
+  snapshot();   // 撤销栈：8s 窗口
+  activities=activities.filter(x=>x.id!==id); pushTomb(id); tombSave();
+  renderAll();
+  toastUndo("已删除活动「"+(a.title||"未命名")+"」", 8000, save()===false);
+}
+
+// 互寄对：编辑任一条腿时，把共享描述字段同步写回 pairId 相同的另一条腿（日期各腿独立，不覆盖）
+function syncMutualMeta(pairId, from){
+  if(!pairId) return;
+  // P2-8：note 从共享字段中移除 —— 备注是各自腿的私有内容，此前编辑一腿会无提示覆盖另一腿并立即同步到所有设备（静默丢数据）
+  const keys=["proxy","country","city","platform","type","exchange","cardCount"];
+  proxies.forEach(o=>{ if(o.id!==from.id && o.pairId===pairId){ keys.forEach(k=>{ o[k]=from[k]; }); touch(o); } });
+}
+
+// 互寄两条腿共享的描述性字段（不含日期，日期各腿独立填写）；日期显式置空保持数据形状一致
+function proxySharedMeta(data){
+  return {
+    proxy:data.proxy, country:data.country, city:data.city,
+    platform:data.platform, type:data.type, exchange:data.exchange,
+    cardCount:data.cardCount, note:data.note,
+    sent:"", proxyRecv:"", proxyBack:"", gotBack:""
+  };
+}
+
+function saveProxyModal(){
+  const id=document.getElementById("pId").value.trim();
+  const mode = document.getElementById("pProxyMode").value.trim()==="oneway" ?PMODE.ONEWAY:PMODE.BACK;
+  const data={
+    proxy: document.getElementById("pProxy").value.trim(),
+    country: document.getElementById("pCountry").value.trim(),
+    city: document.getElementById("pCity").value.trim(),
+    platform: document.getElementById("pPlatform").value.trim(),
+    type: document.getElementById("pType").value.trim(),
+    exchange: document.getElementById("pExchange").value.trim(),
+    cardCount: Math.max(1, parseInt(document.getElementById("pCardCount").value,10)||1),
+    sent: document.getElementById("pSent").value.trim(),
+    proxyRecv: document.getElementById("pProxyRecv").value.trim(),
+    proxyBack: document.getElementById("pProxyBack").value.trim(),
+    gotBack: document.getElementById("pGotBack").value.trim(),
+    envSent: document.getElementById("pEnvSent").value.trim(),
+    envRecv: document.getElementById("pEnvRecv").value.trim(),
+    note: document.getElementById("pNote").value.trim(),
+    proxyMode: mode
+  };
+  if(!data.proxy){ fieldError("pProxy","请填写对方（代寄人）"); return; }   // P2-13
+  // 单向代寄：用到 对方寄出(envSent) + 我收(envRecv) + 我写回寄出(sent) + 完成(gotBack)，清空写回步骤并强制 direction=me
+  if(mode==="oneway"){ data.proxyRecv=""; data.proxyBack=""; data.direction=PDIR.ME; }
+  else { data.envSent=""; data.envRecv=""; } // 往返模式不携带单向信封字段
+  const mutual=document.getElementById("pMutualChk").checked;
+  if(id){
+    const p=proxies.find(x=>x.id===id);
+    if(!p){ toast("未找到该条代寄记录", "danger"); return; }
+    Object.assign(p, data); touch(p);
+    // 单向代寄从原互寄对切来 → 解绑镜像腿，避免悬空
+    // P1-3（2026-10-23）：原实现 forEach 内 splice 边遍历边删（多腿时会漏删）、不打墓碑
+    // （云端/其它设备上那条腿会被 mergeById 当「云端独有」追加回来 = 复活）、不解活动关联（孤儿死链）。
+    // 与 delRec/delProxy 的删除语义对齐：先收集 → unlink → pushTomb → 统一移除。
+    if(mode==="oneway" && p.pairId){
+      const pid=p.pairId; delete p.pairId;
+      const mirrors=proxies.filter(o=>o.id!==p.id && o.pairId===pid);
+      mirrors.forEach(o=>{ unlinkFromActivities(o.id); pushTomb(o.id); });
+      if(mirrors.length){ proxies=proxies.filter(o=>!(o.id!==p.id && o.pairId===pid)); tombSave(); }
+    }
+    if(p.pairId) syncMutualMeta(p.pairId, p); // 仍是互寄对 → 同步共享字段到另一条腿
+    // 事后补勾「互相代寄」：编辑旧条目时若用户勾上 mutual 且原条目无 pairId → 当下生成反向镜像腿
+    if(mutual && !p.pairId){
+      const pairId="pr_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+      p.pairId=pairId;
+      const mirrorDir = p.direction===PDIR.THEM ? "me" : "them"; // 镜像腿方向与本条相反
+      const mirror=Object.assign({id:uid(), direction:mirrorDir, pairId}, proxySharedMeta(data)); // 只共享描述字段，日期清空
+      touch(mirror); proxies.unshift(mirror);
+      syncMutualMeta(pairId, p); // 确保镜像腿拿到最新共享字段
+      closeProxyModal(); renderAll(); saveAndToast("已更新（已生成反向互寄腿，可点「↔ 互寄」补填对方那张）");
+      return;
+    }
+    // 取消勾选且本来是互寄的一对 → 同时解绑另一边，避免悬空
+    if(!mutual && p.pairId){
+      const pid=p.pairId;
+      delete p.pairId;
+      proxies.forEach(o=>{ if(o.id!==p.id && o.pairId===pid) delete o.pairId; });
+    }
+  }
+  else {
+    const rec=Object.assign({id:uid(), direction:PDIR.ME}, data); // 新建：本条 = 我寄出在先
+    touch(rec);
+    if(mutual && !rec.pairId){
+      const pairId="pr_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+      rec.pairId=pairId;
+      const mirror=Object.assign({id:uid(), direction:PDIR.THEM, pairId}, proxySharedMeta(data)); // 镜像腿 = 对方寄出在先，方向相反、日期清空
+      touch(mirror); proxies.unshift(mirror);
+    }
+    proxies.unshift(rec);
+  }
+  // F6 重复检测：同「对方 + 国家 + 平台」视为疑似重复，仅提示不阻断
+  const dupP=proxies.filter(x=>x.id!==id && x.proxy===data.proxy && x.country===data.country && x.platform===data.platform);
+  if(dupP.length) toast("提示：已有相似代寄（同对方·同国家·同平台），请确认是否重复", "danger");
+  const savedProxy=save(); closeProxyModal(); renderAll();
+  if(!savedProxy){ toast("⚠️ "+SAVE_FAIL_TXT,"danger",7000); return; }
+  if(!dupP.length) toast((id?"已更新":"已添加")+(document.getElementById("pMutualChk").checked&&!id?"（含反向互寄腿）":""));   // P1-1：有重复警告时不弹成功 toast，避免立即覆盖警告
+}
+
+async function delProxy(id){
+  if(!(await confirmDialog("确定删除这条代寄记录？",{danger:true, ok:"删除"}))) return;
+  snapshot();   // 撤销栈：8s 窗口
+  const gone=proxies.find(p=>p.id===id); const pid=gone&&gone.pairId;
+  proxies=proxies.filter(p=>p.id!==id); unlinkFromActivities(id); pushTomb(id);
+  if(pid) unlinkPartnerIfOrphan(pid);   // G16：收敛到统一实现（跨数组扫 sent/received/proxies，行为覆盖原内联版——原版只查 proxies，跨数组残腿会漏）
+  tombSave();
+  renderAll();
+  toastUndo("已删除代寄记录", 8000, save()===false);
+}
+
+// 删除整对互寄（双方各一条，共享 pairId 会一并清除，避免悬空）
+async function delProxyPair(pairId){
+  const n=proxies.filter(p=>p.pairId===pairId).length;
+  if(!(await confirmDialog(`确定删除这一对互寄记录（${n} 条）？`,{danger:true, ok:"删除整对"}))) return;
+  snapshot();   // 撤销栈：8s 窗口（整对腿 + 悬空 pairId 清理一并还原）
+  proxies.filter(p=>p.pairId===pairId).forEach(p=>{ unlinkFromActivities(p.id); pushTomb(p.id); });  // 整对逐条打墓碑
+  proxies=proxies.filter(p=>p.pairId!==pairId);
+  unlinkPartnerIfOrphan(pairId);   // G16：兜底清理跨数组残腿（正常全在 proxies，理论空转，统一口径防漏）
+  tombSave();
+  renderAll();
+  toastUndo("已删除互寄对（"+n+" 条）", 8000, save()===false);
+}
+
+function mapToTarget(rec, fromDir, target){
+  const name=rec.recipient||rec.sender||rec.proxy||"";
+  const country=rec.country||"", city=rec.city||"", platform=rec.platform||"", type=rec.type||"", note=rec.note||"", exchange=rec.exchange||"";
+  const out={id:rec.id};
+  if(target==="proxy"){
+    out.proxy=name; out.country=country; out.city=city; out.platform=platform; out.type=type; out.exchange=exchange; out.note=note;
+    out.sent = fromDir==="sent"?(rec.sent||""):"";
+    out.proxyRecv=""; out.proxyBack=""; out.gotBack=""; out.cardCount=1;
+    // 互寄/交换关联在重新归类后不再适用，统一清除
+  }else if(target==="sent"){
+    out.recipient=name; out.country=country; out.city=city; out.channel=rec.channel||""; out.platform=platform; out.type=type; out.exchange=exchange; out.note=note;   // P2-20：原写死""，收到转寄出会静默丢渠道（渠道决定「可能丢失」阈值 LOST_DAYS）
+    out.trackingNo=rec.trackingNo||""; out.image=rec.image||"";   // P2-20：运单号与图片一并保留（寄出侧字段，received 无）
+    out.sent = rec.sent || (fromDir==="received"?(rec.received||""):"");
+    out.arrived = fromDir==="proxy"?(rec.gotBack||""):(rec.received||"");
+    if(fromDir==="proxy") out.status = rec.gotBack?"arrived":((rec.proxyRecv||rec.proxyBack||rec.sent)?"transit":"unwritten");
+    else out.status = rec.received?"arrived":"transit";
+  }else if(target==="received"){
+    out.sender=name; out.country=country; out.city=city; out.platform=platform; out.type=type; out.exchange=exchange; out.note=note;
+    out.image=rec.image||"";   // P2-20：原写死""，寄出转收到会静默丢图片（明信片的核心信息，且不可逆）
+    out.received = rec.received || (fromDir==="proxy"?(rec.gotBack||""):"");
+    if(fromDir==="proxy") out.status = rec.gotBack?"received":"transit";
+    else out.status = rec.received?"received":"transit";
+  }
+  return out;
+}
+
+function convertRecord(dir, id, target){
+  if(dir===target) return false;
+  const srcArr = dir==="sent"?postcards: dir==="received"?received: proxies;
+  const idx=srcArr.findIndex(x=>x.id===id);
+  if(idx<0) return false;
+  const rec=srcArr[idx];
+  const out=mapToTarget(rec, dir, target);
+  // 清除本记录的交换/互寄关联，并清理镜像方残留的 pairId，避免悬空关联
+  if(rec.pairId){
+    const pid = rec.pairId; // 捕获比较键：proxy 分支中 rec 本身也在 otherArr(proxies) 内，循环内删除 rec.pairId 会让后续比较失效
+    const otherArr = dir==="proxy"?proxies:(dir==="sent"?received:postcards);
+    otherArr.forEach(o=>{ if(o.pairId===pid) delete o.pairId; });
+  }
+  delete out.pairId;
+  /* R2-2：源数组的这份要打"移动墓碑"，否则其他设备会把云端那条当新记录追加回来 → 复活成两条。
+     out.id 与 rec.id 相同（mapToTarget 保留 id），所以按 id 打标记即可。 */
+  pushMoveTomb(rec.id, target);
+  srcArr.splice(idx,1);
+  const tgtArr = target==="sent"?postcards: target==="received"?received: proxies;
+  touch(out);   /* S2（2026-10-23 修）：新记录必须带 updatedAt —— 否则 Number(undefined)||0=0 < 墓碑 ts，即使移动墓碑的 op/to 在传输中丢失退化为普通删除墓碑，mergeById 也会判「墓碑胜出」把转换后的记录抹掉 */
+  tgtArr.unshift(out);
+  return true;
+}
+
+function confirmConvert(){
+  const target=document.getElementById("convTarget").value;
+  if(convCtx.dir===target){ toast("请选择不同的归类", "danger"); return; }
+  // P2-20：转换是**移动**（原记录被删除），归类字段变了就必然丢弃。原先确认文案一句不提，用户以为无损。
+  // 把会丢的东西如实列出（代寄步进日期/寄出日按目标归类重新推导，互寄关联按设计清除）。
+  const loss=[];
+  if(target==="proxy"||convCtx.dir==="proxy") loss.push("代寄往返各步日期");
+  loss.push("互寄/交换关联");
+  if(target==="sent" && convCtx.dir!=="sent") loss.push("寄出日/到达日将按新归类重新推导");
+  if(!confirm("转换会移动这条记录（原地记录将被删除），以下内容不会保留：\n· "+loss.join("\n· ")+"\n\n确认继续？")) return;
+  if(convertRecord(convCtx.dir, convCtx.id, target)){
+    save(); closeConvertModal(); renderAll();
+    toast(`已转换到「${tabLabel(target)}」`);
+  }else{
+    toast("转换失败：未找到该条目", "danger");
+  }
+}
+
+// D4：formDirtySent/formDirtyRecv 仅 dir 不同，合并
+function formDirty(dir){ return recSnapshot!=null && JSON.stringify(readForm(dir))!==recSnapshot; }
+
+function formSnapshot(ids){ return ids.map(i=>{ const el=document.getElementById(i); if(!el) return ""; return el.type==="checkbox"?String(el.checked):el.value; }).join("\u0001"); }
+
+function proxyDirty(){ return proxySnapshot!=null && formSnapshot(PROXY_FORM_IDS)!==proxySnapshot; }
+
+function actDirty(){ return actSnapshot!=null && formSnapshot(ACT_FORM_IDS)!==actSnapshot; }
+
+function tombLoad(){ try{ const r=localStorage.getItem(TOMB_KEY); if(r){ const a=JSON.parse(r)||[]; deletedIds=Array.isArray(a)?a.map(normTomb).filter(t=>t.id):[]; } }catch(e){ deletedIds=[]; } }
+
+function tombSave(){ storageSet(TOMB_KEY, JSON.stringify(deletedIds)); }
+
+/* G15（2026-10-23 复核结论：现有「覆盖为新 ts」是正确语义，不改代码只留分析）：
+   每个 pushTomb 调用点（delRec/delProxy/delProxyPair/镜像腿/clearAll/convertRecord）都伴随该记录**当次真实移除**，
+   刷新 ts = 让「最新删除意图」胜出 —— 若不刷新而保留旧 ts，反而会出现「记录 updatedAt 晚于旧墓碑 → 合并复活」的反向漏洞。
+   真正的隐患（移动墓碑 op/to 被云拉取剥离）已由 S2（tombMap 保留完整墓碑 + convertRecord touch）根治。 */
+function pushTomb(id){ const s=String(id||""); if(!s) return; const i=deletedIds.findIndex(d=>d.id===s); const t={id:s, ts:Date.now()}; if(i>=0) deletedIds[i]=t; else deletedIds.push(t); if(deletedIds.length>TOMB_MAX) deletedIds=deletedIds.slice(-TOMB_MAX); }
+
+/* R2-2（治 P1-2）移动墓碑：记录在数组间移动（如「寄出→收到」转换）时，**原数组那份必须也留个删除标记**。
+   原实现只从源数组 splice，云端/其他设备上那条记录仍然存在 → 下次拉取会被当作"云端独有"追加回来，
+   于是同一条记录在两个数组里各一份 = 跨设备"复活成两条"。删除墓碑已有同样问题（pushTomb 只对 delete 有效，
+   但移动场景语义上就是删除原位置），故复用同一张表并加 op 标记语义。 */
+function pushMoveTomb(id, to){
+  pushTomb(id);
+  const s=String(id||""); if(!s) return;
+  const t=deletedIds.find(d=>d.id===s);
+  if(t){ t.op="move"; t.to=to||""; }   // 标记为「移动」而非「删除」，便于将来做撤销/追踪
+  tombSave();
+}
+
+function pcSnapshotObj(){
+  try{ return {t:Date.now(),
+    postcards:JSON.parse(JSON.stringify(postcards||[])),
+    received:JSON.parse(JSON.stringify(received||[])),
+    proxies:JSON.parse(JSON.stringify(proxies||[])),
+    activities:JSON.parse(JSON.stringify(activities||[])),
+    deleted:JSON.parse(JSON.stringify(deletedIds||[]))}; }
+  catch(e){ return {t:Date.now(),postcards:[],received:[],proxies:[],activities:[],deleted:[]}; }
+}
+
+/* 写操作前调用：与栈顶做序列化比较，无实际变化不重复入栈（同任务台 O8 去重口径） */
+function snapshot(){
+  try{
+    const top=undoStack[undoStack.length-1];
+    if(top){
+      const same = JSON.stringify(top.postcards)===JSON.stringify(postcards||[])
+        && JSON.stringify(top.received)===JSON.stringify(received||[])
+        && JSON.stringify(top.proxies)===JSON.stringify(proxies||[])
+        && JSON.stringify(top.activities)===JSON.stringify(activities||[])
+        && JSON.stringify(top.deleted)===JSON.stringify(deletedIds||[]);
+      if(same) return;
+    }
+    undoStack.push(pcSnapshotObj());
+    if(undoStack.length>PC_UNDO_MAX) undoStack.shift();
+  }catch(e){}
+}
+
+function pcApplyUndo(s){
+  if(!s) return;
+  postcards = s.postcards || [];
+  received  = s.received || [];
+  proxies   = s.proxies || [];
+  activities= s.activities || [];
+  if(Array.isArray(s.deleted)){ deletedIds = s.deleted.map(normTomb).filter(t=>t.id); tombSave(); }   // 旧结构无此字段 → 保持现状
+  save(); renderAll();
+}
+
+function pcUndo(){
+  if(!undoStack.length){ toast("没有可撤销的操作"); return; }
+  pcApplyUndo(undoStack.pop());
+  toast("已撤销");
+}
+
+// 把「本地墓碑 ∪ 云端墓碑」合成一张 id→ts 表，供各数组共用
+function tombMap(cloudDeleted){
+  const del=new Map();
+  /* R2-2：id → 目标数组名（move 墓碑专用）。Map 是对象可直接挂属性，mergeById 通过 del.moved 读取。 */
+  const moved={};
+  del.moved=moved;
+  /* S2（2026-10-23 修）：完整墓碑表（含 op/to）。此前 del 只存 id→ts，云拉取重建 deletedIds 时
+     op:"move"/to 全部丢失 → 移动墓碑退化为普通删除墓碑，下轮 mergeById 会把「寄出↔收到互转」
+     的新记录当已删数据抹掉（convertRecord 产出的新记录若无 updatedAt 则 ts 恒赢）。 */
+  const tombs=new Map();
+  del.tombs=tombs;
+  const add=(o)=>{
+    const t=normTomb(o);
+    if(!t.id) return;
+    const cur=del.get(t.id);
+    if(cur===undefined||t.ts>cur){
+      del.set(t.id, t.ts);
+      tombs.set(t.id, (o&&typeof o==="object") ? {id:t.id, ts:t.ts, op:o.op, to:o.to} : {id:t.id, ts:t.ts});
+    }
+    // R2-2：op==="move" 的墓碑额外登记目标数组，供 mergeById 区分"原位置该删/新位置该留"
+    if(o && o.op==="move") moved[t.id]=String(o.to||"");
+  };
+  (deletedIds||[]).forEach(add); (cloudDeleted||[]).forEach(add);
+  return del;
+}
+
+function mergeById(local, incoming, del, dir){
+  if(!Array.isArray(local)) local=[];
+  // 移动墓碑表：id → 目标数组名（= "这条在别的数组里，不属于当前 dir"）
+  const movedOut = (dir && del && del.moved) ? del.moved : null;   // tombMap 挂在 Map 上
+  const tombHit=(id)=>{
+    if(!del || !del.has(id)) return null;
+    /* movedOut 是普通对象（tombMap 用字面量 {} 创建并挂在 Map 上），故用 hasOwnProperty / [] 而非 has/get。
+       语义：moved[id] = 目标数组名（记录被移动**到**哪里）。
+       当前数组 dir 与目标不同 ⇒ 当前是**原位置**，墓碑生效要删；相同 ⇒ 当前是目标位置，这条是转换后的新记录，必须留。 */
+    if(movedOut && Object.prototype.hasOwnProperty.call(movedOut,id))
+      return movedOut[id]===dir ? {skip:true} : {ts:del.get(id)};
+    return {ts:del.get(id)};
+  };
+  const out=[];
+  local.forEach(x=>{
+    if(!x){ return; }
+    if(!x.id){ out.push(x); return; }
+    const hit=tombHit(x.id);
+    if(hit){
+      if(hit.skip){ out.push(x); return; }// 移动墓碑指向别的数组 → 本数组这条是转换后的新记录，保留
+      const dts=hit.ts;
+      const remove = dts>0 ? ((Number(x.updatedAt)||0) < dts)   // 带时间戳：记录更旧才删
+                   : (!x.updatedAt);                             // 旧墓碑：仅删从未编辑过的
+      if(remove){ _mergeChanged++; return; }                     // 墓碑胜出 → 删除
+      if(dts===0 && x.updatedAt) del.delete(x.id);               // 旧墓碑遇已编辑记录 → 丢弃墓碑，避免反复误杀
+    }
+    out.push(x);
+  });
+  const map=new Map();
+  out.forEach(x=>{ if(x && x.id) map.set(x.id, x); });
+  (Array.isArray(incoming)?incoming:[]).forEach(x=>{
+    if(!x || !x.id) return;
+    const ihit=tombHit(x.id);
+    if(ihit && !ihit.skip) return;                // 已删记录：云端不得复活（移动到本数组的应放行）
+    const ex=map.get(x.id);
+    if(!ex){ out.push(x); map.set(x.id,x); _mergeChanged++; }    // 云端独有 → 追加
+    else {
+      const lt=Number(ex.updatedAt||0), it=Number(x.updatedAt||0);
+      if(it>lt){
+        /* P3-10：原先 Object.assign(ex,x) 逐键直写 ex。若中途抛异常（x 里有 getter 抛错等），
+           前面的键已写入、后面的没写 → ex 处于"半合并态"，比不合并更难排查。
+           先算到一个局部变量再一次赋值，中间失败则 ex 保持原样。 */
+        const merged=Object.assign({}, ex, x);
+        Object.keys(merged).forEach(k=>{ ex[k]=merged[k]; });
+        _mergeChanged++;
+      }
+      // 否则本地更新或相等 → 保留本地
+    }
+  });
+  return out;
+}
+
+async function fillSample(){
+  // P2-21：与 clearAll 的同类漏判对齐 —— 原先只看寄出+收到，只有代寄/活动数据时无确认直接追加示例
+  if(postcards.length+received.length+proxies.length+activities.length && !(await confirmDialog("将追加示例数据到现有记录？",{ok:"追加"}))) return;
+  const today=new Date(); const d=n=>{ const x=new Date(today); x.setDate(x.getDate()+n); return rotDstr(x); };   // P1-7：原 toISOString 会把负偏移算到昨天
+  const sent=[
+    {recipient:"Anna（笔友）", country:"德国", city:"柏林", channel:"平邮", platform:"Postcrossing", type:"交换", status:"transit", sent:d(-9), note:"风景明信片交换"},
+    {recipient:"Marco", country:"意大利", city:"罗马", channel:"空邮", platform:"Postcrossing", type:"交换", status:"arrived", sent:d(-20), arrived:d(-6), note:"约定的城市明信片"},
+    {recipient:"Yuki", country:"日本", city:"京都", channel:"挂号", platform:"微博互换", type:"TAG", status:"transit", sent:d(-2), note:"红叶季明信片"},
+    {recipient:"李敏（朋友）", country:"中国", city:"上海", channel:"", platform:"自寄", type:"自寄", status:"unwritten", note:"等出游后寄出"},
+  ];
+  const recv=[
+    {sender:"Sophie", country:"法国", city:"巴黎", platform:"Postcrossing", type:"交换", status:"received", received:d(-15), image:"", note:"埃菲尔铁塔明信片"},
+    {sender:"小王", country:"中国", city:"广州", platform:"朋友赠送", type:"其他", status:"received", received:d(-3), image:"", note:"当地手绘明信片"},
+    {sender:"Kenji", country:"日本", city:"大阪", platform:"闲鱼代寄", type:"RR", status:"transit", received:"", image:"", note:"环球影城限定，在路上"},
+  ];
+  const prox=[
+    {proxy:"Anna（笔友）", country:"德国", city:"柏林", platform:"Postcrossing", type:"交换", exchange:"私换", sent:d(-30), proxyRecv:d(-22), proxyBack:d(-18), gotBack:d(-9), note:"请 Anna 帮我盖柏林邮戳后写回，已收到写好的片"},
+    {proxy:"Minho", country:"韩国", city:"首尔", platform:"微博互换", type:"TAG", exchange:"互寄", direction:PDIR.ME, pairId:"pr_sample_minho", sent:d(-5), proxyRecv:"", proxyBack:"", gotBack:"", note:"互寄：我代寄他的片（进行中，可点 ↔ 互寄补填对方那张）"},
+    {proxy:"Minho", country:"韩国", city:"首尔", platform:"微博互换", type:"TAG", exchange:"互寄", direction:PDIR.THEM, pairId:"pr_sample_minho", sent:"", proxyRecv:"", proxyBack:"", gotBack:"", note:"互寄：他代寄我的片（待填，可点 ↔ 互寄编辑）"},
+  ];
+  sent.forEach(s=>postcards.unshift(touch(Object.assign({id:uid()}, s))));
+  recv.forEach(s=>received.unshift(touch(Object.assign({id:uid()}, s))));
+  prox.forEach(s=>proxies.unshift(touch(Object.assign({id:uid()}, s))));
+  const acts=[
+    {title:"环球影城限定 RR", kind:"rr", platform:"微博互换", url:"", cur:3, max:6, deadline:d(5), status:"ongoing", note:"还差 3 人满员，满了就开抽"},
+    {title:"红叶季 TAG 互寄", kind:"tag", platform:"Postcrossing", url:"", cur:1, max:4, deadline:d(10), status:"ongoing", note:"已寄出 1 张，剩 3 张待 tag"},
+    {title:"和 Yuki 的私人交换", kind:"exchange", platform:"私换", url:"", cur:0, max:0, deadline:"", status:"ongoing", note:"进行中：我方已寄出，等对方回片"},
+  ];
+  acts.forEach(a=>activities.unshift(touch(Object.assign({id:uid()}, a))));
+  renderAll(); saveAndToast("已填入示例");
+}
+
+async function clearAll(){
+  if(!postcards.length && !received.length && !proxies.length && !activities.length) return;  // F4 修复：漏 activities 导致只剩活动时点清空无响应
+  if(!(await confirmDialog("确定清空全部记录（寄出 + 收到 + 代寄 + 活动）？提示条停留的 12 秒内可点「撤销」或 Ctrl+Z 还原。",{danger:true}))) return;
+  snapshot();   // 撤销栈：12s 窗口（清空是覆盖面最大的破坏性操作，给最长窗口）
+  // 清空也必须逐条打墓碑，否则云端还有这些记录，下次拉取会全部复活
+  [].concat(postcards,received,proxies,activities).forEach(p=>{ if(p&&p.id) pushTomb(p.id); });
+  postcards=[]; received=[]; proxies=[]; activities=[]; tombSave();
+  renderAll();
+  toastUndo("已清空全部记录", 12000, save(false)===false);
+}
 
 /* ===== L4 Render · P1-9 分层（2026-10-23）===== */
 
@@ -2243,11 +3201,6 @@ const PROXY_STEPS_ONEWAY=[
   {k:"sent",     label:"我写回寄出"},
   {k:"gotBack",  label:"对方收到"}
 ];
-function proxyStepsOf(p){
-  if(p && p.proxyMode===PMODE.ONEWAY) return PROXY_STEPS_ONEWAY;
-  if(p && p.direction===PDIR.THEM) return PROXY_STEPS_THEM;
-  return PROXY_STEPS;
-}
 /* P2-2：每个状态补ink =「同色系的深色版」，专供 badge 文字使用。
    原先 badge 直接拿 color 当文字色（`background:${c}22;color:${c}`），而这些色是按「色块」选的：
    寄出在途 #f5a623 在白底上只有 2.03:1、对方已寄出 #fb923c 2.32:1、对方已收 #4aa3ff 2.64:1，全部远低于 AA 4.5:1。
@@ -2264,8 +3217,6 @@ const PROXY_STATUS={
 // 进行中活动：RR（未满员）/ TAG（未tag完）/ 交换（进行中）等参与型活动
 const ACT_KIND_DEFAULT=[{key:"rr",label:"RR",progress:true},{key:"tag",label:"TAG",progress:true},{key:"exchange",label:"交换",progress:false},{key:"other",label:"其他",progress:false}];
 let actKindList=ACT_KIND_DEFAULT.map(o=>({...o}));
-function actKindLabel(k){ const x=actKindList.find(o=>o.key===k); return x?x.label:(k||"其他"); }
-function actKindProgress(k){ const x=actKindList.find(o=>o.key===k); return x?!!x.progress:false; }
 const ACT_KIND_COLOR=["#f5a623","#a06bff","#4aa3ff","#22b07d","#ea580c","#ff6b6b","#9aa3b2"];
 const LINK_LABEL={sent:"寄出",received:"收到",proxy:"代寄"};
 const ACT_STATUS={     // P2-2：同 PROXY_STATUS，ink 供 badge 文字（对比度），color 供色点/图表
@@ -2278,29 +3229,6 @@ const ACT_STATUS={     // P2-2：同 PROXY_STATUS，ink 供 badge 文字（对�
    在模块求值时抛 ReferenceError，整个 script 挂掉（页面只剩静态 HTML：标签栏与表格全空）。
    这个坑与「派生常量必须晚于源常量」是同一条铁律，派生一律放源后面。 */
 const ACT_STATUS_ORDER=Object.keys(ACT_STATUS);
-// 状态由「首个未完成步骤索引 firstUndone」派生，而非裸计数：跳过中间节点直接勾第 3/4 步时，
-// 状态/计数与步进条（firstUndone 驱动）保持一致，不会出现「中间空却显示已完成」的自相矛盾
-function proxyStatusOf(p){
-  /* 2026-10-05：改用 highestDone（原 firstUndone 返回值当状态下标用，只完成第1步时被判成「我已收」）。
-     步进下标 +1 即状态链下标；全空（-1）落在 READY，全完成（3）落在 GOT_BACK，无需特判。 */
-  const i=highestDone(p)+1;
-  if(p && p.proxyMode===PMODE.ONEWAY) return [PSTEP.READY,PSTEP.ENV_SENT,PSTEP.ENV_RECV,PSTEP.SENT,PSTEP.GOT_BACK][i];
-  return [PSTEP.READY,PSTEP.SENT,PSTEP.PROXY_RECV,PSTEP.PROXY_BACK,PSTEP.GOT_BACK][i];
-}
-// 状态文字随模式/方向翻转；单向代寄为「对方寄出→我收→我写回寄出→对方收到」
-function proxyStatusText(p){
-  const i=highestDone(p)+1;   // 2026-10-05：同 proxyStatusOf，改用 highestDone 消除「高亮与状态互相矛盾」
-  if(p && p.proxyMode===PMODE.ONEWAY) return ["准备中","对方已寄出（待我收）","我已收（待我写回寄出）","我写回寄出在途","对方已收"][i]||"准备中";
-  if(p && p.direction===PDIR.THEM) return ["准备中","对方已寄出","我已收","我写回中","对方已收"][i]||"准备中";
-  return ["准备中","我寄出在途","对方已收","对方寄回中","我已收"][i]||"准备中";
-}
-function proxyReturnDays(p){ // 我收到日 − 我寄出日
-  if(!p||!p.sent||!p.gotBack) return null;
-  const a=new Date(p.sent), b=new Date(p.gotBack);
-  if(isNaN(a)||isNaN(b)) return null;
-  const d=Math.round((b-a)/86400000);
-  return d<0?0:d; // 收到日若误填成未来日期，归零避免负天数
-}
 let postcards=[];
 let received=[];
 let proxies=[];
@@ -2320,25 +3248,6 @@ let typeList=TYPE_DEFAULT.slice();
 let countryList=COUNTRY_DEFAULT.slice();
 let optsKind="platform", optsReturn=null;
 
-// 脏数据兜底：导入/云端合并都可能把 null 或原始值塞进数组，
-// 一旦入表，后续 `p.status` 之类访问会直接抛 TypeError 导致整页白屏。
-/* R2-1（治P1-3）：sanitizeArr 是「记录入数组」的唯一入口，取代原先只做 filter 的 cleanArr。
-   原实现有两个问题：
-   ① **不补 id** —— 从 JSON 导入的记录若缺 id（手写备份、早期版本、或手工编辑过），findRec/delRec/edit 一律按 id 找不到
-      → 点「编辑」提示未找到、点「删除」没反应，且它们会被 mergeById 当「新记录」与云端并成两条（数据翻倍）。
-   ② **不校验 status** —— 脏 status 会让 transitDays/proxyStatusOf 的分支全走错。
-   load() / importJSON() / mergeById() 三处必须统一走这里，避免第三次分叉。 */
-function sanitizeArr(v, opts){
-  opts=opts||{};
-  if(!Array.isArray(v)) return [];
-  const allowStatus=opts.statusKeys;   // 可选的 status 白名单（如 STATUS_ORDER）
-  return v.filter(x=>x && typeof x==="object" && !Array.isArray(x)).map(x=>{
-    if(!x.id) x.id=uid();               // 补 id —— 缺 id 是「不可编辑不可删 + 跨设备变两条」的共同根因
-    if(typeof x.updatedAt!=="number") x.updatedAt=0;   // 统一为数字，mergeById 的比较才可靠
-    if(allowStatus && allowStatus.indexOf(x.status)<0) x.status=opts.fallbackStatus||allowStatus[0];
-    return x;
-  });
-}
 const cleanArr=v=>sanitizeArr(v);   // 旧名保留兼容（两文件不用，但改调用点风险大时可用）
 /* ===== 本地存储统一写入口 =====
    原实现把 QuotaExceededError 静默吞掉 → 界面显示「已保存」、刷新后数据全丢且毫无提示。
@@ -2348,37 +3257,10 @@ let _quotaWarnAt=0;
 /* ===== F1 异常件（可能丢失）提醒 ===== */
 const LOST_DAYS={平邮:60,空邮:30,挂号:120,其他:45,"":60}; // 各渠道在途超期阈值（天）（「自寄」键已删：渠道下拉无此项，永不命中）
 const PROXY_LOST_DAYS=75; // 代寄：自「我寄出」起超过该天数仍未走完，判定可能丢失
-function isLostSent(p){ if(!p||p.status!=="transit") return false; const d=transitDays(p); return d!=null && d>(LOST_DAYS[p.channel]||60); }
-/* P1-6：补终止条件 —— 对方已寄回(gotBack)即闭环，无论前面节点如何都不该再报「可能丢失」 */
-function isLostProxy(p){ if(!p||!p.sent) return false; if(p.gotBack) return false; if(firstUndone(p)===-1) return false; const d=daysSince(p.sent); return d!=null && d>PROXY_LOST_DAYS; }
-/* 活动 deadline 预警：与 sent/proxy 的丢失预警对齐——过期标红、临近(≤3天)提示 */
-function actOverdue(a){ if(!a||!a.deadline) return false; if(a.status==="done"||a.status==="closed") return false; const t=new Date(a.deadline+"T00:00:00"); if(isNaN(t)) return false; const today0=new Date(); today0.setHours(0,0,0,0); return t<today0; }
-function actDueSoon(a){ if(!a||!a.deadline) return false; if(a.status==="done"||a.status==="closed") return false; const t=new Date(a.deadline+"T00:00:00"); if(isNaN(t)) return false; const today0=new Date(); today0.setHours(0,0,0,0); const diff=Math.round((t-today0)/86400000); return diff>=0 && diff<=3; }
 function lostBadge(view,p){ const lost = view==="sent"?isLostSent(p) : view==="proxy"?isLostProxy(p):false; return lost?`<span class="badge" style="background:rgba(239,68,68,.14);color:var(--danger);margin-right:6px;">⚠️ 可能丢失</span>`:""; }
 
 // 返回值用于 HTML 属性（href="..."），必须再过 esc，否则可用 " 提前闭合属性造成属性逃逸型 XSS
 
-function normalizeRecv(){ received.forEach(p=>{ if(p && !p.status) p.status = p.received ? "received" : "transit"; }); }
-function syncListsFromData(){
-  const add=(list,v)=>{ if(v && !list.includes(v)) list.push(v); };
-  postcards.forEach(p=>{ if(p){ add(platList,p.platform); add(typeList,p.type); add(countryList,p.country); } });
-  received.forEach(p=>{ if(p){ add(platList,p.platform); add(typeList,p.type); add(countryList,p.country); } });
-  proxies.forEach(p=>{ if(p){ add(platList,p.platform); add(typeList,p.type); add(countryList,p.country); } });
-  // 活动的平台也并入平台选项池，保证「活动平台」与明信片共用同一份可编辑列表
-  activities.forEach(a=>{ if(a){ add(platList,a.platform); } });
-}
-function optsListOf(kind){ return kind==="platform"?platList : kind==="type"?typeList : countryList; }
-function poolUsed(kind){
-  const pick=p=> kind==="platform"?p.platform : kind==="type"?p.type : p.country;
-  const arr=[];
-  postcards.forEach(p=>{ if(p&&pick(p)) arr.push(pick(p)); });
-  received.forEach(p=>{ if(p&&pick(p)) arr.push(pick(p)); });
-  proxies.forEach(p=>{ if(p&&pick(p)) arr.push(pick(p)); });
-  if(kind==="platform") activities.forEach(a=>{ if(a&&a.platform) arr.push(a.platform); });
-  return arr;
-}
-// D3：countUses 与 poolUsed 遍历逻辑重复，复用之（数据量小，性能无虞）
-function countUses(kind, v){ return poolUsed(kind).filter(x=>x===v).length; }
 function fillSelect(id, kind, val){
   const sel=document.getElementById(id); if(!sel) return;
   const list = optsListOf(kind);
@@ -2405,14 +3287,6 @@ function renderOptsList(){
     list.splice(i,1); save(); renderOptsList();
   });
 }
-function optsAdd(){
-  const inp=document.getElementById("optsNew"); const v=inp.value.trim(); if(!v) return;
-  const list = optsListOf(optsKind);
-  if(list.includes(v)){ toast("已存在该选项", "danger"); return; }
-  list.push(v); inp.value=""; save(); renderOptsList();
-  // 新增后自动选中该项，省去用户再手动选一次（对平台下拉同样生效）
-  if(optsReturn) fillSelect(optsReturn, optsKind, v);
-}
 function closeOpts(){
   document.getElementById("maskOpts").classList.remove("show");
   if(optsReturn){ fillSelect(optsReturn, optsKind, document.getElementById(optsReturn).value); }
@@ -2431,14 +3305,6 @@ const LINKS_DEFAULT=[
   {emoji:"🖼", name:"我的收片相册",     url:"https://eu.zonerama.com/Profile/704015/1255144"}
 ];
 let linkList=[];
-/* 2026-10-23 线上事故修复：links 里混入非字符串 url（历史/云同步脏数据）时 normUrl 的 .trim() 抛 TypeError，
-   且 renderLinkBar 处于 init 顶层调用链——一处异常炸掉整个主脚本初始化，页面只剩静态骨架（白屏）。
-   三层防护：① 入口统一清洗（normLinkList）② normUrl 类型兜底 ③ renderAllNow 分步隔离（单区失败不拖垮其它区域）。 */
-function normLinkList(v){
-  if(!Array.isArray(v)) return null;
-  return v.filter(x=>x && x.url!=null && String(x.url).trim())
-    .map(x=>({emoji:String(x.emoji==null?"":x.emoji).slice(0,4), name:String(x.name==null?"":x.name).slice(0,60), url:String(x.url).trim()}));
-}
 function renderLinkBar(){
   const el=document.getElementById("linkList"); if(!el) return;
   el.innerHTML=linkList.map(l=>{
@@ -2460,16 +3326,6 @@ function renderLinkEditor(){
 }
 function openLinkEditor(){ renderLinkEditor(); document.getElementById("maskLinks").classList.add("show"); }
 function closeLinkEditor(){ document.getElementById("maskLinks").classList.remove("show"); saveLinks(); renderLinkBar(); }
-function linkAdd(){
-  const e=document.getElementById("linkNewEmoji").value.trim();
-  const n=document.getElementById("linkNewName").value.trim();
-  const u=document.getElementById("linkNewUrl").value.trim();
-  if(!n||!u){ toast("名称与网址都要填", "danger"); return; }
-  linkList.push({emoji:e||"🔗", name:n, url:normUrl(u)});
-  ["linkNewEmoji","linkNewName","linkNewUrl"].forEach(id=>document.getElementById(id).value="");
-  saveLinks(); renderLinkEditor(); renderLinkBar(); toast("已添加链接");
-}
-function linkReset(){ linkList=LINKS_DEFAULT.map(x=>({...x})); saveLinks(); renderLinkEditor(); renderLinkBar(); toast("已恢复默认站点"); }
 
 /* ===== 渲染：视图切换（标签页名称可双击编辑） ===== */
 const TAB_DEFAULT={ sent:"寄出追踪", received:"收到收藏", proxy:"代寄", activity:"进行中活动" };
@@ -2701,40 +3557,6 @@ function bindWidgetCtrls(el){
     card.addEventListener("drop", e=>{ e.preventDefault(); const tgt=card.dataset.wid; if(tgt!==dragWid) dropWidget(dragWid,tgt); card.classList.remove("drop-before","drop-after"); });
   });
 }
-function moveWidget(wid, dir){
-  syncOrder();
-  const i=widgetCfg.order.indexOf(wid), j=i+dir;
-  if(i<0||j<0||j>=widgetCfg.order.length) return;
-  const t=widgetCfg.order[i]; widgetCfg.order[i]=widgetCfg.order[j]; widgetCfg.order[j]=t;
-  saveWidgets(); renderStats();
-}
-function dropWidget(src, tgt){
-  syncOrder();
-  const i=widgetCfg.order.indexOf(src), j=widgetCfg.order.indexOf(tgt);
-  if(i<0||j<0) return;
-  widgetCfg.order.splice(i,1);
-  const k=widgetCfg.order.indexOf(tgt);
-  widgetCfg.order.splice(dragDropBefore?k:k+1, 0, src);
-  saveWidgets(); renderStats();
-}
-function hideWidget(wid){ if(!widgetCfg.hidden.includes(wid)) widgetCfg.hidden.push(wid); saveWidgets(); renderStats(); }
-function delWidget(wid){
-  const id=wid.slice(2);
-  confirmDialog("确定删除这张自定义卡片？", {danger:true, ok:"删除"}).then(ok=>{
-    if(!ok) return;
-    /* 撤销：自定义卡片属于 widgetCfg（独立存储域），不走记录撤销栈，闭包捕获三份数组现场还原 */
-    const snap={custom:widgetCfg.custom.slice(), order:widgetCfg.order.slice(), hidden:widgetCfg.hidden.slice()};
-    widgetCfg.custom=widgetCfg.custom.filter(w=>w.id!==id);
-    widgetCfg.order=widgetCfg.order.filter(w=>w!=="c:"+id);
-    widgetCfg.hidden=widgetCfg.hidden.filter(w=>w!=="c:"+id);
-    saveWidgets(); renderStats();
-    toast("已删除卡片","",8000,function(){
-      widgetCfg.custom=snap.custom; widgetCfg.order=snap.order; widgetCfg.hidden=snap.hidden;
-      saveWidgets(); renderStats(); save();   // save() 会把还原后的 widgetCfg 推给云端
-      toast("已撤销");
-    });
-  });
-}
 let editingWid=null;
 function openWidgetModal(wid){
   editingWid=wid||null;
@@ -2771,20 +3593,6 @@ function openRename(wid){
   i.value=cur; i.placeholder=orig;
   document.getElementById("renameModal").classList.add("show");
   setTimeout(()=>{ try{ i.focus(); i.select(); }catch(e){} },30);
-}
-function saveRename(){
-  if(!renamingWid) return;
-  const orig=renamingWid.split(":").slice(2).join(":");
-  const v=document.getElementById("rnText").value.trim();
-  if(!v || v===orig) delete widgetCfg.autoRename[renamingWid];
-  else widgetCfg.autoRename[renamingWid]=v;
-  saveWidgets(); renderStats(); closeRename();
-  toast(v&&v!==orig?"已重命名":"已恢复默认名称");
-}
-function resetRename(){
-  if(!renamingWid) return;
-  delete widgetCfg.autoRename[renamingWid];
-  saveWidgets(); renderStats(); closeRename(); toast("已恢复默认名称");
 }
 function closeRename(){ document.getElementById("renameModal").classList.remove("show"); renamingWid=null; }
 
@@ -2864,14 +3672,6 @@ function buildFilterBar(){
   }catch(e){}
 }
 function renderFilters(){ buildFilterBar(); }
-function resetFilter(){
-  // status 必须回到 "all"（与初始化一致）：置为 "" 会被 `status!=="all"` 判定为「筛某个具体状态」而滤空全表
-  if(view==="sent"){ filter.q="";filter.country="";filter.platform="";filter.type="";filter.status="all"; }
-  else if(view==="received"){ rfilter.q="";rfilter.country="";rfilter.platform="";rfilter.type="";rfilter.status="all"; }
-  else if(view==="proxy"){ pfilter.q="";pfilter.country="";pfilter.platform="";pfilter.type="";pfilter.status="all"; }
-  else { afilter.q="";afilter.kind="all";afilter.status="all"; }
-  renderFilters(); renderTable();
-}
 /* ===== D2：chips 渲染泛化 =====
    五个 chips 函数同构（全部 chip + 枚举 map + onclick 改 filter 再 renderTable），统一到
    renderChipsGeneric + CHIP_GROUPS 配置；外部调用点（含活动类型编辑器）保留同名薄封装。 */
@@ -2901,76 +3701,6 @@ function renderChipGroup(viewKey, i){
 }
 /* P3-1：renderChips 已删（薄封装，无调用方） */
 
-/* P0-4（2026-10-04 紧急修复）：补回 filteredSent / filteredRecv / filteredActivities。
-   **这三个函数此前只有调用、零定义**，而 renderTable 的四个分支与exportCSV 都调它们
-   → `renderAll()` 一跑到 renderTable 就抛 ReferenceError，整个 script 中断，
-     页面只剩 HTML 里写死的静态部分（标签栏/统计卡/表格全空），与 TDZ 那次白屏症状完全一样。
-   为什么一直没被发现：node --check 只做语法检查，运行期 ReferenceError 查不出；
-   而此前的断言只验证「函数体存在与否」，没验证「**被调用的函数是否都有定义**」。
-   口径与下方 filteredProxy 保持一致（status/country/platform/type/关键词 + applySort）。 */
-function filteredSent(){
-  const list=postcards.filter(p=>{
-    if(!p) return false;
-    if(filter.status!=="all" && p.status!==filter.status) return false;
-    if(filter.country && p.country!==filter.country) return false;
-    if(filter.platform && p.platform!==filter.platform) return false;
-    if(filter.type && p.type!==filter.type) return false;
-    if(filter.channel && p.channel!==filter.channel) return false;
-    if(filter.q){ const q=filter.q.toLowerCase();
-      const hay=[p.recipient,p.country,p.city,p.platform,p.type,p.channel,p.trackingNo,p.note].filter(Boolean).join(" ").toLowerCase();
-      if(!hay.includes(q)) return false; }
-    return true;
-  });
-  return applySort(list, "sent");
-}
-function filteredRecv(){
-  const list=received.filter(p=>{
-    if(!p) return false;
-    if(rfilter.status!=="all" && p.status!==rfilter.status) return false;
-    if(rfilter.country && p.country!==rfilter.country) return false;
-    if(rfilter.platform && p.platform!==rfilter.platform) return false;
-    if(rfilter.type && p.type!==rfilter.type) return false;
-    if(rfilter.q){ const q=rfilter.q.toLowerCase();
-      const hay=[p.sender,p.country,p.city,p.platform,p.type,p.note].filter(Boolean).join(" ").toLowerCase();
-      if(!hay.includes(q)) return false; }
-    return true;
-  });
-  return applySort(list, "received");
-}
-function filteredActivities(){
-  const list=activities.filter(a=>{
-    if(!a) return false;
-    if(afilter.kind!=="all" && a.kind!==afilter.kind) return false;
-    if(afilter.status!=="all" && a.status!==afilter.status) return false;
-    if(afilter.q){ const q=afilter.q.toLowerCase();
-      const hay=[a.title,a.platform,a.type||"",a.note].filter(Boolean).join(" ").toLowerCase();
-      if(!hay.includes(q)) return false; }
-    return true;
-  });
-  // 活动排序键与代寄共用 sort.proxy（活动表无独立排序键，历史如此）
-  return applySort(list, "proxy");
-}
-function filteredProxy(){
-  const list=proxies.filter(p=>{
-    if(pfilter.status!=="all" && proxyStatusOf(p)!==pfilter.status) return false;
-    if(pfilter.country && p.country!==pfilter.country) return false;
-    if(pfilter.platform && p.platform!==pfilter.platform) return false;
-    if(pfilter.type && p.type!==pfilter.type) return false;
-    if(pfilter.q){ const q=pfilter.q.toLowerCase(); const hay=(p.proxy+" "+(p.country||"")+" "+(p.city||"")+" "+(p.platform||"")+" "+(p.type||"")+" "+(p.note||"")).toLowerCase(); if(!hay.includes(q)) return false; }
-    return true;
-  });
-  return applySort(list, "proxy");
-}
-// F5 排序：date=按起始日(新→旧)，arr=按到达/收到日(新→旧)，country/platform=按中文序
-function applySort(arr, dir){
-  const k=sort[dir]; if(!k) return arr;
-  const c=arr.slice();
-  if(k==="date") c.sort((a,b)=> (b.sent||b.proxyRecv||"").localeCompare(a.sent||a.proxyRecv||""));
-  else if(k==="arr") c.sort((a,b)=> (b.arrived||b.received||b.gotBack||"").localeCompare(a.arrived||a.received||a.gotBack||""));
-  else if(k==="country") c.sort((a,b)=>(a.country||"").localeCompare(b.country||"","zh"));
-  else if(k==="platform") c.sort((a,b)=>(a.platform||"").localeCompare(b.platform||"","zh"));
-  return c;
-}
 // 每步独立按真实字段判定完成态（不再用顺序计数，避免「中间空却显示已完成」的假象）
 /* P1-6：原实现从**前**向后扫，返回「第一个未完成」的下标。
    致命处：toggleProxyStep 允许任意顺序点节点（注释明确「不级联」），于是跳步时派生量全错——
@@ -2979,7 +3709,6 @@ function applySort(arr, dir){
    ③ proxyUnitDone 同样受影响 → 完成的行不沉底、5 态计数全部错位。
    改为从后向前扫：只要最后一个节点没填就还没完成；最后一个填了即视为已完成（跳步不再产生矛盾状态）。
    （保存时的顺序补齐 normalizeProxySteps 属治本项，本轮先止血。） */
-function firstUndone(p){ const steps=proxyStepsOf(p); for(let j=steps.length-1;j>=0;j--) if(!p[steps[j].k]) return j; return -1; }
 
 /* 步进口径分离（2026-10-05 修「圆圈高亮错位」）：
    firstUndone 回答的是「是否全部完成」，返回**从后往前**第一个未完成的下标 —— 这是 P1-6 为治
@@ -2997,35 +3726,6 @@ function firstUndone(p){ const steps=proxyStepsOf(p); for(let j=steps.length-1;j
      全完成 → 3 → 无高亮 / 状态「我已收」
    步进数组下标与状态链下标天然对齐（往返 me: sent→proxyRecv→proxyBack→gotBack；
    单向: envSent→envRecv→sent→gotBack），故 +1 即状态链下标，无需再特判 i<0。 */
-function highestDone(p){
-  const steps=proxyStepsOf(p);
-  for(let j=steps.length-1;j>=0;j--) if(p[steps[j].k]) return j;
-  return -1;
-}
-/* 各视图「已完成/已到」判定：用于把这类行稳定沉底 + 弱化 */
-function isSentDone(p){ return p && p.status==="arrived"; }            // 寄出：已到
-function isRecvDone(p){ return p && p.status==="received"; }           // 收到：已收(=已到)
-function proxyUnitDone(u){                                             // 代寄：四节点全完成
-  if(!u) return false;
-  if(u.type==="pair"){ const d=l=> (l? firstUndone(l)===-1 : false); return d(u.me)&&d(u.them); }
-  return firstUndone(u.p)===-1;
-}
-function isActDone(a){ return a && (a.status==="done"||a.status==="closed"); } // 活动：已结束/已关闭
-/* 稳定把「已完成」沉到列表最末（各组内原有相对顺序不变），与 applySort 排序叠加 */
-function sinkDoneLast(list, isDone){
-  const keep=[], sink=[];
-  for(let i=0;i<list.length;i++){ (isDone(list[i])?sink:keep).push(list[i]); }
-  return keep.concat(sink);
-}
-// 点击节点切换代寄步骤状态：仅切换该步自身（完成↔回退），不级联、不触碰其它步骤的日期
-function toggleProxyStep(pid, idx){
-  const p=proxies.find(x=>x.id===pid); if(!p) return;
-  const steps=proxyStepsOf(p);
-  const k=steps[idx].k;
-  p[k] = p[k] ? "" : todayStr();   // P1-7：同上，改本地取值
-  touch(p);
-  save(); renderAll();
-}
 // 互寄对 stepper：4 列网格，每列 = 同一进度节点，上排「我→对方」下排「对方→我」，纵向严格对齐
 function proxyStepNode(p, i){
   const steps=proxyStepsOf(p); const s=steps[i];
@@ -3053,41 +3753,6 @@ function renderProxySingleStepper(p){
     cols.push(`<div class="sp-col">${proxyStepNode(p,i)}<div class="sp-lab single">${steps[i].label}</div></div>`);
   }
   return `<div class="stepper-pair"><div class="sp-grid single">${cols.join("")}</div></div>`;
-}
-// 互寄对整体状态：两条腿都完成 / 一方完成 / 均未寄出 / 进行中
-function proxyPairStatus(me, them){
-  /* done 用 firstUndone（P1-6 语义：最后一个节点没填就未完成，跳步不产生矛盾），不动。
-     started 原用 firstUndone(p)!==0 —— 但全空时 firstUndone 从后往前扫返回 3（不是 0），
-     于是「均未寄出」这个状态**永远不出现**，截图里所有互寄对都显示「互寄进行中」即此症状。
-     2026-10-05 改用 highestDone(p)!==-1（真的一个节点都没填），与步进高亮同一口径。 */
-  const done=p=> p? firstUndone(p)===-1 : false;
-  const started=p=> p? highestDone(p)!==-1 : false;
-  const dm=done(me), dt=done(them);
-  // P2-2：ink 供 badge 文字（对比度达AA），color 供色点/图表
-  if(dm && dt) return {label:"双方已收", color:"#22b07d", ink:"#0a7a53"};
-  if(dm) return {label:"我方已收·对方进行中", color:"#f5a623", ink:"#8a5200"};
-  if(dt) return {label:"对方已收·我方进行中", color:"#f5a623", ink:"#8a5200"};
-  if(!started(me) && !started(them)) return {label:"均未寄出", color:"#9aa3b2", ink:"#5b6472"};
-  return {label:"互寄进行中", color:"#4aa3ff", ink:"#0b5fa5"};
-}
-// 把互寄对（共享 pairId 的两条腿）合并为「代寄视图」的一个展示单元；无 pairId 的单条各自独立
-// src 缺省取 filteredProxy()（表格用，随筛选变化）；统计传入全量 proxies 以反映全部数据
-function buildProxyUnits(src){
-  const fp=src||filteredProxy();
-  const groups=new Map();
-  fp.forEach(p=>{ if(p.pairId) groups.set(p.pairId,(groups.get(p.pairId)||[]).concat(p)); });
-  const units=[];
-  groups.forEach((legs,pid)=>{
-    if(legs.length>=2){
-      const me=legs.find(x=>x.direction===PDIR.ME)||legs[0];
-      const them=legs.find(x=>x.direction===PDIR.THEM)||legs.find(x=>x!==me);
-      units.push({type:"pair", pairId:pid, me, them});
-    }else{
-      units.push({type:"single", p:legs[0]});
-    }
-  });
-  fp.filter(p=>!p.pairId).forEach(p=>units.push({type:"single", p}));
-  return units;
 }
 // D5：单腿/配对行前 5 列结构重复，抽公共片段（dot 颜色由调用方传入：单腿=行状态色，配对=组合状态色）
 function proxyBaseCells(p, dotColor){
@@ -3427,7 +4092,6 @@ const REC_DEFS = {
     }
   }
 };
-function findRec(dir, id){ return REC_DEFS[dir].arr().find(x=>x.id===id); }
 function fillForm(dir, p){
   const def=REC_DEFS[dir];
   for(const fid in def.form){ const rf=def.form[fid]; const el=document.getElementById(fid); if(el) el.value=(p && p[rf]!=null)? p[rf] : ""; }
@@ -3450,79 +4114,6 @@ function readForm(dir){
    - 仅「未写」(unwritten) 视为彻底重置，才清空 sent/arrived（修复原「状态=未写却残留 arrived」污染）。
    - 正向补填保留：进入 transit 补 sent、进入 arrived 补 arrived、进入 received 补 received（为空才补）。
    - 在途天数 transitDays 仅在 status==="arrived" 时取用 arrived，故保留历史日期不会污染在途/排序/CSV。 */
-/* P3-1：SENT_RANK 已删 —— 它声明了「寄出链等级 未写0<未寄1<在途2<已到3，退回4」，但 normalizeRecDates 从未引用；
-   声明与实现脱节，留着会让人误以为状态回退有等级比较逻辑。真正的回退规则就是上面那段注释。 */
-function normalizeRecDates(rec, dir){
-  if(!rec) return rec;
-  const today=todayStr();   // P1-7：原 toISOString() 取 UTC，东八区本地 00:00–08:00 会得到「昨天」
-  if(dir==="sent"){
-    // D1（审查建议）：保留历史轨迹——状态回退不再清空已填日期；仅「未写」视为彻底重置才清零
-    if(rec.status==="unwritten"){ rec.sent=""; rec.arrived=""; }
-    if(rec.status==="transit" && !rec.sent) rec.sent=today;
-    if(rec.status==="arrived" && !rec.arrived) rec.arrived=today;
-  }else{
-    // 收到链：收到为终态；回退（如收到→在途）保留 received 作历史轨迹，仅终态补填
-    if(rec.status==="received" && !rec.received) rec.received=today;
-  }
-  return rec;
-}
-/* P0（2026-10-23 修）：状态下拉改一下就即时落盘，此前存在两类静默问题——
-   ① 切「未写」会直接清空已填的寄出日/到达日，无任何确认也无回收；
-   ② 切「在途/已到」会自动把日期回填成今天，toast 只说「状态已更新」，用户不知道日期被动过。
-   现在：销毁已有数据前先确认；变更后在提示里如实列出所有被系统改动的字段。 */
-async function changeRecStatus(dir, id, status){
-  const p=findRec(dir,id); if(!p) return;
-  const old=p.status;
-  if(old===status){ toast("状态未变化"); return; }
-  if(dir==="sent" && status==="unwritten" && (p.sent||p.arrived)){
-    if(!(await confirmDialog("切到「未写」会清空已填的寄出日/到达日，确定吗？",{danger:true}))){ renderAll(); return; }
-  }
-  snapshot();   /* G13（2026-10-23 修）：状态变更（尤其「未写」清日期的破坏性分支）此前只有确认框没有撤销，与删除类（8s+Ctrl+Z）能力不对称——快照现成覆盖四数组+墓碑 */
-  p.status=status;
-  const before={sent:p.sent||"", arrived:p.arrived||"", received:p.received||""};
-  normalizeRecDates(p, dir);
-  const after={sent:p.sent||"", arrived:p.arrived||"", received:p.received||""};
-  const side=[];
-  if(before.sent && !after.sent) side.push("寄出日已清空");
-  if(before.arrived && !after.arrived) side.push("到达日已清空");
-  if(!before.sent && after.sent) side.push("寄出日已自动填今天 "+after.sent);
-  if(!before.arrived && after.arrived) side.push("到达日已自动填今天 "+after.arrived);
-  if(!before.received && after.received) side.push("收到日已自动填今天 "+after.received);
-  touch(p);   // P1-1：全文件 22 处 touch() 唯独这条主路径漏了 → updatedAt 不更新，mergeById 判「云端更新」会把本地状态覆盖回去（状态自己跳回）
-  renderAll();
-  const dict=(dir==="sent")?STATUSES:RECV_STATUSES;
-  const label=(dict[status]&&dict[status].label)||status;
-  saveAndToast("已改为「"+label+"」"+(side.length?(" · "+side.join("，")):""));   /* G13：已入撤销栈，Ctrl+Z 可还原；toast 保持 saveAndToast（失败提示走 shared 层兼容分支） */
-}
-// 删除记录后同步摘掉活动里的关联引用，避免死链长期累积并污染 CSV 导出（原先只显示「（关联已删）」）
-function unlinkFromActivities(id){
-  let n=0;
-  activities.forEach(a=>{
-    if(a && Array.isArray(a.links) && a.links.length){
-      const before=a.links.length;
-      a.links=a.links.filter(l=>l && l.id!==id);
-      if(a.links.length!==before){ n+=before-a.links.length; touch(a); }
-    }
-  });
-  return n;
-}
-/* P2-7：删掉一条互寄腿后，若该 pairId 组只剩 ≤1 条，解除残留的 pairId，否则另一腿仍显示「↔ 对方」而点击报「未找到关联」。原先只有 delProxy 有此修复，delRec 缺失。
-   注意：寄出↔收到的pairId 是**跨数组**的（counterpart 落在另一个数组），故须扫全四个数组，只查 proxies 会漏。 */
-function unlinkPartnerIfOrphan(pid){
-  if(!pid) return;
-  const rest=REC_DEFS.sent.arr().concat(REC_DEFS.received.arr(), proxies).filter(x=>x && x.pairId===pid);
-  if(rest.length<=1) rest.forEach(p=>{ delete p.pairId; touch(p); });
-}
-async function delRec(dir, id){
-  const p=findRec(dir,id); if(!p) return;
-  const nm=p[REC_DEFS[dir].nameField]||"未命名";
-  if(!(await confirmDialog("删除「"+nm+"」这张"+(dir==="sent"?"寄出":"收到")+"记录？",{danger:true}))) return;
-  snapshot();   // 撤销栈：删除前留整份快照（含墓碑），8s 内可点提示条或 Ctrl+Z 还原
-  const arr=REC_DEFS[dir].arr(); const idx=arr.findIndex(x=>x.id===id);
-  if(idx>=0){ arr.splice(idx,1); unlinkFromActivities(id); unlinkPartnerIfOrphan(p.pairId); pushTomb(id); tombSave(); }   // 墓碑：让删除能跨设备传播
-  renderAll();
-  toastUndo("已删除「"+nm+"」", 8000, save()===false);
-}
 // D8：图片输入框 → 预览图绑定（有值显示、点击放大），sent/received 共用
 function bindImgPreview(inputId, prevId){
   const ri=document.getElementById(inputId), pv=document.getElementById(prevId);
@@ -3594,40 +4185,6 @@ async function tryCloseAct(){
   if(actDirty() && !(await confirmDialog("内容尚未保存，确定关闭吗？"))) return false;
   closeActivityModal(); return true;
 }
-function saveRecModal(dir){
-  const def=REC_DEFS[dir];
-  const nameVal=document.getElementById(def.focusId).value.trim();
-  if(!nameVal){ fieldError(def.focusId,"请填写"+def.nameLabel); return; }   // P2-13：focusId 即姓名输入框（REC_DEFS 无 nameId）
-  const id=document.getElementById(def.idId).value;
-  const data=readForm(dir);
-  normalizeRecDates(data, dir);   // 补填 + 回退清退，保证状态与日期自洽
-  let cur;
-  if(id){
-    cur=findRec(dir,id);
-    /* P0-3：原 `if(cur)` 静默跳过 → cur 保持 undefined，随后读 cur.id 直接抛 TypeError（弹窗卡死、无提示）。
-       真实触发路径：云同步把这条记录按墓碑删掉后，用户仍在旧弹窗里点保存。 */
-    if(!cur){ toast("该记录已在其它设备被删除，无法保存。请关闭窗口后重新添加。","danger",6000); closeRecModal(dir); return; }
-    Object.assign(cur, data);
-  }
-  else { cur=Object.assign({id:uid()}, data); REC_DEFS[dir].arr().unshift(cur); }
-  touch(cur);
-  // 关联对方：勾选且当前条目尚未关联 → 自动生成对方条目并共享 pairId（只建一次）
-  const chk=document.getElementById(def.pairChkId);
-  const wantPair = chk && chk.checked;
-  if(wantPair && cur && !cur.pairId){
-    const pid=uid(); cur.pairId=pid;
-    const cp=makeCounterpart(dir, cur); cp.pairId=pid; touch(cp);
-    REC_DEFS[dir==="sent"?"received":"sent"].arr().unshift(cp);
-    toast("已自动生成并关联对方条目，可点「↔ 对方」补填");
-  }
-  // F6 重复检测：同视图内「同名 + 同国家 + 同平台」视为疑似重复，仅提示不阻断
-  const sameName=REC_DEFS[dir].arr().filter(x=>x.id!==cur.id && (x[REC_DEFS[dir].nameField]||"")===(cur[REC_DEFS[dir].nameField]||"") && x.country===cur.country && x.platform===cur.platform);
-  if(sameName.length) toast("提示：已有相似记录（同"+(REC_DEFS[dir].nameLabel)+"·同国家·同平台），请确认是否重复", "danger");
-  const saved=save(); closeRecModal(dir); renderAll();
-  if(!saved){ toast("⚠️ "+SAVE_FAIL_TXT,"danger",7000); return; }   // P0-1：失败提示不被成功 toast 覆盖
-  // P1-1：有重复警告时不弹成功 toast，避免立即覆盖警告
-  if(!sameName.length) toast(id?"已更新":(wantPair?"已添加（含对方）":"已添加"));
-}
 function makeCounterpart(dir, src){
   const base={ id:uid(), country:src.country||"", city:src.city||"", platform:src.platform||"", type:src.type||"", exchange:src.exchange||"", note:src.note||"" };
   if(dir==="sent") return Object.assign(base, {status:"transit", sender:src.recipient||"", received:"", image:""});
@@ -3687,16 +4244,6 @@ function bindLink(dir, id, tgtDir, cid){
 }
 function closeLinkModal(){ document.getElementById("linkModal").classList.remove("show"); }
 /* ===== 操作：进行中活动（RR 未满员 / TAG 未 tag / 交换进行中） ===== */
-function actLinkItemLabel(type, id){
-  let arr, nameF;
-  if(type==="sent"){ arr=postcards; nameF="recipient"; }
-  else if(type==="received"){ arr=received; nameF="sender"; }
-  else if(type==="proxy"){ arr=proxies; nameF="proxy"; }
-  else return "";
-  const t=arr.find(x=>x.id===id);
-  if(!t) return "（关联已删）";
-  return (LINK_LABEL[type]||type)+"："+(t[nameF]||"未命名");
-}
 
 function actLinkHtml(a){
   if(!a || !Array.isArray(a.links) || !a.links.length) return "—";
@@ -3704,7 +4251,6 @@ function actLinkHtml(a){
 }
 /* ===== RR 轮换名单：每 N 周给名单下一位寄一张，全部寄出即闭环 ===== */
 let actEditingRot=[];
-function rotSyncInput(){ const el=document.getElementById("aRotation"); if(el) el.value=JSON.stringify(actEditingRot); }
 function renderRotEditor(){
   const box=document.getElementById("aRotList"); if(!box) return;
   if(!actEditingRot.length){
@@ -3743,26 +4289,6 @@ function rotAddRow(){
   const last=rows.length?rows[rows.length-1].querySelector("input"):null;
   if(last) last.focus();
 }
-function rotBulkImport(){
-  const ta=document.getElementById("aRotBulk");
-  const lines=(ta?ta.value:"").split("\n").map(x=>x.trim()).filter(Boolean);
-  if(!lines.length){ toast("请先粘贴名单（一行一轮）","danger"); return; }
-  lines.forEach(l=>{
-    const m=l.match(/^(\S+)\s*([\s\S]*)$/);
-    actEditingRot.push({to:m?m[1]:l, size:m?(m[2]||"").trim():"", due:"", written:"", sent:"", received:""});
-  });
-  if(ta) ta.value="";
-  renderRotEditor(); toast("已导入 "+lines.length+" 轮，可再点「推算各轮日期」");
-}
-function rotGenDue(){
-  const sv=(document.getElementById("aRotStart")||{}).value||"";
-  const w=parseInt((document.getElementById("aRotWeeks")||{}).value,10)||3;
-  if(!sv){ toast("请先填第一轮起始日","danger"); return; }
-  if(!actEditingRot.length){ toast("请先添加轮次","danger"); return; }
-  const base=new Date(sv+"T00:00:00"); if(isNaN(base)){ toast("起始日无效","danger"); return; }
-  actEditingRot.forEach((r,i)=>{ r.due=rotDstr(new Date(base.getTime()+i*w*7*86400000)); });
-  renderRotEditor(); toast("已按每 "+w+" 周生成 "+actEditingRot.length+" 轮截止日");
-}
 function rotSummaryHtml(a){ if(!a||!Array.isArray(a.rotation)||!a.rotation.length) return ""; const n=a.rotation.length; const w=a.rotation.filter(r=>r&&r.written).length; const s=a.rotation.filter(r=>r&&r.sent).length; const rc=a.rotation.filter(r=>r&&r.received).length; return `<div class="note" style="font-size:12px;opacity:.85">进度：写完 ${w}/${n} · 寄出 ${s}/${n} · 收到 ${rc}/${n}</div>`; }
 function openActivityModal(id){
   const a=id? activities.find(x=>x.id===id):null;
@@ -3793,35 +4319,11 @@ function openActivityModal(id){
   actSnapshot=formSnapshot(ACT_FORM_IDS); // F9 记录打开时快照，供 Esc 脏检查比对
   document.getElementById("maskActivity").classList.add("show");
 }
-function refreshActLinkOptions(){
-  const typeSel=document.getElementById("aLinkType");
-  const sel=document.getElementById("aLinkId");
-  const linkType=typeSel.value;
-  let opts='<option value="">—</option>';
-  let arr, nameF;
-  if(linkType==="sent"){ arr=postcards; nameF="recipient"; }
-  else if(linkType==="received"){ arr=received; nameF="sender"; }
-  else if(linkType==="proxy"){ arr=proxies; nameF="proxy"; }
-  else { sel.innerHTML=opts; return; }
-  const selectedIds=new Set(actEditingLinks.filter(l=>l.type===linkType).map(l=>l.id));
-  arr.forEach(t=>{ if(!selectedIds.has(t.id)) opts+='<option value="'+t.id+'">'+esc((t[nameF]||"未命名")+" · "+(t.country||"—"))+'</option>'; });
-  sel.innerHTML=opts;
-}
 function renderActLinkChips(){
   const box=document.getElementById("aLinkChips"); if(!box) return;
   if(!actEditingLinks.length){ box.innerHTML='<span class="muted">尚未关联明信片，可在下方添加</span>'; return; }
   box.innerHTML=actEditingLinks.map((l,i)=>`<span class="link-chip">${esc(actLinkItemLabel(l.type,l.id))}<button aria-label="移除" type="button" class="x" data-alremove="${i}" title="移除">✕</button></span>`).join("");
   box.querySelectorAll("[data-alremove]").forEach(b=>b.onclick=()=>{ actEditingLinks.splice(parseInt(b.dataset.alremove,10),1); renderActLinkChips(); refreshActLinkOptions(); });
-}
-function addActLink(){
-  const type=document.getElementById("aLinkType").value;
-  const id=document.getElementById("aLinkId").value;
-  if(!type||!id){ toast("请先选择要关联的记录", "danger"); return; }
-  if(actEditingLinks.some(l=>l.type===type && l.id===id)){ toast("该记录已关联", "danger"); return; }
-  actEditingLinks.push({type,id});
-  renderActLinkChips();
-  refreshActLinkOptions();
-  document.getElementById("aLinkId").value="";
 }
 function updateActProgressVisibility(){
   const kind=document.getElementById("aKind").value;
@@ -3867,69 +4369,7 @@ function renderActKindList(){
     actKindList.splice(i,1); save(); renderActKindList(); fillKindSelect(); renderActiveChips();
   });
 }
-function actKindAdd(){
-  const inp=document.getElementById("actKindNew"); const v=inp.value.trim(); if(!v) return;
-  if(actKindList.some(o=>o.label===v)){ toast("已存在该类型","danger"); return; }
-  const key="k"+(Date.now().toString(36))+Math.floor(Math.random()*1000);
-  actKindList.push({key,label:v,progress:false}); inp.value=""; save(); renderActKindList(); fillKindSelect(); renderActiveChips();
-}
 function closeActKinds(){ document.getElementById("maskActKinds").classList.remove("show"); save(); fillKindSelect(); renderActiveChips(); }
-function saveActivityModal(){
-  const id=document.getElementById("aId").value.trim();
-  const data={
-    title: document.getElementById("aTitle").value.trim(),
-    kind: document.getElementById("aKind").value,
-    platform: document.getElementById("aPlatform").value.trim(),
-    url: document.getElementById("aUrl").value.trim(),
-    cur: document.getElementById("aCur").value.trim(),
-    max: document.getElementById("aMax").value.trim(),
-    deadline: document.getElementById("aDeadline").value.trim(),
-    status: document.getElementById("aStatus").value,
-    links: actEditingLinks.map(l=>({type:l.type, id:l.id})),
-    note: document.getElementById("aNote").value.trim(),
-    rotation: actEditingRot.map(r=>({to:(r.to||"").trim(), size:(r.size||"").trim(), due:r.due||"", written:r.written||"", sent:r.sent||"", received:r.received||""}))
-  };
-  // 轮换名单非空时，进度由「已寄轮数 / 总轮数」派生，避免手填漂移
-  if(data.rotation.length){
-    data.max=String(data.rotation.length);
-    data.cur=String(data.rotation.filter(r=>r.sent).length);
-  }
-  // RR 三节点日期先后：只提示不拦截（补录历史时允许乱序），异常项列出前 3 个
-  const rotWarn=[];
-  data.rotation.forEach((r,i)=>{
-    const seq=[["已写完",r.written],["已寄出",r.sent],["已收到",r.received]].filter(x=>x[1]);
-    for(let j=1;j<seq.length;j++){ if(seq[j][1] < seq[j-1][1]) rotWarn.push("R"+(i+1)+" "+seq[j-1][0]+"晚于"+seq[j][0]); }
-  });
-  if(rotWarn.length) toast("注意："+rotWarn.length+" 轮日期先后异常（"+rotWarn.slice(0,3).join("、")+"），已保存请核对", "warn");
-  if(!data.title){ fieldError("aTitle","请填写活动名称"); return; }   // P2-13
-  if(id){
-    const a=activities.find(x=>x.id===id);
-    if(!a){ toast("未找到该活动", "danger"); return; }
-    if(data.status==="done") data.doneAt = (a.status==="done" && a.doneAt)? a.doneAt : todayStr();
-    else data.doneAt="";
-    delete a.linkType; delete a.linkId;
-    Object.assign(a, data); touch(a);
-  }else{
-    data.doneAt = (data.status==="done")? todayStr() : "";
-    activities.unshift(touch(Object.assign({id:uid()}, data)));
-  }
-  closeActivityModal(); renderAll(); saveAndToast(id?"已更新":"已添加");
-}
-function changeActivityStatus(id, status){
-  const a=activities.find(x=>x.id===id); if(!a) return;
-  a.status=status; touch(a);
-  if(status==="done"){ if(!a.doneAt) a.doneAt=todayStr(); }
-  else a.doneAt="";
-  renderAll(); saveAndToast("状态已更新");
-}
-async function delActivity(id){
-  const a=activities.find(x=>x.id===id); if(!a) return;
-  if(!(await confirmDialog("确定删除活动「"+(a.title||"未命名")+"」？",{danger:true, ok:"删除"}))) return;
-  snapshot();   // 撤销栈：8s 窗口
-  activities=activities.filter(x=>x.id!==id); pushTomb(id); tombSave();
-  renderAll();
-  toastUndo("已删除活动「"+(a.title||"未命名")+"」", 8000, save()===false);
-}
 function openActivityLink(id, idx){
   const a=activities.find(x=>x.id===id); if(!a||!Array.isArray(a.links)) return;
   const l = (idx!=null) ? a.links[idx] : a.links[0];
@@ -4024,170 +4464,8 @@ function applyProxyModeUI(mode, dir, isEdit){
   if(isOne) m.checked=false;
 }
 function closeProxyModal(){ document.getElementById("maskProxy").classList.remove("show"); proxySnapshot=null; }
-// 互寄对：编辑任一条腿时，把共享描述字段同步写回 pairId 相同的另一条腿（日期各腿独立，不覆盖）
-function syncMutualMeta(pairId, from){
-  if(!pairId) return;
-  // P2-8：note 从共享字段中移除 —— 备注是各自腿的私有内容，此前编辑一腿会无提示覆盖另一腿并立即同步到所有设备（静默丢数据）
-  const keys=["proxy","country","city","platform","type","exchange","cardCount"];
-  proxies.forEach(o=>{ if(o.id!==from.id && o.pairId===pairId){ keys.forEach(k=>{ o[k]=from[k]; }); touch(o); } });
-}
-// 互寄两条腿共享的描述性字段（不含日期，日期各腿独立填写）；日期显式置空保持数据形状一致
-function proxySharedMeta(data){
-  return {
-    proxy:data.proxy, country:data.country, city:data.city,
-    platform:data.platform, type:data.type, exchange:data.exchange,
-    cardCount:data.cardCount, note:data.note,
-    sent:"", proxyRecv:"", proxyBack:"", gotBack:""
-  };
-}
-function saveProxyModal(){
-  const id=document.getElementById("pId").value.trim();
-  const mode = document.getElementById("pProxyMode").value.trim()==="oneway" ?PMODE.ONEWAY:PMODE.BACK;
-  const data={
-    proxy: document.getElementById("pProxy").value.trim(),
-    country: document.getElementById("pCountry").value.trim(),
-    city: document.getElementById("pCity").value.trim(),
-    platform: document.getElementById("pPlatform").value.trim(),
-    type: document.getElementById("pType").value.trim(),
-    exchange: document.getElementById("pExchange").value.trim(),
-    cardCount: Math.max(1, parseInt(document.getElementById("pCardCount").value,10)||1),
-    sent: document.getElementById("pSent").value.trim(),
-    proxyRecv: document.getElementById("pProxyRecv").value.trim(),
-    proxyBack: document.getElementById("pProxyBack").value.trim(),
-    gotBack: document.getElementById("pGotBack").value.trim(),
-    envSent: document.getElementById("pEnvSent").value.trim(),
-    envRecv: document.getElementById("pEnvRecv").value.trim(),
-    note: document.getElementById("pNote").value.trim(),
-    proxyMode: mode
-  };
-  if(!data.proxy){ fieldError("pProxy","请填写对方（代寄人）"); return; }   // P2-13
-  // 单向代寄：用到 对方寄出(envSent) + 我收(envRecv) + 我写回寄出(sent) + 完成(gotBack)，清空写回步骤并强制 direction=me
-  if(mode==="oneway"){ data.proxyRecv=""; data.proxyBack=""; data.direction=PDIR.ME; }
-  else { data.envSent=""; data.envRecv=""; } // 往返模式不携带单向信封字段
-  const mutual=document.getElementById("pMutualChk").checked;
-  if(id){
-    const p=proxies.find(x=>x.id===id);
-    if(!p){ toast("未找到该条代寄记录", "danger"); return; }
-    Object.assign(p, data); touch(p);
-    // 单向代寄从原互寄对切来 → 解绑镜像腿，避免悬空
-    // P1-3（2026-10-23）：原实现 forEach 内 splice 边遍历边删（多腿时会漏删）、不打墓碑
-    // （云端/其它设备上那条腿会被 mergeById 当「云端独有」追加回来 = 复活）、不解活动关联（孤儿死链）。
-    // 与 delRec/delProxy 的删除语义对齐：先收集 → unlink → pushTomb → 统一移除。
-    if(mode==="oneway" && p.pairId){
-      const pid=p.pairId; delete p.pairId;
-      const mirrors=proxies.filter(o=>o.id!==p.id && o.pairId===pid);
-      mirrors.forEach(o=>{ unlinkFromActivities(o.id); pushTomb(o.id); });
-      if(mirrors.length){ proxies=proxies.filter(o=>!(o.id!==p.id && o.pairId===pid)); tombSave(); }
-    }
-    if(p.pairId) syncMutualMeta(p.pairId, p); // 仍是互寄对 → 同步共享字段到另一条腿
-    // 事后补勾「互相代寄」：编辑旧条目时若用户勾上 mutual 且原条目无 pairId → 当下生成反向镜像腿
-    if(mutual && !p.pairId){
-      const pairId="pr_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-      p.pairId=pairId;
-      const mirrorDir = p.direction===PDIR.THEM ? "me" : "them"; // 镜像腿方向与本条相反
-      const mirror=Object.assign({id:uid(), direction:mirrorDir, pairId}, proxySharedMeta(data)); // 只共享描述字段，日期清空
-      touch(mirror); proxies.unshift(mirror);
-      syncMutualMeta(pairId, p); // 确保镜像腿拿到最新共享字段
-      closeProxyModal(); renderAll(); saveAndToast("已更新（已生成反向互寄腿，可点「↔ 互寄」补填对方那张）");
-      return;
-    }
-    // 取消勾选且本来是互寄的一对 → 同时解绑另一边，避免悬空
-    if(!mutual && p.pairId){
-      const pid=p.pairId;
-      delete p.pairId;
-      proxies.forEach(o=>{ if(o.id!==p.id && o.pairId===pid) delete o.pairId; });
-    }
-  }
-  else {
-    const rec=Object.assign({id:uid(), direction:PDIR.ME}, data); // 新建：本条 = 我寄出在先
-    touch(rec);
-    if(mutual && !rec.pairId){
-      const pairId="pr_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-      rec.pairId=pairId;
-      const mirror=Object.assign({id:uid(), direction:PDIR.THEM, pairId}, proxySharedMeta(data)); // 镜像腿 = 对方寄出在先，方向相反、日期清空
-      touch(mirror); proxies.unshift(mirror);
-    }
-    proxies.unshift(rec);
-  }
-  // F6 重复检测：同「对方 + 国家 + 平台」视为疑似重复，仅提示不阻断
-  const dupP=proxies.filter(x=>x.id!==id && x.proxy===data.proxy && x.country===data.country && x.platform===data.platform);
-  if(dupP.length) toast("提示：已有相似代寄（同对方·同国家·同平台），请确认是否重复", "danger");
-  const savedProxy=save(); closeProxyModal(); renderAll();
-  if(!savedProxy){ toast("⚠️ "+SAVE_FAIL_TXT,"danger",7000); return; }
-  if(!dupP.length) toast((id?"已更新":"已添加")+(document.getElementById("pMutualChk").checked&&!id?"（含反向互寄腿）":""));   // P1-1：有重复警告时不弹成功 toast，避免立即覆盖警告
-}
-async function delProxy(id){
-  if(!(await confirmDialog("确定删除这条代寄记录？",{danger:true, ok:"删除"}))) return;
-  snapshot();   // 撤销栈：8s 窗口
-  const gone=proxies.find(p=>p.id===id); const pid=gone&&gone.pairId;
-  proxies=proxies.filter(p=>p.id!==id); unlinkFromActivities(id); pushTomb(id);
-  if(pid) unlinkPartnerIfOrphan(pid);   // G16：收敛到统一实现（跨数组扫 sent/received/proxies，行为覆盖原内联版——原版只查 proxies，跨数组残腿会漏）
-  tombSave();
-  renderAll();
-  toastUndo("已删除代寄记录", 8000, save()===false);
-}
-// 删除整对互寄（双方各一条，共享 pairId 会一并清除，避免悬空）
-async function delProxyPair(pairId){
-  const n=proxies.filter(p=>p.pairId===pairId).length;
-  if(!(await confirmDialog(`确定删除这一对互寄记录（${n} 条）？`,{danger:true, ok:"删除整对"}))) return;
-  snapshot();   // 撤销栈：8s 窗口（整对腿 + 悬空 pairId 清理一并还原）
-  proxies.filter(p=>p.pairId===pairId).forEach(p=>{ unlinkFromActivities(p.id); pushTomb(p.id); });  // 整对逐条打墓碑
-  proxies=proxies.filter(p=>p.pairId!==pairId);
-  unlinkPartnerIfOrphan(pairId);   // G16：兜底清理跨数组残腿（正常全在 proxies，理论空转，统一口径防漏）
-  tombSave();
-  renderAll();
-  toastUndo("已删除互寄对（"+n+" 条）", 8000, save()===false);
-}
 /* ===== 转换归类：将现有条目在 寄出/收到/代寄 之间重新归类 ===== */
 let convCtx={dir:null, id:null};
-function mapToTarget(rec, fromDir, target){
-  const name=rec.recipient||rec.sender||rec.proxy||"";
-  const country=rec.country||"", city=rec.city||"", platform=rec.platform||"", type=rec.type||"", note=rec.note||"", exchange=rec.exchange||"";
-  const out={id:rec.id};
-  if(target==="proxy"){
-    out.proxy=name; out.country=country; out.city=city; out.platform=platform; out.type=type; out.exchange=exchange; out.note=note;
-    out.sent = fromDir==="sent"?(rec.sent||""):"";
-    out.proxyRecv=""; out.proxyBack=""; out.gotBack=""; out.cardCount=1;
-    // 互寄/交换关联在重新归类后不再适用，统一清除
-  }else if(target==="sent"){
-    out.recipient=name; out.country=country; out.city=city; out.channel=rec.channel||""; out.platform=platform; out.type=type; out.exchange=exchange; out.note=note;   // P2-20：原写死""，收到转寄出会静默丢渠道（渠道决定「可能丢失」阈值 LOST_DAYS）
-    out.trackingNo=rec.trackingNo||""; out.image=rec.image||"";   // P2-20：运单号与图片一并保留（寄出侧字段，received 无）
-    out.sent = rec.sent || (fromDir==="received"?(rec.received||""):"");
-    out.arrived = fromDir==="proxy"?(rec.gotBack||""):(rec.received||"");
-    if(fromDir==="proxy") out.status = rec.gotBack?"arrived":((rec.proxyRecv||rec.proxyBack||rec.sent)?"transit":"unwritten");
-    else out.status = rec.received?"arrived":"transit";
-  }else if(target==="received"){
-    out.sender=name; out.country=country; out.city=city; out.platform=platform; out.type=type; out.exchange=exchange; out.note=note;
-    out.image=rec.image||"";   // P2-20：原写死""，寄出转收到会静默丢图片（明信片的核心信息，且不可逆）
-    out.received = rec.received || (fromDir==="proxy"?(rec.gotBack||""):"");
-    if(fromDir==="proxy") out.status = rec.gotBack?"received":"transit";
-    else out.status = rec.received?"received":"transit";
-  }
-  return out;
-}
-function convertRecord(dir, id, target){
-  if(dir===target) return false;
-  const srcArr = dir==="sent"?postcards: dir==="received"?received: proxies;
-  const idx=srcArr.findIndex(x=>x.id===id);
-  if(idx<0) return false;
-  const rec=srcArr[idx];
-  const out=mapToTarget(rec, dir, target);
-  // 清除本记录的交换/互寄关联，并清理镜像方残留的 pairId，避免悬空关联
-  if(rec.pairId){
-    const pid = rec.pairId; // 捕获比较键：proxy 分支中 rec 本身也在 otherArr(proxies) 内，循环内删除 rec.pairId 会让后续比较失效
-    const otherArr = dir==="proxy"?proxies:(dir==="sent"?received:postcards);
-    otherArr.forEach(o=>{ if(o.pairId===pid) delete o.pairId; });
-  }
-  delete out.pairId;
-  /* R2-2：源数组的这份要打"移动墓碑"，否则其他设备会把云端那条当新记录追加回来 → 复活成两条。
-     out.id 与 rec.id 相同（mapToTarget 保留 id），所以按 id 打标记即可。 */
-  pushMoveTomb(rec.id, target);
-  srcArr.splice(idx,1);
-  const tgtArr = target==="sent"?postcards: target==="received"?received: proxies;
-  touch(out);   /* S2（2026-10-23 修）：新记录必须带 updatedAt —— 否则 Number(undefined)||0=0 < 墓碑 ts，即使移动墓碑的 op/to 在传输中丢失退化为普通删除墓碑，mergeById 也会判「墓碑胜出」把转换后的记录抹掉 */
-  tgtArr.unshift(out);
-  return true;
-}
 function openConvertModal(dir, id){
   const p=(dir==="sent"?postcards:dir==="received"?received:proxies).find(x=>x.id===id);
   if(!p){ toast("未找到该条目", "danger"); return; }
@@ -4203,35 +4481,13 @@ function openConvertModal(dir, id){
   document.getElementById("maskConvert").classList.add("show");
 }
 function closeConvertModal(){ document.getElementById("maskConvert").classList.remove("show"); }
-function confirmConvert(){
-  const target=document.getElementById("convTarget").value;
-  if(convCtx.dir===target){ toast("请选择不同的归类", "danger"); return; }
-  // P2-20：转换是**移动**（原记录被删除），归类字段变了就必然丢弃。原先确认文案一句不提，用户以为无损。
-  // 把会丢的东西如实列出（代寄步进日期/寄出日按目标归类重新推导，互寄关联按设计清除）。
-  const loss=[];
-  if(target==="proxy"||convCtx.dir==="proxy") loss.push("代寄往返各步日期");
-  loss.push("互寄/交换关联");
-  if(target==="sent" && convCtx.dir!=="sent") loss.push("寄出日/到达日将按新归类重新推导");
-  if(!confirm("转换会移动这条记录（原地记录将被删除），以下内容不会保留：\n· "+loss.join("\n· ")+"\n\n确认继续？")) return;
-  if(convertRecord(convCtx.dir, convCtx.id, target)){
-    save(); closeConvertModal(); renderAll();
-    toast(`已转换到「${tabLabel(target)}」`);
-  }else{
-    toast("转换失败：未找到该条目", "danger");
-  }
-}
 // Esc 关闭的脏检查：以「打开弹窗时的完整表单快照」比对，覆盖全部字段（含类型/交换来源/寄出日/到达日等），
 // 避免只改了某字段按 Esc 被静默丢弃（旧实现仅检查部分字段）
 let recSnapshot=null;
-// D4：formDirtySent/formDirtyRecv 仅 dir 不同，合并
-function formDirty(dir){ return recSnapshot!=null && JSON.stringify(readForm(dir))!==recSnapshot; }
 // F9 修复：代寄/活动弹窗与寄出/收到弹窗对齐——Esc 关闭前做表单快照脏检查，防未保存修改被静默丢弃
 let proxySnapshot=null, actSnapshot=null;
-function formSnapshot(ids){ return ids.map(i=>{ const el=document.getElementById(i); if(!el) return ""; return el.type==="checkbox"?String(el.checked):el.value; }).join("\u0001"); }
 const PROXY_FORM_IDS=["pProxy","pCountry","pCity","pPlatform","pType","pExchange","pCardCount","pDirection","pSent","pProxyRecv","pProxyBack","pGotBack","pNote","pMutualChk"];
 const ACT_FORM_IDS=["aTitle","aKind","aPlatform","aStatus","aCur","aMax","aDeadline","aNote","aUrl","aRotation"];
-function proxyDirty(){ return proxySnapshot!=null && formSnapshot(PROXY_FORM_IDS)!==proxySnapshot; }
-function actDirty(){ return actSnapshot!=null && formSnapshot(ACT_FORM_IDS)!==actSnapshot; }
 
 /* ===== 云同步（GitHub Gist，复用任务台 token/gist，独立文件 postcards.json） ===== */
 /* ==== 云同步公共模块 CLOUD-COMMON v1（与「任务管理台.html」保持一致）====
@@ -4295,25 +4551,7 @@ let deletedIds=[];
 const TOMB_KEY="wb_postcards_deleted_v1";
 const TOMB_MAX=2000;
 
-function tombLoad(){ try{ const r=localStorage.getItem(TOMB_KEY); if(r){ const a=JSON.parse(r)||[]; deletedIds=Array.isArray(a)?a.map(normTomb).filter(t=>t.id):[]; } }catch(e){ deletedIds=[]; } }
-function tombSave(){ storageSet(TOMB_KEY, JSON.stringify(deletedIds)); }
-/* G15（2026-10-23 复核结论：现有「覆盖为新 ts」是正确语义，不改代码只留分析）：
-   每个 pushTomb 调用点（delRec/delProxy/delProxyPair/镜像腿/clearAll/convertRecord）都伴随该记录**当次真实移除**，
-   刷新 ts = 让「最新删除意图」胜出 —— 若不刷新而保留旧 ts，反而会出现「记录 updatedAt 晚于旧墓碑 → 合并复活」的反向漏洞。
-   真正的隐患（移动墓碑 op/to 被云拉取剥离）已由 S2（tombMap 保留完整墓碑 + convertRecord touch）根治。 */
-function pushTomb(id){ const s=String(id||""); if(!s) return; const i=deletedIds.findIndex(d=>d.id===s); const t={id:s, ts:Date.now()}; if(i>=0) deletedIds[i]=t; else deletedIds.push(t); if(deletedIds.length>TOMB_MAX) deletedIds=deletedIds.slice(-TOMB_MAX); }
 
-/* R2-2（治 P1-2）移动墓碑：记录在数组间移动（如「寄出→收到」转换）时，**原数组那份必须也留个删除标记**。
-   原实现只从源数组 splice，云端/其他设备上那条记录仍然存在 → 下次拉取会被当作"云端独有"追加回来，
-   于是同一条记录在两个数组里各一份 = 跨设备"复活成两条"。删除墓碑已有同样问题（pushTomb 只对 delete 有效，
-   但移动场景语义上就是删除原位置），故复用同一张表并加 op 标记语义。 */
-function pushMoveTomb(id, to){
-  pushTomb(id);
-  const s=String(id||""); if(!s) return;
-  const t=deletedIds.find(d=>d.id===s);
-  if(t){ t.op="move"; t.to=to||""; }   // 标记为「移动」而非「删除」，便于将来做撤销/追踪
-  tombSave();
-}
 
 /* ===== 撤销栈（2026-10-23 P1 立项，对标任务台 snapshot/applyUndo/undo 三件套） =====
    覆盖域 = 四个记录数组（寄出/收到/代寄/活动）+ 墓碑表：删除类操作恰好只动这些，
@@ -4323,45 +4561,6 @@ function pushMoveTomb(id, to){
    会话内撤销 + toast 按钮（删除 8s / 清空 12s）已覆盖误删场景；刷新后走「Gist 历史找回」。 */
 let undoStack=[];
 const PC_UNDO_MAX=20;
-function pcSnapshotObj(){
-  try{ return {t:Date.now(),
-    postcards:JSON.parse(JSON.stringify(postcards||[])),
-    received:JSON.parse(JSON.stringify(received||[])),
-    proxies:JSON.parse(JSON.stringify(proxies||[])),
-    activities:JSON.parse(JSON.stringify(activities||[])),
-    deleted:JSON.parse(JSON.stringify(deletedIds||[]))}; }
-  catch(e){ return {t:Date.now(),postcards:[],received:[],proxies:[],activities:[],deleted:[]}; }
-}
-/* 写操作前调用：与栈顶做序列化比较，无实际变化不重复入栈（同任务台 O8 去重口径） */
-function snapshot(){
-  try{
-    const top=undoStack[undoStack.length-1];
-    if(top){
-      const same = JSON.stringify(top.postcards)===JSON.stringify(postcards||[])
-        && JSON.stringify(top.received)===JSON.stringify(received||[])
-        && JSON.stringify(top.proxies)===JSON.stringify(proxies||[])
-        && JSON.stringify(top.activities)===JSON.stringify(activities||[])
-        && JSON.stringify(top.deleted)===JSON.stringify(deletedIds||[]);
-      if(same) return;
-    }
-    undoStack.push(pcSnapshotObj());
-    if(undoStack.length>PC_UNDO_MAX) undoStack.shift();
-  }catch(e){}
-}
-function pcApplyUndo(s){
-  if(!s) return;
-  postcards = s.postcards || [];
-  received  = s.received || [];
-  proxies   = s.proxies || [];
-  activities= s.activities || [];
-  if(Array.isArray(s.deleted)){ deletedIds = s.deleted.map(normTomb).filter(t=>t.id); tombSave(); }   // 旧结构无此字段 → 保持现状
-  save(); renderAll();
-}
-function pcUndo(){
-  if(!undoStack.length){ toast("没有可撤销的操作"); return; }
-  pcApplyUndo(undoStack.pop());
-  toast("已撤销");
-}
 /* 带「撤销」按钮的提示：语义与 Ctrl+Z 一致（弹栈顶快照还原），调用点须已在改数据前 snapshot()。
    ms = toast 停留时长（删除 8000 / 清空 12000；shared.js 已修复 undo 分支忽略 ms 的 bug）。
    saveFailed 时退化：保存失败则不弹撤销按钮，改弹可行动告警（撤销的是内存态，落盘失败时优先告警）。 */
@@ -4379,87 +4578,11 @@ document.addEventListener("keydown",e=>{
 });
 
 
-// 把「本地墓碑 ∪ 云端墓碑」合成一张 id→ts 表，供各数组共用
-function tombMap(cloudDeleted){
-  const del=new Map();
-  /* R2-2：id → 目标数组名（move 墓碑专用）。Map 是对象可直接挂属性，mergeById 通过 del.moved 读取。 */
-  const moved={};
-  del.moved=moved;
-  /* S2（2026-10-23 修）：完整墓碑表（含 op/to）。此前 del 只存 id→ts，云拉取重建 deletedIds 时
-     op:"move"/to 全部丢失 → 移动墓碑退化为普通删除墓碑，下轮 mergeById 会把「寄出↔收到互转」
-     的新记录当已删数据抹掉（convertRecord 产出的新记录若无 updatedAt 则 ts 恒赢）。 */
-  const tombs=new Map();
-  del.tombs=tombs;
-  const add=(o)=>{
-    const t=normTomb(o);
-    if(!t.id) return;
-    const cur=del.get(t.id);
-    if(cur===undefined||t.ts>cur){
-      del.set(t.id, t.ts);
-      tombs.set(t.id, (o&&typeof o==="object") ? {id:t.id, ts:t.ts, op:o.op, to:o.to} : {id:t.id, ts:t.ts});
-    }
-    // R2-2：op==="move" 的墓碑额外登记目标数组，供 mergeById 区分"原位置该删/新位置该留"
-    if(o && o.op==="move") moved[t.id]=String(o.to||"");
-  };
-  (deletedIds||[]).forEach(add); (cloudDeleted||[]).forEach(add);
-  return del;
-}
 // 按 id 合并：云端独有的追加；两者都有的，按 updatedAt 取「最后修改者」覆盖（last-writer-wins），解决编辑已有记录无法同步的问题
 let _mergeChanged=0;
 /* R2-2（治 P1-2）：dir 是本数组对应的归类名（sent/received/proxy/activity）。
    移动墓碑（op==="move"）只在**原数组**生效：记录被"寄出→收到"转换后，原数组那份要删，
    但目标数组里的同 id 记录是**转换后的新记录**、必须保留。不传dir 时退化为旧的"一律按墓碑删"行为。 */
-function mergeById(local, incoming, del, dir){
-  if(!Array.isArray(local)) local=[];
-  // 移动墓碑表：id → 目标数组名（= "这条在别的数组里，不属于当前 dir"）
-  const movedOut = (dir && del && del.moved) ? del.moved : null;   // tombMap 挂在 Map 上
-  const tombHit=(id)=>{
-    if(!del || !del.has(id)) return null;
-    /* movedOut 是普通对象（tombMap 用字面量 {} 创建并挂在 Map 上），故用 hasOwnProperty / [] 而非 has/get。
-       语义：moved[id] = 目标数组名（记录被移动**到**哪里）。
-       当前数组 dir 与目标不同 ⇒ 当前是**原位置**，墓碑生效要删；相同 ⇒ 当前是目标位置，这条是转换后的新记录，必须留。 */
-    if(movedOut && Object.prototype.hasOwnProperty.call(movedOut,id))
-      return movedOut[id]===dir ? {skip:true} : {ts:del.get(id)};
-    return {ts:del.get(id)};
-  };
-  const out=[];
-  local.forEach(x=>{
-    if(!x){ return; }
-    if(!x.id){ out.push(x); return; }
-    const hit=tombHit(x.id);
-    if(hit){
-      if(hit.skip){ out.push(x); return; }// 移动墓碑指向别的数组 → 本数组这条是转换后的新记录，保留
-      const dts=hit.ts;
-      const remove = dts>0 ? ((Number(x.updatedAt)||0) < dts)   // 带时间戳：记录更旧才删
-                   : (!x.updatedAt);                             // 旧墓碑：仅删从未编辑过的
-      if(remove){ _mergeChanged++; return; }                     // 墓碑胜出 → 删除
-      if(dts===0 && x.updatedAt) del.delete(x.id);               // 旧墓碑遇已编辑记录 → 丢弃墓碑，避免反复误杀
-    }
-    out.push(x);
-  });
-  const map=new Map();
-  out.forEach(x=>{ if(x && x.id) map.set(x.id, x); });
-  (Array.isArray(incoming)?incoming:[]).forEach(x=>{
-    if(!x || !x.id) return;
-    const ihit=tombHit(x.id);
-    if(ihit && !ihit.skip) return;                // 已删记录：云端不得复活（移动到本数组的应放行）
-    const ex=map.get(x.id);
-    if(!ex){ out.push(x); map.set(x.id,x); _mergeChanged++; }    // 云端独有 → 追加
-    else {
-      const lt=Number(ex.updatedAt||0), it=Number(x.updatedAt||0);
-      if(it>lt){
-        /* P3-10：原先 Object.assign(ex,x) 逐键直写 ex。若中途抛异常（x 里有 getter 抛错等），
-           前面的键已写入、后面的没写 → ex 处于"半合并态"，比不合并更难排查。
-           先算到一个局部变量再一次赋值，中间失败则 ex 保持原样。 */
-        const merged=Object.assign({}, ex, x);
-        Object.keys(merged).forEach(k=>{ ex[k]=merged[k]; });
-        _mergeChanged++;
-      }
-      // 否则本地更新或相等 → 保留本地
-    }
-  });
-  return out;
-}
 // 返回值约定：false = 本次未成功且可重试；true = 已处理/无需重试
 /* keepalive（pagehide/visibilitychange 补传用）：页面卸载后普通 fetch 会被浏览器取消，"手机改完电脑看不到"的残余成因。
    浏览器对 keepalive 请求体有 64KB 上限，超限会直接失败 —— 故超限时先落盘并明确提示，而不是静默丢弃。
@@ -4832,47 +4955,6 @@ function applyTheme(t){
   /* P3-5：同步 <meta name="theme-color"> —— iPhone/iPad 暗色下状态栏仍是亮蓝，与页面割裂。
      浅色取 --bg、深色取 --ink2（与 body 背景一致）。首屏 <head> 里的初值在 L7，需在读取 localStorage 后立即调用本函数覆盖。 */
   try{ const m=document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute("content", t==="dark"?"#0f1320":"#f5f7fb"); }catch(_){}
-}
-async function fillSample(){
-  // P2-21：与 clearAll 的同类漏判对齐 —— 原先只看寄出+收到，只有代寄/活动数据时无确认直接追加示例
-  if(postcards.length+received.length+proxies.length+activities.length && !(await confirmDialog("将追加示例数据到现有记录？",{ok:"追加"}))) return;
-  const today=new Date(); const d=n=>{ const x=new Date(today); x.setDate(x.getDate()+n); return rotDstr(x); };   // P1-7：原 toISOString 会把负偏移算到昨天
-  const sent=[
-    {recipient:"Anna（笔友）", country:"德国", city:"柏林", channel:"平邮", platform:"Postcrossing", type:"交换", status:"transit", sent:d(-9), note:"风景明信片交换"},
-    {recipient:"Marco", country:"意大利", city:"罗马", channel:"空邮", platform:"Postcrossing", type:"交换", status:"arrived", sent:d(-20), arrived:d(-6), note:"约定的城市明信片"},
-    {recipient:"Yuki", country:"日本", city:"京都", channel:"挂号", platform:"微博互换", type:"TAG", status:"transit", sent:d(-2), note:"红叶季明信片"},
-    {recipient:"李敏（朋友）", country:"中国", city:"上海", channel:"", platform:"自寄", type:"自寄", status:"unwritten", note:"等出游后寄出"},
-  ];
-  const recv=[
-    {sender:"Sophie", country:"法国", city:"巴黎", platform:"Postcrossing", type:"交换", status:"received", received:d(-15), image:"", note:"埃菲尔铁塔明信片"},
-    {sender:"小王", country:"中国", city:"广州", platform:"朋友赠送", type:"其他", status:"received", received:d(-3), image:"", note:"当地手绘明信片"},
-    {sender:"Kenji", country:"日本", city:"大阪", platform:"闲鱼代寄", type:"RR", status:"transit", received:"", image:"", note:"环球影城限定，在路上"},
-  ];
-  const prox=[
-    {proxy:"Anna（笔友）", country:"德国", city:"柏林", platform:"Postcrossing", type:"交换", exchange:"私换", sent:d(-30), proxyRecv:d(-22), proxyBack:d(-18), gotBack:d(-9), note:"请 Anna 帮我盖柏林邮戳后写回，已收到写好的片"},
-    {proxy:"Minho", country:"韩国", city:"首尔", platform:"微博互换", type:"TAG", exchange:"互寄", direction:PDIR.ME, pairId:"pr_sample_minho", sent:d(-5), proxyRecv:"", proxyBack:"", gotBack:"", note:"互寄：我代寄他的片（进行中，可点 ↔ 互寄补填对方那张）"},
-    {proxy:"Minho", country:"韩国", city:"首尔", platform:"微博互换", type:"TAG", exchange:"互寄", direction:PDIR.THEM, pairId:"pr_sample_minho", sent:"", proxyRecv:"", proxyBack:"", gotBack:"", note:"互寄：他代寄我的片（待填，可点 ↔ 互寄编辑）"},
-  ];
-  sent.forEach(s=>postcards.unshift(touch(Object.assign({id:uid()}, s))));
-  recv.forEach(s=>received.unshift(touch(Object.assign({id:uid()}, s))));
-  prox.forEach(s=>proxies.unshift(touch(Object.assign({id:uid()}, s))));
-  const acts=[
-    {title:"环球影城限定 RR", kind:"rr", platform:"微博互换", url:"", cur:3, max:6, deadline:d(5), status:"ongoing", note:"还差 3 人满员，满了就开抽"},
-    {title:"红叶季 TAG 互寄", kind:"tag", platform:"Postcrossing", url:"", cur:1, max:4, deadline:d(10), status:"ongoing", note:"已寄出 1 张，剩 3 张待 tag"},
-    {title:"和 Yuki 的私人交换", kind:"exchange", platform:"私换", url:"", cur:0, max:0, deadline:"", status:"ongoing", note:"进行中：我方已寄出，等对方回片"},
-  ];
-  acts.forEach(a=>activities.unshift(touch(Object.assign({id:uid()}, a))));
-  renderAll(); saveAndToast("已填入示例");
-}
-async function clearAll(){
-  if(!postcards.length && !received.length && !proxies.length && !activities.length) return;  // F4 修复：漏 activities 导致只剩活动时点清空无响应
-  if(!(await confirmDialog("确定清空全部记录（寄出 + 收到 + 代寄 + 活动）？提示条停留的 12 秒内可点「撤销」或 Ctrl+Z 还原。",{danger:true}))) return;
-  snapshot();   // 撤销栈：12s 窗口（清空是覆盖面最大的破坏性操作，给最长窗口）
-  // 清空也必须逐条打墓碑，否则云端还有这些记录，下次拉取会全部复活
-  [].concat(postcards,received,proxies,activities).forEach(p=>{ if(p&&p.id) pushTomb(p.id); });
-  postcards=[]; received=[]; proxies=[]; activities=[]; tombSave();
-  renderAll();
-  toastUndo("已清空全部记录", 12000, save(false)===false);
 }
 
 /* ===== 事件绑定 ===== */
