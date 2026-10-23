@@ -733,10 +733,11 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
 <symbol id="ic-mail" viewBox="0 0 24 24"><path d="M3 5h18v14H3zm2 2v2l8 5 8-5V7l-8 5z"/></symbol>
 </defs></svg>
 <div class="wrap" id="main">
+  <div id="bootErr" hidden></div>
   <div class="topbar">
     <div class="brand">
       <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg></div>
-      明信片追踪
+      明信片追踪<span id="appVer" style="font-size:10px;font-weight:500;color:var(--sub);margin-left:6px;letter-spacing:.02em;"></span>
     </div>
     <div class="spacer"></div>
     <div class="top-actions">
@@ -3139,18 +3140,36 @@ function renderAllNow(){
   const steps=[["页签",renderTabs],["统计卡",renderStats],["筛选栏",renderFilters],["表格",renderTable],["操作按钮",renderAddBtn]];
   for(const [nm,fn] of steps){
     try{ fn(); }
-    catch(e){
-      if(DEBUG)console.error("[renderAllNow] 「"+nm+"」区域渲染失败：", e);
-      renderRegionWarn(nm);
-    }
+     catch(e){
+       if(DEBUG)console.error("[renderAllNow] 「"+nm+"」区域渲染失败：", e);
+       renderRegionWarn(nm, e);
+     }
   }
 }
 let _regionWarnAt={};
-function renderRegionWarn(nm){
+function renderRegionWarn(nm, e){
+  /* 2026-10-23 二次白屏排查：toast 是瞬时的，用户截图时早消失，等于没报。
+     改为持久错误块：区域名 + 错误消息直接显示在页面顶部，截图即可定位。 */
+  try{
+    const box=document.getElementById("bootErr");
+    if(!box) return;
+    box.hidden=false;
+    const msg=(e&&e.message)?String(e.message):"未知错误";
+    let item=box.querySelector('[data-region="'+CSS.escape(nm)+'"]');
+    if(!item){
+      item=document.createElement("div");
+      item.dataset.region=nm;
+      item.style.cssText="background:#fdecec;color:#8a1f1f;border:1px solid #f5c2c2;border-radius:10px;padding:10px 14px;margin:0 0 10px;font-size:12.5px;line-height:1.6;";
+      if(document.documentElement.dataset.theme==="dark"||document.body.classList.contains("dark"))
+        item.style.cssText+="background:#3a2226;color:#ffb4b4;border-color:#6b3a3f;";
+      box.appendChild(item);
+    }
+    item.textContent="⚠️ 「"+nm+"」区域渲染出错（其余区域正常）： "+msg;
+  }catch(_){}
   const now=Date.now();
-  if(now-(_regionWarnAt[nm]||0)<30000) return;   // 同区域 30s 节流
+  if(now-(_regionWarnAt[nm]||0)<30000) return;   // 同区域 30s 节流（toast 保留）
   _regionWarnAt[nm]=now;
-  try{ toast("「"+nm+"」区域刷新出错，已跳过；其余区域正常。若持续出现请刷新页面","danger"); }catch(_){}
+  try{ toast("「"+nm+"」区域刷新出错，详情见页面顶部红条","danger"); }catch(_){}
 }
 /*  重渲染合并：同一事件内的多次 renderAll 合并为 1–2 次实际渲染，且不丢最新状态
     （R4 移植，对齐任务台 7701：必须用 try/finally 释放刷新锁——此前 renderAllNow() 一旦抛异常
@@ -4908,6 +4927,11 @@ window.addEventListener("pageshow", ()=>{ cloudAutoDownload(); }); // iOS 从后
 window.addEventListener("focus", ()=>{ cloudAutoDownload(); });   // 切回本窗口时立即拉取
 
 /* ===== 启动 ===== */
+try{ document.getElementById("appVer").textContent="v2026-10-23c"; }catch(e){}
+/* 2026-10-23 二次白屏排查：启动序列里 load()/loadWidgets()/fillKindSelect() 等任何一步抛异常
+   都会中断后面全部步骤（含 renderAll），且无任何可见痕迹。整体兜底：出错时页面顶部显横幅
+   并尽力把 renderAll 跑完（能渲多少渲多少，分步隔离各自兜）。 */
+try{
 try{ const t=localStorage.getItem("wb_theme_v1")||localStorage.getItem("wb_postcards_theme"); if(t) applyTheme(t); }catch(e){}
 // 应用前缀隔离迁移（2026-08-27）：wb_cloudsync_v1 → wb_postcards_cloudsync_v1，迁移后清理旧键（唯一跨文件串扰点）
 (function(){ try{ const o="wb_cloudsync_v1", n="wb_postcards_cloudsync_v1"; const v=localStorage.getItem(o); if(v!==null){ if(localStorage.getItem(n)===null) localStorage.setItem(n, v); localStorage.removeItem(o); } }catch(e){} })();
@@ -4926,6 +4950,11 @@ cloudAutoDownload();
 // P1-5：15s → 30s。Gist 是整文件 JSON 覆盖写，秒级实时无意义；而每次拉取都要过一次 merge + 可能的重绘，
 // 间隔越短冲突弹窗（"云端比本地更新，是否覆盖"）触发越频繁。切回前台/聚焦仍会立即拉取，不影响体感。
 setInterval(cloudAutoDownload, 30000);   // 30s（仅前台时真正发起）
+}catch(bootErr){
+  if(DEBUG)console.error("[boot] 启动序列失败：", bootErr);
+  try{ renderAll(); }catch(_){}
+  try{ renderRegionWarn("启动", bootErr); }catch(_){}
+}
 
 /* ===== 无障碍增强（D4 B+）：N1 弹窗补 dialog 语义 + N3 tablist 方向键 ===== */
 (function(){
