@@ -4000,6 +4000,7 @@ function convertRecord(dir, id, target){
   pushMoveTomb(rec.id, target);
   srcArr.splice(idx,1);
   const tgtArr = target==="sent"?postcards: target==="received"?received: proxies;
+  touch(out);   /* S2（2026-10-23 修）：新记录必须带 updatedAt —— 否则 Number(undefined)||0=0 < 墓碑 ts，即使移动墓碑的 op/to 在传输中丢失退化为普通删除墓碑，mergeById 也会判「墓碑胜出」把转换后的记录抹掉 */
   tgtArr.unshift(out);
   return true;
 }
@@ -4196,11 +4197,19 @@ function tombMap(cloudDeleted){
   /* R2-2：id → 目标数组名（move 墓碑专用）。Map 是对象可直接挂属性，mergeById 通过 del.moved 读取。 */
   const moved={};
   del.moved=moved;
+  /* S2（2026-10-23 修）：完整墓碑表（含 op/to）。此前 del 只存 id→ts，云拉取重建 deletedIds 时
+     op:"move"/to 全部丢失 → 移动墓碑退化为普通删除墓碑，下轮 mergeById 会把「寄出↔收到互转」
+     的新记录当已删数据抹掉（convertRecord 产出的新记录若无 updatedAt 则 ts 恒赢）。 */
+  const tombs=new Map();
+  del.tombs=tombs;
   const add=(o)=>{
     const t=normTomb(o);
     if(!t.id) return;
     const cur=del.get(t.id);
-    if(cur===undefined||t.ts>cur) del.set(t.id, t.ts);
+    if(cur===undefined||t.ts>cur){
+      del.set(t.id, t.ts);
+      tombs.set(t.id, (o&&typeof o==="object") ? {id:t.id, ts:t.ts, op:o.op, to:o.to} : {id:t.id, ts:t.ts});
+    }
     // R2-2：op==="move" 的墓碑额外登记目标数组，供 mergeById 区分"原位置该删/新位置该留"
     if(o && o.op==="move") moved[t.id]=String(o.to||"");
   };
@@ -4374,7 +4383,7 @@ async function _cloudPullInner(silent){
     received=mergeById(received, obj.received, del, "received");
     proxies=mergeById(proxies, obj.proxies, del, "proxy");
     activities=mergeById(activities, obj.activities, del, "activity");   // R2-2：dir 供移动墓碑判定"原位置该删/新位置该留"
-    deletedIds=Array.from(del.entries()).map(([id,ts])=>({id, ts})); tombSave();
+    deletedIds=Array.from(del.tombs.values()); tombSave();   /* S2（2026-10-23 修）：用完整墓碑表重建，保留 op/to，移动墓碑不再被剥离 */
     if(Array.isArray(obj.platList)) platList=unionArr(platList, obj.platList);
     if(Array.isArray(obj.typeList)) typeList=unionArr(typeList, obj.typeList);
     if(Array.isArray(obj.countryList)) countryList=unionArr(countryList, obj.countryList);

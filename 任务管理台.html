@@ -3696,6 +3696,9 @@ function attachEvDrag(ev, isWeek){
       ev.style.transform="";
       if(!moved) return;
       tlSuppressClick=true;   // P1-10：抑制标志改挂模块级变量（原 ev._suppressClick 随 DOM 重建即丢，且依赖逐元素 onclick 存在）
+      /* G5（2026-10-23 修）：拖拽后若浏览器因目标节点已脱离文档而不派生合成 click，标志无人消费会滞留，
+         用户下一次点任意事件块被静默吞掉一次。宏任务兜底复位：若合成 click 正常到来它先行消费，此复位无害。 */
+      setTimeout(()=>{ tlSuppressClick=false; },0);
       snapshot();   // P1-6：日/周视图拖拽改期此前不可撤销
       const dy=ev2.clientY-sy, dx=ev2.clientX-sx;
       const dm=Math.round(dy/44*60/15)*15; // 吸附 15 分钟
@@ -3765,7 +3768,14 @@ function applyDayShift(id, deltaDays, orig){
 /* 本地最近保存时间：用于云同步启动冲突检测（种子数据不记录） */
 let _markSave=true;
 function setLocalSaveAt(t){ try{ localStorage.setItem("wb_taskhub_local_savedAt_v1", String(t)); }catch(e){} }
-function markLocalSave(){ if(_markSave) setLocalSaveAt(Date.now()); }
+/* S1（2026-10-23 修）：数据版本号声明提前到 markLocalSave 之前 —— markLocalSave 现在也自增版本号。
+   背景：P2-5 的 snapshot 短路前提是「所有数据变更都走 save/saveQuiet/saveNow」，但
+   media/habit/lists/proj/okr/anniv/tag/widget 各域 saver 只调 markLocalSave、不增版本 →
+   这些域编辑后 snapshot() 被 10109 误跳过 → 撤销快照缺级、Ctrl+Z 跨域连坐回滚。
+   自增下沉到 markLocalSave（全部域 saver 的共用收口）即全覆盖。
+   save 家族自身的 _dataVer++ 保留：双自增无实害（snapshot 内容去重会兜住 no-op）。 */
+var _dataVer=0, _lastSnapVer=-1;
+function markLocalSave(){ _dataVer++; if(_markSave) setLocalSaveAt(Date.now()); }
 let _saveTimer=null;
 /* 本地存储写入告警（对齐明信片 storageSet）：配额满/写失败时显式提示，避免静默丢数据 */
 let _quotaWarnAtT=0;
@@ -3919,8 +3929,8 @@ function pruneTaskHistory(){
 var _pendingSaveMsg=null;
 /* P2-5：数据版本号 —— save()/saveQuiet()/saveNow() 每次落盘自增。snapshot() 用它做短路：
    自上次快照以来版本未变 ⇒ 数据必未变 ⇒ 跳过 16 次全量序列化（8 深克隆 + 8 stringify 比较）。
-   前提：所有数据变更最终都走这三个保存函数（现有写路径均满足）。 */
-var _dataVer=0, _lastSnapVer=-1;
+   S1 修正（2026-10-23）：原「前提：所有数据变更都走这三个保存函数」不成立——各域 saver 只走
+   markLocalSave → 快照被误跳过。现自增下沉到 markLocalSave()，声明与自增见其定义处（3768 一带）。 */
 function save(okMsg){
   _dataVer++;   // P2-5：数据版本号自增（变更已发生，落盘只是延迟 400ms）
   if(typeof okMsg==="string" && okMsg) _pendingSaveMsg=okMsg;
@@ -4428,7 +4438,7 @@ function seed(){
 const WKEY="wb_taskhub_widgets_v1";
 let widgetCfg={order:[],hidden:[],custom:[]};
 try{ const w=JSON.parse(localStorage.getItem(WKEY)); if(w&&typeof w==="object") widgetCfg=Object.assign({order:[],hidden:[],custom:[]},w); }catch(e){}
-function saveWidgets(){ try{ localStorage.setItem(WKEY, JSON.stringify(widgetCfg)); }catch(e){} }
+function saveWidgets(){ _dataVer++; try{ localStorage.setItem(WKEY, JSON.stringify(widgetCfg)); }catch(e){} }   /* S1：不走 markLocalSave 的裸写域，单独自增 */
 const AUTO_WIDS=["today","habit","list"];
 let dragWid=null, dragDropBefore=false;
 function currentWids(){ return AUTO_WIDS.concat(widgetCfg.custom.map(w=>"c:"+w.id)); }
@@ -4800,6 +4810,7 @@ function handleTodayClick(e, rerender){
     snapshot();
     subToggle(t, s, date);
     syncDoneFromSubtasks(t, date, beforeAll);
+    touchTask(t);   /* G1（2026-10-23 修）：勾选改变了任务数据但不更新 updated → mergeTasks 按整条 last-writer-wins，他端旧副本会把勾选静默回吞 */
     save();
     rerender(); return;
   }
@@ -5062,6 +5073,7 @@ function renderTaskDetail(){
     snapshot();
     subToggle(tt, s, d);
     syncDoneFromSubtasks(tt, d, beforeAll);
+    touchTask(tt);   /* G1（2026-10-23 修）：同今日面板路径，补 updated 防云同步回吞勾选 */
     save();
     renderAll();
     refresh();
@@ -11312,7 +11324,8 @@ async function restoreFromCloudAfterPaste(){
 }
 
 // O7：云同步失败指数退避重试（3s→6s→12s→24s→48s，最多 5 次后停止，避免网络长期不可达时风暴刷 GitHub）
-function scheduleCloudRetry(){
+// G2（2026-10-23 修）：新增 minDelay 参数 —— 读云端失败分支传 429 专项退避 30000，此前定义无参被静默忽略，429 限流期仍按 3s 起步重试反而加剧限流
+function scheduleCloudRetry(minDelay){
   if(_upRetryN>=5){
     _upRetryN=0; clearTimeout(_upRetryTimer);
     setCloudPill("err");
@@ -11320,7 +11333,7 @@ function scheduleCloudRetry(){
     return;
   }
   _upRetryN++;
-  const delay=Math.min(60000, 3000*Math.pow(2,_upRetryN-1));
+  const delay=Math.max(minDelay||0, Math.min(60000, 3000*Math.pow(2,_upRetryN-1)));
   clearTimeout(_upRetryTimer);
   _upRetryTimer=setTimeout(()=>{
     _upRetryTimer=null;
