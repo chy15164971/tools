@@ -27,6 +27,22 @@
  *   移动本块后，务必在浏览器/jsdom 里实测「零报错 + 页面正常渲染」再发布。
  * ==========================================================================*/
 
+/* ===== 配置常量集中（P2-6，2026-10-24）=====
+ * 只收「两页同语义、且取值相同」的时间/阈值，避免改一处漏三处。
+ * ⚠️ 不收的几类（保持字面量就地书写，勿强行统一）：
+ *   · 页面特有节奏 —— 任务台静默拉取 15s / 提醒轮询 30s、明信片自动拉取 30s、
+ *     拉取节流 8s、失败退避（15s 基数 / 429 专项 30000）：取值与语义都随页面
+ *     策略走，共用一个常量会让「调超时」意外改动「退避曲线」这类不相关行为；
+ *   · toast 时长阶梯档位（4800/7000/5000/3200/1800）：是「文本越长停越久」的
+ *     连续档位之一，单独抽 7000 会与 CFG_FAIL_TOAST_MS 撞名撞义。
+ */
+const CFG_DAY_MS             = 86400000;  // 一天的毫秒数（日期差 / 日期偏移）
+const CFG_FETCH_TIMEOUT_MS   = 15000;     // 云同步单次请求超时（fetchWithTimeout 默认值）
+const CFG_WARN_THROTTLE_MS   = 30000;     // 同类告警 toast 节流窗口（窗口内只提示一次）
+const CFG_FAIL_TOAST_MS      = 7000;      // 保存 / 写入失败类 toast 停留时长
+const CFG_UNDO_TOAST_MS      = 8000;      // 删除类（带撤销）toast 停留时长
+const CFG_UPLOAD_DEBOUNCE_MS = 1500;      // 连续保存后的上传防抖
+
 const PAGE_SIZE=100;
 const _pg={}, _pgSig={}, _pgGo={};
 /* P0-4（2026-10-04 紧急修复）：补回 pgSig —— 此前**只有调用、零定义**（_pgSig 是下面 pgSlice 内部的 Map，不是这个函数），
@@ -182,7 +198,7 @@ function iconify(t){if(t==null)return t;t=String(t);if(!_emojiRe){var ks=Object.
 function fetchWithTimeout(url, opts, ms){
   opts=opts||{};
   const ctrl=new AbortController();
-  const id=setTimeout(function(){ ctrl.abort(); }, ms||15000);
+  const id=setTimeout(function(){ ctrl.abort(); }, ms||CFG_FETCH_TIMEOUT_MS);
   return fetch(url, Object.assign({}, opts, {signal:ctrl.signal})).finally(function(){ clearTimeout(id); });
 }
 
@@ -222,7 +238,7 @@ function saveAndToast(okMsg){
        将由 save() 在真正落盘后按 storageSetSafe 的真实结果决定是否弹出，此处不能再弹。
      · 返回 true/false   —— 宿主 save 是同步版（明信片），直接按结果提示。 */
   if(ok==="__pending__") return true;
-  if(ok===false){ toast("⚠️ "+SAVE_FAIL_TXT, "danger", 7000); return false; }
+  if(ok===false){ toast("⚠️ "+SAVE_FAIL_TXT, "danger", CFG_FAIL_TOAST_MS); return false; }
   if(okMsg) toast(okMsg);
   return true;
 }

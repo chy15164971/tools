@@ -1457,6 +1457,22 @@ var _emojiRe=null;
  *   移动本块后，务必在浏览器/jsdom 里实测「零报错 + 页面正常渲染」再发布。
  * ==========================================================================*/
 
+/* ===== 配置常量集中（P2-6，2026-10-24）=====
+ * 只收「两页同语义、且取值相同」的时间/阈值，避免改一处漏三处。
+ * ⚠️ 不收的几类（保持字面量就地书写，勿强行统一）：
+ *   · 页面特有节奏 —— 任务台静默拉取 15s / 提醒轮询 30s、明信片自动拉取 30s、
+ *     拉取节流 8s、失败退避（15s 基数 / 429 专项 30000）：取值与语义都随页面
+ *     策略走，共用一个常量会让「调超时」意外改动「退避曲线」这类不相关行为；
+ *   · toast 时长阶梯档位（4800/7000/5000/3200/1800）：是「文本越长停越久」的
+ *     连续档位之一，单独抽 7000 会与 CFG_FAIL_TOAST_MS 撞名撞义。
+ */
+const CFG_DAY_MS             = 86400000;  // 一天的毫秒数（日期差 / 日期偏移）
+const CFG_FETCH_TIMEOUT_MS   = 15000;     // 云同步单次请求超时（fetchWithTimeout 默认值）
+const CFG_WARN_THROTTLE_MS   = 30000;     // 同类告警 toast 节流窗口（窗口内只提示一次）
+const CFG_FAIL_TOAST_MS      = 7000;      // 保存 / 写入失败类 toast 停留时长
+const CFG_UNDO_TOAST_MS      = 8000;      // 删除类（带撤销）toast 停留时长
+const CFG_UPLOAD_DEBOUNCE_MS = 1500;      // 连续保存后的上传防抖
+
 const PAGE_SIZE=100;
 const _pg={}, _pgSig={}, _pgGo={};
 /* P0-4（2026-10-04 紧急修复）：补回 pgSig —— 此前**只有调用、零定义**（_pgSig 是下面 pgSlice 内部的 Map，不是这个函数），
@@ -1612,7 +1628,7 @@ function iconify(t){if(t==null)return t;t=String(t);if(!_emojiRe){var ks=Object.
 function fetchWithTimeout(url, opts, ms){
   opts=opts||{};
   const ctrl=new AbortController();
-  const id=setTimeout(function(){ ctrl.abort(); }, ms||15000);
+  const id=setTimeout(function(){ ctrl.abort(); }, ms||CFG_FETCH_TIMEOUT_MS);
   return fetch(url, Object.assign({}, opts, {signal:ctrl.signal})).finally(function(){ clearTimeout(id); });
 }
 
@@ -1652,7 +1668,7 @@ function saveAndToast(okMsg){
        将由 save() 在真正落盘后按 storageSetSafe 的真实结果决定是否弹出，此处不能再弹。
      · 返回 true/false   —— 宿主 save 是同步版（明信片），直接按结果提示。 */
   if(ok==="__pending__") return true;
-  if(ok===false){ toast("⚠️ "+SAVE_FAIL_TXT, "danger", 7000); return false; }
+  if(ok===false){ toast("⚠️ "+SAVE_FAIL_TXT, "danger", CFG_FAIL_TOAST_MS); return false; }
   if(okMsg) toast(okMsg);
   return true;
 }
@@ -1883,7 +1899,7 @@ function unionArr(a,b){ return Array.from(new Set([].concat(a||[], b||[]))).filt
    transitDays）与 rotDstr() 都按本地零点解析 → 在途天数、往返天数、逾期判定全部偏移 1 天。 */
 function todayStr(){ return rotDstr(new Date()); }
 
-function daysBetween(a,b){ return Math.round((Date.UTC(b.getFullYear(),b.getMonth(),b.getDate())-Date.UTC(a.getFullYear(),a.getMonth(),a.getDate()))/86400000); }
+function daysBetween(a,b){ return Math.round((Date.UTC(b.getFullYear(),b.getMonth(),b.getDate())-Date.UTC(a.getFullYear(),a.getMonth(),a.getDate()))/CFG_DAY_MS); }
 
 function transitDays(p){
   if(!p.sent) return null;
@@ -1897,7 +1913,7 @@ function transitDays(p){
   return v<0?0:v; // 到达日若填成未来日期，归零避免显示负天数
 }
 
-function daysSince(dateStr){ if(!dateStr) return null; const a=new Date(dateStr+"T00:00:00"); if(isNaN(a)) return null; return Math.round((Date.now()-a)/86400000); }
+function daysSince(dateStr){ if(!dateStr) return null; const a=new Date(dateStr+"T00:00:00"); if(isNaN(a)) return null; return Math.round((Date.now()-a)/CFG_DAY_MS); }
 
 function normUrl(u){ u=String(u==null?"":u).trim(); if(!u) return ""; return /^https?:\/\//i.test(u)?u:"https://"+u; }
 
@@ -1921,7 +1937,7 @@ function nextRotIdx(a){ if(!a||!Array.isArray(a.rotation)) return -1; return a.r
 
 function rotNext(a){ const i=nextRotIdx(a); if(i<0) return null; const r=a.rotation[i]||{}; return {idx:i, to:r.to||"", size:r.size||"", due:r.due||""}; }
 
-function rotDueState(r){ if(!r||!r.due) return ""; const t=new Date(r.due+"T00:00:00"); if(isNaN(t)) return ""; const d0=new Date(); d0.setHours(0,0,0,0); const diff=Math.round((t-d0)/86400000); return diff<0?"overdue":(diff<=3?"duesoon":"ok"); }
+function rotDueState(r){ if(!r||!r.due) return ""; const t=new Date(r.due+"T00:00:00"); if(isNaN(t)) return ""; const d0=new Date(); d0.setHours(0,0,0,0); const diff=Math.round((t-d0)/CFG_DAY_MS); return diff<0?"overdue":(diff<=3?"duesoon":"ok"); }
 
 function safeImg(url){
   if(!/^https?:\/\//i.test(url||"")) return "—";
@@ -2005,7 +2021,7 @@ function storageSet(k,v){
   catch(e){
     const quota = !!e && (e.name==="QuotaExceededError" || e.name==="NS_ERROR_DOM_QUOTA_REACHED" || e.code===22 || e.code===1014);
     const now=Date.now();
-    if(now-_quotaWarnAt>30000){ // 同类告警 30s 内只弹一次，避免保存风暴刷屏
+    if(now-_quotaWarnAt>CFG_WARN_THROTTLE_MS){ // 同类告警 30s 内只弹一次，避免保存风暴刷屏
       _quotaWarnAt=now;
       const msg = quota
         ? "存储空间已满，本次修改没能写入本地（明信片图片较多时容易触发）。请先删除部分图片或清理旧记录，再重新操作。"
@@ -2178,7 +2194,7 @@ function importJSON(file){
       syncListsFromData();
       normalizeRecv();
       const savedImport=save(false); renderAll();
-      if(!savedImport){ toast("⚠️ 导入的数据未能写入本地（存储空间已满）。请先清理旧数据后重新导入。","danger",7000); return; }
+      if(!savedImport){ toast("⚠️ 导入的数据未能写入本地（存储空间已满）。请先清理旧数据后重新导入。","danger",CFG_FAIL_TOAST_MS); return; }
       toast("已导入 "+(postcards.length+received.length+proxies.length+activities.length)+" 条");
     }catch(e){ toast("导入失败："+e.message, "danger"); }
   };
@@ -2218,7 +2234,7 @@ function proxyReturnDays(p){ // 我收到日 − 我寄出日
   if(!p||!p.sent||!p.gotBack) return null;
   const a=new Date(p.sent), b=new Date(p.gotBack);
   if(isNaN(a)||isNaN(b)) return null;
-  const d=Math.round((b-a)/86400000);
+  const d=Math.round((b-a)/CFG_DAY_MS);
   return d<0?0:d; // 收到日若误填成未来日期，归零避免负天数
 }
 
@@ -2250,7 +2266,7 @@ function isLostProxy(p){ if(!p||!p.sent) return false; if(p.gotBack) return fals
 /* 活动 deadline 预警：与 sent/proxy 的丢失预警对齐——过期标红、临近(≤3天)提示 */
 function actOverdue(a){ if(!a||!a.deadline) return false; if(a.status==="done"||a.status==="closed") return false; const t=new Date(a.deadline+"T00:00:00"); if(isNaN(t)) return false; const today0=new Date(); today0.setHours(0,0,0,0); return t<today0; }
 
-function actDueSoon(a){ if(!a||!a.deadline) return false; if(a.status==="done"||a.status==="closed") return false; const t=new Date(a.deadline+"T00:00:00"); if(isNaN(t)) return false; const today0=new Date(); today0.setHours(0,0,0,0); const diff=Math.round((t-today0)/86400000); return diff>=0 && diff<=3; }
+function actDueSoon(a){ if(!a||!a.deadline) return false; if(a.status==="done"||a.status==="closed") return false; const t=new Date(a.deadline+"T00:00:00"); if(isNaN(t)) return false; const today0=new Date(); today0.setHours(0,0,0,0); const diff=Math.round((t-today0)/CFG_DAY_MS); return diff>=0 && diff<=3; }
 
 function normalizeRecv(){ received.forEach(p=>{ if(p && !p.status) p.status = p.received ? "received" : "transit"; }); }
 
@@ -2338,7 +2354,7 @@ function delWidget(wid){
     widgetCfg.order=widgetCfg.order.filter(w=>w!=="c:"+id);
     widgetCfg.hidden=widgetCfg.hidden.filter(w=>w!=="c:"+id);
     saveWidgets(); renderStats();
-    toast("已删除卡片","",8000,function(){
+    toast("已删除卡片","",CFG_UNDO_TOAST_MS,function(){
       widgetCfg.custom=snap.custom; widgetCfg.order=snap.order; widgetCfg.hidden=snap.hidden;
       saveWidgets(); renderStats(); save();   // save() 会把还原后的 widgetCfg 推给云端
       toast("已撤销");
@@ -2598,7 +2614,7 @@ async function delRec(dir, id){
   const arr=REC_DEFS[dir].arr(); const idx=arr.findIndex(x=>x.id===id);
   if(idx>=0){ arr.splice(idx,1); unlinkFromActivities(id); unlinkPartnerIfOrphan(p.pairId); pushTomb(id); tombSave(); }   // 墓碑：让删除能跨设备传播
   renderAll();
-  toastUndo("已删除「"+nm+"」", 8000, save()===false);
+  toastUndo("已删除「"+nm+"」", CFG_UNDO_TOAST_MS, save()===false);
 }
 
 function saveRecModal(dir){
@@ -2631,7 +2647,7 @@ function saveRecModal(dir){
   const sameName=REC_DEFS[dir].arr().filter(x=>x.id!==cur.id && (x[REC_DEFS[dir].nameField]||"")===(cur[REC_DEFS[dir].nameField]||"") && x.country===cur.country && x.platform===cur.platform);
   if(sameName.length) toast("提示：已有相似记录（同"+(REC_DEFS[dir].nameLabel)+"·同国家·同平台），请确认是否重复", "danger");
   const saved=save(); closeRecModal(dir); renderAll();
-  if(!saved){ toast("⚠️ "+SAVE_FAIL_TXT,"danger",7000); return; }   // P0-1：失败提示不被成功 toast 覆盖
+  if(!saved){ toast("⚠️ "+SAVE_FAIL_TXT,"danger",CFG_FAIL_TOAST_MS); return; }   // P0-1：失败提示不被成功 toast 覆盖
   // P1-1：有重复警告时不弹成功 toast，避免立即覆盖警告
   if(!sameName.length) toast(id?"已更新":(wantPair?"已添加（含对方）":"已添加"));
 }
@@ -2667,7 +2683,7 @@ function rotGenDue(){
   if(!sv){ toast("请先填第一轮起始日","danger"); return; }
   if(!actEditingRot.length){ toast("请先添加轮次","danger"); return; }
   const base=new Date(sv+"T00:00:00"); if(isNaN(base)){ toast("起始日无效","danger"); return; }
-  actEditingRot.forEach((r,i)=>{ r.due=rotDstr(new Date(base.getTime()+i*w*7*86400000)); });
+  actEditingRot.forEach((r,i)=>{ r.due=rotDstr(new Date(base.getTime()+i*w*7*CFG_DAY_MS)); });
   renderRotEditor(); toast("已按每 "+w+" 周生成 "+actEditingRot.length+" 轮截止日");
 }
 
@@ -2760,7 +2776,7 @@ async function delActivity(id){
   snapshot();   // 撤销栈：8s 窗口
   activities=activities.filter(x=>x.id!==id); pushTomb(id); tombSave();
   renderAll();
-  toastUndo("已删除活动「"+(a.title||"未命名")+"」", 8000, save()===false);
+  toastUndo("已删除活动「"+(a.title||"未命名")+"」", CFG_UNDO_TOAST_MS, save()===false);
 }
 
 // 互寄对：编辑任一条腿时，把共享描述字段同步写回 pairId 相同的另一条腿（日期各腿独立，不覆盖）
@@ -2854,7 +2870,7 @@ function saveProxyModal(){
   const dupP=proxies.filter(x=>x.id!==id && x.proxy===data.proxy && x.country===data.country && x.platform===data.platform);
   if(dupP.length) toast("提示：已有相似代寄（同对方·同国家·同平台），请确认是否重复", "danger");
   const savedProxy=save(); closeProxyModal(); renderAll();
-  if(!savedProxy){ toast("⚠️ "+SAVE_FAIL_TXT,"danger",7000); return; }
+  if(!savedProxy){ toast("⚠️ "+SAVE_FAIL_TXT,"danger",CFG_FAIL_TOAST_MS); return; }
   if(!dupP.length) toast((id?"已更新":"已添加")+(document.getElementById("pMutualChk").checked&&!id?"（含反向互寄腿）":""));   // P1-1：有重复警告时不弹成功 toast，避免立即覆盖警告
 }
 
@@ -2866,7 +2882,7 @@ async function delProxy(id){
   if(pid) unlinkPartnerIfOrphan(pid);   // G16：收敛到统一实现（跨数组扫 sent/received/proxies，行为覆盖原内联版——原版只查 proxies，跨数组残腿会漏）
   tombSave();
   renderAll();
-  toastUndo("已删除代寄记录", 8000, save()===false);
+  toastUndo("已删除代寄记录", CFG_UNDO_TOAST_MS, save()===false);
 }
 
 // 删除整对互寄（双方各一条，共享 pairId 会一并清除，避免悬空）
@@ -2879,7 +2895,7 @@ async function delProxyPair(pairId){
   unlinkPartnerIfOrphan(pairId);   // G16：兜底清理跨数组残腿（正常全在 proxies，理论空转，统一口径防漏）
   tombSave();
   renderAll();
-  toastUndo("已删除互寄对（"+n+" 条）", 8000, save()===false);
+  toastUndo("已删除互寄对（"+n+" 条）", CFG_UNDO_TOAST_MS, save()===false);
 }
 
 function mapToTarget(rec, fromDir, target){
@@ -3760,7 +3776,7 @@ function renderRegionWarn(nm, e){
     item.textContent="⚠️ 「"+nm+"」区域渲染出错（其余区域正常）： "+msg;
   }catch(_){}
   const now=Date.now();
-  if(now-(_regionWarnAt[nm]||0)<30000) return;   // 同区域 30s 节流（toast 保留）
+  if(now-(_regionWarnAt[nm]||0)<CFG_WARN_THROTTLE_MS) return;   // 同区域 30s 节流（toast 保留）
   _regionWarnAt[nm]=now;
   try{ toast("「"+nm+"」区域刷新出错，详情见页面顶部红条","danger"); }catch(_){}
 }
@@ -3773,7 +3789,7 @@ function renderAll(){
   }catch(e){
     if(DEBUG)console.error("[renderAll] 渲染异常，已释放刷新锁；界面可能未完全更新：", e);
     const now=Date.now();
-    if(now-_raErrAt>30000){ // 同类告警 30s 内只提示一次，避免高频渲染刷屏
+    if(now-_raErrAt>CFG_WARN_THROTTLE_MS){ // 同类告警 30s 内只提示一次，避免高频渲染刷屏
       _raErrAt=now;
       try{ toast("界面刷新出错，已自动恢复；若显示仍异常请刷新页面", "danger"); }catch(_){}
     }
@@ -3973,7 +3989,7 @@ function applyProxyModeUI(mode, dir, isEdit){
    ms = toast 停留时长（删除 8000 / 清空 12000；shared.js 已修复 undo 分支忽略 ms 的 bug）。
    saveFailed 时退化：保存失败则不弹撤销按钮，改弹可行动告警（撤销的是内存态，落盘失败时优先告警）。 */
 function toastUndo(msg, ms, saveFailed){
-  if(saveFailed){ toast("⚠️ "+SAVE_FAIL_TXT, "danger", 7000); return; }
+  if(saveFailed){ toast("⚠️ "+SAVE_FAIL_TXT, "danger", CFG_FAIL_TOAST_MS); return; }
   toast(msg, "", ms||0, function(){ try{ pcUndo(); }catch(e){ toast("撤销失败","danger"); } });
 }
 
@@ -4343,7 +4359,7 @@ function applyCloudSettings(obj){
 // 返回 {savedAt}（读到）| {empty:true}（云端无文件，首次上传安全）| {err:true}（读失败，不可安全上传）
 async function cloudPeekSavedAt(){
   try{
-    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 15000);
+    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, CFG_FETCH_TIMEOUT_MS);
     if(!res.ok) return {err:true};
     const data=await res.json();
     const f=data.files&&data.files["postcards.json"]; if(!f||!f.content) return {empty:true};
@@ -4398,7 +4414,7 @@ async function _cloudUploadInner(silent, keepalive){
       headers:{"Authorization":authHeader(),"Content-Type":"application/json"},
       keepalive:!!keepalive,   // P2-14：让请求在页面卸载后仍能完成
       body:JSON.stringify({files:{"postcards.json":{content:content}}})
-    }, 15000);
+    }, CFG_FETCH_TIMEOUT_MS);
     if(!res.ok){ let d="HTTP "+res.status; try{ const ej=await res.json(); if(ej&&ej.message) d+=" · "+ej.message; }catch(_){}
       // P2-10：把 status 挂到错误对象上，调用方才能用 explainHttp 翻成可行动文案（原先只拼进message，只能显示原始串）
       const err=new Error(d); err.status=res.status; throw err; }
@@ -4443,7 +4459,7 @@ async function _cloudPullInner(silent){
   if(!silent) setCloudStatus("下载中…");
   setCloudPill("syncing");
   try{
-    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 15000);
+    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, CFG_FETCH_TIMEOUT_MS);
     if(!res.ok){ let d="HTTP "+res.status; try{ const ej=await res.json(); if(ej&&ej.message) d+=" · "+ej.message; }catch(_){}
       // P2-10：把 status 挂到错误对象上，调用方才能用 explainHttp 翻成可行动文案（原先只拼进message，只能显示原始串）
       const err=new Error(d); err.status=res.status; throw err; }
@@ -4532,7 +4548,7 @@ function cloudAutoUpload(){
   _upTimer=setTimeout(()=>{
     _upTimer=null;
     cloudUpload(true).then(ok=>{ if(ok===false) scheduleCloudRetry(); });
-  }, 1500);
+  }, CFG_UPLOAD_DEBOUNCE_MS);
 }
 
 // 自动拉取：防并发 + 仅前台 + 失败退避 + 节流 + 有弹窗打开时跳过（避免覆盖正在编辑的内容）
@@ -4600,7 +4616,7 @@ async function openRecoverModal(){
   try{
     const accept={Authorization:authHeader(), Accept:"application/vnd.github+json"};
     const base="https://api.github.com/gists/"+encodeURIComponent(cloud.gist);
-    const revRes=await fetchWithTimeout(base+"/commits",{headers:accept},15000);
+    const revRes=await fetchWithTimeout(base+"/commits",{headers:accept},CFG_FETCH_TIMEOUT_MS);
     if(!revRes.ok){ list.innerHTML='<div class="mrec-empty">'+esc(explainHttp(revRes.status,"获取 Gist 历史"))+'</div>'; done(); return; }   // P2-10 + P2-16
     const revs=await revRes.json();
     // 并发扫描历史版本（每批 5 个），历史版本多时不再串行逐条等待

@@ -2698,6 +2698,22 @@
  *   移动本块后，务必在浏览器/jsdom 里实测「零报错 + 页面正常渲染」再发布。
  * ==========================================================================*/
 
+/* ===== 配置常量集中（P2-6，2026-10-24）=====
+ * 只收「两页同语义、且取值相同」的时间/阈值，避免改一处漏三处。
+ * ⚠️ 不收的几类（保持字面量就地书写，勿强行统一）：
+ *   · 页面特有节奏 —— 任务台静默拉取 15s / 提醒轮询 30s、明信片自动拉取 30s、
+ *     拉取节流 8s、失败退避（15s 基数 / 429 专项 30000）：取值与语义都随页面
+ *     策略走，共用一个常量会让「调超时」意外改动「退避曲线」这类不相关行为；
+ *   · toast 时长阶梯档位（4800/7000/5000/3200/1800）：是「文本越长停越久」的
+ *     连续档位之一，单独抽 7000 会与 CFG_FAIL_TOAST_MS 撞名撞义。
+ */
+const CFG_DAY_MS             = 86400000;  // 一天的毫秒数（日期差 / 日期偏移）
+const CFG_FETCH_TIMEOUT_MS   = 15000;     // 云同步单次请求超时（fetchWithTimeout 默认值）
+const CFG_WARN_THROTTLE_MS   = 30000;     // 同类告警 toast 节流窗口（窗口内只提示一次）
+const CFG_FAIL_TOAST_MS      = 7000;      // 保存 / 写入失败类 toast 停留时长
+const CFG_UNDO_TOAST_MS      = 8000;      // 删除类（带撤销）toast 停留时长
+const CFG_UPLOAD_DEBOUNCE_MS = 1500;      // 连续保存后的上传防抖
+
 const PAGE_SIZE=100;
 const _pg={}, _pgSig={}, _pgGo={};
 /* P0-4（2026-10-04 紧急修复）：补回 pgSig —— 此前**只有调用、零定义**（_pgSig 是下面 pgSlice 内部的 Map，不是这个函数），
@@ -2853,7 +2869,7 @@ function iconify(t){if(t==null)return t;t=String(t);if(!_emojiRe){var ks=Object.
 function fetchWithTimeout(url, opts, ms){
   opts=opts||{};
   const ctrl=new AbortController();
-  const id=setTimeout(function(){ ctrl.abort(); }, ms||15000);
+  const id=setTimeout(function(){ ctrl.abort(); }, ms||CFG_FETCH_TIMEOUT_MS);
   return fetch(url, Object.assign({}, opts, {signal:ctrl.signal})).finally(function(){ clearTimeout(id); });
 }
 
@@ -2893,7 +2909,7 @@ function saveAndToast(okMsg){
        将由 save() 在真正落盘后按 storageSetSafe 的真实结果决定是否弹出，此处不能再弹。
      · 返回 true/false   —— 宿主 save 是同步版（明信片），直接按结果提示。 */
   if(ok==="__pending__") return true;
-  if(ok===false){ toast("⚠️ "+SAVE_FAIL_TXT, "danger", 7000); return false; }
+  if(ok===false){ toast("⚠️ "+SAVE_FAIL_TXT, "danger", CFG_FAIL_TOAST_MS); return false; }
   if(okMsg) toast(okMsg);
   return true;
 }
@@ -3258,7 +3274,7 @@ function storageSetSafe(k,v){
   catch(e){
     const quota = !!e && (e.name==="QuotaExceededError" || e.name==="NS_ERROR_DOM_QUOTA_REACHED" || e.code===22 || e.code===1014);
     const now=Date.now();
-    if(now-_quotaWarnAtT>30000){
+    if(now-_quotaWarnAtT>CFG_WARN_THROTTLE_MS){
       _quotaWarnAtT=now;
       if(quota) _quotaFull=true;   // O11-2：供数据健康面板展示「存储已满」
       const msg = quota
@@ -4195,7 +4211,7 @@ function annivSolarDate(a, today){
 
 function annivDaysLeft(a, today){
   const s=annivSolarDate(a, today); if(!s) return null;
-  return Math.round((startOfDay(s)-today)/86400000);
+  return Math.round((startOfDay(s)-today)/CFG_DAY_MS);
 }
 
 function annivCountdownText(a, today){
@@ -4337,7 +4353,7 @@ function delWidget(wid){
     widgetCfg.order=widgetCfg.order.filter(w=>w!=="c:"+id);
     widgetCfg.hidden=widgetCfg.hidden.filter(w=>w!=="c:"+id);
     saveWidgets(); applyWidgetLayout();
-    toast("已删除卡片","",8000,function(){
+    toast("已删除卡片","",CFG_UNDO_TOAST_MS,function(){
       widgetCfg.custom=snap.custom; widgetCfg.order=snap.order; widgetCfg.hidden=snap.hidden;
       saveWidgets(); applyWidgetLayout();
       toast("已撤销");
@@ -5209,8 +5225,8 @@ function timeHealth(start,end){
   if(start){ try{ startD=startOfDay(parseLocal(start)); }catch(e){} }
   if(end){ try{ endD=startOfDay(parseLocal(end)); }catch(e){} }
   if(endD && endD<today) return {cls:'th-overdue',label:'已逾期'};                                  // 截止已过
-  if(startD && startD>today) return {cls:'th-soon',label:'剩'+Math.round((startD-today)/86400000)+'天'}; // 未开始
-  if(endD && endD>=today) return {cls:(endD-today)<=7*86400000?'th-soon':'th-ok',label:'剩'+Math.round((endD-today)/86400000)+'天'}; // 距结束剩余
+  if(startD && startD>today) return {cls:'th-soon',label:'剩'+Math.round((startD-today)/CFG_DAY_MS)+'天'}; // 未开始
+  if(endD && endD>=today) return {cls:(endD-today)<=7*CFG_DAY_MS?'th-soon':'th-ok',label:'剩'+Math.round((endD-today)/CFG_DAY_MS)+'天'}; // 距结束剩余
   return null;
 }
 
@@ -5756,7 +5772,7 @@ function shiftTaskToDate(dateStr, mode){
   if(mode==="end") cur = ed.value ? startOfDay(parseLocal(ed.value+"T"+(et.value||"00:00")))
                   : (sd.value ? startOfDay(parseLocal(sd.value+"T"+(st.value||"00:00"))) : startOfDay(new Date()));
   else             cur = sd.value ? startOfDay(parseLocal(sd.value+"T"+(st.value||"00:00"))) : startOfDay(new Date());
-  shiftTaskByDays(Math.round((target-cur)/86400000), mode);
+  shiftTaskByDays(Math.round((target-cur)/CFG_DAY_MS), mode);
 }
 
 async function deleteTask(){
@@ -7166,7 +7182,7 @@ function todayItemHtml(i, compact, ov){
   const isDrop = isDropped(i.task,i.date);
   const itDone = isDone(i);
   const now=new Date();
-  const daysLate = ov ? Math.max(1, Math.round((now - i.end)/86400000)) : 0;
+  const daysLate = ov ? Math.max(1, Math.round((now - i.end)/CFG_DAY_MS)) : 0;
   const when = isDrop ? ("不补做 · "+fmtRange(i.start,i.end)) : (ov ? ("逾期 "+ (daysLate<=1?"昨天":daysLate+" 天") +" · "+fmtRange(i.start,i.end)) : ("今天 "+fmtRange(i.start,i.date)));
   const dk=ymd(i.date);
   const hasSub=!!(i.task.subtasks&&i.task.subtasks.length);
@@ -8660,7 +8676,7 @@ function renderReview(){
     overdue=state.tasks.filter(t=>!noDate(t) && !isTaskDoneNow(t) && !t.skipMissed && _ovd.has(t.id));   // P1-4 统一口径
     waiting=state.tasks.filter(t=>(t.gw||"next")==="waiting" && !isTaskDoneNow(t));
     someday=state.tasks.filter(t=>(t.gw||"next")==="someday" && !isTaskDoneNow(t));
-    stalled=state.tasks.filter(t=>{ if(isTaskDone(t)) return false; const age=(Date.now()-(t.createdAt||Date.now()))/86400000; return age>14 && (t.gw||"next")!=="waiting"; });
+    stalled=state.tasks.filter(t=>{ if(isTaskDone(t)) return false; const age=(Date.now()-(t.createdAt||Date.now()))/CFG_DAY_MS; return age>14 && (t.gw||"next")!=="waiting"; });
     const weekStart=addDays(startOfDay(new Date()),-7);
     /* P1-3：旧写法只查 doneDates，非重复任务的完成存在 status==="done"+doneAt.self → 恒不计入，
        页面数字长期低于导出（exportReview 已用 doneInWindow）。统一为同一口径。 */
@@ -8756,7 +8772,7 @@ function exportReview(){
     const overdue=state.tasks.filter(t=>!noDate(t) && !isTaskDoneNow(t) && !t.skipMissed && _ovd.has(t.id));
     const waiting=state.tasks.filter(t=>(t.gw||"next")==="waiting" && !isTaskDoneNow(t));
     const someday=state.tasks.filter(t=>(t.gw||"next")==="someday" && !isTaskDoneNow(t));
-    const stalled=state.tasks.filter(t=>{ if(isTaskDone(t)) return false; const age=(Date.now()-(t.createdAt||Date.now()))/86400000; return age>14 && (t.gw||"next")!=="waiting"; });
+    const stalled=state.tasks.filter(t=>{ if(isTaskDone(t)) return false; const age=(Date.now()-(t.createdAt||Date.now()))/CFG_DAY_MS; return age>14 && (t.gw||"next")!=="waiting"; });
     const weekStart=addDays(startOfDay(new Date()),-7);
     const doneWeek=state.tasks.filter(t=>doneInWindow(t,weekStart)).length;
     let checked={}; try{ checked=JSON.parse(localStorage.getItem("wb_taskhub_review_"+wk)||"{}"); }catch(e){}
@@ -8875,7 +8891,7 @@ function renderAll(){
   }catch(e){
     if(DEBUG)console.error("[renderAll] 渲染异常，已释放刷新锁；界面可能未完全更新：", e);
     const now=Date.now();
-    if(now-_raErrAt>30000){ // 同类告警 30s 内只提示一次，避免高频渲染刷屏
+    if(now-_raErrAt>CFG_WARN_THROTTLE_MS){ // 同类告警 30s 内只提示一次，避免高频渲染刷屏
       _raErrAt=now;
       try{ toast("界面刷新出错，已自动恢复；若显示仍异常请刷新页面", "danger"); }catch(_){}
     }
@@ -10527,7 +10543,7 @@ async function runGistScan(opts){
   try{
     const accept={Authorization:authHeader(), Accept:"application/vnd.github+json"};
     const base="https://api.github.com/gists/"+encodeURIComponent(cloud.gist);
-    const revRes=await fetchWithTimeout(base+"/commits",{headers:accept},15000);
+    const revRes=await fetchWithTimeout(base+"/commits",{headers:accept},CFG_FETCH_TIMEOUT_MS);
     if(!revRes.ok){ cloudBox.innerHTML='<div class="mrec-empty">获取 Gist 历史失败：HTTP '+revRes.status+(revRes.status===401?"（Token 无效或无权限）":"")+'</div>'; return; }
     const revs=await revRes.json();
     const revArr=(revs||[]).filter(Boolean);
@@ -10674,7 +10690,7 @@ async function _cloudUploadInner(silent, keepalive){
       method:"PATCH",
       headers:{"Authorization":authHeader(),"Content-Type":"application/json"},
       body:JSON.stringify({files:{"taskhub.json":{content:JSON.stringify(syncPayload(),null,2)}}})
-    }, 15000);
+    }, CFG_FETCH_TIMEOUT_MS);
     if(!res.ok){ const e2=new Error(explainHttp(res.status,"上传")); e2.status=res.status; throw e2; }
     const t=new Date().toLocaleTimeString();
     // M4：把「本次同步云端改了什么」告诉用户 —— 静默覆盖不再无感知
@@ -10683,7 +10699,7 @@ async function _cloudUploadInner(silent, keepalive){
       ? (" · 云合并：新增 "+S.cloudNew+"，云端更新 "+S.cloudWin+"，本地保留 "+S.localKept+(S.deleted?"，云端删除 "+S.deleted:""))
       : "";
     if(!silent) setCloudStatus("上传成功 ✓ "+t+mSum);
-    else if(mSum){ const _n=Date.now(); if(_n-(window._lastCloudMergeToast||0)>30000){ window._lastCloudMergeToast=_n; toast("云同步"+mSum, "info"); } }
+    else if(mSum){ const _n=Date.now(); if(_n-(window._lastCloudMergeToast||0)>CFG_WARN_THROTTLE_MS){ window._lastCloudMergeToast=_n; toast("云同步"+mSum, "info"); } }
     setCloudPill("ok");
     markSynced();   // 上传成功同样算一次成功同步，刷新「最后同步」时间
     if(_upRetryN>0){ _upRetryN=0; clearTimeout(_upRetryTimer); }   // O7：成功后重置重试计数
@@ -10692,12 +10708,12 @@ async function _cloudUploadInner(silent, keepalive){
       // 读云端失败：放弃上传以保护云端数据。自动上传静默跳过等下次重试；手动上传明确提示。
       setCloudPill("err");
       if(!silent) setCloudStatus("无法读取云端，已放弃本次上传以避免覆盖云端数据，请稍后重试", true);
-      else { const _n=Date.now(); const _reason=(e&&e.message)?e.message:"未知错误"; window.__lastCloudReadErr=_reason; if(_n-(window._lastCloudErrToast||0)>30000){ window._lastCloudErrToast=_n; toast("云同步跳过：读取云端失败（"+_reason+"），本次不上传以保护数据", "warn"); } scheduleCloudRetry(/HTTP 429/.test(_reason)?30000:undefined); }
+      else { const _n=Date.now(); const _reason=(e&&e.message)?e.message:"未知错误"; window.__lastCloudReadErr=_reason; if(_n-(window._lastCloudErrToast||0)>CFG_WARN_THROTTLE_MS){ window._lastCloudErrToast=_n; toast("云同步跳过：读取云端失败（"+_reason+"），本次不上传以保护数据", "warn"); } scheduleCloudRetry(/HTTP 429/.test(_reason)?30000:undefined); }
       return;
     }
     setCloudPill("err");
     if(!silent) setCloudStatus("上传失败："+(e&&e.message?e.message:e), true);
-    else { scheduleCloudRetry(); const _n=Date.now(); if(_n-(window._lastCloudErrToast||0)>30000){ window._lastCloudErrToast=_n; toast("云同步失败："+(e&&e.message?e.message:e)+"（将自动重试）", "danger"); } }
+    else { scheduleCloudRetry(); const _n=Date.now(); if(_n-(window._lastCloudErrToast||0)>CFG_WARN_THROTTLE_MS){ window._lastCloudErrToast=_n; toast("云同步失败："+(e&&e.message?e.message:e)+"（将自动重试）", "danger"); } }
   }
 }
 
@@ -10711,7 +10727,7 @@ async function _cloudDownloadInner(){
   if(!cloud.token||!cloud.gist){ setCloudStatus("请先在设置中填写 Token 与 Gist ID", true); toast("请先在设置中填写 GitHub Token 与 Gist ID，再下载", "danger"); return; }
   setCloudStatus("下载中…");
   try{
-    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 15000);
+    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, CFG_FETCH_TIMEOUT_MS);
     if(!res.ok){ const e2=new Error(explainHttp(res.status,"下载")); e2.status=res.status; throw e2; }
     const data=await res.json();
     const _files=data.files||{};
@@ -10760,7 +10776,7 @@ async function restoreFromCloudAfterPaste(){
   setCloudStatus("正在连接云端…");
   let data;
   try{
-    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 15000);
+    const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, CFG_FETCH_TIMEOUT_MS);
     if(!res.ok){ setCloudStatus("云端读取失败：HTTP "+res.status, true); toast("云端读取失败：HTTP "+res.status, "danger"); return; }
     data=await res.json();
   }catch(e){ let m=(e&&e.message)?e.message:e; if(e&&e.name==="AbortError") m="网络超时，无法连接 GitHub（可能受网络限制）"; setCloudStatus("云端读取失败："+m, true); toast("云端读取失败："+m, "danger"); return; }
@@ -10806,7 +10822,7 @@ function cloudAutoUpload(){
   // 「拉取一旦恢复必补传」成为不依赖分支实现细节的硬保证（内容一致的分支不与任何 *Save() 相连）。
   if(!_bootSyncAllowed){ _pendingUpload=true; return; }
   if(_upTimer) clearTimeout(_upTimer);
-  _upTimer=setTimeout(()=>{ cloudUpload(true); }, 1500);   // 防抖：连续保存只触发一次上传
+  _upTimer=setTimeout(()=>{ cloudUpload(true); }, CFG_UPLOAD_DEBOUNCE_MS);   // 防抖：连续保存只触发一次上传
 }
 
 // 把云端对象应用为本地数据（统一入口，供启动拉取复用）
@@ -11207,7 +11223,7 @@ var _cssInkCardL=null;   // 深色卡底相对亮度缓存（--card 的 dark 值
 let state = { tasks: [], view: "month", cur: new Date(), filter:{ q:"", cat:"", pri:"", tag:"" }, selList: null, projects: [], okrs: [], anniv: [] };
 
 /* ===== 日期工具 ===== */
-const DAY=86400000;
+const DAY=CFG_DAY_MS;
 const WK=["日","一","二","三","四","五","六"];
 
 /* ===== 重复规则匹配 ===== */
@@ -11338,7 +11354,7 @@ const Lunar=(function(){
   function leapMonth(y){ return lunarInfo[y-1900]&0xf; }
   function monthDays(y,m){ return (lunarInfo[y-1900]&(0x10000>>m))?30:29; }
   function solar2lunar(yy,mm,dd){
-    let off=Math.round((Date.UTC(yy,mm-1,dd)-Date.UTC(1900,0,31))/86400000), temp=0, i;
+    let off=Math.round((Date.UTC(yy,mm-1,dd)-Date.UTC(1900,0,31))/CFG_DAY_MS), temp=0, i;
     for(i=1900;i<2101&&off>0;i++){ temp=lYearDays(i); off-=temp; }
     if(off<0){ off+=temp; i--; }
     const ly=i;
@@ -11380,7 +11396,7 @@ const Lunar=(function(){
     if(isLeap) off+=monthDays(ly,lp);             // 闰月前先经过其正月份
     off+=(ld-1);
     const base=Date.UTC(1900,0,31);               // 1900-01-31 = 农历1900正月初一
-    const dt=new Date(base+off*86400000);
+    const dt=new Date(base+off*CFG_DAY_MS);
     return {y:dt.getUTCFullYear(), m:dt.getUTCMonth()+1, d:dt.getUTCDate()};
   }
   return { text, toLunar:solar2lunar, toSolar, lunarMD };
@@ -11968,7 +11984,7 @@ if(deferBtn&&deferPop){
       if(c.dataset.abs!==undefined){
         const sd=document.getElementById("f_sdate"), st=document.getElementById("f_stime");
         const cur = sd.value? startOfDay(parseLocal(sd.value+"T"+(st.value||"00:00"))) : startOfDay(new Date());
-        n = Math.round((addDays(startOfDay(new Date()), parseInt(c.dataset.abs,10)||0) - cur)/86400000);
+        n = Math.round((addDays(startOfDay(new Date()), parseInt(c.dataset.abs,10)||0) - cur)/CFG_DAY_MS);
       }
       shiftTaskByDays(n, mode);
     };
@@ -12156,7 +12172,7 @@ if(pjDeferBtn&&pjDeferPop){
     const cv=document.getElementById("pjDeferCustom").value; if(!cv){ toast("请选择自定义截止日"); return; }
     const endEl=document.getElementById("pj_end");
     const base0 = endEl.value? startOfDay(parseLocal(endEl.value)) : startOfDay(new Date());
-    const n=Math.round((startOfDay(parseLocal(cv))-base0)/86400000);
+    const n=Math.round((startOfDay(parseLocal(cv))-base0)/CFG_DAY_MS);
     if(n<0){ toast("自定义截止日早于当前截止日"); return; }
     pjDeferApply(n);
   };
