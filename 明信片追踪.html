@@ -25,7 +25,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   /* === SHARED TOKENS START === */
   :root{
     --bg:#f5f7fb; --card:#ffffff; --ink:#1f2430; --text:#1f2430; --sub:#6b7280; --line:#e7ebf2;
-    --pri:#4F7CFF; --pri-ink:#2F5FE0; --pri-soft:#eaf0ff; --ok:#22b07d; --warn:#ff8a3d; --danger:#ef4444;
+    --pri:#4F7CFF; --pri-ink:#2F5FE0; --pri-soft:#eaf0ff; --ok:#22b07d; --ok-soft:#e7f6ec; --warn:#ff8a3d; --danger:#ef4444;
     /* P2-2：--pri-ink 是「主色作小字/链接文字」专用 token。--pri #4F7CFF 作前景色只有 3.71:1，低于 AA 4.5:1，
        站内每个行内链接、页签选中态、图标按钮都受影响。--pri-ink 亮色 5.53:1 / 暗色 7.4:1。
        注意：按钮**底色**仍用 --pri（白字压色，对比度是另一回事），只替换「作为文字色」的地方。 */
@@ -39,13 +39,15 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
     --bg2:#f5f7fb; --muted:#6b7280; --hover:#f4f6fb;
   --warnbg:#ffeaea; --white:#fff; --ink-strong:#1f2430; }
   [data-theme="dark"]{
-    --bg:#0f1320; --card:#171c2b; --ink:#e8ecf5; --text:#e8ecf5; --sub:#9aa3b5; --line:#262d40;
-    --pri:#5b86ff; --pri-ink:#8FABFF; --pri-soft:#1c2540; --hover:#1d2233; --bg2:#0f1320; --muted:#9aa3b5;
-    --ok:#2bd99a; --warn:#ff9a4d; --danger:#ff6b6b;
+    --bg:#0f1320; --card:#171c2b; --ink:#e7ebf3; --text:#e7ebf3; --sub:#9aa3b2; --line:#262d3f;
+    --pri:#5b86ff; --pri-ink:#8FABFF; --pri-soft:#1c2740; --hover:#1c2236; --bg2:#11162a; --muted:#9aa3b2;
+    --ok:#2dd4a0; --ok-soft:#10312a; --warn:#ff9a52; --danger:#ff5d5d;
   --warnbg:#3a1f1f;
   /* 数据色深色值：--c4 与任务台深色同值（跨页契约）；--c6/--c7 为统计卡专用，
      深色下提亮以保对比度（实测 #b08cff 6.50:1 / #3ec9d6 8.51:1，均过正文 4.5:1） */
-  --c4:#ff7aa6; --c6:#b08cff; --c7:#3ec9d6; }
+  --c4:#ff7aa6; --c6:#b08cff; --c7:#3ec9d6;
+  /* 中-2（2026-10-24）：dark 补 --shadow / --ink-strong（此前漏覆盖，浅彩 token 在深色下隐形）；--ok-soft 同步任务台深色值 */
+  --shadow:0 2px 10px rgba(0,0,0,.32); --ink-strong:#e7ebf3; }
 
   /* =====  补漏：明信片此前无组件级 dark 覆盖，浅彩徽章/胶囊/节点/边框在此适配 ===== */
   [data-theme="dark"] .cloudpill.off{ background:#232a3a; color:#8b94a3; border-color:#232a3a; }
@@ -53,6 +55,8 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   [data-theme="dark"] .opt-del{ border-color:var(--line); }
   [data-theme="dark"] .opt-del:hover{ background:rgba(255,107,107,.14); }
   [data-theme="dark"] .badge.badge-duesoon{ background:rgba(255,154,77,.16); color:var(--warn); }
+  /* 中-3（2026-10-24）：暗色下 .badge.ok 改半透明浅绿底 + 亮绿字，保证 AA（亮色已用 --ok-soft + #147a53） */
+  [data-theme="dark"] .badge.ok{ background:rgba(45,212,160,.15); color:var(--ok); }
   [data-theme="dark"] .sp-node{ border-color:var(--line); color:var(--muted); }
   [data-theme="dark"] .sp-node.done{ border-color:var(--pri); color:var(--white); }
   [data-theme="dark"] .sp-node.cur{ border-color:var(--pri); color:var(--pri-ink); }
@@ -281,7 +285,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   /* P3-9：全站缺 tabular-nums。30s 轮询会重绘统计卡，普通比例数字宽度随值变化 → 数字左右抖动。
      数字类元素统一等宽数字。半像素字号（11.5/12.5/13.5）保留不动 —— 收敛会改变现有视觉密度，风险大于收益。 */
   .stat .n,.pg-info,.badge,.rot-no,.lb-item b,td .dot+span,.w-showhidden{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";}
-  .badge.ok{background:rgba(34,176,125,.12);color:var(--ok);font-weight:700;}
+  .badge.ok{background:var(--ok-soft);color:#147a53;font-weight:700;}
   .badge.badge-overdue{background:rgba(239,68,68,.16);color:var(--danger);font-weight:700;}
   .badge.badge-duesoon{background:rgba(245,166,35,.18);color:#c4760a;font-weight:700;}
   /* 代寄「状态」列只 8%，长状态（如"对方已收·我方进行中"）会溢出到邻列；允换行 + 限宽，pill 自然变高一行 */
