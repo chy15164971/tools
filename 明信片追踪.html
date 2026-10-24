@@ -359,11 +359,16 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:6px;}
   .hint{font-size:12px;color:var(--sub);margin-top:4px;}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0;}
-  .toast{position:fixed;left:50%;max-width:min(92vw,460px);text-align:center;bottom:calc(24px + env(safe-area-inset-bottom,0px) + var(--kb,0px));   /* P2-13：原先无 max-width，62 字的配额警告两端溢出屏幕 */ /* M-13：补底部手势条安全区 */transform:translateX(-50%) translateY(16px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:11px;font-size:13.5px;opacity:0;transition:opacity .25s, transform .25s;z-index:120;pointer-events:none;}
+  .toast{position:fixed;left:50%;max-width:min(92vw,460px);text-align:center;bottom:calc(24px + env(safe-area-inset-bottom,0px) + var(--kb,0px));   /* P2-13：原先无 max-width，62 字的配额警告两端溢出屏幕 */ /* M-13：补底部手势条安全区 */transform:translateX(-50%) translateY(16px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:11px;font-size:13.5px;opacity:0;transition:opacity .25s, transform .25s;z-index:120;pointer-events:none;display:flex;align-items:center;gap:12px;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   .toast.success{background:var(--ok);color:var(--white);}
   .toast.danger{background:var(--danger);color:var(--white);}
   .toast.warn{background:var(--warn);color:var(--ink-strong);}
+  /* 批 A（2026-10-24）：撤销按钮——容器 pointer-events:none 会连带屏蔽，须显式放开；此前两页共用的 toast() 注入了该按钮但本页缺样式 → 按钮不可点（高-1）。与任务台 .toast-undo 对齐。 */
+  .toast-undo{pointer-events:auto;flex:none;background:rgba(255,255,255,.22);border:0;color:inherit;font:inherit;font-weight:600;padding:5px 12px;border-radius:8px;cursor:pointer;min-height:30px;}
+  .toast-undo:hover{background:rgba(255,255,255,.34);}
+  .toast-undo:focus-visible{outline:2px solid var(--white);outline-offset:2px;}
+  .toast-msg{min-width:0;flex:1;}
   /*  云同步防重入：请求飞行期间的忙态指示（spinner 用纯 CSS border 实现，零依赖、离线可用） */
   @keyframes wbspin{to{transform:rotate(360deg)}}
   .btn.is-busy{opacity:.65;cursor:progress;}
@@ -1842,7 +1847,9 @@ function emptyState(icon, text, sub, actionHtml){
     return all.length?all[all.length-1]:null;
   }
   function fmap(el){
-    return Array.prototype.slice.call(el.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'));
+    // 批 A（2026-10-24）：过滤 display:none 元素（如 confirmMask 内常驻隐藏的 confirmExtra），否则首焦点落到隐藏元素导致 focus() 静默失败。
+    var raw=Array.prototype.slice.call(el.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'));
+    return raw.filter(function(x){ return x.offsetParent!==null; });
   }
   var obs=new MutationObserver(function(muts){
     muts.forEach(function(m){

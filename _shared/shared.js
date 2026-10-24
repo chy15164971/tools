@@ -412,7 +412,9 @@ function emptyState(icon, text, sub, actionHtml){
     return all.length?all[all.length-1]:null;
   }
   function fmap(el){
-    return Array.prototype.slice.call(el.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'));
+    // 批 A（2026-10-24）：过滤 display:none 元素（如 confirmMask 内常驻隐藏的 confirmExtra），否则首焦点落到隐藏元素导致 focus() 静默失败。
+    var raw=Array.prototype.slice.call(el.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'));
+    return raw.filter(function(x){ return x.offsetParent!==null; });
   }
   var obs=new MutationObserver(function(muts){
     muts.forEach(function(m){

@@ -3083,7 +3083,9 @@ function emptyState(icon, text, sub, actionHtml){
     return all.length?all[all.length-1]:null;
   }
   function fmap(el){
-    return Array.prototype.slice.call(el.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'));
+    // 批 A（2026-10-24）：过滤 display:none 元素（如 confirmMask 内常驻隐藏的 confirmExtra），否则首焦点落到隐藏元素导致 focus() 静默失败。
+    var raw=Array.prototype.slice.call(el.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'));
+    return raw.filter(function(x){ return x.offsetParent!==null; });
   }
   var obs=new MutationObserver(function(muts){
     muts.forEach(function(m){
@@ -9725,7 +9727,7 @@ function bindAnnivModalOnce(){
   const m=document.getElementById("annivMask"); if(m) m.addEventListener("click", e=>{ if(e.target.id==="annivMask") closeAnnivModal(); });
   const da=document.getElementById("aDate"); if(da) da.addEventListener("input", updateAnnivLunar);
   const ca=document.getElementById("aCal"); if(ca) ca.addEventListener("change", updateAnnivLunar);
-  window.addEventListener("keydown", e=>{ if(e.key==="Escape"){ const mm=document.getElementById("annivMask"); if(mm&&mm.classList.contains("show")) closeAnnivModal(); } });
+  window.addEventListener("keydown", e=>{ if(e.key==="Escape"){ if(document.getElementById("confirmMask")&&document.getElementById("confirmMask").classList.contains("show")) return; const mm=document.getElementById("annivMask"); if(mm&&mm.classList.contains("show")) closeAnnivModal(); } });
 }
 
 function openAnnivModal(id){
@@ -11412,7 +11414,7 @@ const AUTO_WIDS=["today","habit","list"];
 let dragWid=null, dragDropBefore=false;
 /* 点击菜单之外的任意处 / Esc 关闭菜单（只注册一次） */
 document.addEventListener("click",function(e){ if(!(e.target&&e.target.closest&&e.target.closest(".w-more-wrap"))) closeWMenus(); });
-document.addEventListener("keydown",function(e){ if(e.key==="Escape") closeWMenus(); });
+document.addEventListener("keydown",function(e){ if(e.key==="Escape"){ if(document.getElementById("confirmMask")&&document.getElementById("confirmMask").classList.contains("show")) return; closeWMenus(); } });
 
 let editingWid=null;
 /* ===== 功能卡（自动统计）预设 ===== */
@@ -11437,7 +11439,7 @@ document.getElementById("batchPropsMask").addEventListener("click", e=>{ if(e.ta
 document.getElementById("btnShowHidden").onclick=showHidden;
 document.getElementById("wType").onchange=e=>toggleWRows(e.target.value);
 { const wm=document.getElementById("widgetMask"); wm.onclick=e=>{ if(e.target===wm) closeWidgetModal(); }; }
-document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ const wm=document.getElementById("widgetMask"); if(wm.classList.contains("show")) closeWidgetModal(); } });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ if(document.getElementById("confirmMask")&&document.getElementById("confirmMask").classList.contains("show")) return; const wm=document.getElementById("widgetMask"); if(wm.classList.contains("show")) closeWidgetModal(); } });
 applyWidgetLayout();
 
 /* ===== 渲染：今天要处理 ===== */
@@ -12081,6 +12083,7 @@ document.getElementById("recoverScan").onclick=()=>runGistScan({});
 { const mr=document.getElementById("recoverMask"); if(mr) mr.addEventListener("click", e=>{ if(e.target===mr) closeRecoverModal(); }); }
 // 媒体进度看板弹窗：点遮罩不关闭，避免误触丢失未保存内容（关闭请用「取消 / 保存 / 删除」按钮，Esc 关闭会先确认）
 document.addEventListener("keydown",async e=>{ if(e.key!=="Escape") return;
+  if(document.getElementById("confirmMask")&&document.getElementById("confirmMask").classList.contains("show")) return; // 确认框打开时交给 confirmDialog 自身处理，避免叠加（审查高-2 三件套）
   // 「更多」菜单（桌面下拉 / 移动 Sheet）优先于其它弹窗关闭
   if(document.getElementById("topMenu").classList.contains("show")){ if(window.__closeTopMenu) window.__closeTopMenu(); return; }
   const taskOpen=document.getElementById("mask").classList.contains("show");
@@ -12194,7 +12197,7 @@ document.getElementById("okrDelete").onclick=okrDelete;
 
 /* ===== 键盘快捷键 ===== */
 document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"){ const ms=["helpMask","okrMask","projMask"]; for(const id of ms){ const m=document.getElementById(id); if(m&&m.classList.contains("show")) m.classList.remove("show"); } return; }
+  if(e.key==="Escape"){ if(document.getElementById("confirmMask")&&document.getElementById("confirmMask").classList.contains("show")) return; const ms=["helpMask","okrMask","projMask"]; for(const id of ms){ const m=document.getElementById(id); if(m&&m.classList.contains("show")) m.classList.remove("show"); } return; }
   if(inField() || e.ctrlKey || e.metaKey || e.altKey) return;
   /* P1-12：弹窗打开时屏蔽全局快捷键。此前只看 inField()，焦点落在弹窗内**按钮**上时 inField() 为 false，
      按 N 会 openModal(null,null) 静默丢弃当前编辑（脏检查拦不住，它只挂在 Esc/遮罩路径）；
@@ -12467,36 +12470,6 @@ if(_ob){ _ob.addEventListener("click", toggleTopOverview); _ob.addEventListener(
     clearTimeout(_t);
     _t=setTimeout(function(){ fitBarLabels(document.getElementById("view")); }, 160);
   });
-})();
-/*  焦点陷阱：弹窗(.mask/[role=dialog])打开时 Tab 焦点锁定在弹窗内，关闭后焦点回归触发元素 */
-(function(){
-  const F='a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
-  function currentModal(){ return Array.from(document.querySelectorAll('.mask,[role="dialog"]')).find(e=>e.classList.contains('show')); }
-  let lastTrigger=null;
-  const obs=new MutationObserver(muts=>{
-    muts.forEach(m=>{
-      if(m.attributeName!=='class') return;
-      const el=m.target, now=el.classList.contains('show'), was=el.__trapOpen;
-      el.__trapOpen=now;
-      if(now && !was){
-        lastTrigger=document.activeElement;
-        requestAnimationFrame(()=>{ const f=el.querySelectorAll(F); if(f.length) f[0].focus(); else { el.setAttribute('tabindex','-1'); el.focus(); } });
-      } else if(!now && was){
-        if(lastTrigger && lastTrigger.focus){ try{ lastTrigger.focus(); }catch(e){} }
-        lastTrigger=null;
-      }
-    });
-  });
-  document.querySelectorAll('.mask,[role="dialog"]').forEach(el=>{ el.__trapOpen=el.classList.contains('show'); obs.observe(el,{attributes:true,attributeFilter:['class']}); });
-  document.addEventListener('keydown',e=>{
-    if(e.key!=='Tab' || e.target.tagName==='TEXTAREA') return;
-    const m=currentModal(); if(!m) return;
-    const f=Array.from(m.querySelectorAll(F)).filter(x=>x.offsetParent!==null);
-    if(!f.length) return;
-    const first=f[0], last=f[f.length-1];
-    if(e.shiftKey){ if(document.activeElement===first || !m.contains(document.activeElement)){ e.preventDefault(); last.focus(); } }
-    else { if(document.activeElement===last || !m.contains(document.activeElement)){ e.preventDefault(); first.focus(); } }
-  }, true);
 })();
 
 /* ===== 无障碍增强（D4 B+）：N1 弹窗补 dialog 语义 + N3 tablist 方向键 ===== */
