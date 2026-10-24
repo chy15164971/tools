@@ -1635,6 +1635,7 @@
   .qa-input{min-height:44px;font-size:16px;padding:10px 12px;}   /* C-5 iOS 聚焦缩放兜底 + 44px 触控 */
   .tp-bar{height:7px;}   /* 细条在手机上不易辨认，加高到 7px */
   .today-act{width:40px;height:40px;min-height:40px;min-width:40px;font-size:16px;}
+  .toast-undo{min-height:44px;padding:5px 14px;}   /* 低-5：撤销按钮触控靶 30→44px（此前 30px 且未进任何触控档，移动端难点） */
 }
 
 /* [30/33] (max-width:860px) */
@@ -3674,6 +3675,27 @@ function importJSON(file){
     }catch(e){ toast("文件格式错误"); }
   };
   r.readAsText(file);
+}
+
+/* 中-11：collectCfg/applyCfg 从 L6 迁至 L2（Store）。原 L2 的 importJSON/exportJSON 调用 applyCfg 构成 L2→L6 逆向依赖，迁 L2 后消解；collectCfg 为纯 localStorage+白名单读取，本就属 L2。applyCfg 整体迁移（内含主题/UI 刷新行保持原样），零行为变化。 */
+function collectCfg(){
+  const c={};
+  CFG_KEYS.forEach(k=>{ try{ const v=localStorage.getItem(k); if(v!==null&&v!==undefined) c[k]=v; }catch(e){} });
+  return c;
+}
+
+// 把云端/备份的 cfg 落到本地。先写 localStorage，再即时刷新有常驻内存副本的项（其余下次启动读取时自然生效）。
+function applyCfg(c){
+  if(!c||typeof c!=="object") return;
+  Object.keys(c).forEach(k=>{
+    if(!CFG_KEY_SET.has(k)) return;   // 白名单外的键一律丢弃（云端数据不可信）
+    try{ const v=c[k]; if(typeof v==="string"||typeof v==="number"||typeof v==="boolean") localStorage.setItem(k,String(v)); }catch(e){}
+  });
+  try{ if(c["wb_theme_v1"]){ document.documentElement.dataset.theme=c["wb_theme_v1"]; if(typeof updateThemeBtn==="function") updateThemeBtn(); } }catch(e){}
+  try{ if(c["wb_taskhub_ui_v1"]){ const _o=JSON.parse(c["wb_taskhub_ui_v1"]); if(_o&&_o.collapsed) uiPrefs.collapsed=Object.assign({top:false,habit:false,list:false},_o.collapsed); if(_o.touched!==undefined) uiPrefs.touched=!!_o.touched; if(_o.topOpen!==undefined) uiPrefs.topOpen=!!_o.topOpen; } }catch(e){}
+  try{ if(c[WKEY]){ const w=JSON.parse(c[WKEY]); if(w&&typeof w==="object"){ widgetCfg=Object.assign({order:[],hidden:[],custom:[]},w); if(typeof applyWidgetLayout==="function") applyWidgetLayout(); } } }catch(e){}
+  try{ if(c["wb_taskhub_habit_style_v1"] && typeof applyHabitStyle==="function") applyHabitStyle(); }catch(e){}
+  try{ if(c["wb_taskhub_remind_v1"] && typeof loadRemind==="function") loadRemind(); }catch(e){}
 }
 
 function mediaSave(){ storageSetSafe(MEDIA_KEY, JSON.stringify(media)); markLocalSave(); cloudAutoUpload(); }
@@ -9507,7 +9529,7 @@ function selCheckHTML(id, cls){
    2026-10-19 审查补回：fdc6c7c 引入、9976228「删死代码4薄封装」误删定义 → 11 处调用悬空
    （删除/批量/顺延后无 toast 反馈，handler 抛 ReferenceError 中断，主回归 runner 崩溃）。放在 SHARED 块外，注入器不覆盖。 */
 // ⚠️ 防呆：与明信片页 toastUndo 同名不同义（本页 (msg,kind) / 对方 (msg,ms,saveFailed)），勿互抄
-function toastUndo(msg, kind){ toast(msg, kind, 0, function(){ try{ undo(); }catch(e){ toast("撤销失败"); } }); }
+function toastUndo(msg, kind){ toast(msg, kind, CFG_UNDO_TOAST_MS, function(){ try{ undo(); }catch(e){ toast("撤销失败"); } }); }   // 中-6：删除类撤销窗统一为 8000ms（此前 ms=0 走 shared 缺省 4800），跨页一致
 
 function applyTheme(t){ document.documentElement.dataset.theme=t; try{ localStorage.setItem(THEME_KEY,t); }catch(e){} }
 
@@ -10690,25 +10712,7 @@ function closeDataModal(){
   m.classList.remove("show");
 }
 
-function collectCfg(){
-  const c={};
-  CFG_KEYS.forEach(k=>{ try{ const v=localStorage.getItem(k); if(v!==null&&v!==undefined) c[k]=v; }catch(e){} });
-  return c;
-}
-
-// 把云端/备份的 cfg 落到本地。先写 localStorage，再即时刷新有常驻内存副本的项（其余下次启动读取时自然生效）。
-function applyCfg(c){
-  if(!c||typeof c!=="object") return;
-  Object.keys(c).forEach(k=>{
-    if(!CFG_KEY_SET.has(k)) return;   // 白名单外的键一律丢弃（云端数据不可信）
-    try{ const v=c[k]; if(typeof v==="string"||typeof v==="number"||typeof v==="boolean") localStorage.setItem(k,String(v)); }catch(e){}
-  });
-  try{ if(c["wb_theme_v1"]){ document.documentElement.dataset.theme=c["wb_theme_v1"]; if(typeof updateThemeBtn==="function") updateThemeBtn(); } }catch(e){}
-  try{ if(c["wb_taskhub_ui_v1"]){ const _o=JSON.parse(c["wb_taskhub_ui_v1"]); if(_o&&_o.collapsed) uiPrefs.collapsed=Object.assign({top:false,habit:false,list:false},_o.collapsed); if(_o.touched!==undefined) uiPrefs.touched=!!_o.touched; if(_o.topOpen!==undefined) uiPrefs.topOpen=!!_o.topOpen; } }catch(e){}
-  try{ if(c[WKEY]){ const w=JSON.parse(c[WKEY]); if(w&&typeof w==="object"){ widgetCfg=Object.assign({order:[],hidden:[],custom:[]},w); if(typeof applyWidgetLayout==="function") applyWidgetLayout(); } } }catch(e){}
-  try{ if(c["wb_taskhub_habit_style_v1"] && typeof applyHabitStyle==="function") applyHabitStyle(); }catch(e){}
-  try{ if(c["wb_taskhub_remind_v1"] && typeof loadRemind==="function") loadRemind(); }catch(e){}
-}
+// （中-11：collectCfg/applyCfg 已迁至 L2，紧邻 exportJSON/importJSON）
 
 // ⚠️ 防呆：与明信片页 syncPayload 同名不同义（payload 结构完全不同），勿互抄
 function syncPayload(){ return {tasks:state.tasks, media, habits, cats, pris, lists, tagTree, projects:state.projects, okrs:state.okrs, anniv:state.anniv, deleted:deletedIds, cfg:collectCfg(), savedAt:Date.now()}; }   // R8：stats(完成流水缓存)不上云 —— 权威口径=任务 doneDates，可本地重建，避免每包 5000 条冗余

@@ -284,7 +284,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;}
   /* P3-9：全站缺 tabular-nums。30s 轮询会重绘统计卡，普通比例数字宽度随值变化 → 数字左右抖动。
      数字类元素统一等宽数字。半像素字号（11.5/12.5/13.5）保留不动 —— 收敛会改变现有视觉密度，风险大于收益。 */
-  .stat .n,.pg-info,.badge,.rot-no,.lb-item b,td .dot+span,.w-showhidden{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";}
+  .stat .n,.pg-info,.badge,.rot-no,.lb-item b,td .dot+span,.w-showhidden,td[data-label*="日"],td[data-label*="天数"]{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";}   /* 低-2：寄出日/到达日/收到日/在途天数/往返天数数字列宽稳定 */
   .badge.ok{background:var(--ok-soft);color:#147a53;font-weight:700;}
   .badge.badge-overdue{background:rgba(239,68,68,.16);color:var(--danger);font-weight:700;}
   .badge.badge-duesoon{background:rgba(245,166,35,.18);color:#c4760a;font-weight:700;}
