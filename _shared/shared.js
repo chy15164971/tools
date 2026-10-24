@@ -84,7 +84,11 @@ function pgBar(total,key,onGo){
     if(i===1||i===pages||Math.abs(i-p)<=2){ nums+=btn("go:"+i,String(i),false,i===p); }
     else if(nums.slice(-20).indexOf("…")<0){ nums+=`<span class="pgdots">…</span>`; }
   }
-  return `<div class="pager"><span class="pg-info">第 ${from}–${to} 条 / 共 ${n} 条</span><span class="pg-nums">${btn("prev","‹",p<=1,false)}${nums}${btn("next","›",p>=pages,false)}</span></div>`;
+  /* 低-6（2026-10-24）：prev/next 为纯字形按钮，无可见可读名；补 aria-label 让读屏可辨识。
+     页码按钮本身带数字文本，无需 aria-label，故只特例 prev/next。data-pg 保留 prev/next 供 pgBind 识别。 */
+  const prevBtn=`<button type="button" class="pgbtn" data-pg="prev" data-pgk="${key}" aria-label="上一页"${p<=1?" disabled":""}>‹</button>`;
+  const nextBtn=`<button type="button" class="pgbtn" data-pg="next" data-pgk="${key}" aria-label="下一页"${p>=pages?" disabled":""}>›</button>`;
+  return `<div class="pager"><span class="pg-info">第 ${from}–${to} 条 / 共 ${n} 条</span><span class="pg-nums">${prevBtn}${nums}${nextBtn}</span></div>`;
 }
 
 function pgBind(){
@@ -290,6 +294,22 @@ function bindTablistKeys(){
   });
 }
 
+/* N1 弹窗补 dialog 语义（审查 中-7 / 低-9 下沉：原两文件各抄一份，现已单一事实源）。
+   弹窗缺 role/aria-modal 时，读屏读不出「弹窗已打开」及其边界；用标题作可读名。
+   幂等：重复调用安全；annivMask/introMask 等已在 HTML 内联 role，无需补。同时统一接管 N3 tablist 键盘导航。 */
+function enhanceDialogA11y(){
+  document.querySelectorAll(".mask").forEach(function(m,i){
+    if(!m.getAttribute("role")) m.setAttribute("role","dialog");
+    if(!m.getAttribute("aria-modal")) m.setAttribute("aria-modal","true");
+    if(m.getAttribute("aria-labelledby")||m.getAttribute("aria-label")) return;
+    var h=m.querySelector(".modal h2, .modal h3, .w-modal h2, .w-modal h3, h2, h3");
+    if(!h) return;
+    if(!h.id) h.id="dlgTitle"+(i+1);
+    m.setAttribute("aria-labelledby",h.id);   // 用 id 关联，标题文案动态变化也能跟上
+  });
+  bindTablistKeys();
+}
+
 /* ============================================================================
  * 通用弹窗（审查 C1/R1：统一底座，消除「同名分叉」）
  * ----------------------------------------------------------------------------
@@ -450,3 +470,50 @@ function emptyState(icon, text, sub, actionHtml){
  *     扫描确认两文件引用数 / 调用数 / HTML 内联 / window[] 引用皆为 0。
  *     需要图标化时请显式写 iconify(esc(x))，勿再引用 escIcon 这个名字。 */
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+/* ============================================================================
+ * 云同步层（审查 中-9 下沉：markSynced / withBusy / pushTomb 单一事实源）
+ * ----------------------------------------------------------------------------
+ * 此前两文件各实现一份，已分叉。现收敛为：
+ *   · markSynced —— 两文件逐字节一致，直接抽；
+ *   · withBusy   —— 函数体两文件一致，取统一版（注释合并，见下方 R4 说明）；
+ *   · pushTomb   —— 取任务台版（findIndex 兼容「墓碑条目为旧格式纯字符串」）。
+ * 依赖（两文件均有）：window.__lastSyncAt / cloudPill / toast / _cloudBusy /
+ *   _pullBusy / _pendingUpload / cloudAutoUpload / deletedIds / TOMB_MAX。
+ * ==========================================================================*/
+
+function markSynced(){
+  try{
+    window.__lastSyncAt=Date.now();
+    const el=document.getElementById("cloudPill");
+    if(el) el.title="最后同步 "+new Date(window.__lastSyncAt).toLocaleTimeString();
+  }catch(_){}
+}
+
+/* R4：withBusy 退化为「纯 UI 反馈 + 收尾补传」，**不再自己置 _cloudBusy**。
+   原实现它既置锁、又由被它包裹的 cloudPull/cloudUpload 各自置锁（现在锁已下沉到这两个函数内部），
+   两者叠加会让手动「立即同步」在进入 fn 的第一行就被自己的锁挡掉 → 点按钮没反应。
+   锁的唯一责任现在在 cloudUpload/_cloudPull 内部，withBusy 只管按钮的转圈与恢复。
+   ⚠️ 本注释必须放在 async **之前**。若写成「async + 换行注释 + function f(){}」，解析器会把 async 当成标签语句、
+      后面的 function 声明为普通函数，于是函数体里的 await 报"await is only valid in async functions"；
+      而单文件语法检查（把整块存成 .js 再 check）走的是脚本模式，查不出这个差异 —— 必须用 new Function 整块解析。 */
+async function withBusy(btn, fn){
+  if(_cloudBusy||_pullBusy){ toast("云同步正在进行中，请稍候","warn"); return; }
+  const b=(typeof btn==="string"?document.getElementById(btn):btn);
+  if(b){ try{ b.disabled=true; b.classList.add("is-busy"); b.setAttribute("aria-busy","true"); }catch(_){} }
+  try{ return await fn(); }
+  finally{
+    if(b){ try{ b.disabled=false; b.classList.remove("is-busy"); b.removeAttribute("aria-busy"); }catch(_){} }
+    /* 补传：这一轮同步期间产生的改动（被自锁挡下、置了 _pendingUpload）此刻补上，
+       否则用户改动会永远滞留在本地。手动同步与自动同步两条路径都要覆盖，故放在这里统一收尾。 */
+    if(_pendingUpload){ _pendingUpload=false; cloudAutoUpload(); }
+  }
+}
+
+/* 删除墓碑：让删除能跨设备传播（拉取时按 id 过滤已删条目）。
+   取任务台版 —— findIndex 用 d&&(d.id||d)===s 兼容「墓碑条目为旧格式纯字符串 s」，
+   明信片版 d.id===s 对旧格式会漏判（旧设备遗留数据可能仍是纯字符串）。
+   G15（2026-10-23 复核结论：现有「覆盖为新 ts」是正确语义，不改代码只留分析）：每个调用点都伴随
+   该记录当次真实移除，刷新 ts 让「最新删除意图」胜出；若不刷新而保留旧 ts，反而会出现「记录 updatedAt
+   晚于旧墓碑 → 合并复活」的反向漏洞。移动墓碑（记录数组间转移）的隐患已由 convertRecord touch 根治。 */
+function pushTomb(id){ const s=String(id||""); if(!s) return; const i=deletedIds.findIndex(d=>d&&(d.id||d)===s); const t={id:s, ts:Date.now()}; if(i>=0) deletedIds[i]=t; else deletedIds.push(t); if(deletedIds.length>TOMB_MAX) deletedIds=deletedIds.slice(-TOMB_MAX); }

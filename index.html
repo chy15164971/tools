@@ -2755,7 +2755,11 @@ function pgBar(total,key,onGo){
     if(i===1||i===pages||Math.abs(i-p)<=2){ nums+=btn("go:"+i,String(i),false,i===p); }
     else if(nums.slice(-20).indexOf("…")<0){ nums+=`<span class="pgdots">…</span>`; }
   }
-  return `<div class="pager"><span class="pg-info">第 ${from}–${to} 条 / 共 ${n} 条</span><span class="pg-nums">${btn("prev","‹",p<=1,false)}${nums}${btn("next","›",p>=pages,false)}</span></div>`;
+  /* 低-6（2026-10-24）：prev/next 为纯字形按钮，无可见可读名；补 aria-label 让读屏可辨识。
+     页码按钮本身带数字文本，无需 aria-label，故只特例 prev/next。data-pg 保留 prev/next 供 pgBind 识别。 */
+  const prevBtn=`<button type="button" class="pgbtn" data-pg="prev" data-pgk="${key}" aria-label="上一页"${p<=1?" disabled":""}>‹</button>`;
+  const nextBtn=`<button type="button" class="pgbtn" data-pg="next" data-pgk="${key}" aria-label="下一页"${p>=pages?" disabled":""}>›</button>`;
+  return `<div class="pager"><span class="pg-info">第 ${from}–${to} 条 / 共 ${n} 条</span><span class="pg-nums">${prevBtn}${nums}${nextBtn}</span></div>`;
 }
 
 function pgBind(){
@@ -2961,6 +2965,22 @@ function bindTablistKeys(){
   });
 }
 
+/* N1 弹窗补 dialog 语义（审查 中-7 / 低-9 下沉：原两文件各抄一份，现已单一事实源）。
+   弹窗缺 role/aria-modal 时，读屏读不出「弹窗已打开」及其边界；用标题作可读名。
+   幂等：重复调用安全；annivMask/introMask 等已在 HTML 内联 role，无需补。同时统一接管 N3 tablist 键盘导航。 */
+function enhanceDialogA11y(){
+  document.querySelectorAll(".mask").forEach(function(m,i){
+    if(!m.getAttribute("role")) m.setAttribute("role","dialog");
+    if(!m.getAttribute("aria-modal")) m.setAttribute("aria-modal","true");
+    if(m.getAttribute("aria-labelledby")||m.getAttribute("aria-label")) return;
+    var h=m.querySelector(".modal h2, .modal h3, .w-modal h2, .w-modal h3, h2, h3");
+    if(!h) return;
+    if(!h.id) h.id="dlgTitle"+(i+1);
+    m.setAttribute("aria-labelledby",h.id);   // 用 id 关联，标题文案动态变化也能跟上
+  });
+  bindTablistKeys();
+}
+
 /* ============================================================================
  * 通用弹窗（审查 C1/R1：统一底座，消除「同名分叉」）
  * ----------------------------------------------------------------------------
@@ -3121,6 +3141,53 @@ function emptyState(icon, text, sub, actionHtml){
  *     扫描确认两文件引用数 / 调用数 / HTML 内联 / window[] 引用皆为 0。
  *     需要图标化时请显式写 iconify(esc(x))，勿再引用 escIcon 这个名字。 */
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+/* ============================================================================
+ * 云同步层（审查 中-9 下沉：markSynced / withBusy / pushTomb 单一事实源）
+ * ----------------------------------------------------------------------------
+ * 此前两文件各实现一份，已分叉。现收敛为：
+ *   · markSynced —— 两文件逐字节一致，直接抽；
+ *   · withBusy   —— 函数体两文件一致，取统一版（注释合并，见下方 R4 说明）；
+ *   · pushTomb   —— 取任务台版（findIndex 兼容「墓碑条目为旧格式纯字符串」）。
+ * 依赖（两文件均有）：window.__lastSyncAt / cloudPill / toast / _cloudBusy /
+ *   _pullBusy / _pendingUpload / cloudAutoUpload / deletedIds / TOMB_MAX。
+ * ==========================================================================*/
+
+function markSynced(){
+  try{
+    window.__lastSyncAt=Date.now();
+    const el=document.getElementById("cloudPill");
+    if(el) el.title="最后同步 "+new Date(window.__lastSyncAt).toLocaleTimeString();
+  }catch(_){}
+}
+
+/* R4：withBusy 退化为「纯 UI 反馈 + 收尾补传」，**不再自己置 _cloudBusy**。
+   原实现它既置锁、又由被它包裹的 cloudPull/cloudUpload 各自置锁（现在锁已下沉到这两个函数内部），
+   两者叠加会让手动「立即同步」在进入 fn 的第一行就被自己的锁挡掉 → 点按钮没反应。
+   锁的唯一责任现在在 cloudUpload/_cloudPull 内部，withBusy 只管按钮的转圈与恢复。
+   ⚠️ 本注释必须放在 async **之前**。若写成「async + 换行注释 + function f(){}」，解析器会把 async 当成标签语句、
+      后面的 function 声明为普通函数，于是函数体里的 await 报"await is only valid in async functions"；
+      而单文件语法检查（把整块存成 .js 再 check）走的是脚本模式，查不出这个差异 —— 必须用 new Function 整块解析。 */
+async function withBusy(btn, fn){
+  if(_cloudBusy||_pullBusy){ toast("云同步正在进行中，请稍候","warn"); return; }
+  const b=(typeof btn==="string"?document.getElementById(btn):btn);
+  if(b){ try{ b.disabled=true; b.classList.add("is-busy"); b.setAttribute("aria-busy","true"); }catch(_){} }
+  try{ return await fn(); }
+  finally{
+    if(b){ try{ b.disabled=false; b.classList.remove("is-busy"); b.removeAttribute("aria-busy"); }catch(_){} }
+    /* 补传：这一轮同步期间产生的改动（被自锁挡下、置了 _pendingUpload）此刻补上，
+       否则用户改动会永远滞留在本地。手动同步与自动同步两条路径都要覆盖，故放在这里统一收尾。 */
+    if(_pendingUpload){ _pendingUpload=false; cloudAutoUpload(); }
+  }
+}
+
+/* 删除墓碑：让删除能跨设备传播（拉取时按 id 过滤已删条目）。
+   取任务台版 —— findIndex 用 d&&(d.id||d)===s 兼容「墓碑条目为旧格式纯字符串 s」，
+   明信片版 d.id===s 对旧格式会漏判（旧设备遗留数据可能仍是纯字符串）。
+   G15（2026-10-23 复核结论：现有「覆盖为新 ts」是正确语义，不改代码只留分析）：每个调用点都伴随
+   该记录当次真实移除，刷新 ts 让「最新删除意图」胜出；若不刷新而保留旧 ts，反而会出现「记录 updatedAt
+   晚于旧墓碑 → 合并复活」的反向漏洞。移动墓碑（记录数组间转移）的隐患已由 convertRecord touch 根治。 */
+function pushTomb(id){ const s=String(id||""); if(!s) return; const i=deletedIds.findIndex(d=>d&&(d.id||d)===s); const t={id:s, ts:Date.now()}; if(i>=0) deletedIds[i]=t; else deletedIds.push(t); if(deletedIds.length>TOMB_MAX) deletedIds=deletedIds.slice(-TOMB_MAX); }
 /* <<< SHARED:END */
 
 /* ===== 分层地图 · P1-9 分层（2026-10-23）=====
@@ -3201,20 +3268,6 @@ function schemaVersionNow(){ try{ return +localStorage.getItem(SCHEMA_KEY)||1; }
 
 function escNoIcon(s){return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}   // 仅转义 HTML，不转 SVG 图标：清单图标统一按原生 emoji 渲染，避免「命中 iconify 映射表的 emoji 变小灰图标、其余保持彩色」导致风格不一致
 
-/* R4 移植（对齐明信片 4316）：withBusy 退化为「纯 UI 反馈 + 收尾补传」，**不再自己置 _cloudBusy** ——
-   锁已下沉到 cloudUpload / cloudStartupPull / cloudDownload 内部。原先两层都置锁，被包裹的
-   cloudUpload 自锁化后会在第一行被 withBusy 的锁挡掉（手动上传点按钮没反应）。 */
-async function withBusy(btn, fn){
-  if(_cloudBusy||_pullBusy){ toast("云同步正在进行中，请稍候","warn"); return; }
-  const b=(typeof btn==="string"?document.getElementById(btn):btn);
-  if(b){ try{ b.disabled=true; b.classList.add("is-busy"); b.setAttribute("aria-busy","true"); }catch(_){} }
-  try{ return await fn(); }
-  finally{
-    if(b){ try{ b.disabled=false; b.classList.remove("is-busy"); b.removeAttribute("aria-busy"); }catch(_){} }
-    /* 补传：这一轮同步期间被自锁挡下、置了 _pendingUpload 的改动，此刻补上（对齐明信片 4334） */
-    if(_pendingUpload){ _pendingUpload=false; cloudAutoUpload(); }
-  }
-}
 
 function parseDateVal(v){
   if(!v) return null;
@@ -4076,8 +4129,6 @@ function pruneTaskHistory(){
     return n;
   }catch(e){ return 0; }
 }
-
-function pushTomb(id){ const s=String(id||""); if(!s) return; const i=deletedIds.findIndex(d=>d&&(d.id||d)===s); const t={id:s, ts:Date.now()}; if(i>=0) deletedIds[i]=t; else deletedIds.push(t); if(deletedIds.length>TOMB_MAX) deletedIds=deletedIds.slice(-TOMB_MAX); }
 
 function pushKindTomb(kind,id){
   const p=TOMB_NS[kind]; const s=String(id||"");
@@ -5548,6 +5599,7 @@ function applyEditingDate(){
   const sdEl=document.getElementById("scopeDate"); if(sdEl) sdEl.textContent = sdTxt? "（"+sdTxt+"）" : "";
 }
 
+// ⚠️ 防呆：与明信片页 formSnapshot 同名不同义（本页 无参 / 对方 (ids)），勿互抄
 function formSnapshot(){
   const o={}; const g=id=>document.getElementById(id);
   FORM_TEXT_FIELDS.forEach(k=>{ const el=g(k); if(el) o[k]=String(el.value==null?"":el.value); });
@@ -6555,6 +6607,7 @@ function snapshotObj(){
   catch(e){ return {t:Date.now(),tasks:[],media:{books:[],tvs:[],auds:[]},habits:[],lists:[],tagTree:[],projects:[],okrs:[],anniv:[],deleted:[]}; }
 }
 
+// ⚠️ 防呆：与明信片页 snapshot 同名不同义（实现不同），勿互抄
 function snapshot(){
   try{
     // P2-5：版本号短路 —— 自上次快照以来没有任何保存路径触碰数据 ⇒ 与栈顶必然一致，
@@ -6870,6 +6923,7 @@ function cssInk(hex){
 }
 
 // 保留 value="" 的占位项（仅筛选栏有），其余按当前 cats/pris 重建
+// ⚠️ 防呆：与明信片页 fillSelect 同名不同义（本页 (sel,names) / 对方 (id,kind,val)），勿互抄
 function fillSelect(sel, names){
   if(!sel) return;
   const ph = sel.querySelector('option[value=""]');
@@ -6994,7 +7048,7 @@ function renderTrash(){
     return '<div class="ring-item"><div class="ring-info"><div class="ring-time">'+esc(t.title||"(无标题)")+'</div>'
       +'<div class="hint" style="margin:0">删除于 '+ringTimeStr(it.at)+(meta?" · "+esc(meta):"")+'</div></div>'
       +'<div style="display:flex;gap:6px;flex:none;"><button class="btn btn-pri btn-sm" type="button" data-trres="'+idx+'">恢复</button>'
-      +'<button class="btn btn-ghost btn-sm" type="button" data-trdel="'+idx+'" title="彻底删除">✕</button></div></div>';
+      +'<button class="btn btn-ghost btn-sm" type="button" aria-label="彻底删除" data-trdel="'+idx+'" title="彻底删除">✕</button></div></div>';
   }).join("");
   box.querySelectorAll("[data-trres]").forEach(b=>b.onclick=()=>restoreTrash(+b.dataset.trres));
   box.querySelectorAll("[data-trdel]").forEach(b=>b.onclick=()=>dropTrash(+b.dataset.trdel));
@@ -7024,7 +7078,7 @@ function annivRow(a){
     +'</div>'
     +'<div class="anniv-right"><div class="anniv-count'+(d===0?" anniv-today":"")+'">'+daysTxt+'</div>'
       +'<div class="anniv-acts"><button class="btn btn-ghost btn-sm" data-aedit="'+a.id+'">编辑</button>'
-      +'<button class="btn btn-ghost btn-sm" data-adel="'+a.id+'" title="删除">✕</button></div></div>'
+      +'<button class="btn btn-ghost btn-sm" aria-label="删除" data-adel="'+a.id+'" title="删除">✕</button></div></div>'
     +'</div>';
 }
 
@@ -9452,6 +9506,7 @@ function selCheckHTML(id, cls){
 /* 带「撤销」按钮的提示：语义与 Ctrl+Z 完全一致（弹栈顶快照还原），调用点须已在改数据前 snapshot()。
    2026-10-19 审查补回：fdc6c7c 引入、9976228「删死代码4薄封装」误删定义 → 11 处调用悬空
    （删除/批量/顺延后无 toast 反馈，handler 抛 ReferenceError 中断，主回归 runner 崩溃）。放在 SHARED 块外，注入器不覆盖。 */
+// ⚠️ 防呆：与明信片页 toastUndo 同名不同义（本页 (msg,kind) / 对方 (msg,ms,saveFailed)），勿互抄
 function toastUndo(msg, kind){ toast(msg, kind, 0, function(){ try{ undo(); }catch(e){ toast("撤销失败"); } }); }
 
 function applyTheme(t){ document.documentElement.dataset.theme=t; try{ localStorage.setItem(THEME_KEY,t); }catch(e){} }
@@ -10466,6 +10521,7 @@ function mediaAdoptCloud(incoming, cloudDeleted){
   };
 }
 
+// ⚠️ 防呆：与明信片页 openRecoverModal 同名不同义（本页 (opts) / 对方 无参），勿互抄
 async function openRecoverModal(opts){
   opts=opts||{};
   const mask=document.getElementById("recoverMask");
@@ -10654,6 +10710,7 @@ function applyCfg(c){
   try{ if(c["wb_taskhub_remind_v1"] && typeof loadRemind==="function") loadRemind(); }catch(e){}
 }
 
+// ⚠️ 防呆：与明信片页 syncPayload 同名不同义（payload 结构完全不同），勿互抄
 function syncPayload(){ return {tasks:state.tasks, media, habits, cats, pris, lists, tagTree, projects:state.projects, okrs:state.okrs, anniv:state.anniv, deleted:deletedIds, cfg:collectCfg(), savedAt:Date.now()}; }   // R8：stats(完成流水缓存)不上云 —— 权威口径=任务 doneDates，可本地重建，避免每包 5000 条冗余
 
 /* R4 移植（对齐明信片 4106）：自锁下沉到函数内部。原先锁只在 withBusy 里置起，
@@ -11051,14 +11108,6 @@ async function _cloudStartupPullInner(silent){
       if(_n-(window.__lastPullErrToast||0)>60000){ window.__lastPullErrToast=_n; toast("云同步失败："+_m+"（后台自动重试中）","danger"); }
     }catch(_){}
   }
-}
-
-function markSynced(){
-  try{
-    window.__lastSyncAt=Date.now();
-    const el=document.getElementById("cloudPill");
-    if(el) el.title="最后同步 "+new Date(window.__lastSyncAt).toLocaleTimeString();
-  }catch(_){}
 }
 
 async function cloudSilentPull(){
@@ -12472,21 +12521,8 @@ if(_ob){ _ob.addEventListener("click", toggleTopOverview); _ob.addEventListener(
   });
 })();
 
-/* ===== 无障碍增强（D4 B+）：N1 弹窗补 dialog 语义 + N3 tablist 方向键 ===== */
-(function(){
-  // N1：弹窗缺 role/aria-modal 时，读屏读不出「弹窗已打开」及其边界；用标题作可读名
-  document.querySelectorAll(".mask").forEach(function(m,i){
-    if(!m.getAttribute("role")) m.setAttribute("role","dialog");
-    if(!m.getAttribute("aria-modal")) m.setAttribute("aria-modal","true");
-    if(m.getAttribute("aria-labelledby")||m.getAttribute("aria-label")) return;
-    var h=m.querySelector(".modal h2, .modal h3, .w-modal h2, .w-modal h3, h2, h3");
-    if(!h) return;
-    if(!h.id) h.id="dlgTitle"+(i+1);
-    m.setAttribute("aria-labelledby",h.id);   // 用 id 关联，标题文案动态变化也能跟上
-  });
-  // N3：tablist 键盘导航（←/→ 切页签、Home/End 首末）
-  bindTablistKeys();
-})();
+/* 无障碍：弹窗 dialog 语义 + tablist 键盘导航（已下沉 shared 单一事实源，见 enhanceDialogA11y） */
+enhanceDialogA11y();
 </script>
 
 <!-- 「更多」菜单遮罩：移动端底部 Sheet 打开时铺满屏幕，点击关闭（桌面端由 CSS 隐藏） -->
