@@ -1703,6 +1703,21 @@
   body{background:#fff;color:#000;}
   .card,.panel,.mcard,.lcard{border:1px solid #999;box-shadow:none;}
 }
+
+/* ── 移动批1（2026-10-25）：触屏输入 ≥16px，防 iOS 聚焦自动放大 ──
+   iOS Safari 聚焦 <16px 的文本框/下拉/文本域会自动放大视口且不复位；
+   细指针（桌面）保持原 14px 设计字号，仅粗指针（触屏）抬升。
+   置于样式表末尾以同优先级压过前文 .fsearch/.fsel(14px)/.review-notes textarea(13px)。 */
+  @media (pointer:coarse){
+    .fsearch,.fsel,.review-notes textarea{font-size:16px;}
+  }
+
+/* ── 移动批2（2026-10-25）：主导航横滑右缘渐隐提示（仅 ≤860）──
+   #seg 内容恒超宽（≥747px），≤860 必横滑；右缘 26px 渐隐暗示可滑。
+   mask 相对元素盒固定、不随内容滚动，右缘渐隐始终可见。 */
+  @media(max-width:860px){
+    #seg{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);}
+  }
 </style>
 </head>
 <body>

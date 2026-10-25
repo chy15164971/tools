@@ -218,8 +218,8 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   .chip.active{background:var(--pri);color:var(--white);border-color:var(--pri);}
   .filters input,.filters select{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:var(--radius-sm);padding:8px 10px;font-size:16px;font-family:inherit;min-height:38px;}
   .filters .search{flex:1;min-width:0;width:100%;}
-  .search-wrap{flex:1;min-width:140px;position:relative;display:flex;}
-  .search-clear{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:none;color:var(--sub);cursor:pointer;font-size:14px;padding:4px 6px;line-height:1;}
+  .search-wrap{flex:1;min-width:240px;position:relative;display:flex;} /* 2026-10-25：140→240，≥981 桌面筛选行让「搜索+重置筛选」同排换行消除孤行；≤560 有 min-width:0!important 覆盖，手机档不受影响 */
+  .search-clear{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:none;color:var(--sub);cursor:pointer;font-size:14px;padding:4px 6px;line-height:1;min-width:28px;min-height:28px;} /* 2026-10-25：+min 28×28——hover:none 触屏档已有 44×44（后置覆盖），此为细指针窄窗兜底（WCAG 2.5.8 ≥24×24） */
   .search-clear:hover{color:var(--pri-ink);}
   .btn-reset{border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:var(--radius-sm);padding:7px 11px;font-size:13px;cursor:pointer;font-family:inherit;white-space:nowrap;}
   .btn-reset:hover{border-color:var(--pri);color:var(--pri-ink);}
@@ -228,7 +228,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   .menu .msep{height:1px;background:var(--line);margin:4px 6px;}
 
   /* 表格 */
-  .tablecard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
+  .tablecard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:clip;} /* 2026-10-25：hidden→clip——clip 同样裁圆角但不产生滚动容器，#thead th 的 position:sticky 才能相对视口吸附（hidden 会让 sticky 失效） */
   table{width:100%;border-collapse:collapse;}
   th,td{text-align:left;padding:11px 10px;font-size:13.5px;border-bottom:1px solid var(--line);vertical-align:middle;word-break:keep-all;overflow-wrap:break-word;}
   /* 日期 / 天数类单元格不换行，避免「2026-08-27」被拆到第二行 */
@@ -240,6 +240,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   colgroup{display:table-column-group;}
   .col-fixed{display:table-column;}
   th{color:var(--sub);font-weight:600;font-size:12.5px;background:var(--bg2);}
+  #thead th{position:sticky;top:0;z-index:6;background:var(--bg2);box-shadow:inset 0 -1px 0 var(--line);} /* 2026-10-25 移动批3：≥981 长表滚动表头常驻；561–980 处于 overflow-x:auto 容器内为无害 no-op；≤560 thead 已隐藏。inset 阴影补 border-collapse 下 sticky 丢失的下边框 */
   tbody tr:last-child td{border-bottom:none;}
   tbody tr:hover{background:var(--hover);}
   /* 已完成/已到 行：沉底并弱化，降低视觉权重（保留操作列可点） */
