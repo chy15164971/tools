@@ -268,7 +268,7 @@
   .widget-row>.panel.today-max .today-list{max-height:min(82vh,900px);}
   .today-density,.today-max-btn{flex:none;padding:2px 8px;font-size:12px;}
   /* ===== 今日要处理整页视图（底部「今日」标签；与顶部今日 widget 同源、放大为整页展示） ===== */
-  .today-page{display:flex;flex-direction:column;gap:14px;max-width:1080px;margin:0 auto;}
+  .today-page{display:flex;flex-direction:column;gap:14px;max-width:1332px;margin:0 auto;} /* 2026-11-02：1080→1332 跟上 1360 容器（=1360−2×14 padding），消除今日视图与其它视图（1332 全宽）切换时的宽度跳变与两侧空带 */
   .today-page .tp-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
   .today-page .tp-head h2{margin:0;font-size:19px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:8px;}
   .today-page .tp-head h2::before{content:"";width:4px;height:18px;border-radius:3px;background:var(--pri);flex:none;}
@@ -9028,7 +9028,7 @@ function syncSeg(){
     if(on){ try{ if(typeof b.scrollIntoView==="function") b.scrollIntoView({block:"nearest", inline:"nearest"}); }catch(_){} }
   });
   const vt=document.getElementById("viewtitle");
-  if(vt){ const map={inbox:"收件箱",month:"月视图",week:"周视图",day:"日视图",gantt:"甘特图",stats:"统计",media:"进度看板",habit:"习惯打卡",lists:"待办清单",projects:"项目",okr:"目标 OKR",review:"定期回顾"};
+  if(vt){ const map={inbox:"收件箱",month:"月视图",week:"周视图",day:"日视图",today:"今日",gantt:"甘特图",stats:"统计",media:"进度看板",habit:"习惯打卡",lists:"待办清单",projects:"项目",okr:"目标 OKR",review:"定期回顾"};
     vt.textContent=map[state.view]||state.view; }
   /* 角标补充朗读单位，避免读成「收件箱3」（） */
   const badge=(id,unit)=>{ const el=document.getElementById(id); if(!el) return;
