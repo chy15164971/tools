@@ -102,6 +102,7 @@
   }
   .section-title.read{border-left-color:var(--amber)}
   .section-title.listen{border-left-color:var(--purple)}
+  .section-title.anime{border-left-color:#06b6d4;color:#0891b2}
   .section-title .cnt{font-size:12.5px;font-weight:500;color:var(--ink-soft)}
   /* ===== Masonry ===== 卡片 2026-11-02 二轮缩小：6列150px→8列118px */
   /* 2026-11-02 六轮：原 columns 多列布局在短小节(如"其他"4~8张)下做列平衡，产生不规则留白空洞，
@@ -395,6 +396,9 @@
 
       <div class="section-title" id="sec-h-seen">📺 已看 <span class="cnt" id="cnt-seen"></span></div>
       <div class="grp" id="sec-seen"></div>
+
+      <div class="section-title anime" id="sec-h-anime">🎬 动漫 <span class="cnt" id="cnt-anime"></span></div>
+      <div class="grp" id="sec-anime"></div>
 
       <div class="section-title read" id="sec-h-read">📖 已读 <span class="cnt" id="cnt-read"></span></div>
       <div class="grp" id="sec-read"></div>
@@ -1223,7 +1227,7 @@ let MEDIA = [
   {"title": "爱的妇产科", "type": "电视剧", "poster": "媒体海报/p2158619861.jpg", "year": "2014", "platform": "中国大陆", "date": "2014-02", "rating": 6.6, "genre": "剧情"},
   {"title": "爱乐之城 La La Land", "type": "电影", "poster": "媒体海报/p2929224846.jpg", "creator": "爱乐之城", "year": "2016", "platform": "美国", "date": "2017-02", "rating": 8.4, "genre": "剧情 / 爱情 / 歌舞"},
   {"title": "爱丽丝梦游仙境 Alice in Wonderland", "type": "电影", "poster": "媒体海报/p481556187.jpg", "creator": "爱丽丝梦游仙境", "year": "2010", "platform": "美国", "date": "2010-03", "rating": 7.5, "genre": "奇幻 / 冒险"},
-  {"title": "爱情盲选 第八季 Love Is Blind Season 8", "type": "电影", "poster": "媒体海报/p2918607207.jpg", "creator": "爱情盲选 第八季", "year": "2025", "platform": "美国", "date": "2025-02"},
+  {"title": "爱情盲选 第八季 Love Is Blind Season 8", "type": "真人秀", "poster": "媒体海报/p2918607207.jpg", "creator": "爱情盲选 第八季", "year": "2025", "platform": "美国", "date": "2025-02"},
   {"title": "爱情盲选 第二季 Love Is Blind Season 2", "type": "真人秀", "poster": "媒体海报/p2867619357.jpg", "creator": "爱情盲选 第二季", "year": "2022", "platform": "美国", "date": "2022-02", "rating": 6.3, "genre": "爱情 / 真人秀"},
   {"title": "爱情盲选 第六季 Love Is Blind Season 6", "type": "真人秀", "poster": "媒体海报/p2904538980.jpg", "creator": "爱情盲选 第六季", "year": "2024", "platform": "美国", "date": "2024-02", "rating": 6.5, "genre": "爱情 / 真人秀"},
   {"title": "爱情盲选 第七季 Love Is Blind Season 7", "type": "真人秀", "poster": "媒体海报/p2925835039.jpg", "creator": "爱情盲选 第七季", "year": "2024", "platform": "美国", "date": "2024-10", "rating": 6.0, "genre": "爱情 / 真人秀"},
@@ -1268,9 +1272,9 @@ let MEDIA = [
   {"title": "爸爸去哪儿2", "type": "电影", "poster": "媒体海报/p2225907485.jpg", "year": "2015", "platform": "中国大陆", "date": "2015-02", "rating": 4.7, "genre": "喜剧 / 家庭 / 儿童"},
   {"title": "霸王别姬", "type": "电影", "poster": "媒体海报/p2911205318.jpg", "year": "1993", "platform": "中国大陆 / 中国香港", "date": "1993-07", "rating": 9.6, "genre": "剧情 / 爱情 / 同性"},
   {"title": "白鹿原", "type": "电影", "poster": "媒体海报/p1624660243.jpg", "year": "2012", "platform": "中国大陆", "date": "2012-09", "rating": 6.5, "genre": "剧情 / 历史"},
-  {"title": "白蛇：浮生", "type": "电影", "poster": "媒体海报/p2911337432.jpg", "year": "2024", "platform": "中国大陆", "date": "2024-08", "rating": 7.0, "genre": "喜剧 / 爱情 / 动画 / 奇幻"},
-  {"title": "白蛇：缘起", "type": "电影", "poster": "媒体海报/p2544313786.jpg", "year": "2019", "platform": "中国大陆 / 美国", "date": "2019-01", "rating": 7.8, "genre": "爱情 / 动画 / 奇幻"},
-  {"title": "白蛇2：青蛇劫起", "type": "电影", "poster": "媒体海报/p2655030796.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-07", "rating": 6.8, "genre": "动画 / 奇幻 / 冒险"},
+  {"title": "白蛇：浮生", "type": "动漫", "poster": "媒体海报/p2911337432.jpg", "year": "2024", "platform": "中国大陆", "date": "2024-08", "rating": 7.0, "genre": "喜剧 / 爱情 / 动画 / 奇幻"},
+  {"title": "白蛇：缘起", "type": "动漫", "poster": "媒体海报/p2544313786.jpg", "year": "2019", "platform": "中国大陆 / 美国", "date": "2019-01", "rating": 7.8, "genre": "爱情 / 动画 / 奇幻"},
+  {"title": "白蛇2：青蛇劫起", "type": "动漫", "poster": "媒体海报/p2655030796.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-07", "rating": 6.8, "genre": "动画 / 奇幻 / 冒险"},
   {"title": "白蛇传", "type": "电视剧", "poster": "媒体海报/p2521436155.jpg", "creator": "[可播放]", "year": "2006", "platform": "中国大陆", "date": "2006-05", "rating": 8.0, "genre": "爱情 / 奇幻 / 古装"},
   {"title": "白蛇传·情", "type": "电影", "poster": "媒体海报/p2922631371.jpg", "year": "2019", "platform": "中国大陆", "date": "2021-05", "rating": 8.0, "genre": "剧情 / 爱情 / 戏曲"},
   {"title": "白夜破晓", "type": "电视剧", "poster": "媒体海报/p2915507895.jpg", "year": "2024", "platform": "中国大陆", "date": "2024-11", "rating": 5.9, "genre": "剧情 / 悬疑 / 犯罪"},
@@ -1279,11 +1283,11 @@ let MEDIA = [
   {"title": "百年孤独 第一季 Cien años de soledad Season 1", "type": "电视剧", "poster": "媒体海报/p2913960454.jpg", "creator": "百年孤独 第一季", "year": "2024", "platform": "哥伦比亚", "date": "2024-12", "rating": 9.2, "genre": "剧情 / 历史 / 奇幻"},
   {"title": "百万秘宝攻防战 第二季 Million Dollar Secret Season 2", "type": "真人秀", "poster": "媒体海报/p2931795222.jpg", "creator": "百万秘宝攻防战 第二季", "year": "2026", "platform": "美国", "date": "2026-04", "rating": 7.9, "genre": "真人秀"},
   {"title": "百万秘宝攻防战 第一季 Million Dollar Secret Season 1", "type": "真人秀", "poster": "媒体海报/p2919949332.jpg", "creator": "百万秘宝攻防战 第一季", "year": "2025", "platform": "美国", "date": "2025-03", "rating": 7.5, "genre": "真人秀"},
-  {"title": "百妖谱 第二季", "type": "电视剧", "poster": "媒体海报/p2681761533.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-07", "rating": 7.8, "genre": "动画"},
-  {"title": "百妖谱 第一季", "type": "电视剧", "poster": "媒体海报/p2602726278.jpg", "year": "2020", "platform": "中国大陆", "date": "2020-04", "rating": 7.8, "genre": "动画 / 奇幻"},
-  {"title": "百妖谱·京师篇", "type": "电视剧", "poster": "媒体海报/p2876723726.jpg", "year": "2022", "platform": "中国大陆", "date": "2022-07", "rating": 8.7, "genre": "动画"},
-  {"title": "百妖谱·洛阳篇", "type": "电视剧", "poster": "媒体海报/p2922897032.jpg", "year": "2025", "platform": "中国大陆", "date": "2025-08", "genre": "动画 / 奇幻 / 冒险"},
-  {"title": "百妖谱·司府篇", "type": "电视剧", "poster": "媒体海报/p2907407842.jpg", "year": "2024", "platform": "中国大陆", "date": "2024-02", "rating": 8.0, "genre": "动画"},
+  {"title": "百妖谱 第二季", "type": "动漫", "poster": "媒体海报/p2681761533.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-07", "rating": 7.8, "genre": "动画"},
+  {"title": "百妖谱 第一季", "type": "动漫", "poster": "媒体海报/p2602726278.jpg", "year": "2020", "platform": "中国大陆", "date": "2020-04", "rating": 7.8, "genre": "动画 / 奇幻"},
+  {"title": "百妖谱·京师篇", "type": "动漫", "poster": "媒体海报/p2876723726.jpg", "year": "2022", "platform": "中国大陆", "date": "2022-07", "rating": 8.7, "genre": "动画"},
+  {"title": "百妖谱·洛阳篇", "type": "动漫", "poster": "媒体海报/p2922897032.jpg", "year": "2025", "platform": "中国大陆", "date": "2025-08", "genre": "动画 / 奇幻 / 冒险"},
+  {"title": "百妖谱·司府篇", "type": "动漫", "poster": "媒体海报/p2907407842.jpg", "year": "2024", "platform": "中国大陆", "date": "2024-02", "rating": 8.0, "genre": "动画"},
   {"title": "半生缘", "type": "电视剧", "poster": "媒体海报/p1318754274.jpg", "year": "2002", "platform": "中国大陆 / 中国台湾", "date": "2002-10", "rating": 7.2, "genre": "剧情 / 爱情"},
   {"title": "包青天", "type": "电影", "poster": "媒体海报/p2502407893.jpg", "year": "1993", "platform": "中国台湾 / 中国香港", "date": "1993-02", "rating": 8.3, "genre": "剧情 / 历史 / 武侠 / 古装"},
   {"title": "宝贝计划 寶貝計劃", "type": "电影", "poster": "媒体海报/p946770581.jpg", "creator": "宝贝计划", "year": "2006", "platform": "中国香港 / 中国大陆", "date": "2006-09", "rating": 7.6, "genre": "剧情 / 喜剧 / 动作"},
@@ -1327,7 +1331,7 @@ let MEDIA = [
   {"title": "重庆森林 重慶森林", "type": "电影", "poster": "媒体海报/p792381411.jpg", "creator": "重庆森林", "year": "1994", "platform": "中国香港", "date": "1994-07", "rating": 8.8, "genre": "剧情 / 爱情"},
   {"title": "宠物情缘 寵物情緣", "type": "电视剧", "poster": "媒体海报/p2905892915.jpg", "creator": "宠物情缘", "year": "1999", "platform": "中国香港", "date": "1999-02", "rating": 7.4, "genre": "喜剧 / 爱情"},
   {"title": "厨王争霸 第一季", "type": "真人秀", "poster": "媒体海报/p2548003533.jpg", "year": "2012", "platform": "中国大陆", "date": "2012-06", "rating": 7.6, "genre": "真人秀"},
-  {"title": "穿书自救指南 第一季", "type": "电视剧", "poster": "媒体海报/p2620570336.jpg", "year": "2020", "platform": "中国大陆", "date": "2020-09", "rating": 7.3, "genre": "动画 / 同性 / 奇幻 / 古装"},
+  {"title": "穿书自救指南 第一季", "type": "动漫", "poster": "媒体海报/p2620570336.jpg", "year": "2020", "platform": "中国大陆", "date": "2020-09", "rating": 7.3, "genre": "动画 / 同性 / 奇幻 / 古装"},
   {"title": "春光灿烂猪八戒", "type": "电视剧", "poster": "媒体海报/p2554028430.jpg", "year": "2000", "platform": "中国大陆", "date": "2000-01", "rating": 7.9, "genre": "剧情 / 喜剧 / 爱情 / 古装"},
   {"title": "春色寄情人", "type": "电视剧", "poster": "媒体海报/p2906823053.jpg", "year": "2024", "platform": "中国大陆", "date": "2024-04", "rating": 7.9, "genre": "剧情 / 爱情"},
   {"title": "春天后母心", "type": "电视剧", "poster": "媒体海报/p2906737263.jpg", "year": "2006", "platform": "中国大陆", "date": "2006-10", "rating": 7.9, "genre": "剧情"},
@@ -1342,7 +1346,7 @@ let MEDIA = [
   {"title": "大猫 Big Cats", "type": "纪录片", "poster": "媒体海报/p2515345924.jpg", "creator": "大猫", "year": "2018", "platform": "英国 / 美国 / 法国", "date": "2018-01", "rating": 9.5, "genre": "纪录片"},
   {"title": "大侠霍元甲 大俠霍元甲", "type": "电视剧", "poster": "媒体海报/p2374989031.jpg", "creator": "大侠霍元甲", "year": "1981", "platform": "中国香港", "date": "1984-05", "rating": 8.5, "genre": "剧情 / 动作 / 传记 / 历史"},
   {"title": "大鱼 Big Fish", "type": "电影", "poster": "媒体海报/p692813374.jpg", "creator": "大鱼", "year": "2003", "platform": "美国", "date": "2003-12", "rating": 8.8, "genre": "剧情 / 爱情 / 奇幻 / 冒险"},
-  {"title": "大鱼海棠", "type": "电影", "poster": "媒体海报/p2932950007.jpg", "year": "2016", "platform": "中国大陆", "date": "2016-07", "rating": 7.0, "genre": "剧情 / 动画 / 奇幻"},
+  {"title": "大鱼海棠", "type": "动漫", "poster": "媒体海报/p2932950007.jpg", "year": "2016", "platform": "中国大陆", "date": "2016-07", "rating": 7.0, "genre": "剧情 / 动画 / 奇幻"},
   {"title": "大长今 대장금", "type": "电视剧", "poster": "媒体海报/p2170785229.jpg", "creator": "大长今", "year": "2003", "platform": "韩国", "date": "2003-09", "rating": 8.5, "genre": "剧情 / 传记 / 历史"},
   {"title": "带我去远方 帶我去遠方", "type": "电影", "poster": "媒体海报/p672737349.jpg", "creator": "带我去远方", "year": "2009", "platform": "中国台湾", "date": "2009-09", "rating": 7.5, "genre": "剧情 / 同性"},
   {"title": "但是还有书籍", "type": "纪录片", "poster": "媒体海报/p2577256090.jpg", "year": "2019", "platform": "中国大陆", "date": "2019-12", "rating": 9.0, "genre": "纪录片"},
@@ -1361,7 +1365,7 @@ let MEDIA = [
   {"title": "都是她的错 All Her Fault", "type": "电视剧", "poster": "媒体海报/p2926850313.jpg", "creator": "都是她的错", "year": "2025", "platform": "美国 / 澳大利亚", "date": "2025-11", "rating": 9.1, "genre": "剧情 / 悬疑"},
   {"title": "都挺好", "type": "电视剧", "poster": "媒体海报/p2549148229.jpg", "year": "2019", "platform": "中国大陆", "date": "2019-03", "rating": 7.7, "genre": "剧情 / 家庭"},
   {"title": "端午奇妙游", "type": "电影", "poster": "媒体海报/p2658157360.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-06", "rating": 9.0},
-  {"title": "哆啦A梦 ドラえもん", "type": "电影", "poster": "媒体海报/p2510688261.jpg", "creator": "哆啦A梦", "year": "1979", "platform": "日本", "date": "1979-04", "rating": 9.6, "genre": "喜剧 / 科幻 / 动画 / 家庭 / 奇幻"},
+  {"title": "哆啦A梦 ドラえもん", "type": "动漫", "poster": "媒体海报/p2510688261.jpg", "creator": "哆啦A梦", "year": "1979", "platform": "日本", "date": "1979-04", "rating": 9.6, "genre": "喜剧 / 科幻 / 动画 / 家庭 / 奇幻"},
   {"title": "夺冠", "type": "电影", "poster": "媒体海报/p2620083313.jpg", "year": "2020", "platform": "中国大陆", "date": "2020-09", "rating": 7.1, "genre": "剧情 / 运动"},
   {"title": "二十二", "type": "纪录片", "poster": "媒体海报/p2457609817.jpg", "year": "2015", "platform": "中国大陆", "date": "2017-08", "rating": 8.7, "genre": "纪录片"},
   {"title": "法医密档", "type": "纪录片", "poster": "媒体海报/p2585894202.jpg", "year": "2016", "platform": "中国大陆", "date": "2016-08", "rating": 8.4, "genre": "纪录片"},
@@ -1377,8 +1381,8 @@ let MEDIA = [
   {"title": "非常幸运", "type": "电影", "poster": "媒体海报/p2135510977.jpg", "year": "2013", "platform": "中国大陆 / 中国香港", "date": "2013-09", "rating": 4.6, "genre": "喜剧 / 爱情"},
   {"title": "非诚勿扰", "type": "电影", "poster": "媒体海报/p484914984.jpg", "year": "2008", "platform": "中国大陆", "date": "2008-12", "rating": 7.3, "genre": "喜剧 / 爱情"},
   {"title": "非诚勿扰2", "type": "电影", "poster": "媒体海报/p725272184.jpg", "year": "2010", "platform": "中国大陆", "date": "2010-12", "rating": 6.6, "genre": "喜剧 / 爱情"},
-  {"title": "非人哉", "type": "电视剧", "poster": "媒体海报/p2533984745.jpg", "year": "2018", "platform": "中国大陆", "date": "2018-03", "rating": 8.9, "genre": "喜剧 / 动画 / 奇幻"},
-  {"title": "非人哉 第二季", "type": "电视剧", "poster": "媒体海报/p2877637388.jpg", "year": "2022", "platform": "中国大陆", "date": "2022-08", "rating": 8.7, "genre": "动画"},
+  {"title": "非人哉", "type": "动漫", "poster": "媒体海报/p2533984745.jpg", "year": "2018", "platform": "中国大陆", "date": "2018-03", "rating": 8.9, "genre": "喜剧 / 动画 / 奇幻"},
+  {"title": "非人哉 第二季", "type": "动漫", "poster": "媒体海报/p2877637388.jpg", "year": "2022", "platform": "中国大陆", "date": "2022-08", "rating": 8.7, "genre": "动画"},
   {"title": "非自然死亡 アンナチュラル", "type": "电视剧", "poster": "媒体海报/p2554348811.jpg", "creator": "非自然死亡", "year": "2018", "platform": "日本", "date": "2018-01", "rating": 9.5, "genre": "剧情 / 悬疑"},
   {"title": "分手大师", "type": "电影", "poster": "媒体海报/p2188112867.jpg", "year": "2014", "platform": "中国大陆", "date": "2014-06", "rating": 5.2, "genre": "喜剧 / 爱情"},
   {"title": "粉雄救兵 第一季 Queer Eye Season 1", "type": "真人秀", "poster": "媒体海报/p2511166254.jpg", "creator": "粉雄救兵 第一季", "year": "2018", "platform": "美国", "date": "2018-02", "rating": 9.3, "genre": "真人秀"},
@@ -1422,7 +1426,7 @@ let MEDIA = [
   {"title": "国家宝藏·巡礼季", "type": "真人秀", "poster": "媒体海报/p2908484480.jpg", "year": "2024", "platform": "中国大陆", "date": "2024-05", "rating": 8.2, "genre": "真人秀"},
   {"title": "国家宝藏·展演季", "type": "真人秀", "poster": "媒体海报/p2707230642.jpg", "creator": "[可播放]", "year": "2021", "platform": "中国大陆", "date": "2021-10", "rating": 8.3, "genre": "真人秀"},
   {"title": "国王的演讲 The King's Speech", "type": "电影", "poster": "媒体海报/p768879237.jpg", "creator": "国王的演讲", "year": "2010", "platform": "美国 / 英国", "date": "2012-02", "rating": 8.5, "genre": "剧情 / 传记 / 历史"},
-  {"title": "哈尔的移动城堡 ハウルの動く城", "type": "电影", "poster": "媒体海报/p2907583906.jpg", "creator": "哈尔的移动城堡", "year": "2004", "platform": "日本", "date": "2024-04", "rating": 9.1, "genre": "爱情 / 动画 / 奇幻 / 冒险"},
+  {"title": "哈尔的移动城堡 ハウルの動く城", "type": "动漫", "poster": "媒体海报/p2907583906.jpg", "creator": "哈尔的移动城堡", "year": "2004", "platform": "日本", "date": "2024-04", "rating": 9.1, "genre": "爱情 / 动画 / 奇幻 / 冒险"},
   {"title": "哈利·波特与阿兹卡班的囚徒 Harry Potter and the Prisoner of Azkaban", "type": "电影", "poster": "媒体海报/p2913456870.jpg", "creator": "哈利·波特与阿兹卡班的囚徒", "year": "2004", "platform": "英国 / 美国", "date": "2004-09", "rating": 9.0, "genre": "奇幻 / 冒险"},
   {"title": "哈利·波特与凤凰社 Harry Potter and the Order of the Phoenix", "type": "电影", "poster": "媒体海报/p2913456924.jpg", "creator": "哈利·波特与凤凰社", "year": "2007", "platform": "英国 / 美国", "date": "2007-08", "rating": 8.6, "genre": "奇幻 / 冒险"},
   {"title": "哈利·波特与混血王子 Harry Potter and the Half-Blood Prince", "type": "电影", "poster": "媒体海报/p2913456964.jpg", "creator": "哈利·波特与混血王子", "year": "2009", "platform": "英国 / 美国", "date": "2009-07", "rating": 8.4, "genre": "奇幻 / 冒险"},
@@ -1466,7 +1470,7 @@ let MEDIA = [
   {"title": "花姑子", "type": "电视剧", "poster": "媒体海报/p2284496312.jpg", "year": "2004", "platform": "中国大陆", "date": "2004", "rating": 6.8, "genre": "剧情 / 奇幻 / 古装"},
   {"title": "花滑女王 Лёд", "type": "电影", "poster": "媒体海报/p2517485270.jpg", "creator": "花滑女王", "year": "2018", "platform": "俄罗斯", "date": "2018-03", "rating": 6.7, "genre": "剧情 / 爱情 / 运动"},
   {"title": "花木兰 Mulan", "type": "电影", "poster": "媒体海报/p2590336843.jpg", "creator": "花木兰", "year": "2020", "platform": "美国 / 中国香港", "date": "2020-09", "rating": 4.9, "genre": "动作 / 冒险 / 古装"},
-  {"title": "花仙子 花の子ルンルン", "type": "电视剧", "poster": "媒体海报/p2554019745.jpg", "creator": "花仙子", "year": "1979", "platform": "日本", "date": "1979-02", "rating": 8.1, "genre": "动画 / 家庭 / 奇幻"},
+  {"title": "花仙子 花の子ルンルン", "type": "动漫", "poster": "媒体海报/p2554019745.jpg", "creator": "花仙子", "year": "1979", "platform": "日本", "date": "1979-02", "rating": 8.1, "genre": "动画 / 家庭 / 奇幻"},
   {"title": "花样青春：非洲篇 꽃보다청춘 아프리카", "type": "真人秀", "poster": "媒体海报/p2322338109.jpg", "creator": "花样青春：非洲篇", "year": "2016", "platform": "韩国", "date": "2016-02", "rating": 9.4, "genre": "真人秀"},
   {"title": "花与爱丽丝 花とアリス", "type": "电影", "poster": "媒体海报/p2196652087.jpg", "creator": "花与爱丽丝", "year": "2004", "platform": "日本", "date": "2004-03", "rating": 8.3, "genre": "剧情 / 喜剧 / 爱情"},
   {"title": "画壁", "type": "电影", "poster": "媒体海报/p1194538124.jpg", "year": "2011", "platform": "中国大陆 / 中国香港", "date": "2011-09", "rating": 4.9, "genre": "剧情 / 动作 / 爱情 / 奇幻"},
@@ -1586,7 +1590,7 @@ let MEDIA = [
   {"title": "狼图腾", "type": "电影", "poster": "媒体海报/p2225291257.jpg", "year": "2015", "platform": "中国大陆 / 法国", "date": "2015-02", "rating": 6.9, "genre": "剧情 / 冒险"},
   {"title": "琅琊榜", "type": "电视剧", "poster": "媒体海报/p2271982968.jpg", "year": "2015", "platform": "中国大陆", "date": "2015-09", "rating": 9.4, "genre": "剧情 / 古装"},
   {"title": "琅琊榜之风起长林", "type": "电视剧", "poster": "媒体海报/p2503635995.jpg", "year": "2017", "platform": "中国大陆", "date": "2017-12", "rating": 8.4, "genre": "剧情 / 古装"},
-  {"title": "浪浪山小妖怪", "type": "电影", "poster": "媒体海报/p2923770138.jpg", "year": "2025", "platform": "中国大陆", "date": "2025-08", "rating": 8.5, "genre": "剧情 / 喜剧 / 动画 / 奇幻"},
+  {"title": "浪浪山小妖怪", "type": "动漫", "poster": "媒体海报/p2923770138.jpg", "year": "2025", "platform": "中国大陆", "date": "2025-08", "rating": 8.5, "genre": "剧情 / 喜剧 / 动画 / 奇幻"},
   {"title": "老大哥：驯鹿游戏 第一季 Big Brother Reindeer Games Season 1", "type": "真人秀", "poster": "媒体海报/p2902492213.jpg", "creator": "老大哥：驯鹿游戏 第一季", "year": "2023", "platform": "美国", "date": "2023-12", "genre": "真人秀"},
   {"title": "老大哥(加拿大版) 第三季 Big Brother Canada Season 3", "type": "真人秀", "poster": "媒体海报/p2517441809.jpg", "creator": "老大哥(加拿大版) 第三季", "year": "2015", "platform": "加拿大", "date": "2015-03", "rating": 8.4, "genre": "真人秀"},
   {"title": "老大哥(美版) 第二十季 Big Brother (US) Season 20", "type": "真人秀", "poster": "媒体海报/p2526610806.jpg", "creator": "老大哥(美版) 第二十季", "year": "2018", "platform": "美国", "date": "2018-06", "rating": 8.9, "genre": "真人秀"},
@@ -1605,7 +1609,7 @@ let MEDIA = [
   {"title": "恋爱自由式 戀愛自由式", "type": "电视剧", "poster": "媒体海报/p2510000128.jpg", "creator": "恋爱自由式", "year": "2003", "platform": "中国香港", "date": "2003-07", "rating": 7.2, "genre": "爱情"},
   {"title": "聊斋奇女子", "type": "电视剧", "poster": "媒体海报/p2082684284.jpg", "year": "2007", "platform": "中国大陆", "date": "2007-07", "rating": 8.0, "genre": "剧情 / 爱情 / 恐怖"},
   {"title": "聊斋Ⅱ 聊齋Ⅱ", "type": "电视剧", "poster": "媒体海报/p2540178937.jpg", "creator": "聊斋Ⅱ", "year": "1998", "platform": "中国香港", "date": "1998-03", "rating": 8.0, "genre": "恐怖 / 奇幻"},
-  {"title": "烈火浇愁", "type": "电视剧", "poster": "媒体海报/p2692021674.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-10", "rating": 7.7, "genre": "动画"},
+  {"title": "烈火浇愁", "type": "动漫", "poster": "媒体海报/p2692021674.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-10", "rating": 7.7, "genre": "动画"},
   {"title": "烈火雄心", "type": "电视剧", "poster": "媒体海报/p2541293782.jpg", "year": "1998", "platform": "中国香港", "date": "1998-10", "rating": 7.8, "genre": "剧情"},
   {"title": "烈日灼心", "type": "电影", "poster": "媒体海报/p2262236348.jpg", "year": "2015", "platform": "中国大陆", "date": "2015-08", "rating": 8.3, "genre": "剧情 / 悬疑 / 犯罪"},
   {"title": "猎狐", "type": "电视剧", "poster": "媒体海报/p2595491737.jpg", "year": "2020", "platform": "中国大陆", "date": "2020-04", "rating": 6.8, "genre": "剧情 / 犯罪"},
@@ -1619,14 +1623,14 @@ let MEDIA = [
   {"title": "流浪地球", "type": "电影", "poster": "媒体海报/p2545472803.jpg", "year": "2019", "platform": "中国大陆", "date": "2019-02", "rating": 7.9, "genre": "科幻 / 冒险 / 灾难"},
   {"title": "柳如是", "type": "电影", "poster": "媒体海报/p1437357364.jpg", "year": "2012", "platform": "中国大陆", "date": "2012-03", "rating": 7.3, "genre": "剧情 / 爱情 / 传记 / 古装"},
   {"title": "柳舟记", "type": "电视剧", "poster": "媒体海报/p2911562525.jpg", "year": "2024", "platform": "中国大陆", "date": "2024-08", "rating": 7.7, "genre": "爱情 / 古装"},
-  {"title": "龙猫 となりのトトロ", "type": "电影", "poster": "媒体海报/p2540924496.jpg", "creator": "龙猫", "year": "1988", "platform": "日本", "date": "2018-12", "rating": 9.2, "genre": "动画 / 奇幻 / 冒险"},
+  {"title": "龙猫 となりのトトロ", "type": "动漫", "poster": "媒体海报/p2540924496.jpg", "creator": "龙猫", "year": "1988", "platform": "日本", "date": "2018-12", "rating": 9.2, "genre": "动画 / 奇幻 / 冒险"},
   {"title": "陆贞传奇", "type": "电视剧", "poster": "媒体海报/p2908928807.jpg", "year": "2013", "platform": "中国大陆", "date": "2013-05", "rating": 7.9, "genre": "爱情 / 古装"},
   {"title": "绿皮书 Green Book", "type": "电影", "poster": "媒体海报/p2531065411.jpg", "creator": "绿皮书", "year": "2018", "platform": "美国 / 中国大陆", "date": "2019-03", "rating": 8.9, "genre": "剧情 / 喜剧 / 音乐 / 传记"},
   {"title": "滤镜", "type": "电视剧", "poster": "媒体海报/p2918640953.jpg", "creator": "[可播放]", "year": "2025", "platform": "中国大陆", "date": "2025-02", "rating": 7.3, "genre": "剧情 / 爱情 / 奇幻"},
   {"title": "乱世佳人 Gone with the Wind", "type": "电影", "poster": "媒体海报/p1963126880.jpg", "creator": "乱世佳人", "year": "1939", "platform": "美国", "date": "1939-12", "rating": 9.3, "genre": "剧情 / 爱情 / 历史 / 战争"},
   {"title": "罗马假日 Roman Holiday", "type": "电影", "poster": "媒体海报/p2189265085.jpg", "creator": "罗马假日", "year": "1953", "platform": "美国", "date": "1953-08", "rating": 9.1, "genre": "剧情 / 喜剧 / 爱情"},
-  {"title": "罗小黑战记", "type": "电影", "poster": "媒体海报/p2568288336.jpg", "year": "2019", "platform": "中国大陆", "date": "2019-09", "rating": 8.0, "genre": "动作 / 动画 / 奇幻"},
-  {"title": "罗小黑战记", "type": "电视剧", "poster": "媒体海报/p2496903956.jpg", "year": "2011", "platform": "中国大陆", "date": "2011-03", "rating": 9.5, "genre": "剧情 / 喜剧 / 动作 / 动画 / 奇幻"},
+  {"title": "罗小黑战记", "type": "动漫", "poster": "媒体海报/p2568288336.jpg", "year": "2019", "platform": "中国大陆", "date": "2019-09", "rating": 8.0, "genre": "动作 / 动画 / 奇幻"},
+  {"title": "罗小黑战记", "type": "动漫", "poster": "媒体海报/p2496903956.jpg", "year": "2011", "platform": "中国大陆", "date": "2011-03", "rating": 9.5, "genre": "剧情 / 喜剧 / 动作 / 动画 / 奇幻"},
   {"title": "洛神", "type": "电视剧", "poster": "媒体海报/p2541470765.jpg", "year": "2002", "platform": "中国香港", "date": "2002-06", "rating": 8.0, "genre": "剧情 / 古装"},
   {"title": "马戏之王 The Greatest Showman", "type": "电影", "poster": "媒体海报/p2497576479.jpg", "creator": "马戏之王", "year": "2017", "platform": "美国", "date": "2018-02", "rating": 7.7, "genre": "剧情 / 歌舞 / 传记"},
   {"title": "满城尽带黄金甲", "type": "电影", "poster": "媒体海报/p1323669669.jpg", "year": "2006", "platform": "中国大陆 / 中国香港", "date": "2006-12", "rating": 5.9, "genre": "剧情 / 动作 / 爱情 / 古装"},
@@ -1663,13 +1667,13 @@ let MEDIA = [
   {"title": "摩登家庭 第四季 Modern Family Season 4", "type": "电视剧", "poster": "媒体海报/p2201084723.jpg", "creator": "摩登家庭 第四季", "year": "2012", "platform": "美国", "date": "2012-09", "rating": 9.6, "genre": "喜剧 / 家庭"},
   {"title": "摩登家庭 第五季 Modern Family Season 5", "type": "电视剧", "poster": "媒体海报/p2151475197.jpg", "creator": "摩登家庭 第五季", "year": "2013", "platform": "美国", "date": "2013-09", "rating": 9.6, "genre": "喜剧 / 家庭"},
   {"title": "摩登家庭 第一季 Modern Family Season 1", "type": "电视剧", "poster": "媒体海报/p455073620.jpg", "creator": "摩登家庭 第一季", "year": "2009", "platform": "美国", "date": "2009-09", "rating": 9.5, "genre": "喜剧 / 家庭"},
-  {"title": "魔道祖师 第二季", "type": "电视剧", "poster": "媒体海报/p2564646167.jpg", "year": "2019", "platform": "中国大陆", "date": "2019-08", "rating": 8.8, "genre": "动画 / 同性 / 奇幻 / 古装"},
-  {"title": "魔道祖师 第三季", "type": "电视剧", "poster": "媒体海报/p2675022023.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-08", "rating": 8.9, "genre": "剧情 / 动画 / 奇幻 / 古装"},
-  {"title": "魔道祖师 第一季", "type": "电视剧", "poster": "媒体海报/p2523153760.jpg", "year": "2018", "platform": "中国大陆", "date": "2018-07", "rating": 8.8, "genre": "剧情 / 动画 / 古装"},
-  {"title": "魔道祖师Q", "type": "电视剧", "poster": "媒体海报/p2615711029.jpg", "creator": "[可播放]", "year": "2020", "platform": "中国大陆", "date": "2020-07", "rating": 8.1, "genre": "动画"},
+  {"title": "魔道祖师 第二季", "type": "动漫", "poster": "媒体海报/p2564646167.jpg", "year": "2019", "platform": "中国大陆", "date": "2019-08", "rating": 8.8, "genre": "动画 / 同性 / 奇幻 / 古装"},
+  {"title": "魔道祖师 第三季", "type": "动漫", "poster": "媒体海报/p2675022023.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-08", "rating": 8.9, "genre": "剧情 / 动画 / 奇幻 / 古装"},
+  {"title": "魔道祖师 第一季", "type": "动漫", "poster": "媒体海报/p2523153760.jpg", "year": "2018", "platform": "中国大陆", "date": "2018-07", "rating": 8.8, "genre": "剧情 / 动画 / 古装"},
+  {"title": "魔道祖师Q", "type": "动漫", "poster": "媒体海报/p2615711029.jpg", "creator": "[可播放]", "year": "2020", "platform": "中国大陆", "date": "2020-07", "rating": 8.1, "genre": "动画"},
   {"title": "魔发奇缘 Tangled", "type": "电影", "poster": "媒体海报/p707509468.jpg", "creator": "魔发奇缘", "year": "2010", "platform": "美国", "date": "2011-02", "rating": 8.3, "genre": "喜剧 / 动画 / 冒险"},
   {"title": "魔法灰姑娘 Ella Enchanted", "type": "电影", "poster": "媒体海报/p2222938875.jpg", "creator": "魔法灰姑娘", "year": "2004", "platform": "美国 / 爱尔兰 / 英国", "date": "2004-04", "rating": 6.7, "genre": "喜剧 / 爱情 / 家庭 / 奇幻"},
-  {"title": "魔女宅急便 魔女の宅急便", "type": "电影", "poster": "媒体海报/p456676352.jpg", "creator": "魔女宅急便", "year": "1989", "platform": "日本", "date": "1989-07", "rating": 8.7, "genre": "动画 / 奇幻 / 冒险"},
+  {"title": "魔女宅急便 魔女の宅急便", "type": "动漫", "poster": "媒体海报/p456676352.jpg", "creator": "魔女宅急便", "year": "1989", "platform": "日本", "date": "1989-07", "rating": 8.7, "genre": "动画 / 奇幻 / 冒险"},
   {"title": "末代皇帝 The Last Emperor", "type": "电影", "poster": "媒体海报/p452089833.jpg", "creator": "末代皇帝", "year": "1987", "platform": "英国 / 意大利 / 中国大陆 / 法国", "date": "1987-10", "rating": 9.3, "genre": "剧情 / 传记 / 历史"},
   {"title": "墨白", "type": "电视剧", "poster": "媒体海报/p2884984728.jpg", "year": "2022", "platform": "中国大陆", "date": "2022-12", "rating": 5.5, "genre": "剧情 / 喜剧 / 爱情"},
   {"title": "某种物质 The Substance", "type": "电影", "poster": "媒体海报/p2912441039.jpg", "creator": "某种物质", "year": "2024", "platform": "法国 / 英国 / 美国", "date": "2024-05", "rating": 7.5, "genre": "剧情 / 恐怖"},
@@ -1681,7 +1685,7 @@ let MEDIA = [
   {"title": "南京！南京！", "type": "电影", "poster": "媒体海报/p470463541.jpg", "year": "2009", "platform": "中国大陆 / 中国香港", "date": "2009-04", "rating": 7.6, "genre": "剧情 / 历史 / 战争"},
   {"title": "难哄", "type": "电视剧", "poster": "媒体海报/p2918313491.jpg", "year": "2025", "platform": "中国大陆", "date": "2025-02", "rating": 5.4, "genre": "剧情 / 爱情"},
   {"title": "难以置信 Unbelievable", "type": "电视剧", "poster": "媒体海报/p2562989034.jpg", "creator": "难以置信", "year": "2019", "platform": "美国", "date": "2019-09", "rating": 9.2, "genre": "剧情 / 犯罪"},
-  {"title": "你的名字。 君の名は。", "type": "电影", "poster": "媒体海报/p2910701461.jpg", "creator": "你的名字。", "year": "2016", "platform": "日本", "date": "2016-12", "rating": 8.5, "genre": "剧情 / 爱情 / 动画"},
+  {"title": "你的名字。 君の名は。", "type": "动漫", "poster": "媒体海报/p2910701461.jpg", "creator": "你的名字。", "year": "2016", "platform": "日本", "date": "2016-12", "rating": 8.5, "genre": "剧情 / 爱情 / 动画"},
   {"title": "你好，急诊医生——星空下的人医", "type": "纪录片", "poster": "媒体海报/p2928397976.jpg", "year": "2025", "platform": "中国大陆", "date": "2025-12", "genre": "纪录片 / 短片"},
   {"title": "你好，皮肤科医生", "type": "电视剧", "poster": "媒体海报/p2926652213.jpg", "year": "2025", "platform": "中国大陆", "date": "2025-10"},
   {"title": "你好，之华", "type": "电影", "poster": "媒体海报/p2538345957.jpg", "year": "2018", "platform": "中国大陆", "date": "2018-11", "rating": 6.6, "genre": "剧情 / 爱情"},
@@ -1707,7 +1711,7 @@ let MEDIA = [
   {"title": "七宗罪 Se7en", "type": "电影", "poster": "媒体海报/p2219586434.jpg", "creator": "七宗罪", "year": "1995", "platform": "美国", "date": "1995-09", "rating": 8.8, "genre": "剧情 / 悬疑 / 惊悚 / 犯罪"},
   {"title": "奇迹男孩 Wonder", "type": "电影", "poster": "媒体海报/p2507709428.jpg", "creator": "奇迹男孩", "year": "2017", "platform": "美国 / 中国香港", "date": "2018-01", "rating": 8.6, "genre": "剧情 / 家庭 / 儿童"},
   {"title": "奇妙的朋友", "type": "真人秀", "poster": "媒体海报/p2223922294.jpg", "year": "2015", "platform": "中国大陆", "date": "2015-01", "rating": 7.7, "genre": "真人秀"},
-  {"title": "千与千寻 千と千尋の神隠し", "type": "电影", "poster": "媒体海报/p2557573348.jpg", "creator": "千与千寻", "year": "2001", "platform": "日本", "date": "2019-06", "rating": 9.4, "genre": "剧情 / 动画 / 奇幻"},
+  {"title": "千与千寻 千と千尋の神隠し", "type": "动漫", "poster": "媒体海报/p2557573348.jpg", "creator": "千与千寻", "year": "2001", "platform": "日本", "date": "2019-06", "rating": 9.4, "genre": "剧情 / 动画 / 奇幻"},
   {"title": "潜伏", "type": "电视剧", "poster": "媒体海报/p2189694504.jpg", "creator": "[可播放]", "year": "2008", "platform": "中国大陆", "date": "2008-12", "rating": 9.5, "genre": "剧情"},
   {"title": "切尔诺贝利 Chernobyl", "type": "电视剧", "poster": "媒体海报/p2555445285.jpg", "creator": "切尔诺贝利", "year": "2019", "platform": "英国 / 美国", "date": "2019-05", "rating": 9.6, "genre": "剧情 / 历史"},
   {"title": "亲爱的", "type": "电影", "poster": "媒体海报/p2199507156.jpg", "year": "2014", "platform": "中国大陆 / 中国香港", "date": "2014-09", "rating": 8.4, "genre": "剧情 / 家庭"},
@@ -1731,30 +1735,30 @@ let MEDIA = [
   {"title": "去他*的世界 第一季 The End of the F***ing World Season 1", "type": "电视剧", "poster": "媒体海报/p2507719850.jpg", "creator": "去他*的世界 第一季", "year": "2017", "platform": "英国", "date": "2017-10", "rating": 9.1, "genre": "剧情 / 喜剧 / 爱情 / 犯罪"},
   {"title": "去有风的地方", "type": "电视剧", "poster": "媒体海报/p2885759819.jpg", "creator": "[可播放]", "year": "2023", "platform": "中国大陆", "date": "2023-01", "rating": 8.8, "genre": "剧情 / 爱情"},
   {"title": "全家福", "type": "电影", "poster": "媒体海报/p2346219954.jpg", "year": "1984", "platform": "中国香港", "date": "1984-08", "rating": 7.5, "genre": "剧情 / 喜剧"},
-  {"title": "全美超模大赛 第八季 America's Next Top Model Season 8", "type": "电视剧", "poster": "媒体海报/p2509360645.jpg", "creator": "全美超模大赛 第八季", "year": "2007", "platform": "美国", "date": "2007-02", "rating": 7.5},
-  {"title": "全美超模大赛 第二季 America's Next Top Model Season 2", "type": "电视剧", "poster": "媒体海报/p2509447995.jpg", "creator": "全美超模大赛 第二季", "year": "2004", "platform": "美国", "date": "2004-01", "rating": 7.8},
+  {"title": "全美超模大赛 第八季 America's Next Top Model Season 8", "type": "真人秀", "poster": "媒体海报/p2509360645.jpg", "creator": "全美超模大赛 第八季", "year": "2007", "platform": "美国", "date": "2007-02", "rating": 7.5},
+  {"title": "全美超模大赛 第二季 America's Next Top Model Season 2", "type": "真人秀", "poster": "媒体海报/p2509447995.jpg", "creator": "全美超模大赛 第二季", "year": "2004", "platform": "美国", "date": "2004-01", "rating": 7.8},
   {"title": "全美超模大赛 第二十二季 America's Next Top Model Season 22", "type": "真人秀", "poster": "媒体海报/p2424795678.jpg", "creator": "全美超模大赛 第二十二季", "year": "2015", "platform": "美国", "date": "2015-08", "rating": 6.9, "genre": "真人秀"},
-  {"title": "全美超模大赛 第二十季 America's Next Top Model Season 20", "type": "电视剧", "poster": "媒体海报/p2074450140.jpg", "creator": "全美超模大赛 第二十季", "year": "2013", "platform": "美国", "date": "2013-08", "rating": 7.3},
+  {"title": "全美超模大赛 第二十季 America's Next Top Model Season 20", "type": "真人秀", "poster": "媒体海报/p2074450140.jpg", "creator": "全美超模大赛 第二十季", "year": "2013", "platform": "美国", "date": "2013-08", "rating": 7.3},
   {"title": "全美超模大赛 第二十三季 America's Next Top Model Season 23", "type": "真人秀", "poster": "媒体海报/p2494978702.jpg", "creator": "全美超模大赛 第二十三季", "year": "2016", "platform": "美国", "date": "2016-12", "rating": 5.9, "genre": "真人秀"},
   {"title": "全美超模大赛 第二十四季 America's Next Top Model Season 24", "type": "真人秀", "poster": "媒体海报/p2510336318.jpg", "creator": "全美超模大赛 第二十四季", "year": "2018", "platform": "美国", "date": "2018-01", "rating": 6.6, "genre": "真人秀"},
   {"title": "全美超模大赛 第二十一季 America's Next Top Model Season 21", "type": "真人秀", "poster": "媒体海报/p2196681680.jpg", "creator": "全美超模大赛 第二十一季", "year": "2014", "platform": "美国", "date": "2014-08", "rating": 6.5, "genre": "真人秀"},
-  {"title": "全美超模大赛 第九季 America's Next Top Model Season 9", "type": "电视剧", "poster": "媒体海报/p2509360848.jpg", "creator": "全美超模大赛 第九季", "year": "2007", "platform": "美国", "date": "2007-09", "rating": 7.5},
-  {"title": "全美超模大赛 第六季 America's Next Top Model Season 6", "type": "电视剧", "poster": "媒体海报/p2509448238.jpg", "creator": "全美超模大赛 第六季", "year": "2006", "platform": "美国", "date": "2006-03", "rating": 7.6},
-  {"title": "全美超模大赛 第七季 America's Next Top Model Season 7", "type": "电视剧", "poster": "媒体海报/p2509360895.jpg", "creator": "全美超模大赛 第七季", "year": "2006", "platform": "美国", "date": "2006-09", "rating": 7.9},
-  {"title": "全美超模大赛 第三季 America's Next Top Model Season 3", "type": "电视剧", "poster": "媒体海报/p1897148765.jpg", "creator": "全美超模大赛 第三季", "year": "2004", "platform": "美国", "date": "2004-09", "rating": 7.5},
-  {"title": "全美超模大赛 第十八季 America's Next Top Model Season 18", "type": "电视剧", "poster": "媒体海报/p2908974052.jpg", "creator": "全美超模大赛 第十八季", "year": "2012", "platform": "美国", "date": "2012-02", "rating": 7.3},
-  {"title": "全美超模大赛 第十二季 America's Next Top Model Season 12", "type": "电视剧", "poster": "媒体海报/p1897149872.jpg", "creator": "全美超模大赛 第十二季", "year": "2009", "platform": "美国", "date": "2009-03", "rating": 7.8, "genre": "剧情"},
-  {"title": "全美超模大赛 第十季 America's Next Top Model Season 10", "type": "电视剧", "poster": "媒体海报/p2509441017.jpg", "creator": "全美超模大赛 第十季", "year": "2008", "platform": "美国", "date": "2008-02", "rating": 7.5},
-  {"title": "全美超模大赛 第十九季 America's Next Top Model Season 19", "type": "电视剧", "poster": "媒体海报/p2512255780.jpg", "creator": "全美超模大赛 第十九季", "year": "2012", "platform": "美国", "date": "2012-08", "rating": 6.4},
-  {"title": "全美超模大赛 第十六季 America's Next Top Model Season 16", "type": "电视剧", "poster": "媒体海报/p2494976401.jpg", "creator": "全美超模大赛 第十六季", "year": "2011", "platform": "美国", "date": "2011-02", "rating": 8.1},
-  {"title": "全美超模大赛 第十七季 America's Next Top Model Season 17", "type": "电视剧", "poster": "媒体海报/p1222551995.jpg", "creator": "全美超模大赛 第十七季", "year": "2011", "platform": "美国", "date": "2011-09", "rating": 7.1},
-  {"title": "全美超模大赛 第十三季 America's Next Top Model Season 13", "type": "电视剧", "poster": "媒体海报/p2509359739.jpg", "creator": "全美超模大赛 第十三季", "year": "2009", "platform": "美国", "date": "2009-09", "rating": 8.2},
-  {"title": "全美超模大赛 第十四季 America's Next Top Model Season 14", "type": "电视剧", "poster": "媒体海报/p2509448997.jpg", "creator": "全美超模大赛 第十四季", "year": "2010", "platform": "美国", "date": "2010-03", "rating": 7.3},
+  {"title": "全美超模大赛 第九季 America's Next Top Model Season 9", "type": "真人秀", "poster": "媒体海报/p2509360848.jpg", "creator": "全美超模大赛 第九季", "year": "2007", "platform": "美国", "date": "2007-09", "rating": 7.5},
+  {"title": "全美超模大赛 第六季 America's Next Top Model Season 6", "type": "真人秀", "poster": "媒体海报/p2509448238.jpg", "creator": "全美超模大赛 第六季", "year": "2006", "platform": "美国", "date": "2006-03", "rating": 7.6},
+  {"title": "全美超模大赛 第七季 America's Next Top Model Season 7", "type": "真人秀", "poster": "媒体海报/p2509360895.jpg", "creator": "全美超模大赛 第七季", "year": "2006", "platform": "美国", "date": "2006-09", "rating": 7.9},
+  {"title": "全美超模大赛 第三季 America's Next Top Model Season 3", "type": "真人秀", "poster": "媒体海报/p1897148765.jpg", "creator": "全美超模大赛 第三季", "year": "2004", "platform": "美国", "date": "2004-09", "rating": 7.5},
+  {"title": "全美超模大赛 第十八季 America's Next Top Model Season 18", "type": "真人秀", "poster": "媒体海报/p2908974052.jpg", "creator": "全美超模大赛 第十八季", "year": "2012", "platform": "美国", "date": "2012-02", "rating": 7.3},
+  {"title": "全美超模大赛 第十二季 America's Next Top Model Season 12", "type": "真人秀", "poster": "媒体海报/p1897149872.jpg", "creator": "全美超模大赛 第十二季", "year": "2009", "platform": "美国", "date": "2009-03", "rating": 7.8, "genre": "剧情"},
+  {"title": "全美超模大赛 第十季 America's Next Top Model Season 10", "type": "真人秀", "poster": "媒体海报/p2509441017.jpg", "creator": "全美超模大赛 第十季", "year": "2008", "platform": "美国", "date": "2008-02", "rating": 7.5},
+  {"title": "全美超模大赛 第十九季 America's Next Top Model Season 19", "type": "真人秀", "poster": "媒体海报/p2512255780.jpg", "creator": "全美超模大赛 第十九季", "year": "2012", "platform": "美国", "date": "2012-08", "rating": 6.4},
+  {"title": "全美超模大赛 第十六季 America's Next Top Model Season 16", "type": "真人秀", "poster": "媒体海报/p2494976401.jpg", "creator": "全美超模大赛 第十六季", "year": "2011", "platform": "美国", "date": "2011-02", "rating": 8.1},
+  {"title": "全美超模大赛 第十七季 America's Next Top Model Season 17", "type": "真人秀", "poster": "媒体海报/p1222551995.jpg", "creator": "全美超模大赛 第十七季", "year": "2011", "platform": "美国", "date": "2011-09", "rating": 7.1},
+  {"title": "全美超模大赛 第十三季 America's Next Top Model Season 13", "type": "真人秀", "poster": "媒体海报/p2509359739.jpg", "creator": "全美超模大赛 第十三季", "year": "2009", "platform": "美国", "date": "2009-09", "rating": 8.2},
+  {"title": "全美超模大赛 第十四季 America's Next Top Model Season 14", "type": "真人秀", "poster": "媒体海报/p2509448997.jpg", "creator": "全美超模大赛 第十四季", "year": "2010", "platform": "美国", "date": "2010-03", "rating": 7.3},
   {"title": "全美超模大赛 第十五季 America's Next Top Model Season 15", "type": "真人秀", "poster": "媒体海报/p2509448637.jpg", "creator": "全美超模大赛 第十五季", "year": "2010", "platform": "美国", "date": "2010-09", "rating": 8.3, "genre": "真人秀"},
   {"title": "全美超模大赛 第十一季 America's Next Top Model Season 11", "type": "真人秀", "poster": "媒体海报/p2510159014.jpg", "creator": "全美超模大赛 第十一季", "year": "2008", "platform": "美国", "date": "2008-09", "rating": 7.9, "genre": "真人秀"},
-  {"title": "全美超模大赛 第四季 America's Next Top Model Season 4", "type": "电视剧", "poster": "媒体海报/p1341157473.jpg", "creator": "全美超模大赛 第四季", "year": "2005", "platform": "美国", "date": "2005-03", "rating": 7.9},
-  {"title": "全美超模大赛 第五季 America's Next Top Model Season 5", "type": "电视剧", "poster": "媒体海报/p2509448454.jpg", "creator": "全美超模大赛 第五季", "year": "2005", "platform": "美国", "date": "2005-09", "rating": 7.6},
-  {"title": "全美超模大赛 第一季 America's Next Top Model Season 1", "type": "电视剧", "poster": "媒体海报/p2509449800.jpg", "creator": "全美超模大赛 第一季", "year": "2003", "platform": "美国", "date": "2003-05", "rating": 8.1},
+  {"title": "全美超模大赛 第四季 America's Next Top Model Season 4", "type": "真人秀", "poster": "媒体海报/p1341157473.jpg", "creator": "全美超模大赛 第四季", "year": "2005", "platform": "美国", "date": "2005-03", "rating": 7.9},
+  {"title": "全美超模大赛 第五季 America's Next Top Model Season 5", "type": "真人秀", "poster": "媒体海报/p2509448454.jpg", "creator": "全美超模大赛 第五季", "year": "2005", "platform": "美国", "date": "2005-09", "rating": 7.6},
+  {"title": "全美超模大赛 第一季 America's Next Top Model Season 1", "type": "真人秀", "poster": "媒体海报/p2509449800.jpg", "creator": "全美超模大赛 第一季", "year": "2003", "platform": "美国", "date": "2003-05", "rating": 8.1},
   {"title": "权力的游戏 第八季 Game of Thrones Season 8", "type": "电视剧", "poster": "媒体海报/p2553679104.jpg", "creator": "权力的游戏 第八季", "year": "2019", "platform": "美国", "date": "2019-04", "rating": 6.0, "genre": "剧情 / 奇幻 / 冒险"},
   {"title": "权力的游戏 第二季 Game of Thrones Season 2", "type": "电视剧", "poster": "媒体海报/p1441478479.jpg", "creator": "权力的游戏 第二季", "year": "2012", "platform": "美国 / 英国", "date": "2012-04", "rating": 9.5, "genre": "剧情 / 奇幻 / 冒险"},
   {"title": "权力的游戏 第六季 Game of Thrones Season 6", "type": "电视剧", "poster": "媒体海报/p2321971908.jpg", "creator": "权力的游戏 第六季", "year": "2016", "platform": "美国 / 英国", "date": "2016-04", "rating": 9.5, "genre": "剧情 / 战争 / 奇幻 / 冒险"},
@@ -1778,7 +1782,7 @@ let MEDIA = [
   {"title": "三十而已", "type": "电视剧", "poster": "媒体海报/p2614081670.jpg", "year": "2020", "platform": "中国大陆", "date": "2020-07", "rating": 6.6, "genre": "剧情 / 家庭"},
   {"title": "色，戒", "type": "电影", "poster": "媒体海报/p453716305.jpg", "year": "2007", "platform": "中国台湾 / 中国大陆 / 美国 / 中国香港", "date": "2007-11", "rating": 8.7, "genre": "剧情 / 爱情 / 情色"},
   {"title": "山河故人", "type": "电影", "poster": "媒体海报/p2927655708.jpg", "year": "2015", "platform": "中国大陆 / 法国 / 日本", "date": "2015-10", "rating": 8.1, "genre": "剧情 / 家庭"},
-  {"title": "山河剑心", "type": "电视剧", "poster": "媒体海报/p2632521880.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-02", "rating": 8.1, "genre": "剧情 / 动画 / 古装"},
+  {"title": "山河剑心", "type": "动漫", "poster": "媒体海报/p2632521880.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-02", "rating": 8.1, "genre": "剧情 / 动画 / 古装"},
   {"title": "山花烂漫时", "type": "电视剧", "poster": "媒体海报/p2912813745.jpg", "year": "2024", "platform": "中国大陆", "date": "2024-09", "rating": 9.6, "genre": "剧情"},
   {"title": "山楂树之恋", "type": "电影", "poster": "媒体海报/p649179543.jpg", "year": "2010", "platform": "中国大陆", "date": "2010-09", "rating": 7.2, "genre": "剧情 / 爱情"},
   {"title": "闪闪的儿科医生", "type": "纪录片", "poster": "媒体海报/p2890844896.jpg", "year": "2023", "platform": "中国大陆", "date": "2023-04", "rating": 9.6, "genre": "纪录片"},
@@ -1820,10 +1824,10 @@ let MEDIA = [
   {"title": "狮子王 The Lion King", "type": "电影", "poster": "媒体海报/p2549283092.jpg", "creator": "狮子王", "year": "2019", "platform": "美国", "date": "2019-07", "rating": 7.2, "genre": "剧情 / 动画 / 冒险"},
   {"title": "十面埋伏", "type": "电影", "poster": "媒体海报/p2160809605.jpg", "year": "2004", "platform": "中国大陆 / 中国香港", "date": "2004-07", "rating": 6.4, "genre": "剧情 / 武侠 / 古装"},
   {"title": "十兄弟", "type": "电视剧", "poster": "媒体海报/p2541955925.jpg", "year": "2007", "platform": "中国香港", "date": "2007-02", "rating": 6.8, "genre": "剧情 / 奇幻 / 古装"},
-  {"title": "时光代理人 第二季", "type": "电视剧", "poster": "媒体海报/p2891419304.jpg", "year": "2023", "platform": "中国大陆", "date": "2023-07", "rating": 7.7, "genre": "动画 / 悬疑"},
-  {"title": "时光代理人 第一季", "type": "电视剧", "poster": "媒体海报/p2669131265.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-04", "rating": 8.1, "genre": "动画"},
-  {"title": "时光代理人 番外篇 比武招亲", "type": "电视剧", "poster": "媒体海报/p2920794510.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-05", "rating": 7.6, "genre": "爱情 / 科幻 / 动画"},
-  {"title": "时光代理人 英都篇", "type": "电视剧", "poster": "媒体海报/p2916596135.jpg", "year": "2024", "platform": "中国大陆", "date": "2024-12", "rating": 6.9, "genre": "动画"},
+  {"title": "时光代理人 第二季", "type": "动漫", "poster": "媒体海报/p2891419304.jpg", "year": "2023", "platform": "中国大陆", "date": "2023-07", "rating": 7.7, "genre": "动画 / 悬疑"},
+  {"title": "时光代理人 第一季", "type": "动漫", "poster": "媒体海报/p2669131265.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-04", "rating": 8.1, "genre": "动画"},
+  {"title": "时光代理人 番外篇 比武招亲", "type": "动漫", "poster": "媒体海报/p2920794510.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-05", "rating": 7.6, "genre": "爱情 / 科幻 / 动画"},
+  {"title": "时光代理人 英都篇", "type": "动漫", "poster": "媒体海报/p2916596135.jpg", "year": "2024", "platform": "中国大陆", "date": "2024-12", "rating": 6.9, "genre": "动画"},
   {"title": "时尚的未来 第二季 Next in Fashion Season 2", "type": "真人秀", "poster": "媒体海报/p2903184178.jpg", "creator": "时尚的未来 第二季", "year": "2023", "platform": "美国", "date": "2023-03", "rating": 7.3, "genre": "真人秀"},
   {"title": "时尚的未来 第一季 Next in Fashion Season 1", "type": "真人秀", "poster": "媒体海报/p2580959841.jpg", "creator": "时尚的未来 第一季", "year": "2020", "platform": "美国", "date": "2020-01", "rating": 8.3, "genre": "真人秀"},
   {"title": "使徒行者", "type": "电视剧", "poster": "媒体海报/p2207080581.jpg", "year": "2014", "platform": "中国香港", "date": "2014-08", "rating": 8.5, "genre": "剧情 / 爱情 / 犯罪"},
@@ -1869,19 +1873,19 @@ let MEDIA = [
   {"title": "特效化妆师大对决 第五季 Face Off Season 5", "type": "真人秀", "poster": "媒体海报/p2094092432.jpg", "creator": "特效化妆师大对决 第五季", "year": "2013", "platform": "美国", "date": "2013-08", "rating": 9.2, "genre": "真人秀"},
   {"title": "特效化妆师大对决 第一季 Face Off Season 1", "type": "真人秀", "poster": "媒体海报/p929523900.jpg", "creator": "特效化妆师大对决 第一季", "year": "2011", "platform": "美国", "date": "2011-01", "rating": 8.9, "genre": "真人秀"},
   {"title": "特效化妆师大对决 特别篇 Face Off Special: The Vets Strike Back", "type": "真人秀", "poster": "媒体海报/p2171683143.jpg", "creator": "特效化妆师大对决 特别篇", "year": "2013", "platform": "美国", "date": "2013-08", "rating": 8.1, "genre": "真人秀"},
-  {"title": "天宝伏妖录", "type": "电视剧", "poster": "媒体海报/p2579312073.jpg", "year": "2020", "platform": "中国大陆", "date": "2020-07", "rating": 7.4, "genre": "动画"},
-  {"title": "天宝伏妖录 第二季", "type": "电视剧", "poster": "媒体海报/p2636331060.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-04", "rating": 7.6, "genre": "动画"},
+  {"title": "天宝伏妖录", "type": "动漫", "poster": "媒体海报/p2579312073.jpg", "year": "2020", "platform": "中国大陆", "date": "2020-07", "rating": 7.4, "genre": "动画"},
+  {"title": "天宝伏妖录 第二季", "type": "动漫", "poster": "媒体海报/p2636331060.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-04", "rating": 7.6, "genre": "动画"},
   {"title": "天才宝贝 Baby Geniuses", "type": "电影", "poster": "媒体海报/p1574017488.jpg", "creator": "天才宝贝", "year": "1999", "platform": "美国", "date": "1999-03", "rating": 6.8, "genre": "喜剧 / 科幻 / 家庭 / 犯罪"},
-  {"title": "天官赐福", "type": "电视剧", "poster": "媒体海报/p2621050857.jpg", "year": "2020", "platform": "中国大陆", "date": "2020-10", "rating": 8.0, "genre": "剧情 / 动画"},
-  {"title": "天官赐福 第二季", "type": "电视剧", "poster": "媒体海报/p2900559079.jpg", "year": "2023", "platform": "中国大陆", "date": "2023-10", "rating": 7.8, "genre": "剧情 / 动画"},
-  {"title": "天官赐福 特别篇", "type": "电视剧", "poster": "媒体海报/p2630121237.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-02", "rating": 8.3, "genre": "动画"},
-  {"title": "天空之城 天空の城ラピュタ", "type": "电影", "poster": "媒体海报/p2892409201.jpg", "creator": "天空之城", "year": "1986", "platform": "日本", "date": "1992-05", "rating": 9.2, "genre": "动画 / 奇幻 / 冒险"},
+  {"title": "天官赐福", "type": "动漫", "poster": "媒体海报/p2621050857.jpg", "year": "2020", "platform": "中国大陆", "date": "2020-10", "rating": 8.0, "genre": "剧情 / 动画"},
+  {"title": "天官赐福 第二季", "type": "动漫", "poster": "媒体海报/p2900559079.jpg", "year": "2023", "platform": "中国大陆", "date": "2023-10", "rating": 7.8, "genre": "剧情 / 动画"},
+  {"title": "天官赐福 特别篇", "type": "动漫", "poster": "媒体海报/p2630121237.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-02", "rating": 8.3, "genre": "动画"},
+  {"title": "天空之城 天空の城ラピュタ", "type": "动漫", "poster": "媒体海报/p2892409201.jpg", "creator": "天空之城", "year": "1986", "platform": "日本", "date": "1992-05", "rating": 9.2, "genre": "动画 / 奇幻 / 冒险"},
   {"title": "天幕下的恋人 天幕下的戀人", "type": "电视剧", "poster": "媒体海报/p2510005912.jpg", "creator": "天幕下的恋人", "year": "2006", "platform": "中国香港", "date": "2006-02", "rating": 6.9, "genre": "爱情"},
   {"title": "天桥骄子 第四季 Project Runway Season 4", "type": "真人秀", "poster": "媒体海报/p2509346475.jpg", "creator": "天桥骄子 第四季", "year": "2007", "platform": "美国", "date": "2007-11", "rating": 9.0, "genre": "真人秀"},
   {"title": "天桥骄子 第一季 Project Runway Season 1", "type": "真人秀", "poster": "媒体海报/p2494975769.jpg", "creator": "天桥骄子 第一季", "year": "2004", "platform": "美国", "date": "2004-12", "rating": 8.7, "genre": "真人秀"},
   {"title": "天生一对 The Parent Trap", "type": "电影", "poster": "媒体海报/p2867860412.jpg", "creator": "天生一对", "year": "1998", "platform": "美国", "date": "1998-07", "rating": 8.4, "genre": "喜剧 / 爱情 / 家庭 / 儿童"},
   {"title": "天师钟馗", "type": "电视剧", "poster": "媒体海报/p2377314336.jpg", "year": "2010", "platform": "中国大陆", "date": "2010-02", "rating": 7.2, "genre": "剧情 / 奇幻"},
-  {"title": "天书奇谭", "type": "电影", "poster": "媒体海报/p2700138245.jpg", "year": "1983", "platform": "中国大陆", "date": "1983(中国", "rating": 9.2, "genre": "动画 / 奇幻"},
+  {"title": "天书奇谭", "type": "动漫", "poster": "媒体海报/p2700138245.jpg", "year": "1983", "platform": "中国大陆", "date": "1983(中国", "rating": 9.2, "genre": "动画 / 奇幻"},
   {"title": "天天向上", "type": "真人秀", "poster": "媒体海报/p2352326769.jpg", "year": "2008", "platform": "中国大陆", "date": "2008-08", "rating": 8.3, "genre": "脱口秀"},
   {"title": "天下无贼", "type": "电影", "poster": "媒体海报/p2191934463.jpg", "year": "2004", "platform": "中国大陆 / 中国香港", "date": "2004-12", "rating": 8.2, "genre": "剧情 / 动作 / 犯罪"},
   {"title": "甜豌豆 第一季 Sweetpea Season 1", "type": "电视剧", "poster": "媒体海报/p2913197937.jpg", "creator": "甜豌豆 第一季", "year": "2024", "platform": "英国", "date": "2024-10", "rating": 7.0, "genre": "剧情 / 喜剧 / 惊悚"},
@@ -1980,14 +1984,14 @@ let MEDIA = [
   {"title": "西厢奇缘", "type": "电视剧", "poster": "媒体海报/p2541955101.jpg", "year": "2004", "platform": "中国香港", "date": "2004", "rating": 6.3, "genre": "剧情"},
   {"title": "西游记", "type": "电视剧", "poster": "媒体海报/p2265959269.jpg", "year": "1986", "platform": "中国大陆", "date": "1986-02", "rating": 9.7, "genre": "剧情 / 动作 / 奇幻 / 冒险 / 古装"},
   {"title": "西游记续集", "type": "电视剧", "poster": "媒体海报/p2558580136.jpg", "creator": "[可播放]", "year": "2000", "platform": "中国大陆", "date": "2000-02", "rating": 9.2, "genre": "剧情 / 动作 / 奇幻 / 冒险 / 古装"},
-  {"title": "西游记之大圣归来", "type": "电影", "poster": "媒体海报/p2255028780.jpg", "year": "2015", "platform": "中国大陆", "date": "2015-07", "rating": 8.3, "genre": "剧情 / 动画 / 奇幻"},
+  {"title": "西游记之大圣归来", "type": "动漫", "poster": "媒体海报/p2255028780.jpg", "year": "2015", "platform": "中国大陆", "date": "2015-07", "rating": 8.3, "genre": "剧情 / 动画 / 奇幻"},
   {"title": "洗冤录 洗冤錄", "type": "电视剧", "poster": "媒体海报/p2510042330.jpg", "creator": "洗冤录", "year": "1999", "platform": "中国香港", "date": "1999-12", "rating": 8.2, "genre": "剧情 / 犯罪 / 古装"},
   {"title": "洗冤录2 洗冤錄Ⅱ", "type": "电视剧", "poster": "媒体海报/p2515282807.jpg", "creator": "洗冤录2", "year": "2003", "platform": "中国香港", "date": "2003-02", "rating": 7.8, "genre": "悬疑 / 历史"},
-  {"title": "喜羊羊与灰太狼", "type": "电影", "poster": "媒体海报/p2629726262.jpg", "year": "2005", "platform": "中国大陆", "date": "2005-08", "rating": 8.4, "genre": "喜剧 / 动画"},
-  {"title": "喜羊羊与灰太狼之古古怪界大作战", "type": "电视剧", "poster": "媒体海报/p2194556585.jpg", "year": "2006", "platform": "中国大陆", "date": "2006", "rating": 8.6, "genre": "喜剧 / 动画 / 儿童 / 奇幻 / 冒险"},
-  {"title": "喜羊羊与灰太狼之牛气冲天", "type": "电影", "poster": "媒体海报/p1572534757.jpg", "year": "2009", "platform": "中国大陆", "date": "2009-01", "rating": 7.3, "genre": "喜剧 / 动画 / 儿童"},
-  {"title": "喜羊羊与灰太狼之羊羊快乐的一年", "type": "电视剧", "poster": "媒体海报/p2607003343.jpg", "year": "2010", "platform": "中国大陆", "date": "2010-05", "rating": 8.2, "genre": "动画"},
-  {"title": "喜羊羊与灰太狼之羊羊运动会", "type": "电视剧", "poster": "媒体海报/p2194556441.jpg", "year": "2008", "platform": "中国大陆", "date": "2008", "rating": 8.4, "genre": "动画"},
+  {"title": "喜羊羊与灰太狼", "type": "动漫", "poster": "媒体海报/p2629726262.jpg", "year": "2005", "platform": "中国大陆", "date": "2005-08", "rating": 8.4, "genre": "喜剧 / 动画"},
+  {"title": "喜羊羊与灰太狼之古古怪界大作战", "type": "动漫", "poster": "媒体海报/p2194556585.jpg", "year": "2006", "platform": "中国大陆", "date": "2006", "rating": 8.6, "genre": "喜剧 / 动画 / 儿童 / 奇幻 / 冒险"},
+  {"title": "喜羊羊与灰太狼之牛气冲天", "type": "动漫", "poster": "媒体海报/p1572534757.jpg", "year": "2009", "platform": "中国大陆", "date": "2009-01", "rating": 7.3, "genre": "喜剧 / 动画 / 儿童"},
+  {"title": "喜羊羊与灰太狼之羊羊快乐的一年", "type": "动漫", "poster": "媒体海报/p2607003343.jpg", "year": "2010", "platform": "中国大陆", "date": "2010-05", "rating": 8.2, "genre": "动画"},
+  {"title": "喜羊羊与灰太狼之羊羊运动会", "type": "动漫", "poster": "媒体海报/p2194556441.jpg", "year": "2008", "platform": "中国大陆", "date": "2008", "rating": 8.4, "genre": "动画"},
   {"title": "戏说乾隆 戲說乾隆", "type": "电视剧", "poster": "媒体海报/p2219471632.jpg", "creator": "戏说乾隆", "year": "1991", "platform": "中国台湾", "date": "1991-05", "rating": 8.3, "genre": "爱情 / 武侠 / 古装"},
   {"title": "夏至未至", "type": "电视剧", "poster": "媒体海报/p2341590801.jpg", "year": "2017", "platform": "中国大陆", "date": "2017-06", "rating": 4.6, "genre": "剧情 / 爱情"},
   {"title": "仙剑奇侠传", "type": "电视剧", "poster": "媒体海报/p2561931895.jpg", "year": "2005", "platform": "中国大陆", "date": "2005-01", "rating": 9.1, "genre": "爱情 / 奇幻 / 武侠 / 古装"},
@@ -2074,7 +2078,7 @@ let MEDIA = [
   {"title": "幸存者：正邪之争 第二十季 Survivor: Heroes vs. Villains Season 20", "type": "真人秀", "poster": "媒体海报/p2501048739.jpg", "creator": "幸存者：正邪之争 第二十季", "year": "2010", "platform": "美国", "date": "2010-02", "rating": 9.2, "genre": "冒险 / 真人秀"},
   {"title": "幸存者：中国 第十五季 Survivor: China Season 15", "type": "真人秀", "poster": "媒体海报/p2355806447.jpg", "creator": "幸存者：中国 第十五季", "year": "2007", "platform": "美国", "date": "2007-09", "rating": 7.7, "genre": "冒险 / 真人秀"},
   {"title": "幸福像花儿一样", "type": "电视剧", "poster": "媒体海报/p2564833043.jpg", "creator": "[可播放]", "year": "2005", "platform": "中国大陆", "date": "2005-09", "rating": 7.9, "genre": "剧情 / 爱情"},
-  {"title": "雄狮少年", "type": "电影", "poster": "媒体海报/p2702755317.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-12", "rating": 8.3, "genre": "剧情 / 喜剧 / 动画"},
+  {"title": "雄狮少年", "type": "动漫", "poster": "媒体海报/p2702755317.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-12", "rating": 8.3, "genre": "剧情 / 喜剧 / 动画"},
   {"title": "秀才遇着兵 秀才遇著兵", "type": "电视剧", "poster": "媒体海报/p2541954826.jpg", "creator": "秀才遇着兵", "year": "2005", "platform": "中国香港", "date": "2005", "rating": 7.1, "genre": "古装"},
   {"title": "许三观 허삼관", "type": "电影", "poster": "媒体海报/p2216130110.jpg", "creator": "许三观", "year": "2015", "platform": "韩国", "date": "2015-01", "rating": 7.4, "genre": "剧情 / 家庭"},
   {"title": "轩辕剑之天之痕", "type": "电视剧", "poster": "媒体海报/p2915971056.jpg", "year": "2012", "platform": "中国大陆", "date": "2012-07", "rating": 6.9, "genre": "动作 / 爱情 / 奇幻 / 古装"},
@@ -2083,7 +2087,7 @@ let MEDIA = [
   {"title": "寻梦环游记 Coco", "type": "电影", "poster": "媒体海报/p2505426431.jpg", "creator": "寻梦环游记", "year": "2017", "platform": "美国", "date": "2017-11", "rating": 9.1, "genre": "喜剧 / 动画 / 音乐 / 奇幻"},
   {"title": "寻秦记 尋秦記", "type": "电视剧", "poster": "媒体海报/p2515285368.jpg", "creator": "寻秦记", "year": "2001", "platform": "中国香港", "date": "2001-10", "rating": 8.6, "genre": "剧情 / 喜剧 / 历史"},
   {"title": "寻找梦幻岛 Finding Neverland", "type": "电影", "poster": "媒体海报/p2165586020.jpg", "creator": "寻找梦幻岛", "year": "2004", "platform": "美国 / 英国", "date": "2004-09", "rating": 7.9, "genre": "剧情 / 家庭 / 传记"},
-  {"title": "崖上的波妞 崖の上のポニョ", "type": "电影", "poster": "媒体海报/p2627847859.jpg", "creator": "崖上的波妞", "year": "2008", "platform": "日本", "date": "2020-12", "rating": 8.6, "genre": "动画 / 奇幻 / 冒险"},
+  {"title": "崖上的波妞 崖の上のポニョ", "type": "动漫", "poster": "媒体海报/p2627847859.jpg", "creator": "崖上的波妞", "year": "2008", "platform": "日本", "date": "2020-12", "rating": 8.6, "genre": "动画 / 奇幻 / 冒险"},
   {"title": "延禧攻略", "type": "电视剧", "poster": "媒体海报/p2509891341.jpg", "year": "2018", "platform": "中国大陆", "date": "2018-07", "rating": 7.1, "genre": "剧情 / 爱情 / 古装"},
   {"title": "杨门虎将", "type": "电视剧", "poster": "媒体海报/p2373053613.jpg", "year": "2004", "platform": "中国大陆", "date": "2004-12", "rating": 6.9, "genre": "剧情 / 爱情 / 历史"},
   {"title": "摇滚红与黑 Le Rouge et le Noir", "type": "电影", "poster": "媒体海报/p2550176123.jpg", "creator": "摇滚红与黑", "year": "2020", "platform": "法国", "date": "2020-08", "rating": 9.2, "genre": "剧情 / 音乐 / 歌舞 / 历史"},
@@ -2106,7 +2110,7 @@ let MEDIA = [
   {"title": "银河补习班", "type": "电影", "poster": "媒体海报/p2561280018.jpg", "year": "2019", "platform": "中国大陆", "date": "2019-07", "rating": 6.2, "genre": "剧情"},
   {"title": "隐秘的角落", "type": "电视剧", "poster": "媒体海报/p2609064048.jpg", "year": "2020", "platform": "中国大陆", "date": "2020-06", "rating": 8.8, "genre": "剧情 / 悬疑 / 犯罪"},
   {"title": "隐入尘烟", "type": "电影", "poster": "媒体海报/p2875299554.jpg", "year": "2022", "platform": "中国大陆", "date": "2022-07", "rating": 8.4, "genre": "剧情"},
-  {"title": "萤火之森 蛍火の杜へ", "type": "电影", "poster": "媒体海报/p1675053073.jpg", "creator": "萤火之森", "year": "2011", "platform": "日本", "date": "2011-09", "rating": 8.8, "genre": "剧情 / 爱情 / 动画 / 奇幻"},
+  {"title": "萤火之森 蛍火の杜へ", "type": "动漫", "poster": "媒体海报/p1675053073.jpg", "creator": "萤火之森", "year": "2011", "platform": "日本", "date": "2011-09", "rating": 8.8, "genre": "剧情 / 爱情 / 动画 / 奇幻"},
   {"title": "影", "type": "电影", "poster": "媒体海报/p2530513100.jpg", "year": "2018", "platform": "中国大陆 / 中国香港", "date": "2018-09", "rating": 7.2, "genre": "剧情 / 动作 / 武侠 / 古装"},
   {"title": "永不放弃 DOOR TO DOOR〜僕は脳性まひのトップセールスマン〜", "type": "电影", "poster": "媒体海报/p2549571129.jpg", "creator": "永不放弃", "year": "2009", "platform": "日本", "date": "2009-03", "rating": 8.8, "genre": "剧情"},
   {"title": "永夜星河", "type": "电视剧", "poster": "媒体海报/p2914911334.jpg", "year": "2024", "platform": "中国大陆", "date": "2024-11", "rating": 7.6, "genre": "爱情 / 古装"},
@@ -2116,7 +2120,7 @@ let MEDIA = [
   {"title": "鱿鱼游戏 第一季 오징어 게임", "type": "电视剧", "poster": "媒体海报/p2677934359.jpg", "creator": "鱿鱼游戏 第一季", "year": "2021", "platform": "韩国", "date": "2021-09", "rating": 7.7, "genre": "悬疑 / 惊悚"},
   {"title": "鱿鱼游戏：真人挑战赛 第一季 Squid Game: The Challenge Season 1", "type": "真人秀", "poster": "媒体海报/p2901206846.jpg", "creator": "鱿鱼游戏：真人挑战赛 第一季", "year": "2023", "platform": "美国", "date": "2023-11", "rating": 6.4, "genre": "真人秀"},
   {"title": "又见白娘子", "type": "电视剧", "poster": "媒体海报/p2395501913.jpg", "creator": "[可播放]", "year": "2011", "platform": "中国大陆", "date": "2011-06", "rating": 3.8, "genre": "古装"},
-  {"title": "诱惑岛 第四季 Temptation Island Season 4", "type": "电影", "poster": "媒体海报/p2919331086.jpg", "creator": "诱惑岛 第四季", "year": "2022", "platform": "美国", "date": "2022-04"},
+  {"title": "诱惑岛 第四季 Temptation Island Season 4", "type": "真人秀", "poster": "媒体海报/p2919331086.jpg", "creator": "诱惑岛 第四季", "year": "2022", "platform": "美国", "date": "2022-04"},
   {"title": "御赐小仵作", "type": "电视剧", "poster": "媒体海报/p2652208493.jpg", "year": "2021", "platform": "中国大陆", "date": "2021-04", "rating": 7.9, "genre": "剧情 / 爱情 / 悬疑 / 古装"},
   {"title": "御赐小仵作2", "type": "电视剧", "poster": "媒体海报/p2922875867.jpg", "year": "2026", "platform": "中国大陆", "date": "2026-01", "rating": 5.4, "genre": "剧情 / 悬疑 / 古装"},
   {"title": "御用闲人", "type": "电视剧", "poster": "媒体海报/p2541954720.jpg", "year": "2005", "platform": "中国香港", "date": "2005", "rating": 6.3, "genre": "剧情 / 喜剧 / 古装"},
@@ -2149,15 +2153,15 @@ let MEDIA = [
   {"title": "致青春·原来你还在这里", "type": "电影", "poster": "媒体海报/p2363083099.jpg", "year": "2016", "platform": "中国大陆", "date": "2016-07", "rating": 4.4, "genre": "剧情 / 爱情"},
   {"title": "致我们终将逝去的青春", "type": "电影", "poster": "媒体海报/p1935067049.jpg", "year": "2013", "platform": "中国大陆", "date": "2013-04", "rating": 6.5, "genre": "剧情 / 爱情"},
   {"title": "中国成语大会 第二季", "type": "真人秀", "poster": "媒体海报/p2318834011.jpg", "year": "2015", "platform": "中国大陆", "date": "2015-11", "rating": 9.3, "genre": "真人秀"},
-  {"title": "中国古诗词动漫", "type": "电视剧", "poster": "媒体海报/p2787129887.jpg", "year": "2015", "platform": "中国大陆", "date": "2015-11", "rating": 9.0, "genre": "动画 / 历史"},
+  {"title": "中国古诗词动漫", "type": "动漫", "poster": "媒体海报/p2787129887.jpg", "year": "2015", "platform": "中国大陆", "date": "2015-11", "rating": 9.0, "genre": "动画 / 历史"},
   {"title": "中国汉字听写大会 第一季", "type": "真人秀", "poster": "媒体海报/p2320892847.jpg", "year": "2013", "platform": "中国大陆", "date": "2013-08", "rating": 8.5, "genre": "剧情 / 真人秀"},
   {"title": "中国好歌曲 第二季", "type": "真人秀", "poster": "媒体海报/p2220173907.jpg", "year": "2015", "platform": "中国大陆", "date": "2015-01", "rating": 8.5, "genre": "音乐 / 真人秀"},
   {"title": "中国好歌曲 第三季", "type": "真人秀", "poster": "媒体海报/p2311173039.jpg", "year": "2016", "platform": "中国大陆", "date": "2016-01", "rating": 7.4, "genre": "音乐 / 真人秀"},
   {"title": "中国好歌曲 第一季", "type": "真人秀", "poster": "媒体海报/p2165415305.jpg", "year": "2014", "platform": "中国大陆", "date": "2014-01", "rating": 8.4, "genre": "音乐 / 真人秀"},
   {"title": "中国好声音 第一季", "type": "真人秀", "poster": "媒体海报/p2187326365.jpg", "year": "2012", "platform": "中国大陆", "date": "2012-07", "rating": 7.3, "genre": "音乐 / 真人秀"},
   {"title": "中国合伙人", "type": "电影", "poster": "媒体海报/p1959304567.jpg", "year": "2013", "platform": "中国大陆 / 中国香港", "date": "2013-05", "rating": 7.6, "genre": "剧情"},
-  {"title": "中国奇谭", "type": "电视剧", "poster": "媒体海报/p2885130077.jpg", "year": "2023", "platform": "中国大陆", "date": "2023-01", "rating": 8.7, "genre": "动画 / 短片 / 奇幻"},
-  {"title": "中国奇谭2", "type": "电视剧", "poster": "媒体海报/p2927155061.jpg", "year": "2026", "platform": "中国大陆", "date": "2026-01", "rating": 7.4, "genre": "动画 / 奇幻"},
+  {"title": "中国奇谭", "type": "动漫", "poster": "媒体海报/p2885130077.jpg", "year": "2023", "platform": "中国大陆", "date": "2023-01", "rating": 8.7, "genre": "动画 / 短片 / 奇幻"},
+  {"title": "中国奇谭2", "type": "动漫", "poster": "媒体海报/p2927155061.jpg", "year": "2026", "platform": "中国大陆", "date": "2026-01", "rating": 7.4, "genre": "动画 / 奇幻"},
   {"title": "中国诗词大会 第二季", "type": "真人秀", "poster": "媒体海报/p2418525053.jpg", "year": "2017", "platform": "中国大陆", "date": "2017-01", "rating": 8.4, "genre": "真人秀"},
   {"title": "中国诗词大会 第五季", "type": "真人秀", "poster": "媒体海报/p2582897077.jpg", "creator": "[可播放]", "year": "2020", "platform": "中国大陆", "date": "2020-01", "rating": 7.2, "genre": "真人秀"},
   {"title": "中国通史", "type": "纪录片", "poster": "媒体海报/p2831394733.jpg", "year": "2013", "platform": "中国大陆", "date": "2013-01", "rating": 9.2, "genre": "纪录片"},
@@ -2195,12 +2199,13 @@ const TYPE_META = {
   "真人秀":{ group:"seen",  g:"linear-gradient(135deg,#f43f5e,#fb7185)" },
   "舞台剧":{ group:"seen",  g:"linear-gradient(135deg,#f97316,#fbbf24)" },
   "纪录片":{ group:"seen",  g:"linear-gradient(135deg,#14b8a6,#2dd4bf)" },
+  "动漫":  { group:"anime", g:"linear-gradient(135deg,#06b6d4,#22d3ee)" },
   "书本":  { group:"read",  g:"linear-gradient(135deg,#f59e0b,#fbbf24)" },
   "音乐":  { group:"listen",g:"linear-gradient(135deg,#a855f7,#c084fc)" },
   "广播剧":{ group:"listen",g:"linear-gradient(135deg,#6366f1,#818cf8)" },
 };
-const GROUPS = { seen:"sec-seen", read:"sec-read", listen:"sec-listen" };
-const ALL_TYPES = ["电视剧","电影","真人秀","舞台剧","纪录片","书本","音乐","广播剧"];
+const GROUPS = { seen:"sec-seen", read:"sec-read", listen:"sec-listen", anime:"sec-anime" };
+const ALL_TYPES = ["电视剧","电影","真人秀","舞台剧","纪录片","动漫","书本","音乐","广播剧"];
 let filter = "全部";
 
 /* ===== 自定义条目（localStorage 持久化，与豆瓣导入数据合并显示） ===== */
@@ -2254,7 +2259,7 @@ function cardHTML(it, idx, k){
 /* ===== 分页 v2 2026-11-02：① 组级独立分页（三组始终各自可见，修复第一页被书本独占的问题）
    ② 组内细分小节（电影/电视剧/真人秀/纪录片…）③ 每组 48/24 条切片渲染防卡顿 ===== */
 const GROUP_PAGE_SIZE = (window.matchMedia("(max-width:768px)").matches || window.matchMedia("(pointer:coarse)").matches) ? 24 : 48;
-let page = { seen:1, read:1, listen:1 };   // 各组独立页码（1-based）
+let page = { seen:1, read:1, listen:1, anime:1 };   // 各组独立页码（1-based）
 let curVis = [];                            // 当前筛选下的全量可见条目 [{it,i}]
 const GROUP_TYPES = {};                     // group -> [types]（保 ALL_TYPES 顺序）
 ALL_TYPES.forEach(t=>{ const g = TYPE_META[t]?.group; if(g) (GROUP_TYPES[g] = GROUP_TYPES[g]||[]).push(t); });
@@ -2264,7 +2269,7 @@ function renderAll(){
   curVis = MEDIA.map((it,i)=>({it,i})).filter(({it}) =>
     filter==="全部" ? true : it.type===filter);
 
-  ["seen","read","listen"].forEach(g=>{
+  ["seen","read","listen","anime"].forEach(g=>{
     const el = document.getElementById(GROUPS[g]);
     const items = curVis.filter(({it}) => (TYPE_META[it.type]?.group)===g);
     if(!items.length){ el.innerHTML = `<div class="empty">暂无记录</div>`; return; }
@@ -2297,10 +2302,12 @@ function renderAll(){
   document.getElementById("cnt-seen").textContent  = "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="seen").length + " 部";
   document.getElementById("cnt-read").textContent  = "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="read").length + " 本";
   document.getElementById("cnt-listen").textContent= "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="listen").length + " 部";
+  document.getElementById("cnt-anime").textContent = "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="anime").length + " 部";
 
   // 统计卡（2026-11-02 分页改造时清理：原 cnt/total/rated/avgR 为死代码且 total 与上方重复声明）
   document.getElementById("stats").innerHTML = `
     <div class="stat"><div class="num" style="color:var(--pink)">${MEDIA.filter(i=>TYPE_META[i.type]?.group==="seen").length}</div><div class="lbl">已看 · 影 / 剧 / 综 / 台 / 纪录</div></div>
+    <div class="stat"><div class="num" style="color:#06b6d4">${MEDIA.filter(i=>TYPE_META[i.type]?.group==="anime").length}</div><div class="lbl">动漫</div></div>
     <div class="stat"><div class="num" style="color:var(--amber)">${MEDIA.filter(i=>TYPE_META[i.type]?.group==="read").length}</div><div class="lbl">已读 · 书本</div></div>
     <div class="stat"><div class="num" style="color:var(--purple)">${MEDIA.filter(i=>TYPE_META[i.type]?.group==="listen").length}</div><div class="lbl">已听 · 音乐 / 广播剧</div></div>`;
 
@@ -2415,7 +2422,7 @@ function renderChips(){
 }
 document.getElementById("chips").addEventListener("click", e=>{
   const c = e.target.closest(".chip"); if(!c) return;
-  filter = c.dataset.t; page = { seen:1, read:1, listen:1 }; renderChips(); renderAll();
+  filter = c.dataset.t; page = { seen:1, read:1, listen:1, anime:1 }; renderChips(); renderAll();
 });
 
 /* ===== 视图切换：海报墙 / 汇总分析 ===== */
@@ -2435,7 +2442,7 @@ document.getElementById("vWall").addEventListener("click", ()=>setView("wall"));
 document.getElementById("vStats").addEventListener("click", ()=>setView("stats"));
 
 /* ===== 汇总分析渲染 ===== */
-const GROUP_COLOR = { seen:"#ec4899", read:"#f59e0b", listen:"#a855f7" };
+const GROUP_COLOR = { seen:"#ec4899", read:"#f59e0b", listen:"#a855f7", anime:"#06b6d4" };
 function renderStatsView(){
   const grp = g => MEDIA.filter(i=>(TYPE_META[i.type]?.group)===g);
   const seen = grp("seen"), read = grp("read"), listen = grp("listen");
@@ -2459,7 +2466,7 @@ function renderStatsView(){
   const yMax = Math.max(...Object.values(yearCnt));
   const yearBars = years.map(y=>{
     // 主导分组决定颜色
-    const gs = {seen:0,read:0,listen:0};
+    const gs = {seen:0,read:0,listen:0,anime:0};
     MEDIA.forEach(i=>{ if(i.date && i.date.slice(0,4)===y){ const gg=TYPE_META[i.type]?.group; if(gg) gs[gg]++; }});
     const dom = Object.entries(gs).sort((a,b)=>b[1]-a[1])[0][0];
     return `<div class="hbar"><div class="lb">${y}</div>
@@ -2516,6 +2523,7 @@ function renderStatsView(){
     <div class="ana-grid">
       <div class="ana-card"><h3>累计记录</h3><div class="big" style="color:#1f2328">${MEDIA.length}</div><div class="sm">影视 / 书 / 音乐全部加起来</div></div>
       ${gRow("📺 已看","seen",GROUP_COLOR.seen,"部")}
+      ${gRow("🎬 动漫","anime",GROUP_COLOR.anime,"部")}
       ${gRow("📖 已读","read",GROUP_COLOR.read,"本")}
       ${gRow("🎧 已听","listen",GROUP_COLOR.listen,"部")}
       <div class="ana-card"><h3>平均评分</h3><div class="big" style="color:#6366f1">${avg(rated)}</div><div class="sm">${rated.length} 条有评分（10 分制）</div></div>
@@ -2675,7 +2683,7 @@ document.addEventListener("keydown", e=>{
   const pc = e.target.closest && e.target.closest('.pcard[role="button"]');
   if(pc){ e.preventDefault(); const it = MEDIA[+pc.dataset.i]; if(it) openDetail(it); return; }
   const ch = e.target.closest && e.target.closest('.chip[data-t][role="button"]');
-  if(ch){ e.preventDefault(); filter = ch.dataset.t; page = { seen:1, read:1, listen:1 }; renderChips(); renderAll(); return; }
+  if(ch){ e.preventDefault(); filter = ch.dataset.t; page = { seen:1, read:1, listen:1, anime:1 }; renderChips(); renderAll(); return; }
   const si = e.target.closest && e.target.closest('.s-item[role="button"]');
   if(si){ e.preventDefault(); const hit = (searchDrop._hits||[])[+si.dataset.si]; if(hit){ gotoEntry(hit); openDetail(hit); searchDrop.classList.remove("show"); } }
 });
