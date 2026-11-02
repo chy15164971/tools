@@ -28,16 +28,18 @@
     font-size:15px; line-height:1.5;   /* P2 2026-11-02：base 对齐兄弟页 15px/1.5（原 16px/1.55） */
     padding:0 0 48px;
   }
-  /* ===== Banner ===== */
-  .banner{
-    background:linear-gradient(120deg,#f97316 0%,#ec4899 45%,#a855f7 100%);
-    color:#fff;
-    padding:30px 36px 26px;
-    border-radius:0 0 16px 16px;   /* P2：22→16 收敛刻度 */
-    box-shadow:var(--shadow);
-  }
-  .banner h1{font-size:24px;font-weight:700;letter-spacing:.5px;display:flex;align-items:center;gap:10px}
-  .banner .sub{margin-top:6px;opacity:.9;font-size:13.5px}
+  /* ===== 品牌行 2026-11-02：对齐任务台/明信片 topbar 结构（brand+logo+top-actions），去渐变 banner ===== */
+  .brandbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 0 10px}
+  .brandbar .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:18px}
+  .brandbar .logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--pri),#a855f7);display:flex;align-items:center;justify-content:center;flex:none}
+  .brandbar .logo svg{width:17px;height:17px}
+  .brandbar .brand-sub{font-size:12px;font-weight:500;color:var(--ink-soft);margin-left:2px;letter-spacing:.02em}
+  .brandbar .spacer{flex:1}
+  .brandbar .top-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .sib-link{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 10px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:13px;font-weight:600;text-decoration:none;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .sib-link:hover{border-color:#c9d2e0;transform:translateY(-1px)}
+  .sib-link svg{width:15px;height:15px;flex:none}
+  @media(max-width:760px){.brandbar .brand{font-size:16px}.brandbar .brand-sub{display:none}.brandbar .top-actions{margin-left:auto}}
   .wrap{max-width:1240px;margin:0 auto;padding:0 24px}
   /* ===== Filter chips ===== */
   .chips{display:flex;flex-wrap:wrap;gap:9px;margin:0}
@@ -57,7 +59,7 @@
   }
   .vtab:hover{border-color:#c9d2e0;transform:translateY(-1px)}
   .vtab.on{background:var(--pri-deep);border-color:var(--pri-deep);color:#fff;font-weight:600}   /* P2/P3：同上 */
-  a.vtab{text-decoration:none;display:inline-flex;align-items:center}
+  a.vtab{text-decoration:none;display:inline-flex;align-items:center}   /* 2026-11-02：姊妹页链接已收进 header sib-link，本规则仅兜底 */
   @media(max-width:760px){.viewtabs{margin-left:0}.vtab{padding:7px 12px;font-size:12.5px}}
   /* ===== 数据总览 ===== */
   #viewStats{display:none}
@@ -138,6 +140,19 @@
   .sb-bg{color:#dde3ec}
   .sb-fg{position:absolute;left:0;top:0;overflow:hidden;white-space:nowrap;color:#f59e0b;pointer-events:none}
   .empty{color:#8b949e;font-size:13px;padding:24px 4px}
+  /* ===== 分页 2026-11-02：1735 条全量一次性渲染卡顿 → 桌面 72/页、移动 36/页 ===== */
+  .pager{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;margin:20px 0 8px;padding-top:16px;border-top:1px dashed var(--line)}
+  .pager .pg-info{font-size:12.5px;color:var(--ink-soft);margin-right:8px}
+  .pager button{
+    min-width:34px;height:34px;padding:0 8px;border-radius:10px;cursor:pointer;font-family:inherit;
+    border:1px solid var(--line);background:var(--card);color:var(--ink-soft);
+    font-size:13px;font-weight:600;transition:all .18s ease;
+  }
+  .pager button:hover{border-color:#c9d2e0;transform:translateY(-1px)}
+  .pager button.on{background:var(--pri-deep);border-color:var(--pri-deep);color:#fff}
+  .pager button:disabled{opacity:.4;cursor:not-allowed;transform:none}
+  .pager .pg-gap{color:var(--ink-soft);font-size:13px;padding:0 2px}
+  [data-theme="dark"] .pager button:hover{border-color:#3a4358}
   /* ===== Topbar（吸顶：搜索 + 视图切换 + 分类筛选）===== */
   .topbar{
     position:sticky;top:0;z-index:60;
@@ -239,7 +254,7 @@
   .foot code{background:#eef1f6;padding:1px 6px;border-radius:4px;font-size:11px}
   @media(max-width:560px){
     .stats{grid-template-columns:1fr}
-    .banner{padding:24px 20px}
+    .brandbar{padding:10px 0 6px}
     .modal{flex-direction:column;align-items:center}
     .modal .m-cover{width:180px;border-radius:12px;margin-top:-50px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
     .modal .m-cover img{border-radius:14px}
@@ -269,6 +284,7 @@
   /* ===== P2 2026-11-02：触控目标 ≥44px + 输入 16px 防 iOS 缩放（对齐兄弟页 pointer:coarse 范式）===== */
   @media(pointer:coarse){
     .chip,.vtab,.mini-btn,.add-btn,.del-btn,.f-actions button{min-height:44px}
+    .pager button{min-height:44px;min-width:44px}
     .toast .t-undo{min-height:44px}
     .m-wrap .close{width:44px;height:44px;font-size:18px}
     .s-item{min-height:44px}
@@ -276,7 +292,7 @@
     .f-field input,.f-field select,.f-field textarea{font-size:16px}
   }
   /* ===== P3 2026-11-02：深色主题（暗色 token 值对齐任务台/明信片深色契约；
-     banner 渐变、毛玻璃吸顶、粉/琥珀/紫三域语义色为海报墙品牌个性，有意保留）===== */
+     毛玻璃吸顶、粉/琥珀/紫三域语义色为海报墙品牌个性，有意保留）===== */
   [data-theme="dark"]{
     --bg:#0f1320; --card:#171c2b; --ink:#e7ebf3; --ink-soft:#9aa3b2; --line:#262d3f;
     --pri:#5b86ff; --pri-deep:#3D68F0;
@@ -286,7 +302,7 @@
   }
   [data-theme="dark"] ::-webkit-scrollbar-thumb{background:#2a3142}
   [data-theme="dark"] ::-webkit-scrollbar-thumb:hover{background:#3a4358}
-  [data-theme="dark"] .chip:hover,[data-theme="dark"] .vtab:hover,[data-theme="dark"] .mini-btn:hover{border-color:#3a4358}
+  [data-theme="dark"] .chip:hover,[data-theme="dark"] .vtab:hover,[data-theme="dark"] .mini-btn:hover,[data-theme="dark"] .sib-link:hover{border-color:#3a4358}
   [data-theme="dark"] .hbar .tr{background:#1c2233}
   [data-theme="dark"] .toplist .tp{background:#1c2233}
   [data-theme="dark"] .toplist .rk{color:#5a6478}
@@ -309,14 +325,21 @@
 </style>
 </head>
 <body>
-  <div class="banner">
-    <div class="wrap">
-      <h1>🎬 媒体海报墙</h1>
-      <div class="sub" id="today"></div>
-    </div>
-  </div>
-
   <div class="wrap">
+    <div class="brandbar">
+      <div class="brand">
+        <span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 4v16M17 4v16M2 9h5M2 15h5M17 9h5M17 15h5"/></svg></span>
+        媒体海报墙
+        <span class="brand-sub" id="today"></span>
+      </div>
+      <div class="spacer"></div>
+      <div class="top-actions">
+        <a class="sib-link" href="任务管理台.html" target="_blank" rel="noopener" title="打开任务管理台"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>任务台</a>
+        <a class="sib-link" href="明信片追踪.html" target="_blank" rel="noopener" title="打开明信片追踪"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>明信片</a>
+        <button class="sib-link" id="btnTheme" type="button" title="切换主题（与任务台 / 明信片追踪同步记忆）">🌙 深色</button>
+      </div>
+    </div>
+
     <div class="topbar">
       <div class="toolbar">
         <div class="search-wrap">
@@ -327,12 +350,9 @@
         <button class="mini-btn" id="btnExport" title="导出自定义条目（JSON 备份）">⬇ 导出</button>
         <button class="mini-btn" id="btnImport" title="从 JSON 备份导入自定义条目">⬆ 导入</button>
         <input type="file" id="importFile" accept=".json,application/json" style="display:none" aria-hidden="true">
-        <button class="mini-btn" id="btnTheme" type="button" title="切换主题（与任务台 / 明信片追踪同步记忆）">🌙 深色</button>
         <div class="viewtabs">
           <button class="vtab on" id="vWall">🎞 海报墙</button>
           <button class="vtab" id="vStats">📊 汇总分析</button>
-          <a class="vtab" href="任务管理台.html" target="_blank" rel="noopener" title="打开任务管理台">✅ 任务台</a>
-          <a class="vtab" href="明信片追踪.html" target="_blank" rel="noopener" title="打开明信片追踪">📮 明信片</a>
         </div>
       </div>
       <div class="chips" id="chips"></div>
@@ -349,6 +369,8 @@
 
       <div class="section-title listen">🎧 已听 <span class="cnt" id="cnt-listen"></span></div>
       <div class="masonry" id="sec-listen"></div>
+
+      <nav class="pager" id="pager" aria-label="分页导航"></nav>
     </div>
 
     <div id="viewStats"></div>
@@ -2197,31 +2219,82 @@ function cardHTML(it, idx){
   </div>`;
 }
 
+/* ===== 分页 2026-11-02：1735 条（1729 图）全量渲染卡顿 → 切片渲染当前页 ===== */
+const PAGE_SIZE = (window.matchMedia("(max-width:768px)").matches || window.matchMedia("(pointer:coarse)").matches) ? 36 : 72;
+let page = 1;        // 1-based 当前页
+let curVis = [];     // 当前筛选下的全量可见条目 [{it,i}]
+function clampPage(pages){ if(page > pages) page = pages; if(page < 1) page = 1; }
+
 function renderAll(){
-  const vis = MEDIA.map((it,i)=>({it,i})).filter(({it}) =>
+  curVis = MEDIA.map((it,i)=>({it,i})).filter(({it}) =>
     filter==="全部" ? true : it.type===filter);
+  const total = curVis.length;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  clampPage(pages);
+  const start = (page-1)*PAGE_SIZE, end = Math.min(total, start+PAGE_SIZE);
+  const pageItems = curVis.slice(start, end);
 
   ["seen","read","listen"].forEach(g=>{
     const el = document.getElementById(GROUPS[g]);
-    const items = vis.filter(({it}) => (TYPE_META[it.type]?.group)===g);
+    const hasAnyInGroup = curVis.some(({it}) => (TYPE_META[it.type]?.group)===g);   /* 组全量为空才显示空态；组有数据但本页切空则留白 */
+    const items = pageItems.filter(({it}) => (TYPE_META[it.type]?.group)===g);
     el.innerHTML = items.length
-      ? items.map(({it,i},k)=>cardHTML(it,i)).join("")
-      : `<div class="empty">暂无记录</div>`;
+      ? items.map(({it,i})=>cardHTML(it,i)).join("")
+      : (hasAnyInGroup ? "" : `<div class="empty">暂无记录</div>`);
   });
-
+  renderPager(total, pages);
   document.getElementById("cnt-seen").textContent  = "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="seen").length + " 部";
   document.getElementById("cnt-read").textContent  = "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="read").length + " 本";
   document.getElementById("cnt-listen").textContent= "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="listen").length + " 部";
 
-  // 统计卡
-  const cnt = t => MEDIA.filter(i=>i.type===t).length;
-  const total = MEDIA.length;
-  const rated = MEDIA.filter(i=>i.rating);
-  const avgR = rated.length ? (rated.reduce((s,i)=>s+i.rating,0)/rated.length).toFixed(1) : "—";
+  // 统计卡（2026-11-02 分页改造时清理：原 cnt/total/rated/avgR 为死代码且 total 与上方重复声明）
   document.getElementById("stats").innerHTML = `
     <div class="stat"><div class="num" style="color:var(--pink)">${MEDIA.filter(i=>TYPE_META[i.type]?.group==="seen").length}</div><div class="lbl">已看 · 影 / 剧 / 综 / 台 / 纪录</div></div>
     <div class="stat"><div class="num" style="color:var(--amber)">${MEDIA.filter(i=>TYPE_META[i.type]?.group==="read").length}</div><div class="lbl">已读 · 书本</div></div>
     <div class="stat"><div class="num" style="color:var(--purple)">${MEDIA.filter(i=>TYPE_META[i.type]?.group==="listen").length}</div><div class="lbl">已听 · 音乐 / 广播剧</div></div>`;
+}
+
+/* ===== 分页条：‹ 上一页 · 页码（窗口省略） · 下一页 › ===== */
+function renderPager(total, pages){
+  const el = document.getElementById("pager");
+  if(total===0 || pages<=1){
+    el.innerHTML = total ? `<span class="pg-info">共 ${total} 条</span>` : "";
+    el.style.display = total ? "" : "none";
+    return;
+  }
+  const start = (page-1)*PAGE_SIZE + 1, end = Math.min(total, page*PAGE_SIZE);
+  /* 页码窗口：1 … p-1 p p+1 … N */
+  const nums = [];
+  const push = n => { if(!nums.includes(n)) nums.push(n); };
+  push(1);
+  for(let n=page-1; n<=page+1; n++){ if(n>1 && n<pages) push(n); }
+  if(pages>1) push(pages);
+  nums.sort((a,b)=>a-b);
+  let html = `<span class="pg-info">共 ${total} 条 · 第 ${start}–${end} 条</span>`;
+  html += `<button type="button" data-p="${page-1}" aria-label="上一页" ${page<=1?"disabled":""}>‹</button>`;
+  nums.forEach((n,ix)=>{
+    if(ix>0 && n-nums[ix-1]>1) html += `<span class="pg-gap">…</span>`;
+    html += `<button type="button" data-p="${n}" ${n===page?'class="on" aria-current="page"':""}>${n}</button>`;
+  });
+  html += `<button type="button" data-p="${page+1}" aria-label="下一页" ${page>=pages?"disabled":""}>›</button>`;
+  el.innerHTML = html;
+  el.style.display = "";
+}
+document.getElementById("pager").addEventListener("click", e=>{
+  const b = e.target.closest("button[data-p]"); if(!b || b.disabled) return;
+  const p = +b.dataset.p;
+  const pages = Math.max(1, Math.ceil(curVis.length / PAGE_SIZE));
+  if(p<1 || p>pages || p===page) return;
+  page = p; renderAll();
+  window.scrollTo({top:0});
+});
+/* 搜索命中 / 新增后：跳到该条目所在页（在当前筛选的 curVis 中定位） */
+function gotoEntry(entry){
+  const idx = curVis.findIndex(({it}) => it===entry);
+  if(idx < 0) return false;
+  const p = Math.floor(idx / PAGE_SIZE) + 1;
+  if(p !== page){ page = p; renderAll(); }
+  return true;
 }
 
 // 筛选 chips
@@ -2235,7 +2308,7 @@ function renderChips(){
 }
 document.getElementById("chips").addEventListener("click", e=>{
   const c = e.target.closest(".chip"); if(!c) return;
-  filter = c.dataset.t; renderChips(); renderAll();
+  filter = c.dataset.t; page = 1; renderChips(); renderAll();
 });
 
 /* ===== 视图切换：海报墙 / 汇总分析 ===== */
@@ -2430,7 +2503,7 @@ searchBox.addEventListener("keydown", e=>{
   if(e.key==="Enter"){
     const q = searchBox.value.trim(); if(!q) return;
     doSearch();
-    if((searchDrop._hits||[]).length){ openDetail(searchDrop._hits[0]); searchDrop.classList.remove("show"); }
+    if((searchDrop._hits||[]).length){ gotoEntry(searchDrop._hits[0]); openDetail(searchDrop._hits[0]); searchDrop.classList.remove("show"); }
   }else if(e.key==="Escape"){
     searchDrop.classList.remove("show");
   }
@@ -2438,7 +2511,7 @@ searchBox.addEventListener("keydown", e=>{
 searchDrop.addEventListener("click", e=>{
   const item = e.target.closest(".s-item"); if(!item) return;
   const hit = (searchDrop._hits||[])[+item.dataset.si];
-  if(hit){ openDetail(hit); searchDrop.classList.remove("show"); }
+  if(hit){ gotoEntry(hit); openDetail(hit); searchDrop.classList.remove("show"); }
 });
 document.addEventListener("click", e=>{
   if(!e.target.closest(".search-wrap")) searchDrop.classList.remove("show");
@@ -2495,9 +2568,9 @@ document.addEventListener("keydown", e=>{
   const pc = e.target.closest && e.target.closest('.pcard[role="button"]');
   if(pc){ e.preventDefault(); const it = MEDIA[+pc.dataset.i]; if(it) openDetail(it); return; }
   const ch = e.target.closest && e.target.closest('.chip[data-t][role="button"]');
-  if(ch){ e.preventDefault(); filter = ch.dataset.t; renderChips(); renderAll(); return; }
+  if(ch){ e.preventDefault(); filter = ch.dataset.t; page = 1; renderChips(); renderAll(); return; }
   const si = e.target.closest && e.target.closest('.s-item[role="button"]');
-  if(si){ e.preventDefault(); const hit = (searchDrop._hits||[])[+si.dataset.si]; if(hit){ openDetail(hit); searchDrop.classList.remove("show"); } }
+  if(si){ e.preventDefault(); const hit = (searchDrop._hits||[])[+si.dataset.si]; if(hit){ gotoEntry(hit); openDetail(hit); searchDrop.classList.remove("show"); } }
 });
 
 // 日期
