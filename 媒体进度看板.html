@@ -242,6 +242,21 @@
     .modal .m-cover img{border-radius:14px}
     .modal .m-body{padding:18px}
   }
+  /* ===== P0/P1 2026-11-02：键盘可达焦点 + toast 反馈 ===== */
+  a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,
+  [tabindex]:focus-visible,[role="button"]:focus-visible{
+    outline:2px solid #a855f7;outline-offset:2px;
+  }
+  .pcard:focus-visible{transform:translateY(-3px);box-shadow:var(--shadow-hover)}
+  .s-item[tabindex]:focus-visible{background:#f5f3fb}
+  .mini-btn{flex:none;padding:9px 12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-size:13px;cursor:pointer;font-family:inherit;transition:all .18s ease}
+  .mini-btn:hover{border-color:#c9d2e0;transform:translateY(-1px)}
+  @media(max-width:760px){.mini-btn{padding:7px 10px;font-size:12.5px}}
+  .toast-wrap{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:120;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+  .toast{pointer-events:auto;background:#1f2328;color:#fff;font-size:13px;padding:10px 16px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.28);display:flex;align-items:center;gap:12px;animation:fade .2s ease;max-width:86vw}
+  .toast.danger{background:#dc2626}
+  .toast .t-undo{border:none;background:transparent;color:#fbbf24;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;padding:2px 4px}
+  .toast .t-undo:hover{text-decoration:underline}
 </style>
 </head>
 <body>
@@ -260,6 +275,9 @@
           <div class="s-drop" id="searchDrop"></div>
         </div>
         <button class="add-btn" id="btnAdd">＋ 新增条目</button>
+        <button class="mini-btn" id="btnExport" title="导出自定义条目（JSON 备份）">⬇ 导出</button>
+        <button class="mini-btn" id="btnImport" title="从 JSON 备份导入自定义条目">⬆ 导入</button>
+        <input type="file" id="importFile" accept=".json,application/json" style="display:none" aria-hidden="true">
         <div class="viewtabs">
           <button class="vtab on" id="vWall">🎞 海报墙</button>
           <button class="vtab" id="vStats">📊 汇总分析</button>
@@ -2091,7 +2109,7 @@ let customEntries = (()=>{
 })();
 function saveCustom(){
   try{ localStorage.setItem(CUSTOM_KEY, JSON.stringify(customEntries)); }
-  catch(e){ alert("本地存储不可用，新增条目仅本次会话有效"); }
+  catch(e){ toast("本地存储不可用，新增条目仅本次会话有效", "danger", null, 5000); }
 }
 const BASE_MEDIA = MEDIA;
 function mergeMedia(){
@@ -2119,7 +2137,7 @@ function cardHTML(it, idx){
               onerror="var p=this.parentNode;p.classList.add('ph');p.style.setProperty('--g','${meta.g}');p.insertAdjacentHTML('afterbegin','<span>'+this.alt+'</span>');this.remove();">
        </div>`
     : `<div class="cover ph" style="--g:${meta.g}"><div class="badge">${esc(it.type)}</div><span>${esc(it.title)}</span></div>`;
-  return `<div class="pcard" data-i="${idx}" style="animation-delay:${Math.min(idx*40,400)}ms">
+  return `<div class="pcard" role="button" tabindex="0" data-i="${idx}" aria-label="${esc(it.title)}（${esc(it.type)}）" style="animation-delay:${Math.min(idx*40,400)}ms">
     ${cover}
     <div class="info">
       <div class="name">${esc(it.title)}</div>
@@ -2162,7 +2180,7 @@ function renderChips(){
   const chips = ["全部", ...ALL_TYPES.filter(t=>counts[t]>0)];
   document.getElementById("chips").innerHTML = chips.map(t=>{
     const n = t==="全部" ? MEDIA.length : counts[t];
-    return `<div class="chip ${t===filter?'on':''}" data-t="${esc(t)}">${esc(t)} <b>${n}</b></div>`;
+    return `<div class="chip ${t===filter?'on':''}" role="button" tabindex="0" data-t="${esc(t)}">${esc(t)} <b>${n}</b></div>`;
   }).join("");
 }
 document.getElementById("chips").addEventListener("click", e=>{
@@ -2311,12 +2329,22 @@ document.body.addEventListener("click", e=>{
 document.getElementById("modal").addEventListener("click", e=>{
   if(e.target.id !== "btnDel") return;
   const ci = +e.target.dataset.ci;
-  const name = (customEntries[ci]||{}).title || "该条目";
-  if(!confirm("确定删除「"+name+"」？此操作不可撤销。")) return;
-  customEntries.splice(ci,1);
-  saveCustom(); mergeMedia(); renderChips(); renderAll();
-  if(curView==="stats") renderStatsView();
-  mask.classList.remove("show");
+  const entry = customEntries[ci];
+  const name = (entry||{}).title || "该条目";
+  /* P1 2026-11-02：原生 confirm → 轻量确认弹窗 + toast 撤销（8s），与兄弟页确认流统一 */
+  confirmWall("确定删除「"+name+"」？删除后 8 秒内可撤销。", "删除").then(ok=>{
+    if(!ok) return;
+    customEntries.splice(ci,1);
+    saveCustom(); mergeMedia(); renderChips(); renderAll();
+    if(curView==="stats") renderStatsView();
+    mask.classList.remove("show");
+    toast("已删除「"+name+"」", null, ()=>{
+      customEntries.splice(ci,0,entry);   // 原位恢复
+      saveCustom(); mergeMedia(); renderChips(); renderAll();
+      if(curView==="stats") renderStatsView();
+      toast("已撤销删除「"+name+"」");
+    }, 8000);
+  });
 });
 mask.addEventListener("click", e=>{ if(e.target===mask || e.target.id==="btnClose") mask.classList.remove("show"); });
 
@@ -2336,7 +2364,7 @@ function doSearch(){
   searchDrop.innerHTML = hits.length ? hits.map((e,i)=>{
     const meta = TYPE_META[e.type] || { g:"linear-gradient(135deg,#94a3b8,#64748b)" };
     const thumb = `<div class="s-thumb" style="--g:${meta.g}">${e.poster?`<img src="${esc(e.poster)}" loading="lazy" onerror="this.remove()">`:""}</div>`;
-    return `<div class="s-item" data-si="${i}">
+    return `<div class="s-item" role="button" tabindex="0" data-si="${i}">
       ${thumb}
       <div style="min-width:0;flex:1">
         <div class="s-t">${esc(e.title)}</div>
@@ -2372,35 +2400,152 @@ const F = id => document.getElementById(id);
 const FV = id => F(id).value.trim();
 document.getElementById("btnAdd").addEventListener("click", ()=>{
   F("fType").innerHTML = ALL_TYPES.map(t=>`<option>${t}</option>`).join("");
-  F("fDate").value = new Date().toISOString().slice(0,7);
+  F("fDate").value = (()=>{ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); })();  /* P0 2026-11-02：原 toISOString 取 UTC 月，东八区 0–8 点保存会写成上个月（对齐明信片页 P1-7 本地日期口径） */
   formMask.classList.add("show");
   setTimeout(()=>F("fTitle").focus(), 60);
 });
-function closeForm(){ formMask.classList.remove("show"); }
-F("fCancel").addEventListener("click", closeForm);
+function formHasInput(){
+  return ["fTitle","fPoster","fCreator","fYear","fPlatform","fNote","fRating","fGenre"].some(id=>FV(id));
+}
+/* P1 2026-11-02：对齐明信片策略——表单有未保存内容时，遮罩/Esc 不直接关闭（防输入静默丢失）；「取消」强制关 */
+function closeForm(force){
+  if(!force && formHasInput()){ toast("表单有未保存内容，点「取消」可放弃填写", "danger", null, 4000); return; }
+  formMask.classList.remove("show");
+}
+F("fCancel").addEventListener("click", ()=>closeForm(true));
 formMask.addEventListener("click", e=>{ if(e.target===formMask) closeForm(); });
-F("fSave").addEventListener("click", ()=>{
+F("fSave").addEventListener("click", async ()=>{
   const title = FV("fTitle");
-  if(!title){ alert("请至少填写「名称」"); F("fTitle").focus(); return; }
+  if(!title){ toast("请至少填写「名称」", "danger"); F("fTitle").focus(); return; }
   const entry = { title, type: F("fType").value || ALL_TYPES[0], poster: FV("fPoster") };
   [["creator","fCreator"],["year","fYear"],["platform","fPlatform"],["date","fDate"],["genre","fGenre"],["note","fNote"]]
     .forEach(([k,id])=>{ if(FV(id)) entry[k]=FV(id); });
   const r = parseFloat(FV("fRating"));
   if(!isNaN(r) && r>0) entry.rating = Math.min(10, r);
+  /* P1 2026-11-02：同名查重（豆瓣条目含同名不同版本属正常，故确认而非阻断） */
+  if(customEntries.some(x=>x.title===title)){
+    if(!(await confirmWall("已存在同名条目「"+title+"」，仍要添加吗？", "仍要添加"))) return;
+  }
   customEntries.push(entry);
   saveCustom(); mergeMedia(); renderChips(); renderAll();
   if(curView==="stats") renderStatsView();
-  closeForm();
+  closeForm(true);
   ["fTitle","fPoster","fCreator","fYear","fPlatform","fNote","fRating","fGenre"].forEach(id=>F(id).value="");
   openDetail(MEDIA[customEntries.length-1]);  // 保存后立即展示新条目详情
 });
 document.addEventListener("keydown", e=>{
-  if(e.key==="Escape"){ mask.classList.remove("show"); formMask.classList.remove("show"); searchDrop.classList.remove("show"); }
+  if(e.key==="Escape"){
+    if(window.__confirmWallOpen) return;   /* P1 2026-11-02：确认弹窗层优先（confirmWall 自己处理 Esc），其余浮层让位 */
+    mask.classList.remove("show");
+    closeForm();                           /* 表单有未保存内容时不会直接关（见 closeForm 脏检查） */
+    searchDrop.classList.remove("show");
+  }
+  /* P0 2026-11-02：键盘可达——pcard / chip / s-item 的 Enter / Space 触发（全局委托） */
+  if(e.key!=="Enter" && e.key!==" ") return;
+  const pc = e.target.closest && e.target.closest('.pcard[role="button"]');
+  if(pc){ e.preventDefault(); const it = MEDIA[+pc.dataset.i]; if(it) openDetail(it); return; }
+  const ch = e.target.closest && e.target.closest('.chip[data-t][role="button"]');
+  if(ch){ e.preventDefault(); filter = ch.dataset.t; renderChips(); renderAll(); return; }
+  const si = e.target.closest && e.target.closest('.s-item[role="button"]');
+  if(si){ e.preventDefault(); const hit = (searchDrop._hits||[])[+si.dataset.si]; if(hit){ openDetail(hit); searchDrop.classList.remove("show"); } }
 });
 
 // 日期
 document.getElementById("today").textContent =
   "更新于 " + new Date().toLocaleDateString("zh-CN",{year:"numeric",month:"long",day:"numeric",weekday:"long"});
+
+/* ===== P1 2026-11-02：toast 反馈（role=status，可选撤销） ===== */
+const toastWrap = document.createElement("div");
+toastWrap.className = "toast-wrap";
+toastWrap.setAttribute("aria-live","polite");
+document.body.appendChild(toastWrap);
+let wallToastTimer = null;
+function toast(msg, kind, undoFn, ms){
+  toastWrap.innerHTML = "";
+  if(wallToastTimer) clearTimeout(wallToastTimer);
+  const el = document.createElement("div");
+  el.className = "toast" + (kind==="danger" ? " danger" : "");
+  el.setAttribute("role","status");
+  el.innerHTML = "<span>"+esc(msg)+"</span>";
+  if(undoFn){
+    const b = document.createElement("button");
+    b.className = "t-undo"; b.textContent = "撤销"; b.type = "button";
+    b.onclick = () => { toastWrap.innerHTML=""; undoFn(); };
+    el.appendChild(b);
+  }
+  toastWrap.appendChild(el);
+  wallToastTimer = setTimeout(()=>{ toastWrap.innerHTML=""; }, ms || (undoFn?8000:3000));
+}
+
+/* ===== P1 2026-11-02：轻量确认弹窗（Promise 版 confirm，替代原生 confirm） ===== */
+function confirmWall(message, okText){
+  window.__confirmWallOpen = true;
+  return new Promise(resolve=>{
+    const m = document.createElement("div");
+    m.className = "mask show";
+    m.style.zIndex = 100;
+    m.innerHTML = '<div class="form-modal" style="max-width:400px" role="alertdialog" aria-modal="true" aria-label="确认操作">'
+      + '<h2 style="font-size:15.5px">确认操作</h2>'
+      + '<p style="font-size:13.5px;color:var(--ink-soft);margin:10px 0 16px;white-space:pre-wrap;line-height:1.6">'+esc(message)+'</p>'
+      + '<div class="f-actions" style="margin-top:0">'
+      + '<button class="f-cancel" type="button" data-a="0">取消</button>'
+      + '<button class="f-save" type="button" data-a="1" style="background:#dc2626">'+esc(okText||"确定")+'</button>'
+      + '</div></div>';
+    const done = v => {
+      window.__confirmWallOpen = false;
+      document.removeEventListener("keydown", onKey, true);
+      m.remove(); resolve(v);
+    };
+    function onKey(e){ if(e.key==="Escape"){ e.stopPropagation(); done(false); } }
+    document.addEventListener("keydown", onKey, true);
+    m.addEventListener("click", e=>{
+      if(e.target===m){ done(false); return; }
+      const a = e.target.closest("[data-a]");
+      if(a) done(a.dataset.a==="1");
+    });
+    document.body.appendChild(m);
+    m.querySelector('[data-a="1"]').focus();
+  });
+}
+
+/* ===== P1 2026-11-02：自定义条目导出 / 导入（数据容灾） ===== */
+F("btnExport").addEventListener("click", ()=>{
+  const payload = { _app:"wb-mediawall", _ver:1, exportedAt:new Date().toISOString(), entries: customEntries };
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "媒体海报墙_自定义条目_" + new Date().toISOString().slice(0,10) + ".json";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  toast("已导出 " + customEntries.length + " 条自定义条目");
+});
+F("btnImport").addEventListener("click", ()=> F("importFile").click());
+F("importFile").addEventListener("change", e=>{
+  const f = e.target.files[0]; e.target.value = "";
+  if(!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    let arr = null;
+    try{
+      const data = JSON.parse(rd.result);
+      arr = Array.isArray(data) ? data : (data && Array.isArray(data.entries) ? data.entries : null);
+    }catch(_){/* 非 JSON */}
+    if(!arr){ toast("导入失败：文件不是有效的 JSON 备份", "danger", null, 5000); return; }
+    const valid = arr.filter(x=>x && typeof x.title==="string" && x.title.trim());
+    if(!valid.length){ toast("导入失败：备份中没有有效条目", "danger", null, 5000); return; }
+    /* 合并去重：title+year+type 判重；_custom/_ci 为渲染期注入字段，入库前清洗 */
+    const key = x => (x.title||"")+"\u0001"+(x.year||"")+"\u0001"+(x.type||"");
+    const seen = new Set(customEntries.map(key));
+    const add = valid.filter(x=>!seen.has(key(x))).map(x=>{
+      const c = Object.assign({}, x); delete c._custom; delete c._ci; return c;
+    });
+    customEntries.push(...add);
+    saveCustom(); mergeMedia(); renderChips(); renderAll();
+    if(curView==="stats") renderStatsView();
+    toast("导入完成：新增 " + add.length + " 条，跳过重复 " + (valid.length-add.length) + " 条");
+  };
+  rd.readAsText(f, "utf-8");
+});
 
 renderChips();
 renderAll();
