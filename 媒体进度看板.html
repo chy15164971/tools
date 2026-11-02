@@ -104,19 +104,23 @@
   .section-title.listen{border-left-color:var(--purple)}
   .section-title .cnt{font-size:12.5px;font-weight:500;color:var(--ink-soft)}
   /* ===== Masonry ===== 卡片 2026-11-02 二轮缩小：6列150px→8列118px */
-  .masonry{columns:8 118px;column-gap:12px;margin-bottom:10px}
-  @media(max-width:1200px){.masonry{columns:7 110px}}
-  @media(max-width:900px){.masonry{columns:6 104px}}
-  @media(max-width:680px){.masonry{columns:4 96px;column-gap:9px}}
-  @media(max-width:460px){.masonry{columns:3 100px;column-gap:9px}}
+  /* 2026-11-02 六轮：原 columns 多列布局在短小节(如"其他"4~8张)下做列平衡，产生不规则留白空洞，
+     被误认为"空白卡"。改为每个 type 小节(.subtype)是一张统一 CSS Grid；.gblock/.masonry 透明化
+     (display:contents)，卡片全部汇入同一网格连续排列；小节标题(.sub-t/.g-t)跨整行，彻底消除列平衡空格。 */
+  .subtype{display:grid;grid-template-columns:repeat(8,1fr);gap:16px 12px;align-items:start;margin-bottom:18px}
+  @media(max-width:1200px){.subtype{grid-template-columns:repeat(7,1fr)}}
+  @media(max-width:900px){.subtype{grid-template-columns:repeat(6,1fr)}}
+  @media(max-width:680px){.subtype{grid-template-columns:repeat(4,1fr);gap:12px 8px}}
+  @media(max-width:460px){.subtype{grid-template-columns:repeat(3,1fr);gap:12px 8px}}
+  .masonry{display:contents}
+  .gblock{display:contents}
+  .sub-t,.g-t{grid-column:1 / -1}
   /* ===== 细分小节 2026-11-02：组内按细分类（电影/电视剧/…）分块展示 ===== */
-  .subtype{margin-bottom:6px}
-  .sub-t{font-size:13px;font-weight:700;color:var(--ink-soft);margin:4px 0 8px;display:flex;align-items:center;gap:8px}
+  .sub-t{font-size:13px;font-weight:700;color:var(--ink-soft);margin:14px 0 9px;display:flex;align-items:center;gap:8px}
   .sub-t::after{content:"";flex:1;height:1px;background:var(--line)}
   .sub-t b{font-weight:600;font-size:11.5px;color:var(--ink-soft)}
   /* ===== 题材子块 2026-11-02：type 小节内按主 genre 再细分 ===== */
-  .gblock{margin-bottom:2px}
-  .g-t{font-size:13px;font-weight:700;color:var(--ink);margin:2px 0 8px;display:flex;align-items:center;gap:7px}
+  .g-t{font-size:13px;font-weight:700;color:var(--ink);margin:12px 0 9px;display:flex;align-items:center;gap:7px}
   .g-t::before{content:"";width:4px;height:13px;border-radius:2px;background:var(--pri);flex:none}
   .g-t b{font-weight:600;font-size:11px;color:var(--ink-soft);background:var(--line);border-radius:999px;padding:1px 7px;opacity:1}
   /* ===== 组级分页条 2026-11-02：三组各自独立翻页（‹ x / y ›） ===== */
@@ -131,7 +135,7 @@
   .no-anim .pcard{animation:none}
   /* ===== Poster card ===== */
   .pcard{
-    break-inside:avoid;margin-bottom:10px;cursor:pointer;
+    break-inside:avoid;margin-bottom:0;cursor:pointer;   /* 2026-11-02 六轮：垂直间距改由 .subtype grid gap 提供 */
     background:var(--card);border-radius:10px;overflow:hidden;
     box-shadow:var(--shadow);border:1px solid var(--line);
     transition:transform .2s ease,box-shadow .2s ease;
