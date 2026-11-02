@@ -82,7 +82,7 @@
   .spacer{flex:1;}
   .sync{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);background:var(--card);border:1px solid var(--line);padding:6px 10px;border-radius:999px;}
   .sync .dot{width:8px;height:8px;border-radius:50%;background:var(--warn);}
-  .btn{display:inline-flex;align-items:center;gap:6px;border:none;border-radius:var(--radius);padding:10px 14px;font-size:14px;font-weight:600;cursor:pointer;min-height:44px;transition:.15s;}
+  .btn{display:inline-flex;align-items:center;gap:6px;border:none;border-radius:var(--radius);padding:10px 14px;font-size:14px;font-weight:600;cursor:pointer;min-height:44px;transition:.15s;font-family:inherit;}   /* P1 2026-11-02：补 font-family:inherit——UA 默认给 button 配 Arial/系统字体，导致按钮渲染字体与正文不一致（对齐明信片 .btn） */
   .btn svg{width:16px;height:16px;flex:none;}
   .ic{width:16px;height:16px;flex:none;vertical-align:-2px;margin-right:5px;}   /* 内联 SVG 图标统一尺寸（P2：替换 emoji）；默认与右侧文字留 5px 呼吸间距 */
   .cloudpill{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;padding:5px 12px;border-radius:999px;background:var(--pri-deep);color:var(--white);border:1px solid var(--pri);box-shadow:0 1px 3px rgba(79,124,255,.25);white-space:nowrap;cursor:pointer;}
@@ -204,7 +204,7 @@
   .today-item.dropped .t{text-decoration:line-through;}
   .badge.drop{background:var(--line);color:var(--muted);border:1px solid var(--line);}
   .badge.rec{background:transparent;color:var(--sub);border:1px solid var(--line);padding:1px 4px;opacity:.8;}
-  .btn-quiet{background:var(--card);border:1px solid var(--line);color:var(--muted);font-size:12px;padding:3px 9px;border-radius:6px;cursor:pointer;}
+  .btn-quiet{background:var(--card);border:1px solid var(--line);color:var(--muted);font-size:12px;padding:3px 9px;border-radius:6px;cursor:pointer;font-family:inherit;}
   .btn-quiet:hover{background:var(--bg2);color:var(--text);}
   .inbox-item.dropped .ibt{text-decoration:line-through;}
   .today-item .bar{width:4px;align-self:stretch;border-radius:3px;background:var(--c5);}
@@ -216,7 +216,7 @@
   /* 动作层级：任务信息优先——「完成」是唯一强调按钮；其余降为图标化次要按钮（更小、更低对比、悬停/聚焦才显现） */
   .today-acts .btn-sm{font-size:12px;padding:3px 9px;min-height:26px;line-height:1.2;}
   .today-act{width:26px;height:26px;min-height:26px;padding:0;display:inline-flex;align-items:center;justify-content:center;
-    font-size:13px;line-height:1;border-radius:7px;background:transparent;border:1px solid transparent;color:var(--muted);cursor:pointer;}
+    font-size:13px;line-height:1;border-radius:7px;background:transparent;border:1px solid transparent;color:var(--muted);cursor:pointer;font-family:inherit;}
   .today-act:hover{background:var(--bg2);border-color:var(--line);color:var(--text);}
   .today-act:focus-visible{outline:2px solid var(--pri);outline-offset:1px;}
   /* 桌面端：次要动作默认隐形，指针进入该任务行 / 键盘聚焦时才淡入（元素仍在 DOM 内、可被 Tab 聚焦；隐藏态用 aria-hidden 避免读屏误读，不改变布局） */
@@ -259,7 +259,7 @@
   .today-sec-dot.over{background:var(--danger);}
   .today-sec-h b{color:var(--text);font-weight:700;}
   /* 逾期分区头的批量操作：靠右排布，桌面压低存在感避免与分区标题抢视线 */
-  .today-sec-act{margin-left:auto;min-height:24px;padding:2px 8px;font-size:11.5px;font-weight:600;color:var(--sub);border:1px solid var(--line);background:var(--card);border-radius:7px;cursor:pointer;}
+  .today-sec-act{margin-left:auto;min-height:24px;padding:2px 8px;font-size:11.5px;font-weight:600;color:var(--sub);border:1px solid var(--line);background:var(--card);border-radius:7px;cursor:pointer;font-family:inherit;}
   .today-sec-act:hover{background:var(--hover);color:var(--ink-strong);}
   .today-sec-act:focus-visible{outline:2px solid var(--pri);outline-offset:1px;}
   .today-sec-toggle{margin:8px 0 2px;align-self:stretch;text-align:left;font-size:12.5px;font-weight:600;color:var(--pri);
@@ -565,7 +565,7 @@
   .filterbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;}
   .fsearch{flex:1;min-width:160px;border:1px solid var(--line);border-radius:11px;padding:9px 12px;font-size:14px;font-family:inherit;background:var(--card);color:var(--ink);}
   .fsel{border:1px solid var(--line);border-radius:11px;padding:9px 10px;font-size:14px;background:var(--card);color:var(--ink);}
-  .leadsel{border:1px solid var(--line);border-radius:11px;padding:7px 8px;font-size:13px;background:var(--card);color:var(--ink);}
+  .leadsel{border:1px solid var(--line);border-radius:11px;padding:7px 8px;font-size:13px;background:var(--card);color:var(--ink);font-family:inherit;}
   .ev{touch-action:pan-y;}   /* P1-2：默认允许以事件块为起点的纵向滚动（触屏拖拽 HTML5 本不触发，
                                 none 会让"手指落在内容上就滚不动"）；精细指针档才收成 none 供拖拽用 */
   @media (hover:hover) and (pointer:fine){ .ev{touch-action:none;} }
@@ -9095,9 +9095,10 @@ function renderTplMenu(){
   if(!arr.length){ m.innerHTML='<div style="padding:10px;color:var(--sub);font-size:13px;">还没有模板。在任务弹窗点「存为模板」即可保存。</div>'; m.style.display="block"; return; }
   m.innerHTML=arr.map(tp=>'<div class="tpl-item" data-tid="'+tp.id+'" style="padding:8px 10px;cursor:pointer;border-radius:8px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📋 '+esc(tp.name)+'</div>').join("")
     +'<div class="tpl-item" data-tid="__clear" style="padding:8px 10px;cursor:pointer;border-radius:8px;font-size:12px;color:var(--sub);border-top:1px solid var(--line);margin-top:4px;">清空全部模板</div>';
-  m.querySelectorAll(".tpl-item").forEach(el=>el.onclick=()=>{
+  m.querySelectorAll(".tpl-item").forEach(el=>el.onclick=async ()=>{
     const tid=el.dataset.tid; m.style.display="none";
-    if(tid==="__clear"){ if(confirm("确定清空所有模板？")){ templatesSave([]); toast("已清空模板"); } return; }
+    /* P1 2026-11-02：原生 confirm → confirmDialog（danger 变体），与全站确认流统一 */
+    if(tid==="__clear"){ if(await confirmDialog("确定清空所有模板？全部模板将被移除且不可恢复。",{danger:true,ok:"清空"})){ templatesSave([]); toast("已清空模板"); } return; }
     const tp=arr.find(x=>x.id===tid); if(tp) newFromTemplate(tp);
   });
 }

@@ -25,10 +25,10 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   /* === SHARED TOKENS START === */
   :root{
     --bg:#f5f7fb; --card:#ffffff; --ink:#1f2430; --text:#1f2430; --sub:#6b7280; --line:#e7ebf2;
-    --pri:#4F7CFF; --pri-ink:#2F5FE0; --pri-soft:#eaf0ff; --ok:#22b07d; --ok-soft:#e7f6ec; --warn:#ff8a3d; --danger:#ef4444;
+    --pri:#4F7CFF; --pri-ink:#2F5FE0; --pri-deep:#3D68F0; --pri-soft:#eaf0ff; --ok:#22b07d; --ok-soft:#e7f6ec; --warn:#ff8a3d; --danger:#ef4444;
     /* P2-2：--pri-ink 是「主色作小字/链接文字」专用 token。--pri #4F7CFF 作前景色只有 3.71:1，低于 AA 4.5:1，
        站内每个行内链接、页签选中态、图标按钮都受影响。--pri-ink 亮色 5.53:1 / 暗色 7.4:1。
-       注意：按钮**底色**仍用 --pri（白字压色，对比度是另一回事），只替换「作为文字色」的地方。 */
+       P0（2026-11-02）：按钮底色统一改用 --pri-deep——白字压 --pri 仅 3.71:1 不达 AA，压 --pri-deep 4.73:1；纯填充（进度/图标/边框）仍用 --pri。 */
     /* 数据色（c4 媒体剧集在用；c1~c3、c5 已删——无任何 var() 引用，分类/优先级用用户自定义色） */
     --c4:#ff5c8a; --c6:#9b6bff; --c7:#2bb3c0;
     --radius:12px; --radius-sm:8px; --radius-lg:16px;
@@ -40,7 +40,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   --warnbg:#ffeaea; --white:#fff; --ink-strong:#1f2430; }
   [data-theme="dark"]{
     --bg:#0f1320; --card:#171c2b; --ink:#e7ebf3; --text:#e7ebf3; --sub:#9aa3b2; --line:#262d3f;
-    --pri:#5b86ff; --pri-ink:#8FABFF; --pri-soft:#1c2740; --hover:#1c2236; --bg2:#11162a; --muted:#9aa3b2;
+    --pri:#5b86ff; --pri-ink:#8FABFF; --pri-deep:#3D68F0; --pri-soft:#1c2740; --hover:#1c2236; --bg2:#11162a; --muted:#9aa3b2;
     --ok:#2dd4a0; --ok-soft:#10312a; --warn:#ff9a52; --danger:#ff5d5d;
   --warnbg:#3a1f1f;
   /* 数据色深色值：--c4 与任务台深色同值（跨页契约）；--c6/--c7 为统计卡专用，
@@ -58,7 +58,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   /* 中-3（2026-10-24）：暗色下 .badge.ok 改半透明浅绿底 + 亮绿字，保证 AA（亮色已用 --ok-soft + #147a53） */
   [data-theme="dark"] .badge.ok{ background:rgba(45,212,160,.15); color:var(--ok); }
   [data-theme="dark"] .sp-node{ border-color:var(--line); color:var(--muted); }
-  [data-theme="dark"] .sp-node.done{ border-color:var(--pri); color:var(--white); }
+  [data-theme="dark"] .sp-node.done{ border-color:var(--pri-deep); color:var(--white); }
   [data-theme="dark"] .sp-node.cur{ border-color:var(--pri); color:var(--pri-ink); }
   /* 暗色组件级覆盖：与任务台对齐的基础集（输入框 / 占位符 / 滚动条 / 卡片 / 弹窗 / 提示），仅用本文件已定义的暗色变量 */
   [data-theme="dark"] input,
@@ -98,14 +98,14 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   .btn{display:inline-flex;align-items:center;gap:6px;border:none;border-radius:var(--radius);padding:10px 14px;font-size:14px;font-weight:600;cursor:pointer;min-height:44px;transition:.15s;font-family:inherit;}
   .btn svg{width:16px;height:16px;flex:none;}
   .ic{width:16px;height:16px;flex:none;vertical-align:-2px;margin-right:5px;}
-  .btn-pri{background:var(--pri);color:var(--white);}
+  .btn-pri{background:var(--pri-deep);color:var(--white);}
   .btn-pri:active{transform:scale(.97);}
   .btn-ghost{background:var(--card);color:var(--ink);border:1px solid var(--line);}
   .btn-sm{padding:7px 11px;min-height:36px;font-size:13px;border-radius:var(--radius-sm);}
   .btn-danger{background:var(--card);color:var(--danger);border:1px solid #ffd9d9;}
   .top-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .top-actions>.btn,.top-actions>.cloudpill{height:38px;min-height:38px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;}
-  .cloudpill{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;padding:5px 12px;border-radius:999px;background:var(--pri);color:var(--white);border:1px solid var(--pri);box-shadow:0 1px 3px rgba(79,124,255,.25);white-space:nowrap;cursor:pointer;}
+  .cloudpill{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;padding:5px 12px;border-radius:999px;background:var(--pri-deep);color:var(--white);border:1px solid var(--pri-deep);box-shadow:0 1px 3px rgba(79,124,255,.25);white-space:nowrap;cursor:pointer;}
   .cloudpill.ok{background:var(--ok);border-color:var(--ok);}
   .cloudpill.syncing{background:var(--warn);border-color:var(--warn);}
   .cloudpill.err{background:var(--danger);border-color:var(--danger);}
@@ -117,7 +117,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   .dtabs{display:flex;gap:4px;background:var(--bg2,#eef1f6);border:1px solid var(--line,#e6e9f0);border-radius:12px;padding:4px;margin:0 0 14px;}
   .dtab{flex:1;border:none;background:transparent;border-radius:9px;padding:9px 12px;font-size:14px;font-weight:600;color:var(--sub,#6b7488);cursor:pointer;font-family:inherit;min-height:40px;transition:.15s;}
   .dtab:hover{color:var(--ink,var(--text));}
-  .dtab.active{background:var(--pri);color:var(--white);}
+  .dtab.active{background:var(--pri-deep);color:var(--white);}
     /* ===== 键盘可见焦点（）：与「任务管理台.html」对齐 =====
      键盘 Tab 时显示清晰焦点环；用 :focus-visible 保证鼠标点击不触发，不影响鼠标用户观感。
      原先本页只有 .dtab 一条焦点规则（任务台有 12 条），键盘用户几乎看不到焦点位置。 */
@@ -215,7 +215,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   .filters{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:12px;}
   .chips{display:flex;gap:6px;flex-wrap:wrap;}
   .chip{border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;font-family:inherit;}
-  .chip.active{background:var(--pri);color:var(--white);border-color:var(--pri);}
+  .chip.active{background:var(--pri-deep);color:var(--white);border-color:var(--pri-deep);}
   .filters input,.filters select{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:var(--radius-sm);padding:8px 10px;font-size:16px;font-family:inherit;min-height:38px;}
   .filters .search{flex:1;min-width:0;width:100%;}
   .search-wrap{flex:1;min-width:240px;position:relative;display:flex;} /* 2026-10-25：140→240，≥981 桌面筛选行让「搜索+重置筛选」同排换行消除孤行；≤560 有 min-width:0!important 覆盖，手机档不受影响 */
@@ -3027,7 +3027,7 @@ function convertRecord(dir, id, target){
   return true;
 }
 
-function confirmConvert(){
+async function confirmConvert(){
   const target=document.getElementById("convTarget").value;
   if(convCtx.dir===target){ toast("请选择不同的归类", "danger"); return; }
   // P2-20：转换是**移动**（原记录被删除），归类字段变了就必然丢弃。原先确认文案一句不提，用户以为无损。
@@ -3036,7 +3036,8 @@ function confirmConvert(){
   if(target==="proxy"||convCtx.dir==="proxy") loss.push("代寄往返各步日期");
   loss.push("互寄/交换关联");
   if(target==="sent" && convCtx.dir!=="sent") loss.push("寄出日/到达日将按新归类重新推导");
-  if(!confirm("转换会移动这条记录（原地记录将被删除），以下内容不会保留：\n· "+loss.join("\n· ")+"\n\n确认继续？")) return;
+  /* P1 2026-11-02：原生 confirm → confirmDialog（danger 变体），与全站确认流统一 */
+  if(!(await confirmDialog("转换会移动这条记录（原地记录将被删除），以下内容不会保留：\n· "+loss.join("\n· ")+"\n\n确认继续？",{danger:true,ok:"确认转换"}))) return;
   if(convertRecord(convCtx.dir, convCtx.id, target)){
     save(); closeConvertModal(); renderAll();
     toast(`已转换到「${tabLabel(target)}」`);
