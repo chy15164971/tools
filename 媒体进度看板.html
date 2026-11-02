@@ -139,13 +139,16 @@
   }
   @keyframes pop{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
   .pcard:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover)}
-  .pcard .cover{position:relative;width:100%;aspect-ratio:2/3;background:#eef1f6;overflow:hidden}
-  /* 2026-11-02 线上反馈：海报加载期间整页灰卡像「空卡片」→ 骨架流光 + 加载完成淡入 */
+  .pcard .cover{position:relative;width:100%;aspect-ratio:2/3;background:#dfe6f1;overflow:hidden}
+  /* 2026-11-02 线上反馈：海报加载期间灰卡像「空卡片」→ 高对比骨架：spinner + 流光，图片加载完成后淡入 */
+  .pcard .cover:not(.ph)::before{content:"";position:absolute;top:50%;left:50%;width:20px;height:20px;margin:-10px 0 0 -10px;z-index:0;
+    border:2.5px solid rgba(71,85,105,.18);border-top-color:rgba(71,85,105,.55);border-radius:50%;animation:coverSpin .9s linear infinite}
+  @keyframes coverSpin{to{transform:rotate(360deg)}}
   .pcard .cover::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
-    background:linear-gradient(100deg,rgba(15,23,42,.045) 32%,rgba(255,255,255,.7) 50%,rgba(15,23,42,.045) 68%);
+    background:linear-gradient(100deg,rgba(15,23,42,.06) 32%,rgba(255,255,255,.85) 50%,rgba(15,23,42,.06) 68%);
     background-size:220% 100%;animation:coverShimmer 1.5s linear infinite}
   @keyframes coverShimmer{from{background-position:185% 0}to{background-position:-85% 0}}
-  .pcard .cover.ph::after{display:none}   /* 错误/无图占位卡不需要流光 */
+  .pcard .cover.ph::before,.pcard .cover.ph::after{display:none}   /* 错误/无图占位卡不需要骨架 */
   .pcard .cover img{width:100%;height:100%;object-fit:cover;display:block;position:relative;z-index:1;opacity:0;transition:opacity .35s ease,transform .35s ease}
   .pcard .cover img.ok{opacity:1}
   .pcard:hover .cover img{transform:scale(1.05)}
@@ -331,7 +334,8 @@
   [data-theme="dark"] .toplist .rk{color:#5a6478}
   [data-theme="dark"] .toplist .sc,[data-theme="dark"] .pcard .stars,[data-theme="dark"] .s-item .s-r{color:#fbbf24}
   [data-theme="dark"] .pcard .cover,[data-theme="dark"] .modal .m-cover,[data-theme="dark"] .s-thumb{background:#1c2233}
-  [data-theme="dark"] .pcard .cover::after{background:linear-gradient(100deg,rgba(255,255,255,.035) 32%,rgba(255,255,255,.14) 50%,rgba(255,255,255,.035) 68%);background-size:220% 100%}
+  [data-theme="dark"] .pcard .cover:not(.ph)::before{border-color:rgba(148,163,184,.18);border-top-color:rgba(148,163,184,.55)}
+  [data-theme="dark"] .pcard .cover::after{background:linear-gradient(100deg,rgba(255,255,255,.04) 32%,rgba(255,255,255,.16) 50%,rgba(255,255,255,.04) 68%);background-size:220% 100%}
   [data-theme="dark"] .topbar{background:rgba(15,19,32,.88);box-shadow:0 1px 0 rgba(0,0,0,.4)}
   [data-theme="dark"] .s-item:hover,[data-theme="dark"] .s-item[tabindex]:focus-visible{background:#1c2233}
   [data-theme="dark"] .f-cancel{background:var(--card);border-color:var(--line)}
@@ -2228,7 +2232,7 @@ function cardHTML(it, idx, k){
   const sub = [it.creator, it.year].filter(Boolean).join(" · ") || it.platform || "";
   const cover = it.poster
     ? `<div class="cover"><div class="badge">${esc(it.type)}</div>
-         <img src="${esc(it.poster)}" alt="${esc(it.title)}" loading="lazy"
+         <img src="${esc(it.poster)}" alt="${esc(it.title)}" decoding="async"
               onload="this.classList.add('ok')"
               onerror="var p=this.parentNode;p.classList.add('ph');p.style.setProperty('--g','${meta.g}');p.insertAdjacentHTML('afterbegin','<span>'+this.alt+'</span>');this.remove();">
        </div>`
@@ -2282,6 +2286,7 @@ function renderAll(){
       return `<div class="subtype"><div class="sub-t">${esc(t)} <b>${n}</b></div>${genreBlocksHTML(sub, items)}</div>`;
     }).join("") + gPagerHTML(g, items.length, pages);
     el.querySelectorAll("img").forEach(im=>{ if(im.complete) im.classList.add("ok"); });   /* 缓存图 onload 未触发的兜底 */
+    schedulePrefetch(items, end);   /* 空闲时预取本组下一页海报（2026-11-02：翻页即现，消除空卡等待） */
   });
 
   document.getElementById("cnt-seen").textContent  = "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="seen").length + " 部";
@@ -2347,6 +2352,23 @@ document.getElementById("viewWall").addEventListener("click", e=>{
   const h = document.getElementById("sec-h-"+g);   // 翻页后回到该组标题处
   if(h) h.scrollIntoView({behavior:"smooth", block:"start"});
 });
+/* 下一页海报空闲预取（2026-11-02）：当前页渲染完 800ms 后开始，每 120ms 一张，
+   提前把下一页图片写入 HTTP 缓存 → 翻页/滚动时图片即时呈现 */
+const _prefetched = new Set();
+function schedulePrefetch(items, end){
+  const next = items.slice(end, end + GROUP_PAGE_SIZE).filter(({it}) => it.poster && !_prefetched.has(it.poster));
+  if(!next.length) return;
+  let i = 0;
+  const step = () => {
+    if(i >= next.length) return;
+    const src = next[i++].it.poster;
+    _prefetched.add(src);
+    const im = new Image();
+    im.onload = im.onerror = () => setTimeout(step, 120);
+    im.src = src;
+  };
+  (window.requestIdleCallback ? window.requestIdleCallback(step, {timeout:1500}) : setTimeout(step, 900));   /* timeout 兜底：后台标签页 rIC 不触发也能跑 */
+}
 /* 搜索命中 / 新增后：跳到该条目所在组与组内页 */
 function gotoEntry(entry){
   const g = TYPE_META[entry.type]?.group; if(!g) return false;
