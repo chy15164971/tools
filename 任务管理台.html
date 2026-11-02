@@ -7310,13 +7310,13 @@ function todayItemHtml(i, compact, ov){
       ? `<button class="btn btn-ghost btn-sm btn-doneact" data-restore="${i.task.id}" data-date="${ymd(i.date)}"><span class="ico">&#8634;</span><span class="lbl">恢复</span></button>`
       : (itDone
           ? `<button class="btn btn-ghost btn-sm btn-doneact" data-done="${i.task.id}" data-date="${ymd(i.date)}"><span class="ico">&#8617;</span><span class="lbl">撤销</span></button>`
-          : `<button class="btn btn-pri btn-sm btn-doneact" data-done="${i.task.id}" data-date="${ymd(i.date)}"><span class="ico">&#10003;</span><span class="lbl">完成</span></button>`
-            +(compact   /* 简密度=图标（默认，最省空间）；详密度切回文字，降低图标学习成本 */
+          : (compact   /* 2026-11-02：次序重排——完成贴最右（视觉锚点），不补做/推迟在左；简密度=图标（默认，最省空间），详密度切回文字 */
               ? `<button class="today-act btn-sec" data-skip="${i.task.id}" data-date="${ymd(i.date)}" title="不补做：移出今日，仍灰显在原日期" aria-label="不补做">🚫</button>`
               : `<button class="btn btn-quiet btn-sm btn-sec" data-skip="${i.task.id}" data-date="${ymd(i.date)}" title="不补做：移出今日，仍灰显在原日期">不补做</button>`)
             +(compact
-              ? `<button class="today-act btn-sec" data-defer="both" data-id="${i.task.id}" data-date="${ymd(i.date)}" title="推迟 / 延期" aria-label="推迟或延期">&#9200;</button>`
-              : `<button class="btn btn-ghost btn-sm btn-sec" data-defer="both" data-id="${i.task.id}" data-date="${ymd(i.date)}" title="推迟 / 延期">推迟/延期</button>`))
+              ? `<button class="today-act btn-sec" data-defer="both" data-id="${i.task.id}" data-date="${ymd(i.date)}" title="推迟 / 延期" aria-label="推迟或延期">&#9203;</button>`
+              : `<button class="btn btn-ghost btn-sm btn-sec" data-defer="both" data-id="${i.task.id}" data-date="${ymd(i.date)}" title="推迟 / 延期">推迟/延期</button>`)
+            +`<button class="btn btn-pri btn-sm btn-doneact" data-done="${i.task.id}" data-date="${ymd(i.date)}"><span class="ico">&#10003;</span><span class="lbl">完成</span></button>`)
     }</div>
   </div>`;
 }
