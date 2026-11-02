@@ -116,9 +116,9 @@
   .sub-t b{font-weight:600;font-size:11.5px;color:var(--ink-soft)}
   /* ===== 题材子块 2026-11-02：type 小节内按主 genre 再细分 ===== */
   .gblock{margin-bottom:2px}
-  .g-t{font-size:12px;font-weight:600;color:var(--ink-soft);margin:2px 0 7px;display:flex;align-items:center;gap:6px}
-  .g-t::before{content:"";width:3px;height:11px;border-radius:2px;background:var(--pri);opacity:.55;flex:none}
-  .g-t b{font-weight:500;font-size:11px;opacity:.8}
+  .g-t{font-size:13px;font-weight:700;color:var(--ink);margin:2px 0 8px;display:flex;align-items:center;gap:7px}
+  .g-t::before{content:"";width:4px;height:13px;border-radius:2px;background:var(--pri);flex:none}
+  .g-t b{font-weight:600;font-size:11px;color:var(--ink-soft);background:var(--line);border-radius:999px;padding:1px 7px;opacity:1}
   /* ===== 组级分页条 2026-11-02：三组各自独立翻页（‹ x / y ›） ===== */
   .gpager{display:flex;align-items:center;justify-content:center;gap:10px;margin:4px 0 14px}
   .gpager button{min-width:30px;height:30px;padding:0 8px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);cursor:pointer;font-size:13px;font-family:inherit;transition:all .18s ease}
@@ -140,7 +140,14 @@
   @keyframes pop{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
   .pcard:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover)}
   .pcard .cover{position:relative;width:100%;aspect-ratio:2/3;background:#eef1f6;overflow:hidden}
-  .pcard .cover img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .35s ease}
+  /* 2026-11-02 线上反馈：海报加载期间整页灰卡像「空卡片」→ 骨架流光 + 加载完成淡入 */
+  .pcard .cover::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+    background:linear-gradient(100deg,rgba(15,23,42,.045) 32%,rgba(255,255,255,.7) 50%,rgba(15,23,42,.045) 68%);
+    background-size:220% 100%;animation:coverShimmer 1.5s linear infinite}
+  @keyframes coverShimmer{from{background-position:185% 0}to{background-position:-85% 0}}
+  .pcard .cover.ph::after{display:none}   /* 错误/无图占位卡不需要流光 */
+  .pcard .cover img{width:100%;height:100%;object-fit:cover;display:block;position:relative;z-index:1;opacity:0;transition:opacity .35s ease,transform .35s ease}
+  .pcard .cover img.ok{opacity:1}
   .pcard:hover .cover img{transform:scale(1.05)}
   /* 占位封面（无图/加载失败时） */
   .pcard .cover.ph{display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;color:#fff;font-weight:650;font-size:13px;line-height:1.45}
@@ -155,6 +162,15 @@
   .pcard .name{font-size:12px;font-weight:650;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .pcard .meta{font-size:10.5px;color:var(--ink-soft);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .pcard .stars{font-size:10.5px;color:#b45309;margin-top:2px}   /* P2：文字色深化（星形图形仍 #f59e0b） */
+  /* 题材标签 + 星级行（2026-11-02：每张卡直接可见题材） */
+  .pcard .crow{display:flex;align-items:center;gap:6px;margin-top:3px;min-width:0}
+  .pcard .crow .stars{margin-top:0}
+  .pcard .gtag{
+    flex:0 1 auto;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-size:10px;font-weight:600;line-height:16px;padding:0 6px;border-radius:999px;
+    color:#3D68F0;background:rgba(79,124,255,.10);border:1px solid rgba(79,124,255,.28);
+  }
+  [data-theme="dark"] .pcard .gtag{color:#8faaff;background:rgba(91,134,255,.14);border-color:rgba(143,170,255,.35)}
   /* 星级：双层裁剪渲染（⯨ 半星字符缺字形，改用 overlay） */
   .starbar{position:relative;display:inline-block;line-height:1;white-space:nowrap;vertical-align:-1px}
   .sb-bg{color:#dde3ec}
@@ -315,6 +331,7 @@
   [data-theme="dark"] .toplist .rk{color:#5a6478}
   [data-theme="dark"] .toplist .sc,[data-theme="dark"] .pcard .stars,[data-theme="dark"] .s-item .s-r{color:#fbbf24}
   [data-theme="dark"] .pcard .cover,[data-theme="dark"] .modal .m-cover,[data-theme="dark"] .s-thumb{background:#1c2233}
+  [data-theme="dark"] .pcard .cover::after{background:linear-gradient(100deg,rgba(255,255,255,.035) 32%,rgba(255,255,255,.14) 50%,rgba(255,255,255,.035) 68%);background-size:220% 100%}
   [data-theme="dark"] .topbar{background:rgba(15,19,32,.88);box-shadow:0 1px 0 rgba(0,0,0,.4)}
   [data-theme="dark"] .s-item:hover,[data-theme="dark"] .s-item[tabindex]:focus-visible{background:#1c2233}
   [data-theme="dark"] .f-cancel{background:var(--card);border-color:var(--line)}
@@ -2207,10 +2224,12 @@ const stars = r => {
 
 function cardHTML(it, idx, k){
   const meta = TYPE_META[it.type] || { group:"seen", g:"linear-gradient(135deg,#94a3b8,#64748b)" };
-  const sub = [it.creator, it.year, it.genre].filter(Boolean).join(" · ") || it.platform || "";
+  const g0 = (it.genre||"").split(/\s*[/、,，;；]\s*/)[0].trim();   // 主题材 → 卡片标签（2026-11-02 用户要求每张卡可见题材）
+  const sub = [it.creator, it.year].filter(Boolean).join(" · ") || it.platform || "";
   const cover = it.poster
     ? `<div class="cover"><div class="badge">${esc(it.type)}</div>
          <img src="${esc(it.poster)}" alt="${esc(it.title)}" loading="lazy"
+              onload="this.classList.add('ok')"
               onerror="var p=this.parentNode;p.classList.add('ph');p.style.setProperty('--g','${meta.g}');p.insertAdjacentHTML('afterbegin','<span>'+this.alt+'</span>');this.remove();">
        </div>`
     : `<div class="cover ph" style="--g:${meta.g}"><div class="badge">${esc(it.type)}</div><span>${esc(it.title)}</span></div>`;
@@ -2219,7 +2238,7 @@ function cardHTML(it, idx, k){
     <div class="info">
       <div class="name">${esc(it.title)}</div>
       ${sub ? `<div class="meta">${esc(sub)}</div>` : ""}
-      ${it.rating ? `<div class="stars">${stars(it.rating)}</div>` : ""}
+      ${(g0 || it.rating) ? `<div class="crow">${g0 ? `<span class="gtag" title="${esc(it.genre||"")}">${esc(g0)}</span>` : ""}${it.rating ? `<span class="stars">${stars(it.rating)}</span>` : ""}</div>` : ""}
     </div>
   </div>`;
 }
@@ -2262,6 +2281,7 @@ function renderAll(){
       const n = items.reduce((s,{it})=>s+(it.type===t?1:0),0);
       return `<div class="subtype"><div class="sub-t">${esc(t)} <b>${n}</b></div>${genreBlocksHTML(sub, items)}</div>`;
     }).join("") + gPagerHTML(g, items.length, pages);
+    el.querySelectorAll("img").forEach(im=>{ if(im.complete) im.classList.add("ok"); });   /* 缓存图 onload 未触发的兜底 */
   });
 
   document.getElementById("cnt-seen").textContent  = "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="seen").length + " 部";
