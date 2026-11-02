@@ -51,6 +51,16 @@
   --ink-strong:#e7ebf3; }
   /* === SHARED TOKENS END === */
   /* 源: _ops/_workbench/design_tokens.css · 改色请改源后跑 sync_tokens.js 一键同步 */
+
+  /* P2 2026-11-02：滚动条主题化（三页统一）——light thumb #c9d2e0 / dark #2a3142；Firefox 走 scrollbar-color */
+  ::-webkit-scrollbar{ width:10px; height:10px; }
+  ::-webkit-scrollbar-thumb{ background:#c9d2e0; border-radius:6px; }
+  ::-webkit-scrollbar-thumb:hover{ background:#aeb9cc; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  [data-theme="dark"] ::-webkit-scrollbar-thumb{ background:#2a3142; }
+  [data-theme="dark"] ::-webkit-scrollbar-thumb:hover{ background:#3a4358; }
+  html{ scrollbar-color:#c9d2e0 transparent; }
+  html[data-theme="dark"]{ scrollbar-color:#2a3142 transparent; }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{overflow-x:hidden;}
   html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}

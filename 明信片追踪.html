@@ -21,35 +21,47 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
        本页列表为 8 列表格（含寄出日/到达日等 nowrap 日期列），实测在 861–980px
        窗口下若提前收起平板收敛规则，表格会日期重叠截断，故保留到 980。
      跨页一致性体现在主档位：iPad 竖屏 768 在两页均命中平板档、手机 560 一致；
-     861–980 仅桌面窄窗口场景，两页布局各自最优即可，勿强行对齐。 ==== */
+     861–980 仅桌面窄窗口场景，两页布局各自最优即可，勿强行对齐。
+     辅助细档：480 / 640 / 700 / 768–980 仅用于局部组件微调（表格横滑补偿、统计卡等），
+     非主档位；新增响应式规则请优先挂主档，避免档位碎片化。（P2 2026-11-02 补注） ==== */
   /* === SHARED TOKENS START === */
   :root{
     --bg:#f5f7fb; --card:#ffffff; --ink:#1f2430; --text:#1f2430; --sub:#6b7280; --line:#e7ebf2;
-    --pri:#4F7CFF; --pri-ink:#2F5FE0; --pri-deep:#3D68F0; --pri-soft:#eaf0ff; --ok:#22b07d; --ok-soft:#e7f6ec; --warn:#ff8a3d; --danger:#ef4444;
-    /* P2-2：--pri-ink 是「主色作小字/链接文字」专用 token。--pri #4F7CFF 作前景色只有 3.71:1，低于 AA 4.5:1，
-       站内每个行内链接、页签选中态、图标按钮都受影响。--pri-ink 亮色 5.53:1 / 暗色 7.4:1。
-       P0（2026-11-02）：按钮底色统一改用 --pri-deep——白字压 --pri 仅 3.71:1 不达 AA，压 --pri-deep 4.73:1；纯填充（进度/图标/边框）仍用 --pri。 */
-    /* 数据色（c4 媒体剧集在用；c1~c3、c5 已删——无任何 var() 引用，分类/优先级用用户自定义色） */
-    --c4:#ff5c8a; --c6:#9b6bff; --c7:#2bb3c0;
-    --radius:12px; --radius-sm:8px; --radius-lg:16px;
-    /* P2-9：RR 轮次表头/行共用列宽。P2（2026-10-23）：原变量值+注释+--shadow 挤一行，后续加 token 易误写进行尾注释而失效，拆三行 */
-    --rot-cols:32px minmax(64px,1fr) minmax(88px,1.1fr) 116px 116px 116px 116px 80px;
-    --shadow:0 2px 10px rgba(31,36,48,.06);
+    /* --pri-ink：主色当**文字**用（#4F7CFF 白底仅 3.71:1 不达标）→ 5.48:1
+       --pri-deep：主色当**底色**、上面压白色小字（12.5–14px 不到大文本门槛）→ 4.73:1
+       纯填充（进度条/图标/色点）继续用 --pri，不受影响。 */
+    --pri-ink:#2F5FE0; --pri-deep:#3D68F0;
+    --pri:#4F7CFF; --pri-soft:#eaf0ff; --ok:#22b07d; --ok-soft:#e7f6ec; --warn:#ff8a3d; --danger:#ef4444;
+    /* 数据色（c4 媒体剧集 / c5 兜底灰在用；c1~c3 已删除，分类/优先级用用户自定义色） */
+    --c4:#ff5c8a; --c5:#9aa0ab; --c6:#9b6bff;
+    --chip-bg:#6b7280;
+    --radius:12px; --radius-sm:8px; --radius-lg:16px; --shadow:0 2px 10px rgba(31,36,48,.06);
     /* cloudpill / 菜单 hover 此前引用未定义值导致样式退化，统一补全 */
-    --bg2:#f5f7fb; --muted:#6b7280; --hover:#f4f6fb;
-  --warnbg:#ffeaea; --white:#fff; --ink-strong:#1f2430; }
+    --bg2:#f5f7fb; --muted:#6b7280; --hover:#f4f6fb; --soft:#f1f4f9;
+  --accent:#7c5cff; --white:#fff; --ink-strong:#1f2430; }
   [data-theme="dark"]{
     --bg:#0f1320; --card:#171c2b; --ink:#e7ebf3; --text:#e7ebf3; --sub:#9aa3b2; --line:#262d3f;
-    --pri:#5b86ff; --pri-ink:#8FABFF; --pri-deep:#3D68F0; --pri-soft:#1c2740; --hover:#1c2236; --bg2:#11162a; --muted:#9aa3b2;
+    --pri-ink:#8FABFF; --pri-deep:#3D68F0;
+    --pri:#5b86ff; --pri-soft:#1c2740; --hover:#1c2236; --bg2:#11162a; --muted:#9aa3b2;
     --ok:#2dd4a0; --ok-soft:#10312a; --warn:#ff9a52; --danger:#ff5d5d;
-  --warnbg:#3a1f1f;
-  /* 数据色深色值：--c4 与任务台深色同值（跨页契约）；--c6/--c7 为统计卡专用，
-     深色下提亮以保对比度（实测 #b08cff 6.50:1 / #3ec9d6 8.51:1，均过正文 4.5:1） */
-  --c4:#ff7aa6; --c6:#b08cff; --c7:#3ec9d6;
-  /* 中-2（2026-10-24）：dark 补 --shadow / --ink-strong（此前漏覆盖，浅彩 token 在深色下隐形）；--ok-soft 同步任务台深色值 */
-  --shadow:0 2px 10px rgba(0,0,0,.32); --ink-strong:#e7ebf3; }
+    --c4:#ff7aa6; --c5:#5a6478; --c6:#b08cff;
+    /* 深色下 --muted 是浅灰（#9aa3b2），压白字只有 ~2.4:1 → chip 底色另给一个深灰 */
+    --chip-bg:#5a6478;
+    --shadow:0 2px 10px rgba(0,0,0,.32);
+    --soft:#1c2233;
+  --accent:#9b8cff;
+  /* G19（2026-10-23 修）：dark 补定义 --ink-strong —— 原漏覆盖仍为亮色值 #1f2430，
+     深色下 .today-sec-act:hover 等引用处深字压深底近乎隐形 */
+  --ink-strong:#e7ebf3; }
+  /* === SHARED TOKENS END === */
+  /* === 明信片私有 token（P2 2026-11-02 迁出 SHARED 区：sync_tokens.js 只替换标记区内内容）=== */
+  :root{ --c7:#2bb3c0; --warnbg:#ffeaea; }
+  /* P2-9：RR 轮次表头/行共用列宽 */
+  :root{ --rot-cols:32px minmax(64px,1fr) minmax(88px,1.1fr) 116px 116px 116px 116px 80px; }
+  [data-theme="dark"]{ --warnbg:#3a1f1f; --c7:#3ec9d6; }
 
-  /* =====  补漏：明信片此前无组件级 dark 覆盖，浅彩徽章/胶囊/节点/边框在此适配 ===== */
+  /* ===== 补漏：明信片组件级 dark 覆盖（原在 SHARED 标记区内，随 P2 漂移合并迁出）===== */
+  补漏：明信片此前无组件级 dark 覆盖，浅彩徽章/胶囊/节点/边框在此适配 ===== */
   [data-theme="dark"] .cloudpill.off{ background:#232a3a; color:#8b94a3; border-color:#232a3a; }
   [data-theme="dark"] .btn-danger{ border-color:var(--line); }
   [data-theme="dark"] .opt-del{ border-color:var(--line); }
@@ -73,8 +85,18 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   [data-theme="dark"] ::-webkit-scrollbar{ width:10px; height:10px; }
   [data-theme="dark"] ::-webkit-scrollbar-thumb{ background:#2a3142; border-radius:6px; }
   [data-theme="dark"] ::-webkit-scrollbar-track{ background:transparent; }
-  /* === SHARED TOKENS END === */
-  /* 源: _ops/_workbench/design_tokens.css · 改色请改源后跑 sync_tokens.js 一键同步 */
+
+  /* 源: _ops/_workbench/design_tokens.css · 改 token 请改源后跑 sync_tokens.js（--check 应 IN_SYNC）；标记区外为本页私有 */
+
+  /* P2 2026-11-02：滚动条主题化（三页统一）——light thumb #c9d2e0 / dark #2a3142；Firefox 走 scrollbar-color */
+  ::-webkit-scrollbar{ width:10px; height:10px; }
+  ::-webkit-scrollbar-thumb{ background:#c9d2e0; border-radius:6px; }
+  ::-webkit-scrollbar-thumb:hover{ background:#aeb9cc; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  [data-theme="dark"] ::-webkit-scrollbar-thumb{ background:#2a3142; }
+  [data-theme="dark"] ::-webkit-scrollbar-thumb:hover{ background:#3a4358; }
+  html{ scrollbar-color:#c9d2e0 transparent; }
+  html[data-theme="dark"]{ scrollbar-color:#2a3142 transparent; }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   /* 跳至主内容（对齐任务管理台 ）：默认移出视野，键盘聚焦时出现在左上角 */
   .skip-link{position:absolute;left:-9999px;top:0;z-index:200;background:var(--pri);color:var(--white);
