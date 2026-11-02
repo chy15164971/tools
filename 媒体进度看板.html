@@ -2232,7 +2232,7 @@ function cardHTML(it, idx, k){
   const sub = [it.creator, it.year].filter(Boolean).join(" · ") || it.platform || "";
   const cover = it.poster
     ? `<div class="cover"><div class="badge">${esc(it.type)}</div>
-         <img src="${esc(it.poster)}" alt="${esc(it.title)}" decoding="async"
+         <img src="${esc(it.poster)}" alt="${esc(it.title)}" loading="lazy" decoding="async"
               onload="this.classList.add('ok')"
               onerror="var p=this.parentNode;p.classList.add('ph');p.style.setProperty('--g','${meta.g}');p.insertAdjacentHTML('afterbegin','<span>'+this.alt+'</span>');this.remove();">
        </div>`
@@ -2286,7 +2286,8 @@ function renderAll(){
       return `<div class="subtype"><div class="sub-t">${esc(t)} <b>${n}</b></div>${genreBlocksHTML(sub, items)}</div>`;
     }).join("") + gPagerHTML(g, items.length, pages);
     el.querySelectorAll("img").forEach(im=>{ if(im.complete) im.classList.add("ok"); });   /* 缓存图 onload 未触发的兜底 */
-    schedulePrefetch(items, end);   /* 空闲时预取本组下一页海报（2026-11-02：翻页即现，消除空卡等待） */
+    observeCovers(el);   /* 视口临近预热：进入视口前图片已缓存，滚动/翻页无空卡（2026-11-02 终极版） */
+    schedulePrefetch(items, end);   /* 下一页受限预取，与 IO 共用 _warmed 去重 */
   });
 
   document.getElementById("cnt-seen").textContent  = "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="seen").length + " 部";
@@ -2352,22 +2353,41 @@ document.getElementById("viewWall").addEventListener("click", e=>{
   const h = document.getElementById("sec-h-"+g);   // 翻页后回到该组标题处
   if(h) h.scrollIntoView({behavior:"smooth", block:"start"});
 });
-/* 下一页海报空闲预取（2026-11-02）：当前页渲染完 800ms 后开始，每 120ms 一张，
-   提前把下一页图片写入 HTTP 缓存 → 翻页/滚动时图片即时呈现 */
-const _prefetched = new Set();
-function schedulePrefetch(items, end){
-  const next = items.slice(end, end + GROUP_PAGE_SIZE).filter(({it}) => it.poster && !_prefetched.has(it.poster));
-  if(!next.length) return;
-  let i = 0;
-  const step = () => {
-    if(i >= next.length) return;
-    const src = next[i++].it.poster;
-    _prefetched.add(src);
+/* 海报加载优化（2026-11-02 终极版）：
+   ① 卡片 img 恢复 loading="lazy" → 首屏仅加载视口内图片，消除「一次性 100+ 请求」导致的整页慢加载
+   ② IntersectionObserver 视口临近预取（rootMargin 600px）→ 图片进入视口前已写入 HTTP 缓存，滚动/翻页即现、无空卡
+   ③ 并发受限的 warm 队列（最多 6 张在途）→ 不冲垮 CDN 连接池，整体仍快
+   ④ onload/.ok 淡入 + onerror 占位，加载中与失败态都不留「空白卡」 */
+const _warmed = new Set();
+let _warmQ = [], _warmBusy = 0;
+const WARM_MAX = 4;   /* 受限并发：给视口内 lazy 图留足 CDN 连接，避免预取与首屏抢带宽 */
+function warm(src){
+  if(!src || _warmed.has(src)) return;
+  _warmed.add(src);
+  _warmQ.push(src);
+  pumpWarm();
+}
+function pumpWarm(){
+  while(_warmBusy < WARM_MAX && _warmQ.length){
+    const src = _warmQ.shift();
+    _warmBusy++;
     const im = new Image();
-    im.onload = im.onerror = () => setTimeout(step, 120);
+    im.onload = im.onerror = () => { _warmBusy--; pumpWarm(); };
     im.src = src;
-  };
-  (window.requestIdleCallback ? window.requestIdleCallback(step, {timeout:1500}) : setTimeout(step, 900));   /* timeout 兜底：后台标签页 rIC 不触发也能跑 */
+  }
+}
+const _io = ("IntersectionObserver" in window)
+  ? new IntersectionObserver((es)=>{
+      es.forEach(e=>{ if(e.isIntersecting){ _io.unobserve(e.target); warm(e.target.currentSrc || e.target.src); } });
+    }, { root:null, rootMargin:"900px 0px", threshold:0.01 })   /* 视口临近 900px 即预热，快滚也不易撞上空卡 */
+  : null;
+/* 当前页渲染后：视口临近的图交给 IO 预热；无 IO 环境则直接入队列 */
+function observeCovers(el){
+  el.querySelectorAll(".cover img").forEach(im=>{ _io ? _io.observe(im) : warm(im.currentSrc || im.src); });
+}
+/* 翻页/筛选后：空闲预取本组下一页（走同一受限队列，与 IO 共享 _warmed 去重，不额外冲垮 CDN） */
+function schedulePrefetch(items, end){
+  items.slice(end, end + GROUP_PAGE_SIZE).forEach(({it}) => { if(it.poster) warm(it.poster); });
 }
 /* 搜索命中 / 新增后：跳到该条目所在组与组内页 */
 function gotoEntry(entry){
