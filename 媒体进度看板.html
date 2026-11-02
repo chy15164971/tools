@@ -103,16 +103,29 @@
   .section-title.read{border-left-color:var(--amber)}
   .section-title.listen{border-left-color:var(--purple)}
   .section-title .cnt{font-size:12.5px;font-weight:500;color:var(--ink-soft)}
-  /* ===== Masonry ===== */
-  .masonry{columns:6 150px;column-gap:14px;margin-bottom:14px}
-  @media(max-width:1200px){.masonry{columns:5 140px}}
-  @media(max-width:900px){.masonry{columns:4 130px}}
-  @media(max-width:680px){.masonry{columns:3 120px;column-gap:10px}}
-  @media(max-width:460px){.masonry{columns:2 130px;column-gap:10px}}
+  /* ===== Masonry ===== 卡片 2026-11-02 二轮缩小：6列150px→8列118px */
+  .masonry{columns:8 118px;column-gap:12px;margin-bottom:10px}
+  @media(max-width:1200px){.masonry{columns:7 110px}}
+  @media(max-width:900px){.masonry{columns:6 104px}}
+  @media(max-width:680px){.masonry{columns:4 96px;column-gap:9px}}
+  @media(max-width:460px){.masonry{columns:3 100px;column-gap:9px}}
+  /* ===== 细分小节 2026-11-02：组内按细分类（电影/电视剧/…）分块展示 ===== */
+  .subtype{margin-bottom:6px}
+  .sub-t{font-size:13px;font-weight:700;color:var(--ink-soft);margin:4px 0 8px;display:flex;align-items:center;gap:8px}
+  .sub-t::after{content:"";flex:1;height:1px;background:var(--line)}
+  .sub-t b{font-weight:600;font-size:11.5px;color:var(--ink-soft)}
+  /* ===== 组级分页条 2026-11-02：三组各自独立翻页（‹ x / y ›） ===== */
+  .gpager{display:flex;align-items:center;justify-content:center;gap:10px;margin:4px 0 14px}
+  .gpager button{min-width:30px;height:30px;padding:0 8px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);cursor:pointer;font-size:13px;font-family:inherit;transition:all .18s ease}
+  .gpager button:hover{border-color:#c9d2e0}
+  .gpager button:disabled{opacity:.4;cursor:not-allowed}
+  .gp-cur{font-size:12.5px;color:var(--ink);font-weight:600;min-width:56px;text-align:center}
+  .gp-info{font-size:12px;color:var(--ink-soft)}
+  [data-theme="dark"] .gpager button:hover{border-color:#3a4358}
   /* ===== Poster card ===== */
   .pcard{
-    break-inside:avoid;margin-bottom:12px;cursor:pointer;
-    background:var(--card);border-radius:12px;overflow:hidden;
+    break-inside:avoid;margin-bottom:10px;cursor:pointer;
+    background:var(--card);border-radius:10px;overflow:hidden;
     box-shadow:var(--shadow);border:1px solid var(--line);
     transition:transform .2s ease,box-shadow .2s ease;
     animation:pop .45s cubic-bezier(.22,1,.36,1) backwards;
@@ -127,32 +140,19 @@
   .pcard .cover.ph::before{content:"";position:absolute;inset:0;background:var(--g,linear-gradient(135deg,#94a3b8,#64748b))}
   .pcard .cover.ph span{position:relative;z-index:1;text-shadow:0 1px 4px rgba(0,0,0,.25)}
   .pcard .badge{
-    position:absolute;top:7px;left:7px;z-index:2;
-    font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:999px;   /* P2：9.5px 低于可读阈值 → 10.5px */
+    position:absolute;top:6px;left:6px;z-index:2;
+    font-size:10px;font-weight:600;padding:2px 6px;border-radius:999px;
     background:rgba(255,255,255,.92);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.18);
   }
-  .pcard .info{padding:8px 10px 10px}
-  .pcard .name{font-size:13px;font-weight:650;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .pcard .meta{font-size:11px;color:var(--ink-soft);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .pcard .stars{font-size:11px;color:#b45309;margin-top:3px}   /* P2：文字色深化（星形图形仍 #f59e0b） */
+  .pcard .info{padding:6px 8px 9px}
+  .pcard .name{font-size:12px;font-weight:650;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .pcard .meta{font-size:10.5px;color:var(--ink-soft);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pcard .stars{font-size:10.5px;color:#b45309;margin-top:2px}   /* P2：文字色深化（星形图形仍 #f59e0b） */
   /* 星级：双层裁剪渲染（⯨ 半星字符缺字形，改用 overlay） */
   .starbar{position:relative;display:inline-block;line-height:1;white-space:nowrap;vertical-align:-1px}
   .sb-bg{color:#dde3ec}
   .sb-fg{position:absolute;left:0;top:0;overflow:hidden;white-space:nowrap;color:#f59e0b;pointer-events:none}
   .empty{color:#8b949e;font-size:13px;padding:24px 4px}
-  /* ===== 分页 2026-11-02：1735 条全量一次性渲染卡顿 → 桌面 72/页、移动 36/页 ===== */
-  .pager{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;margin:20px 0 8px;padding-top:16px;border-top:1px dashed var(--line)}
-  .pager .pg-info{font-size:12.5px;color:var(--ink-soft);margin-right:8px}
-  .pager button{
-    min-width:34px;height:34px;padding:0 8px;border-radius:10px;cursor:pointer;font-family:inherit;
-    border:1px solid var(--line);background:var(--card);color:var(--ink-soft);
-    font-size:13px;font-weight:600;transition:all .18s ease;
-  }
-  .pager button:hover{border-color:#c9d2e0;transform:translateY(-1px)}
-  .pager button.on{background:var(--pri-deep);border-color:var(--pri-deep);color:#fff}
-  .pager button:disabled{opacity:.4;cursor:not-allowed;transform:none}
-  .pager .pg-gap{color:var(--ink-soft);font-size:13px;padding:0 2px}
-  [data-theme="dark"] .pager button:hover{border-color:#3a4358}
   /* ===== Topbar（吸顶：搜索 + 视图切换 + 分类筛选）===== */
   .topbar{
     position:sticky;top:0;z-index:60;
@@ -284,7 +284,7 @@
   /* ===== P2 2026-11-02：触控目标 ≥44px + 输入 16px 防 iOS 缩放（对齐兄弟页 pointer:coarse 范式）===== */
   @media(pointer:coarse){
     .chip,.vtab,.mini-btn,.add-btn,.del-btn,.f-actions button{min-height:44px}
-    .pager button{min-height:44px;min-width:44px}
+    .gpager button{min-height:44px;min-width:44px}
     .toast .t-undo{min-height:44px}
     .m-wrap .close{width:44px;height:44px;font-size:18px}
     .s-item{min-height:44px}
@@ -361,16 +361,14 @@
     <div id="viewWall">
       <div class="stats" id="stats"></div>
 
-      <div class="section-title">📺 已看 <span class="cnt" id="cnt-seen"></span></div>
-      <div class="masonry" id="sec-seen"></div>
+      <div class="section-title" id="sec-h-seen">📺 已看 <span class="cnt" id="cnt-seen"></span></div>
+      <div class="grp" id="sec-seen"></div>
 
-      <div class="section-title read">📖 已读 <span class="cnt" id="cnt-read"></span></div>
-      <div class="masonry" id="sec-read"></div>
+      <div class="section-title read" id="sec-h-read">📖 已读 <span class="cnt" id="cnt-read"></span></div>
+      <div class="grp" id="sec-read"></div>
 
-      <div class="section-title listen">🎧 已听 <span class="cnt" id="cnt-listen"></span></div>
-      <div class="masonry" id="sec-listen"></div>
-
-      <nav class="pager" id="pager" aria-label="分页导航"></nav>
+      <div class="section-title listen" id="sec-h-listen">🎧 已听 <span class="cnt" id="cnt-listen"></span></div>
+      <div class="grp" id="sec-listen"></div>
     </div>
 
     <div id="viewStats"></div>
@@ -2219,30 +2217,38 @@ function cardHTML(it, idx){
   </div>`;
 }
 
-/* ===== 分页 2026-11-02：1735 条（1729 图）全量渲染卡顿 → 切片渲染当前页 ===== */
-const PAGE_SIZE = (window.matchMedia("(max-width:768px)").matches || window.matchMedia("(pointer:coarse)").matches) ? 36 : 72;
-let page = 1;        // 1-based 当前页
-let curVis = [];     // 当前筛选下的全量可见条目 [{it,i}]
-function clampPage(pages){ if(page > pages) page = pages; if(page < 1) page = 1; }
+/* ===== 分页 v2 2026-11-02：① 组级独立分页（三组始终各自可见，修复第一页被书本独占的问题）
+   ② 组内细分小节（电影/电视剧/真人秀/纪录片…）③ 每组 48/24 条切片渲染防卡顿 ===== */
+const GROUP_PAGE_SIZE = (window.matchMedia("(max-width:768px)").matches || window.matchMedia("(pointer:coarse)").matches) ? 24 : 48;
+let page = { seen:1, read:1, listen:1 };   // 各组独立页码（1-based）
+let curVis = [];                            // 当前筛选下的全量可见条目 [{it,i}]
+const GROUP_TYPES = {};                     // group -> [types]（保 ALL_TYPES 顺序）
+ALL_TYPES.forEach(t=>{ const g = TYPE_META[t]?.group; if(g) (GROUP_TYPES[g] = GROUP_TYPES[g]||[]).push(t); });
 
 function renderAll(){
   curVis = MEDIA.map((it,i)=>({it,i})).filter(({it}) =>
     filter==="全部" ? true : it.type===filter);
-  const total = curVis.length;
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  clampPage(pages);
-  const start = (page-1)*PAGE_SIZE, end = Math.min(total, start+PAGE_SIZE);
-  const pageItems = curVis.slice(start, end);
 
   ["seen","read","listen"].forEach(g=>{
     const el = document.getElementById(GROUPS[g]);
-    const hasAnyInGroup = curVis.some(({it}) => (TYPE_META[it.type]?.group)===g);   /* 组全量为空才显示空态；组有数据但本页切空则留白 */
-    const items = pageItems.filter(({it}) => (TYPE_META[it.type]?.group)===g);
-    el.innerHTML = items.length
-      ? items.map(({it,i})=>cardHTML(it,i)).join("")
-      : (hasAnyInGroup ? "" : `<div class="empty">暂无记录</div>`);
+    const items = curVis.filter(({it}) => (TYPE_META[it.type]?.group)===g);
+    if(!items.length){ el.innerHTML = `<div class="empty">暂无记录</div>`; return; }
+    const pages = Math.max(1, Math.ceil(items.length / GROUP_PAGE_SIZE));
+    page[g] = Math.min(Math.max(1, page[g]), pages);
+    const start = (page[g]-1)*GROUP_PAGE_SIZE, end = Math.min(items.length, start+GROUP_PAGE_SIZE);
+    const pageItems = items.slice(start, end);
+
+    /* 组内细分小节：细分类全量 >0 才画标题；本页切空的小节跳过 */
+    const types = GROUP_TYPES[g].filter(t => items.some(({it})=>it.type===t));
+    el.innerHTML = types.map(t=>{
+      const sub = pageItems.filter(({it})=>it.type===t);
+      if(!sub.length) return "";
+      const n = items.reduce((s,{it})=>s+(it.type===t?1:0),0);
+      return `<div class="subtype"><div class="sub-t">${esc(t)} <b>${n}</b></div>
+        <div class="masonry">${sub.map(({it,i})=>cardHTML(it,i)).join("")}</div></div>`;
+    }).join("") + gPagerHTML(g, items.length, pages);
   });
-  renderPager(total, pages);
+
   document.getElementById("cnt-seen").textContent  = "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="seen").length + " 部";
   document.getElementById("cnt-read").textContent  = "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="read").length + " 本";
   document.getElementById("cnt-listen").textContent= "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="listen").length + " 部";
@@ -2254,46 +2260,30 @@ function renderAll(){
     <div class="stat"><div class="num" style="color:var(--purple)">${MEDIA.filter(i=>TYPE_META[i.type]?.group==="listen").length}</div><div class="lbl">已听 · 音乐 / 广播剧</div></div>`;
 }
 
-/* ===== 分页条：‹ 上一页 · 页码（窗口省略） · 下一页 › ===== */
-function renderPager(total, pages){
-  const el = document.getElementById("pager");
-  if(total===0 || pages<=1){
-    el.innerHTML = total ? `<span class="pg-info">共 ${total} 条</span>` : "";
-    el.style.display = total ? "" : "none";
-    return;
-  }
-  const start = (page-1)*PAGE_SIZE + 1, end = Math.min(total, page*PAGE_SIZE);
-  /* 页码窗口：1 … p-1 p p+1 … N */
-  const nums = [];
-  const push = n => { if(!nums.includes(n)) nums.push(n); };
-  push(1);
-  for(let n=page-1; n<=page+1; n++){ if(n>1 && n<pages) push(n); }
-  if(pages>1) push(pages);
-  nums.sort((a,b)=>a-b);
-  let html = `<span class="pg-info">共 ${total} 条 · 第 ${start}–${end} 条</span>`;
-  html += `<button type="button" data-p="${page-1}" aria-label="上一页" ${page<=1?"disabled":""}>‹</button>`;
-  nums.forEach((n,ix)=>{
-    if(ix>0 && n-nums[ix-1]>1) html += `<span class="pg-gap">…</span>`;
-    html += `<button type="button" data-p="${n}" ${n===page?'class="on" aria-current="page"':""}>${n}</button>`;
-  });
-  html += `<button type="button" data-p="${page+1}" aria-label="下一页" ${page>=pages?"disabled":""}>›</button>`;
-  el.innerHTML = html;
-  el.style.display = "";
+/* ===== 组级分页条：‹ 共 N 条 · x / y ›（单页组不显示） ===== */
+function gPagerHTML(g, total, pages){
+  if(total<=GROUP_PAGE_SIZE) return "";
+  return `<div class="gpager"><span class="gp-info">共 ${total} 条</span>
+    <button type="button" data-g="${g}" data-d="-1" aria-label="上一页" ${page[g]<=1?"disabled":""}>‹</button>
+    <span class="gp-cur">${page[g]} / ${pages}</span>
+    <button type="button" data-g="${g}" data-d="1" aria-label="下一页" ${page[g]>=pages?"disabled":""}>›</button></div>`;
 }
-document.getElementById("pager").addEventListener("click", e=>{
-  const b = e.target.closest("button[data-p]"); if(!b || b.disabled) return;
-  const p = +b.dataset.p;
-  const pages = Math.max(1, Math.ceil(curVis.length / PAGE_SIZE));
-  if(p<1 || p>pages || p===page) return;
-  page = p; renderAll();
-  window.scrollTo({top:0});
+document.getElementById("viewWall").addEventListener("click", e=>{
+  const b = e.target.closest("button[data-g]"); if(!b || b.disabled) return;
+  const g = b.dataset.g;
+  page[g] += +b.dataset.d;
+  renderAll();
+  const h = document.getElementById("sec-h-"+g);   // 翻页后回到该组标题处
+  if(h) h.scrollIntoView({behavior:"smooth", block:"start"});
 });
-/* 搜索命中 / 新增后：跳到该条目所在页（在当前筛选的 curVis 中定位） */
+/* 搜索命中 / 新增后：跳到该条目所在组与组内页 */
 function gotoEntry(entry){
-  const idx = curVis.findIndex(({it}) => it===entry);
+  const g = TYPE_META[entry.type]?.group; if(!g) return false;
+  const items = curVis.filter(({it}) => (TYPE_META[it.type]?.group)===g);
+  const idx = items.findIndex(({it}) => it===entry);
   if(idx < 0) return false;
-  const p = Math.floor(idx / PAGE_SIZE) + 1;
-  if(p !== page){ page = p; renderAll(); }
+  const p = Math.floor(idx / GROUP_PAGE_SIZE) + 1;
+  if(p !== page[g]){ page[g] = p; renderAll(); }
   return true;
 }
 
@@ -2308,7 +2298,7 @@ function renderChips(){
 }
 document.getElementById("chips").addEventListener("click", e=>{
   const c = e.target.closest(".chip"); if(!c) return;
-  filter = c.dataset.t; page = 1; renderChips(); renderAll();
+  filter = c.dataset.t; page = { seen:1, read:1, listen:1 }; renderChips(); renderAll();
 });
 
 /* ===== 视图切换：海报墙 / 汇总分析 ===== */
@@ -2568,7 +2558,7 @@ document.addEventListener("keydown", e=>{
   const pc = e.target.closest && e.target.closest('.pcard[role="button"]');
   if(pc){ e.preventDefault(); const it = MEDIA[+pc.dataset.i]; if(it) openDetail(it); return; }
   const ch = e.target.closest && e.target.closest('.chip[data-t][role="button"]');
-  if(ch){ e.preventDefault(); filter = ch.dataset.t; page = 1; renderChips(); renderAll(); return; }
+  if(ch){ e.preventDefault(); filter = ch.dataset.t; page = { seen:1, read:1, listen:1 }; renderChips(); renderAll(); return; }
   const si = e.target.closest && e.target.closest('.s-item[role="button"]');
   if(si){ e.preventDefault(); const hit = (searchDrop._hits||[])[+si.dataset.si]; if(hit){ gotoEntry(hit); openDetail(hit); searchDrop.classList.remove("show"); } }
 });
