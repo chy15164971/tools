@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" id="metaTheme" content="#F8FAFC">
 <script>try{var _wt=localStorage.getItem("wb_theme_v1");if(_wt==="dark")document.documentElement.dataset.theme="dark";}catch(e){}</script>
-<title>媒体海报墙 · 已看已读已听</title>
+<title>书影音海报墙 · 已看已读已听</title>
 <style>
   :root{
     --bg:#F8FAFC;
@@ -102,7 +102,6 @@
   }
   .section-title.read{border-left-color:var(--amber)}
   .section-title.listen{border-left-color:var(--purple)}
-  .section-title.anime{border-left-color:#06b6d4;color:#0891b2}
   .section-title .cnt{font-size:12.5px;font-weight:500;color:var(--ink-soft)}
   /* ===== Masonry ===== 卡片 2026-11-02 二轮缩小：6列150px→8列118px */
   /* 2026-11-02 六轮：原 columns 多列布局在短小节(如"其他"4~8张)下做列平衡，产生不规则留白空洞，
@@ -364,7 +363,7 @@
     <div class="brandbar">
       <div class="brand">
         <span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 4v16M17 4v16M2 9h5M2 15h5M17 9h5M17 15h5"/></svg></span>
-        媒体海报墙
+        书影音海报墙
         <span class="brand-sub" id="today"></span>
       </div>
       <div class="spacer"></div>
@@ -396,11 +395,8 @@
     <div id="viewWall">
       <div class="stats" id="stats"></div>
 
-      <div class="section-title" id="sec-h-seen">📺 影视 <span class="cnt" id="cnt-seen"></span></div>
+      <div class="section-title" id="sec-h-seen">📺 已看 <span class="cnt" id="cnt-seen"></span></div>
       <div class="grp" id="sec-seen"></div>
-
-      <div class="section-title anime" id="sec-h-anime">🎬 动漫 <span class="cnt" id="cnt-anime"></span></div>
-      <div class="grp" id="sec-anime"></div>
 
       <div class="section-title read" id="sec-h-read">📖 已读 <span class="cnt" id="cnt-read"></span></div>
       <div class="grp" id="sec-read"></div>
@@ -949,7 +945,6 @@ let MEDIA = [
   {"title": "飘雪", "type": "音乐", "poster": "媒体海报/s27980052.jpg", "year": "2004", "platform": "上海声像出版社", "date": "2004", "rating": 7.6, "genre": "流行"},
   {"title": "飘摇", "type": "音乐", "poster": "媒体海报/s29608898.jpg", "year": "2000", "platform": "华纳音乐（香港）", "date": "2000-01", "rating": 9.3, "genre": "流行"},
   {"title": "平凡之路", "type": "音乐", "poster": "媒体海报/s27326029.jpg", "year": "2014", "platform": "华谊", "date": "2014-07", "rating": 9.1, "genre": "原声"},
-  {"title": "破天荒", "type": "音乐", "poster": "媒体海报/s8890573.jpg", "platform": "金牌大风音乐文化股份有限公司", "rating": 8.4, "genre": "流行"},
   {"title": "破天荒", "type": "音乐", "poster": "媒体海报/s3776665.jpg", "year": "2009", "platform": "金牌大风", "date": "2009-05", "rating": 7.6, "genre": "摇滚"},
   {"title": "恰许同学年少", "type": "音乐", "poster": "媒体海报/s3018583.jpg", "year": "2008", "platform": "步酷", "date": "2008-04", "rating": 7.8, "genre": "流行"},
   {"title": "千秋 第一季", "type": "广播剧", "poster": "媒体海报/s33520512.jpg", "year": "2019", "platform": "猫耳FM、音熊联萌、声罗万象工作室", "date": "2019-08", "rating": 9.4},
@@ -987,7 +982,6 @@ let MEDIA = [
   {"title": "天官赐福", "type": "音乐", "poster": "媒体海报/s33773703.jpg", "year": "2020", "platform": "上海宽娱数码科技有限公司", "date": "2020-10", "rating": 9.3, "genre": "原声"},
   {"title": "天官赐福动画原声带", "type": "音乐", "poster": "媒体海报/s33808988.jpg", "year": "2020", "platform": "上海宽娱数码科技有限公司", "date": "2020-10", "rating": 9.3, "genre": "原声"},
   {"title": "天空", "type": "音乐", "poster": "媒体海报/s2858899.jpg", "year": "1994", "platform": "福茂唱片", "date": "1994", "rating": 9.5, "genre": "流行"},
-  {"title": "天空", "type": "音乐", "poster": "媒体海报/s3681285.jpg", "year": "1994", "platform": "新艺宝/福茂唱片", "date": "1994", "rating": 9.4, "genre": "流行"},
   {"title": "童话", "type": "音乐", "poster": "媒体海报/s3819233.jpg", "year": "2005", "platform": "湖南金蜂音像出版社", "date": "2005-07", "rating": 8.1, "genre": "流行"},
   {"title": "偷偷藏不住 广播剧", "type": "广播剧", "poster": "媒体海报/s34210703.jpg", "year": "2021", "platform": "猫耳FM", "date": "2021-02", "rating": 8.2, "genre": "原声"},
   {"title": "蜕变 少女的心情故事", "type": "音乐", "poster": ""},
@@ -1136,7 +1130,6 @@ let MEDIA = [
   {"title": "It's My Day", "type": "音乐", "poster": "媒体海报/s3029028.jpg", "year": "2008", "platform": "華納唱片(HK)", "date": "2008-04", "rating": 7.8, "genre": "流行"},
   {"title": "Love,Day After Tomorrow", "type": "音乐", "poster": "媒体海报/s4508788.jpg", "year": "1999", "platform": "GIZA studio", "date": "1999", "rating": 9.0, "genre": "流行"},
   {"title": "Lover", "type": "音乐", "poster": "媒体海报/s33459576.jpg", "year": "2019", "platform": "Republic", "date": "2019-08", "rating": 8.8, "genre": "流行"},
-  {"title": "Lover", "type": "音乐", "poster": "媒体海报/s33297969.jpg", "year": "2019", "platform": "Republic", "date": "2019-08", "rating": 8.3, "genre": "流行"},
   {"title": "ME! (feat. Brendon Urie of Panic! At The Disco)", "type": "音乐", "poster": "媒体海报/s32306865.jpg", "year": "2019", "platform": "UMG", "date": "2019-04", "rating": 6.7, "genre": "流行"},
   {"title": "Message In A Bottle (Taylor’s Version) (From The Vault)", "type": "音乐", "poster": "媒体海报/s34106228.jpg", "year": "2021", "platform": "Taylor Swift", "date": "2021-11", "rating": 8.1, "genre": "流行"},
   {"title": "More Shirley", "type": "音乐", "poster": "媒体海报/s4088145.jpg", "year": "1992", "platform": "新藝寶唱片", "date": "1992-12", "rating": 7.9, "genre": "流行"},
@@ -1163,7 +1156,6 @@ let MEDIA = [
   {"title": "Shirley Once More", "type": "音乐", "poster": "媒体海报/s29880748.jpg", "year": "1991", "platform": "宝丽金", "date": "1991-12", "rating": 8.2, "genre": "流行"},
   {"title": "So Penny", "type": "音乐", "poster": "媒体海报/s2741699.jpg", "year": "2004", "platform": "百代唱片", "date": "2004", "rating": 8.8, "genre": "流行"},
   {"title": "Start from Here", "type": "音乐", "poster": "媒体海报/s3062304.jpg", "year": "2008", "platform": "Sony/Bmg Int'l", "date": "2008-06", "rating": 9.0, "genre": "流行"},
-  {"title": "Start from Here", "type": "音乐", "poster": "媒体海报/s2874587.jpg", "year": "2008", "platform": "SONY BMG唱片", "date": "2008-01", "rating": 8.8, "genre": "爵士"},
   {"title": "Style", "type": "音乐", "poster": "媒体海报/s27982477.jpg", "year": "2015", "platform": "Big Machine", "date": "2015-02", "rating": 9.5, "genre": "摇滚"},
   {"title": "Sucker", "type": "音乐", "poster": "媒体海报/s27491315.jpg", "year": "2014", "platform": "Atlantic", "date": "2014-12", "rating": 7.5, "genre": "流行"},
   {"title": "T.I.A.", "type": "音乐", "poster": "媒体海报/s27989040.jpg", "year": "2014", "platform": "华纳唱片", "date": "2014-11", "rating": 8.1, "genre": "放克/灵歌/R&B"},
@@ -2201,12 +2193,12 @@ const TYPE_META = {
   "真人秀":{ group:"seen",  g:"linear-gradient(135deg,#f43f5e,#fb7185)" },
   "舞台剧":{ group:"seen",  g:"linear-gradient(135deg,#f97316,#fbbf24)" },
   "纪录片":{ group:"seen",  g:"linear-gradient(135deg,#14b8a6,#2dd4bf)" },
-  "动漫":  { group:"anime", g:"linear-gradient(135deg,#06b6d4,#22d3ee)" },
+  "动漫":  { group:"seen", g:"linear-gradient(135deg,#06b6d4,#22d3ee)" },   /* 2026-11-03：并入已看分区，type 保留用于筛选/角标 */
   "书本":  { group:"read",  g:"linear-gradient(135deg,#f59e0b,#fbbf24)" },
   "音乐":  { group:"listen",g:"linear-gradient(135deg,#a855f7,#c084fc)" },
   "广播剧":{ group:"listen",g:"linear-gradient(135deg,#6366f1,#818cf8)" },
 };
-const GROUPS = { seen:"sec-seen", read:"sec-read", listen:"sec-listen", anime:"sec-anime" };
+const GROUPS = { seen:"sec-seen", read:"sec-read", listen:"sec-listen" };
 const ALL_TYPES = ["电视剧","电影","真人秀","舞台剧","纪录片","动漫","书本","音乐","广播剧"];
 let filter = "全部";
 
@@ -2261,7 +2253,7 @@ function cardHTML(it, idx, k){
 /* ===== 分页 v2 2026-11-02：① 组级独立分页（三组始终各自可见，修复第一页被书本独占的问题）
    ② 组内细分小节（电影/电视剧/真人秀/纪录片…）③ 每组 48/24 条切片渲染防卡顿 ===== */
 const GROUP_PAGE_SIZE = (window.matchMedia("(max-width:768px)").matches || window.matchMedia("(pointer:coarse)").matches) ? 24 : 48;
-let page = { seen:1, read:1, listen:1, anime:1 };   // 各组独立页码（1-based）
+let page = { seen:1, read:1, listen:1 };   // 各组独立页码（1-based）
 let curVis = [];                            // 当前筛选下的全量可见条目 [{it,i}]
 const GROUP_TYPES = {};                     // group -> [types]（保 ALL_TYPES 顺序）
 ALL_TYPES.forEach(t=>{ const g = TYPE_META[t]?.group; if(g) (GROUP_TYPES[g] = GROUP_TYPES[g]||[]).push(t); });
@@ -2271,7 +2263,7 @@ function renderAll(){
   curVis = MEDIA.map((it,i)=>({it,i})).filter(({it}) =>
     filter==="全部" ? true : it.type===filter);
 
-  ["seen","read","listen","anime"].forEach(g=>{
+  ["seen","read","listen"].forEach(g=>{
     const el = document.getElementById(GROUPS[g]);
     const secTitle = document.getElementById("sec-h-"+g);
     const items = curVis.filter(({it}) => (TYPE_META[it.type]?.group)===g);
@@ -2308,13 +2300,12 @@ function renderAll(){
   document.getElementById("cnt-seen").textContent  = "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="seen").length + " 部";
   document.getElementById("cnt-read").textContent  = "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="read").length + " 本";
   document.getElementById("cnt-listen").textContent= "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="listen").length + " 部";
-  document.getElementById("cnt-anime").textContent = "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="anime").length + " 部";
 
   // 统计卡（2026-11-02 分页改造时清理：原 cnt/total/rated/avgR 为死代码且 total 与上方重复声明）
-  // 2026-11-03：动漫数字卡片并入「已看」（影视 944 + 动漫 51 = 995），回归三卡结构
-  const seenTotal = MEDIA.filter(i=>["seen","anime"].includes(TYPE_META[i.type]?.group)).length;
+  // 2026-11-03：动漫并入已看（type 映射已改 group:"seen"），三卡结构
+  const seenTotal = MEDIA.filter(i=>TYPE_META[i.type]?.group==="seen").length;
   document.getElementById("stats").innerHTML = `
-    <div class="stat"><div class="num" style="color:var(--pink)">${seenTotal}</div><div class="lbl">已看 · 影视 / 动漫 / 综艺 / 舞台 / 纪录</div></div>
+    <div class="stat"><div class="num" style="color:var(--pink)">${seenTotal}</div><div class="lbl">已看 · 影 / 剧 / 综 / 舞台 / 纪录 / 动漫</div></div>
     <div class="stat"><div class="num" style="color:var(--amber)">${MEDIA.filter(i=>TYPE_META[i.type]?.group==="read").length}</div><div class="lbl">已读 · 书本</div></div>
     <div class="stat"><div class="num" style="color:var(--purple)">${MEDIA.filter(i=>TYPE_META[i.type]?.group==="listen").length}</div><div class="lbl">已听 · 音乐 / 广播剧</div></div>`;
 
@@ -2413,7 +2404,7 @@ function gotoEntry(entry){
   let items = curVis.filter(({it}) => (TYPE_META[it.type]?.group)===g);
   /* 2026-11-03：若当前筛选把该条目过滤掉了，先清筛选再定位（修复「搜索命中但翻页不跳转」） */
   if(!items.some(({it})=>it===entry) && filter!=="全部"){
-    filter = "全部"; page = { seen:1, read:1, listen:1, anime:1 }; renderChips(); renderAll();
+    filter = "全部"; page = { seen:1, read:1, listen:1 }; renderChips(); renderAll();
     items = curVis.filter(({it}) => (TYPE_META[it.type]?.group)===g);
   }
   const idx = items.findIndex(({it}) => it===entry);
@@ -2434,7 +2425,7 @@ function renderChips(){
 }
 document.getElementById("chips").addEventListener("click", e=>{
   const c = e.target.closest(".chip"); if(!c) return;
-  filter = c.dataset.t; page = { seen:1, read:1, listen:1, anime:1 }; renderChips(); renderAll();
+  filter = c.dataset.t; page = { seen:1, read:1, listen:1 }; renderChips(); renderAll();
 });
 
 /* ===== 视图切换：海报墙 / 汇总分析 ===== */
@@ -2454,7 +2445,7 @@ document.getElementById("vWall").addEventListener("click", ()=>setView("wall"));
 document.getElementById("vStats").addEventListener("click", ()=>setView("stats"));
 
 /* ===== 汇总分析渲染 ===== */
-const GROUP_COLOR = { seen:"#ec4899", read:"#f59e0b", listen:"#a855f7", anime:"#06b6d4" };
+const GROUP_COLOR = { seen:"#ec4899", read:"#f59e0b", listen:"#a855f7" };
 function renderStatsView(){
   const grp = g => MEDIA.filter(i=>(TYPE_META[i.type]?.group)===g);
   const seen = grp("seen"), read = grp("read"), listen = grp("listen");
@@ -2478,7 +2469,7 @@ function renderStatsView(){
   const yMax = Math.max(...Object.values(yearCnt));
   const yearBars = years.map(y=>{
     // 主导分组决定颜色
-    const gs = {seen:0,read:0,listen:0,anime:0};
+    const gs = {seen:0,read:0,listen:0};
     MEDIA.forEach(i=>{ if(i.date && i.date.slice(0,4)===y){ const gg=TYPE_META[i.type]?.group; if(gg) gs[gg]++; }});
     const dom = Object.entries(gs).sort((a,b)=>b[1]-a[1])[0][0];
     return `<div class="hbar"><div class="lb">${y}</div>
@@ -2531,10 +2522,10 @@ function renderStatsView(){
     </div>`;
   };
 
-  const seenAll = [...grp("seen"), ...grp("anime")];
+  const seenAll = grp("seen");   /* 动漫已并入 seen 组 */
   const seenRecent = seenAll.filter(i=>i.date).map(i=>i.date.slice(0,4)).sort().pop() || "—";
   const seenCard = `<div class="ana-card">
-      <h3>📺 已看 <span class="hint">含动漫 ${grp("anime").length}</span></h3>
+      <h3>📺 已看 <span class="hint">含动漫 ${MEDIA.filter(i=>i.type==="动漫").length}</span></h3>
       <div class="big" style="color:${GROUP_COLOR.seen}">${seenAll.length}</div>
       <div class="sm">平均评分 ${avg(seenAll)} · 最近完成 ${seenRecent}</div>
     </div>`;
@@ -2703,7 +2694,7 @@ document.addEventListener("keydown", e=>{
   const pc = e.target.closest && e.target.closest('.pcard[role="button"]');
   if(pc){ e.preventDefault(); const it = MEDIA[+pc.dataset.i]; if(it) openDetail(it); return; }
   const ch = e.target.closest && e.target.closest('.chip[data-t][role="button"]');
-  if(ch){ e.preventDefault(); filter = ch.dataset.t; page = { seen:1, read:1, listen:1, anime:1 }; renderChips(); renderAll(); return; }
+  if(ch){ e.preventDefault(); filter = ch.dataset.t; page = { seen:1, read:1, listen:1 }; renderChips(); renderAll(); return; }
   const si = e.target.closest && e.target.closest('.s-item[role="button"]');
   if(si){ e.preventDefault(); const hit = (searchDrop._hits||[])[+si.dataset.si]; if(hit){ gotoEntry(hit); openDetail(hit); searchDrop.classList.remove("show"); } }
 });
@@ -2772,7 +2763,7 @@ F("btnExport").addEventListener("click", ()=>{
   const blob = new Blob([JSON.stringify(payload,null,2)], {type:"application/json"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "媒体海报墙_自定义条目_" + new Date().toISOString().slice(0,10) + ".json";
+  a.download = "书影音海报墙_自定义条目_" + new Date().toISOString().slice(0,10) + ".json";
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
   toast("已导出 " + customEntries.length + " 条自定义条目");
