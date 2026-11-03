@@ -156,6 +156,7 @@
   .pcard .cover.ph::before,.pcard .cover.ph::after{display:none}   /* 错误/无图占位卡不需要骨架 */
   .pcard .cover img{width:100%;height:100%;object-fit:cover;display:block;position:relative;z-index:1;opacity:0;transition:opacity .35s ease,transform .35s ease}
   .pcard .cover img.ok{opacity:1}
+  .pcard .cover:has(img.ok)::before,.pcard .cover:has(img.ok)::after{animation:none;opacity:0}   /* 2026-11-03：图已加载即停骨架动画，省 CPU */
   .pcard:hover .cover img{transform:scale(1.05)}
   /* 占位封面（无图/加载失败时） */
   .pcard .cover.ph{display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;color:#fff;font-weight:650;font-size:13px;line-height:1.45}
@@ -256,13 +257,13 @@
   /* ===== Modal ===== */
   .mask{
     position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);
-    display:none;align-items:center;justify-content:center;z-index:50;padding:24px;
+    display:none;align-items:center;justify-content:center;z-index:90;padding:24px;   /* 2026-11-03：50→90，原低于吸顶 topbar(60) 导致弹窗右上角关闭按钮被吸顶条盖住点不到 */
   }
   .mask.show{display:flex;animation:fade .2s ease}
   @keyframes fade{from{opacity:0}to{opacity:1}}
   .modal{
     background:var(--card);border-radius:18px;max-width:640px;width:100%;max-height:86vh;
-    overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.28);display:flex;gap:0;
+    overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.28);display:flex;gap:0;position:relative;
   }
   .modal .m-cover{flex:none;width:230px;aspect-ratio:2/3;background:#eef1f6}
   .modal .m-cover img{width:100%;height:100%;object-fit:cover;border-radius:18px 0 0 18px;display:block}
@@ -275,12 +276,13 @@
   .modal .m-row{font-size:13.5px;margin-top:7px;color:var(--ink-soft)}
   .modal .m-row b{color:var(--ink);font-weight:600}
   .modal .m-note{font-size:13.5px;color:var(--ink-soft);margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);white-space:pre-wrap}
-  .m-wrap .close{   /* P2 修复：原选择器 .modal .close 落空——按钮在 .m-wrap 下、.modal 之前，从未被命中（一直裸样式） */
-    position:absolute;top:14px;right:16px;width:32px;height:32px;border-radius:50%;
-    border:none;background:rgba(255,255,255,.9);font-size:16px;cursor:pointer;color:var(--ink);
+  .m-wrap{position:relative;max-width:640px;width:100%}   /* 关闭按钮的定位基准；宽度约束上移到包裹层 */
+  .m-wrap .close{   /* 2026-11-03：按钮是 mask>m-wrap 下的静态元素（.modal 的兄弟而非后代），选择器必须挂在 .m-wrap 上 */
+    position:absolute;top:12px;right:14px;z-index:5;width:32px;height:32px;border-radius:50%;
+    border:none;background:rgba(255,255,255,.92);font-size:15px;line-height:1;cursor:pointer;color:var(--ink);
     box-shadow:0 2px 8px rgba(0,0,0,.2);
   }
-  .m-wrap{position:relative;max-width:640px;width:100%}
+  .m-wrap .close:hover{background:#fff}
   .foot{text-align:center;color:#8b949e;font-size:12px;margin-top:16px}
   .foot code{background:#eef1f6;padding:1px 6px;border-radius:4px;font-size:11px}
   @media(max-width:560px){
@@ -349,7 +351,7 @@
   [data-theme="dark"] .f-tip code{background:#2a2450;color:#c4b5fd}
   [data-theme="dark"] .del-btn{border-color:#7f1d1d;background:#2a1214;color:#f87171}
   [data-theme="dark"] .del-btn:hover{background:#3b1518}
-  [data-theme="dark"] .m-wrap .close{background:rgba(23,28,43,.92)}
+  [data-theme="dark"] .m-wrap .close{background:rgba(23,28,43,.92);color:var(--ink)}
   [data-theme="dark"] .pcard .badge{background:rgba(23,28,43,.92);color:var(--ink)}
   [data-theme="dark"] .sb-bg{color:#3a4358}
   [data-theme="dark"] .empty,[data-theme="dark"] .s-empty,[data-theme="dark"] .foot{color:var(--ink-soft)}
@@ -394,7 +396,7 @@
     <div id="viewWall">
       <div class="stats" id="stats"></div>
 
-      <div class="section-title" id="sec-h-seen">📺 已看 <span class="cnt" id="cnt-seen"></span></div>
+      <div class="section-title" id="sec-h-seen">📺 影视 <span class="cnt" id="cnt-seen"></span></div>
       <div class="grp" id="sec-seen"></div>
 
       <div class="section-title anime" id="sec-h-anime">🎬 动漫 <span class="cnt" id="cnt-anime"></span></div>
@@ -441,7 +443,7 @@
   <!-- 详情弹窗 -->
   <div class="mask" id="mask">
     <div class="m-wrap">
-      <button class="close" id="btnClose">✕</button>
+      <button class="close" id="btnClose" type="button" aria-label="关闭详情">✕</button>
       <div class="modal" id="modal"></div>
     </div>
   </div>
@@ -2271,7 +2273,11 @@ function renderAll(){
 
   ["seen","read","listen","anime"].forEach(g=>{
     const el = document.getElementById(GROUPS[g]);
+    const secTitle = document.getElementById("sec-h-"+g);
     const items = curVis.filter(({it}) => (TYPE_META[it.type]?.group)===g);
+    /* 2026-11-03：按类型筛选时，无匹配的分组直接隐藏标题+内容，避免连刷「暂无记录」 */
+    if(!items.length && filter!=="全部"){ el.innerHTML=""; if(secTitle) secTitle.style.display="none"; return; }
+    if(secTitle) secTitle.style.display="";
     if(!items.length){ el.innerHTML = `<div class="empty">暂无记录</div>`; return; }
     const pages = Math.max(1, Math.ceil(items.length / GROUP_PAGE_SIZE));
     page[g] = Math.min(Math.max(1, page[g]), pages);
@@ -2305,9 +2311,10 @@ function renderAll(){
   document.getElementById("cnt-anime").textContent = "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="anime").length + " 部";
 
   // 统计卡（2026-11-02 分页改造时清理：原 cnt/total/rated/avgR 为死代码且 total 与上方重复声明）
+  // 2026-11-03：动漫数字卡片并入「已看」（影视 944 + 动漫 51 = 995），回归三卡结构
+  const seenTotal = MEDIA.filter(i=>["seen","anime"].includes(TYPE_META[i.type]?.group)).length;
   document.getElementById("stats").innerHTML = `
-    <div class="stat"><div class="num" style="color:var(--pink)">${MEDIA.filter(i=>TYPE_META[i.type]?.group==="seen").length}</div><div class="lbl">已看 · 影 / 剧 / 综 / 台 / 纪录</div></div>
-    <div class="stat"><div class="num" style="color:#06b6d4">${MEDIA.filter(i=>TYPE_META[i.type]?.group==="anime").length}</div><div class="lbl">动漫</div></div>
+    <div class="stat"><div class="num" style="color:var(--pink)">${seenTotal}</div><div class="lbl">已看 · 影视 / 动漫 / 综艺 / 舞台 / 纪录</div></div>
     <div class="stat"><div class="num" style="color:var(--amber)">${MEDIA.filter(i=>TYPE_META[i.type]?.group==="read").length}</div><div class="lbl">已读 · 书本</div></div>
     <div class="stat"><div class="num" style="color:var(--purple)">${MEDIA.filter(i=>TYPE_META[i.type]?.group==="listen").length}</div><div class="lbl">已听 · 音乐 / 广播剧</div></div>`;
 
@@ -2403,7 +2410,12 @@ function schedulePrefetch(items, end){
 /* 搜索命中 / 新增后：跳到该条目所在组与组内页 */
 function gotoEntry(entry){
   const g = TYPE_META[entry.type]?.group; if(!g) return false;
-  const items = curVis.filter(({it}) => (TYPE_META[it.type]?.group)===g);
+  let items = curVis.filter(({it}) => (TYPE_META[it.type]?.group)===g);
+  /* 2026-11-03：若当前筛选把该条目过滤掉了，先清筛选再定位（修复「搜索命中但翻页不跳转」） */
+  if(!items.some(({it})=>it===entry) && filter!=="全部"){
+    filter = "全部"; page = { seen:1, read:1, listen:1, anime:1 }; renderChips(); renderAll();
+    items = curVis.filter(({it}) => (TYPE_META[it.type]?.group)===g);
+  }
   const idx = items.findIndex(({it}) => it===entry);
   if(idx < 0) return false;
   const p = Math.floor(idx / GROUP_PAGE_SIZE) + 1;
@@ -2519,11 +2531,17 @@ function renderStatsView(){
     </div>`;
   };
 
+  const seenAll = [...grp("seen"), ...grp("anime")];
+  const seenRecent = seenAll.filter(i=>i.date).map(i=>i.date.slice(0,4)).sort().pop() || "—";
+  const seenCard = `<div class="ana-card">
+      <h3>📺 已看 <span class="hint">含动漫 ${grp("anime").length}</span></h3>
+      <div class="big" style="color:${GROUP_COLOR.seen}">${seenAll.length}</div>
+      <div class="sm">平均评分 ${avg(seenAll)} · 最近完成 ${seenRecent}</div>
+    </div>`;
   viewStatsEl.innerHTML = `
     <div class="ana-grid">
       <div class="ana-card"><h3>累计记录</h3><div class="big" style="color:#1f2328">${MEDIA.length}</div><div class="sm">影视 / 书 / 音乐全部加起来</div></div>
-      ${gRow("📺 已看","seen",GROUP_COLOR.seen,"部")}
-      ${gRow("🎬 动漫","anime",GROUP_COLOR.anime,"部")}
+      ${seenCard}
       ${gRow("📖 已读","read",GROUP_COLOR.read,"本")}
       ${gRow("🎧 已听","listen",GROUP_COLOR.listen,"部")}
       <div class="ana-card"><h3>平均评分</h3><div class="big" style="color:#6366f1">${avg(rated)}</div><div class="sm">${rated.length} 条有评分（10 分制）</div></div>
@@ -2542,7 +2560,9 @@ function openDetail(it){
   const cover = it.poster
     ? `<div class="m-cover"><img src="${esc(it.poster)}" alt=""></div>`
     : `<div class="m-cover ph" style="--g:${meta.g}"><span>${esc(it.title)}</span></div>`;
-  document.getElementById("modal").innerHTML = `
+  const modal = document.getElementById("modal");
+  modal.setAttribute("role","dialog"); modal.setAttribute("aria-modal","true");
+  modal.innerHTML = `
     ${cover}
     <div class="m-body">
       <h2>${esc(it.title)}</h2>
