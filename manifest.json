@@ -1,6 +1,6 @@
 {
-  "name": "任务管理台",
-  "short_name": "任务管理台",
+  "name": "工作工具台",
+  "short_name": "工作工具台",
   "description": "个人任务 / 习惯 / 清单 / 媒体进度管理台",
   "start_url": "./index.html",
   "scope": "./",
@@ -10,7 +10,17 @@
   "theme_color": "#4F7CFF",
   "lang": "zh-CN",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ]
 }

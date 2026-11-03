@@ -2352,7 +2352,7 @@ function cardHTML(it, idx, k){
     ? `<div class="cover"><div class="badge">${esc(it.type)}</div>${hasRev?'<div class="rev-mark" title="已写感想">✍️</div>':''}
          <img src="${esc(it.poster)}" alt="${esc(it.title)}" loading="lazy" decoding="async"
               onload="this.classList.add('ok')"
-              onerror="var p=this.parentNode;p.classList.add('ph');p.style.setProperty('--g','${meta.g}');p.insertAdjacentHTML('afterbegin','<span>'+this.alt+'</span>');this.remove();">
+              onerror="var p=this.parentNode;p.classList.add('ph');p.style.setProperty('--g','${meta.g}');p.insertAdjacentHTML('afterbegin','<span>'+esc(this.alt)+'</span>');this.remove();">
        </div>`
     : `<div class="cover ph" style="--g:${meta.g}"><div class="badge">${esc(it.type)}</div>${hasRev?'<div class="rev-mark" title="已写感想">✍️</div>':''}<span>${esc(it.title)}</span></div>`;
   return `<div class="pcard" role="button" tabindex="0" data-i="${idx}" aria-label="${esc(it.title)}（${esc(it.type)}）" style="animation-delay:${Math.min((k||0)*25,150)}ms">   <!-- 2026-11-02：delay 用小节内序号封顶 150ms，翻页重播瞬态不再出现成片空洞 -->
@@ -2374,6 +2374,27 @@ const GROUP_TYPES = {};                     // group -> [types]（保 ALL_TYPES 
 ALL_TYPES.forEach(t=>{ const g = TYPE_META[t]?.group; if(g) (GROUP_TYPES[g] = GROUP_TYPES[g]||[]).push(t); });
 
 let wallFirstRender = true;   // 空卡片修复 2026-11-02：入场动画只播首屏，翻页/筛选后关闭
+/* M-1 修复(2026-11-03)：分页切片共享算法——renderAll 与 gotoEntry 共用同一口径，
+   消除「type 扩页回退导致搜索跳转页号错位」；gotoEntry 用 pageOfIdx 取条目最早出现页 */
+function pageSlice(items, p){
+  const S = GROUP_PAGE_SIZE;
+  const start = (p-1)*S;
+  let end = Math.min(items.length, start+S);
+  if(end < items.length && items[end].it.type === items[end-1].it.type){
+    let e2 = end;
+    while(e2 < items.length && items[e2].it.type === items[e2-1].it.type) e2++;
+    if(e2 - end <= S) end = e2;
+  }
+  return [start, end];
+}
+function pageOfIdx(items, idx){
+  const S = GROUP_PAGE_SIZE, pages = Math.max(1, Math.ceil(items.length/S));
+  for(let p=1; p<=pages; p++){
+    const end = pageSlice(items, p)[1];
+    if(idx < end) return p;
+  }
+  return pages;
+}
 function renderAll(){
   curVis = MEDIA.map((it,i)=>({it,i})).filter(({it}) =>
     filter==="全部" ? true : it.type===filter);
@@ -2388,15 +2409,7 @@ function renderAll(){
     if(!items.length){ el.innerHTML = `<div class="empty">暂无记录</div>`; return; }
     const pages = Math.max(1, Math.ceil(items.length / GROUP_PAGE_SIZE));
     page[g] = Math.min(Math.max(1, page[g]), pages);
-    const start = (page[g]-1)*GROUP_PAGE_SIZE;
-    let end = Math.min(items.length, start+GROUP_PAGE_SIZE);
-    /* type 完整性回退：本页最后一条的 type 若被页界截断，把剩余同 type 纳入本页（避免 2 卡小节孤挂）；
-       仅限小段（≤每页容量），大 type 段照常跨页，防止整段拉入导致单页卡片爆炸 */
-    if(end < items.length && items[end].it.type === items[end-1].it.type){
-      let e2 = end;
-      while(e2 < items.length && items[e2].it.type === items[e2-1].it.type) e2++;
-      if(e2 - end <= GROUP_PAGE_SIZE) end = e2;
-    }
+    const [start, end] = pageSlice(items, page[g]);   /* 共享算法（含 type 完整性回退） */
     const pageItems = items.slice(start, end);
 
     /* 组内细分小节：细分类全量 >0 才画标题；本页切空的小节跳过 */
@@ -2524,7 +2537,7 @@ function gotoEntry(entry){
   }
   const idx = items.findIndex(({it}) => it===entry);
   if(idx < 0) return false;
-  const p = Math.floor(idx / GROUP_PAGE_SIZE) + 1;
+  const p = pageOfIdx(items, idx);   /* M-1：与 renderAll 同口径（含扩页回退），跳到条目最早出现页 */
   if(p !== page[g]){ page[g] = p; renderAll(); }
   return true;
 }
@@ -2711,6 +2724,7 @@ document.getElementById("modal").addEventListener("click", e=>{
   if(e.target.id === "btnRevEdit"){
     const box=document.getElementById("revEditbox"), body=document.getElementById("revBody"), ta=document.getElementById("revText");
     if(!box) return;
+    ta.dataset.orig = ta.value;   /* M-2：记录打开时原文，供脏检查比对 */
     box.style.display="block"; body.style.display="none"; ta.focus();
     return;
   }
@@ -2763,7 +2777,25 @@ document.getElementById("modal").addEventListener("click", e=>{
     }, 8000);
   });
 });
-mask.addEventListener("click", e=>{ if(e.target===mask || e.target.id==="btnClose") mask.classList.remove("show"); });
+/* M-2 修复(2026-11-03)：详情弹窗统一关闭入口——感想编辑中且有改动时先确认，防止长文按 Esc/误点遮罩静默丢失 */
+function tryCloseDetail(){
+  const revBox = document.getElementById("revEditbox");
+  if(revBox && revBox.style.display !== "none"){
+    const ta = document.getElementById("revText");
+    if(ta && ta.value !== (ta.dataset.orig ?? "")){
+      confirmWall("感想还没保存，确定放弃编辑？", "放弃").then(ok=>{
+        if(!ok) return;
+        const b = document.getElementById("revEditbox");
+        if(b) b.style.display = "none";
+        mask.classList.remove("show");
+      });
+      return;
+    }
+    revBox.style.display = "none";   /* 无改动：直接收起 */
+  }
+  mask.classList.remove("show");
+}
+mask.addEventListener("click", e=>{ if(e.target===mask || e.target.id==="btnClose") tryCloseDetail(); });
 
 /* ===== 搜索：即搜即显，回车看第一条，点击看详情 ===== */
 const searchBox = document.getElementById("searchBox");
@@ -2853,7 +2885,7 @@ F("fSave").addEventListener("click", async ()=>{
 document.addEventListener("keydown", e=>{
   if(e.key==="Escape"){
     if(window.__confirmWallOpen) return;   /* P1 2026-11-02：确认弹窗层优先（confirmWall 自己处理 Esc），其余浮层让位 */
-    mask.classList.remove("show");
+    tryCloseDetail();                      /* M-2：感想编辑脏检查后再关 */
     closeForm();                           /* 表单有未保存内容时不会直接关（见 closeForm 脏检查） */
     cloudMask.classList.remove("show");
     searchDrop.classList.remove("show");
