@@ -17,6 +17,7 @@
     --amber:#f59e0b;  /* 已读 */
     --purple:#a855f7; /* 已听 */
     --pri:#4F7CFF; --pri-deep:#3D68F0;   /* P2/P3：主色对齐兄弟页契约（选中态用 --pri-deep 压白字 4.73:1） */
+    --sub:#6b7280; --ok:#22b07d; --warn:#ff8a3d; --danger:#ef4444; --white:#fff;   /* 云同步状态色（对齐任务台 / 明信片契约） */
     --shadow:0 1px 3px rgba(16,24,40,.06),0 6px 18px rgba(16,24,40,.06);
     --shadow-hover:0 4px 10px rgba(16,24,40,.10),0 14px 34px rgba(16,24,40,.12);
   }
@@ -42,7 +43,29 @@
   @media(max-width:760px){.brandbar .brand{font-size:16px}.brandbar .brand-sub{display:none}.brandbar .top-actions{margin-left:auto}}
   /* ===== 云同步弹窗 2026-11-03 ===== */
   .cloud-hint{font-size:12px;color:var(--ink-soft);line-height:1.65;margin:8px 0 12px}
-  .cloud-status{font-size:12.5px;color:var(--ink-soft);border:1px dashed var(--line);border-radius:10px;padding:9px 12px;margin-bottom:12px;line-height:1.55}
+  /* 云同步状态胶囊（顶栏，对齐任务台 / 明信片：同步中… / 已同步 / 同步失败 / 仅本地） */
+  .cloudpill{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;padding:5px 12px;border-radius:999px;background:var(--pri-deep);color:var(--white);border:1px solid var(--pri);box-shadow:0 1px 3px rgba(79,124,255,.25);white-space:nowrap;cursor:pointer;}
+  .cloudpill .ic{width:14px;height:14px;margin-right:0;}
+  .cloudpill.ok{background:var(--ok);border-color:var(--ok);box-shadow:0 1px 3px rgba(34,176,125,.25);}
+  .cloudpill.syncing{background:var(--warn);border-color:var(--warn);box-shadow:0 1px 3px rgba(255,138,61,.25);}
+  .cloudpill.err{background:var(--danger);border-color:var(--danger);box-shadow:0 1px 3px rgba(239,68,68,.25);}
+  .cloudpill.off{background:#e9edf5;color:var(--sub);border-color:#e9edf5;box-shadow:none;}
+  [data-theme="dark"] .cloudpill.off{background:#20283b;color:var(--sub);border-color:#2a3349;}
+  /* 云同步状态卡片（弹窗内，对齐任务台 / 明信片） */
+  .cloud-status-card{display:flex;align-items:flex-start;gap:12px;padding:13px 14px;border-radius:var(--radius);border:0.5px solid var(--line);background:var(--bg);margin-bottom:14px;min-height:58px;}
+  .cloud-status-card.ok{background:rgba(34,176,125,.08);border-color:rgba(34,176,125,.25);}
+  .cloud-status-card.err{background:rgba(239,68,68,.07);border-color:rgba(239,68,68,.22);}
+  .cloud-status-card.warn{background:rgba(255,138,61,.08);border-color:rgba(255,138,61,.25);}
+  .cloud-status-card.info{background:rgba(79,124,255,.08);border-color:rgba(79,124,255,.2);}
+  .cloud-status-icon{width:22px;height:22px;flex:none;margin-top:1px;}
+  .cloud-status-icon svg{width:22px;height:22px;}
+  .cloud-status-body{flex:1;min-width:0;}
+  .cloud-status-title{font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.4;}
+  .cloud-status-desc{font-size:12.5px;color:var(--sub);margin-top:3px;line-height:1.45;}
+  .cloud-status-card.ok .cloud-status-title{color:var(--ok);}
+  .cloud-status-card.err .cloud-status-title{color:var(--danger);}
+  .cloud-status-card.warn .cloud-status-title{color:var(--warn);}
+  .cloud-status-card.info .cloud-status-title{color:var(--pri);}
   .cloud-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
   .cloud-chk{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink);margin:12px 0 2px;cursor:pointer;user-select:none}
   .cloud-chk input{width:15px;height:15px;accent-color:var(--pri);cursor:pointer}
@@ -365,6 +388,7 @@
   [data-theme="dark"]{
     --bg:#0f1320; --card:#171c2b; --ink:#e7ebf3; --ink-soft:#9aa3b2; --line:#262d3f;
     --pri:#5b86ff; --pri-deep:#3D68F0;
+    --sub:#9aa3b2; --ok:#2dd4a0; --warn:#ff9a52; --danger:#ff5d5d; --white:#fff;
     --shadow:0 1px 3px rgba(0,0,0,.5),0 6px 18px rgba(0,0,0,.45);
     --shadow-hover:0 4px 10px rgba(0,0,0,.5),0 14px 34px rgba(0,0,0,.55);
     scrollbar-color:#2a3142 transparent;
@@ -407,6 +431,7 @@
       <div class="top-actions">
         <a class="sib-link" href="任务管理台.html" target="_blank" rel="noopener" title="打开任务管理台"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>任务台</a>
         <a class="sib-link" href="明信片追踪.html" target="_blank" rel="noopener" title="打开明信片追踪"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>明信片</a>
+        <span class="cloudpill off" id="cloudPill" role="button" tabindex="0" title="云同步状态：未配置时数据仅存本机；点击打开云同步设置">仅本地</span>
         <button class="sib-link" id="btnCloud" type="button" title="云同步：与任务管理台 / 明信片追踪共用 Token 与 Gist，数据单独存为 mediawall.json"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>云同步</button>
         <button class="sib-link" id="btnTheme" type="button" title="切换主题（与任务台 / 明信片追踪同步记忆）">🌙 深色</button>
       </div>
@@ -487,7 +512,13 @@
     <div class="form-modal" style="max-width:470px" role="dialog" aria-modal="true" aria-label="云同步设置">
       <h2>☁ 云同步</h2>
       <p class="cloud-hint">与任务管理台 / 明信片追踪<b>共用同一 Token 与 Gist</b>（任一处填写，三页生效），海报墙数据单独保存为 <b>mediawall.json</b>，互不覆盖。同步内容：自定义条目 + 感想。打开页面自动合并云端，保存后自动上传。</p>
-      <div class="cloud-status" id="csStatus">未配置</div>
+      <div class="cloud-status-card" id="csStatus" role="status" aria-live="polite">
+        <div class="cloud-status-icon" id="csStatusIcon"></div>
+        <div class="cloud-status-body">
+          <div class="cloud-status-title" id="csStatusTitle">未配置</div>
+          <div class="cloud-status-desc" id="csStatusDesc">在上方填入 Gist ID 与 Token 即可开始同步</div>
+        </div>
+      </div>
       <div class="f-field full">
         <label>GitHub Token</label>
         <div style="display:flex;gap:8px">
@@ -2993,6 +3024,44 @@ function cloudErrText(status, act){
 }
 function syncPayload(){ return { _app:"wb-mediawall", entries: customEntries, reviews, savedAt: Date.now() }; }
 
+// 顶栏同步状态胶囊（对齐任务台 / 明信片：同步中… / 已同步 / 同步失败 / 仅本地）
+function setCloudPill(state){
+  const el=document.getElementById("cloudPill"); if(!el) return;
+  const ic='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>';
+  if(state==="syncing"){ el.innerHTML=ic+" 同步中…"; el.className="cloudpill syncing"; }
+  else if(state==="ok"){ el.innerHTML=ic+" 已同步"; el.className="cloudpill ok"; }
+  else if(state==="err"){ el.innerHTML=ic+" 同步失败"; el.className="cloudpill err"; }
+  else { el.innerHTML=ic+" 仅本地"; el.className="cloudpill off"; }
+}
+// 弹窗内状态卡片（显式 kind 取代正则猜状态，对齐任务台 P2-11；titleOverride 用于「已配置 / 未配置」等固定标题）
+function setCloudStatus(msg, err, kind, titleOverride){
+  const card=document.getElementById("csStatus"); if(!card) return;
+  const iconEl=document.getElementById("csStatusIcon");
+  const titleEl=document.getElementById("csStatusTitle");
+  const descEl=document.getElementById("csStatusDesc");
+  let type=kind, title="", desc=msg||"";
+  if(type){
+    title = type==="ok"?"成功" : type==="err"?"同步失败" : type==="syncing"?"同步中…" : type==="warn"?"注意":"提示";
+  } else if(!msg){ type="info"; title="未配置"; desc="在上方填入 Gist ID 与 Token 即可开始同步"; }
+  else if(err){ type="err"; title="同步失败"; }
+  else if(/同步中|拉取中|上传中|下载中|正在|已配置/.test(msg)){ type="syncing"; title="同步中…"; }
+  else if(/同步完成|已同步|已是最新|上传成功|已复制|已从剪贴板|已覆盖|已取消|成功/.test(msg)){ type="ok"; title="成功"; }
+  else if(/失败|错误|无法|不支持|请|没找到|缺少/.test(msg)){ type="warn"; title="注意"; }
+  else { type=err?"err":"info"; title="提示"; }
+  if(titleOverride) title=titleOverride;
+  card.className="cloud-status-card "+type;
+  const icons={
+    ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+    err:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+    syncing:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>'
+  };
+  if(iconEl) iconEl.innerHTML=icons[type]||icons.info;
+  if(titleEl) titleEl.textContent=title;
+  if(descEl) descEl.textContent=desc;
+}
+
 // 读云端 mediawall.json 的 savedAt（上传冲突检测）。{empty:true}=云端无文件（首次上传安全）
 async function cloudPeek(){
   try{
@@ -3006,28 +3075,30 @@ async function cloudPeek(){
   }catch(e){ return {err:true}; }
 }
 
-async function cloudUpload(silent, keepalive){
+async function cloudUpload(silent, keepalive, quiet){
   if(_cloudBusy){ _pendingUpload=true; return false; }   // 自锁：忙时记待传，收尾统一补传（对齐明信片 R4）
   if(!keepalive) _cloudBusy=true;
   try{
-    const r=await _cloudUploadInner(silent, keepalive);
+    const r=await _cloudUploadInner(silent, keepalive, quiet);
     return r;
   }finally{
     if(!keepalive){ _cloudBusy=false; if(_pendingUpload) cloudAutoUpload(); }
   }
 }
-async function _cloudUploadInner(silent, keepalive){
-  if(!cloud.token||!cloud.gist){ if(!silent) toast("请先填写 Token 与 Gist ID","danger"); return false; }
+async function _cloudUploadInner(silent, keepalive, quiet){
+  if(!cloud.token||!cloud.gist){ if(!silent) toast("请先填写 Token 与 Gist ID","danger"); if(!quiet) setCloudPill("err"); return false; }
   if(!_bootPulled && !keepalive){ _pendingUpload=true; return false; }   // 启动拉取未完成不上传（防旧数据覆盖云端）；pagehide 补传例外（有定时器才触发，必已过启动期）
+  if(!quiet){ setCloudPill("syncing"); setCloudStatus("上传到云端中…", false, "syncing"); }
   // 冲突检测：云端比本地新 → 不静默覆盖（keepalive 卸载期只有一次请求机会，跳过 peek 直接传）
   const peek=keepalive?{err:false,empty:false,savedAt:null}:await cloudPeek();
   if(peek.err){
     if(!silent) toast(peek.status ? cloudErrText(peek.status,"上传") : "无法读取云端状态，已放弃上传以避免覆盖云端数据","danger",null,5000);
+    if(!quiet){ setCloudPill("err"); setCloudStatus(peek.status ? cloudErrText(peek.status,"上传") : "无法读取云端状态，已放弃上传以避免覆盖云端数据", true, "err"); }
     return false;
   }
   const remote=peek.empty?null:peek.savedAt;
   if(remote && remote>localSavedAt()+2000){
-    if(silent){ await cloudPull(true); return true; }   // 自动上传遇云端更新 → 拉取合并自愈，合并后 save 钩子会再排队上传
+    if(silent){ await cloudPull(true, true); return true; }   // 自动上传遇云端更新 → quiet 拉取合并自愈（不抢 pill），合并后 save 钩子会再排队上传
     if(!(await confirmWall("云端数据比本地更新（"+new Date(remote).toLocaleString()+"），上传将用本地覆盖云端，继续？","仍上传"))) return true;
   }
   try{
@@ -3041,36 +3112,40 @@ async function _cloudUploadInner(silent, keepalive){
     if(!res.ok){ const e2=new Error(cloudErrText(res.status,"上传")); e2.status=res.status; throw e2; }
     _upRetryN=0;
     if(!silent) toast("已上传到云端 ✓");
+    if(!quiet){ setCloudPill("ok"); setCloudStatus("已上传到云端 ✓ "+new Date().toLocaleTimeString(), false, "ok"); }
     return true;
   }catch(e){
     if(!silent) toast(e.message||"上传失败","danger",null,5000);
+    if(!quiet){ setCloudPill("err"); setCloudStatus("上传失败："+(e.message||"未知错误")+(e.status?("（HTTP "+e.status+"）"):""), true, "err"); }
     return false;
   }
 }
 
-// 拉取云端并合并。返回 "ok"|"same"|"empty"|"fail"
-async function cloudPull(silent){
+// 拉取云端并合并。返回 "ok"|"same"|"empty"|"fail"；quiet=true 时只改数据不闪 pill（启动/自愈拉取用，避免重复闪烁）
+async function cloudPull(silent, quiet){
   if(_pullBusy) return false;
   _pullBusy=true;
-  try{ return await _cloudPullInner(silent); }
+  try{ return await _cloudPullInner(silent, quiet); }
   finally{
     _pullBusy=false;
     if(_pendingUpload){ _pendingUpload=false; cloudAutoUpload(); }   // 拉取期间的本地保存统一补传
   }
 }
-async function _cloudPullInner(silent){
-  if(!cloud.token||!cloud.gist){ if(!silent) toast("请先填写 Token 与 Gist ID","danger"); return "fail"; }
+async function _cloudPullInner(silent, quiet){
+  if(!cloud.token||!cloud.gist){ if(!silent) toast("请先填写 Token 与 Gist ID","danger"); if(!quiet) setCloudPill("err"); return "fail"; }
   // 详情/新增弹窗打开中不拉取：感想 textarea 正在编辑，合并后保存会用旧表单值覆盖云端新值
   if(formMask.classList.contains("show") || mask.classList.contains("show")){
     if(!silent) toast("有弹窗打开中，请先关闭再同步","danger");
+    if(!quiet) setCloudPill("err");
     return "fail";
   }
+  if(!quiet){ setCloudPill("syncing"); setCloudStatus("拉取云端数据中…", false, "syncing"); }
   try{
     const res=await fetchT("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 20000);
     if(!res.ok){ const e2=new Error(cloudErrText(res.status,"下载")); e2.status=res.status; throw e2; }
     const data=await res.json();
     const f=data.files&&data.files[MW_CLOUD_FILE];
-    if(!f||!f.content) return "empty";   // 云端还没有 mediawall.json（首次使用）
+    if(!f||!f.content){ if(!quiet){ setCloudPill("ok"); setCloudStatus("云端暂无数据，本地优先 · 保存后自动上传", false, "info"); } return "empty"; }   // 云端还没有 mediawall.json（首次使用）
     const obj=JSON.parse(f.content);
     let changed=0;
     // 自定义条目：title+year+type 判重，只增不删（_custom/_ci 渲染字段入库前清洗，与手动导入同规则）
@@ -3095,9 +3170,11 @@ async function _cloudPullInner(silent){
     }
     if(obj.savedAt){ try{ localStorage.setItem(MW_SAVED_KEY, String(Math.max(Date.now(), obj.savedAt))); }catch(e){} }   // 抬平 savedAt，防拉取后被冲突检测误判
     if(!silent) toast(changed ? ("同步完成 ✓ 新增/更新 "+changed+" 项") : "云端无新内容，已是最新");
+    if(!quiet){ setCloudPill("ok"); setCloudStatus(changed ? ("同步完成 ✓ 新增/更新 "+changed+" 项 · "+new Date().toLocaleTimeString()) : ("云端无新内容，已是最新 ✓ "+new Date().toLocaleTimeString()), false, "ok"); }
     return changed ? "ok" : "same";
   }catch(e){
     if(!silent) toast(e.message||"下载失败","danger",null,5000);
+    if(!quiet){ setCloudPill("err"); setCloudStatus("拉取失败："+(e.message||"未知错误")+(e.status?("（HTTP "+e.status+"）"):""), true, "err"); }
     return "fail";
   }
 }
@@ -3110,7 +3187,7 @@ function cloudAutoUpload(){
   if(_upTimer) clearTimeout(_upTimer);
   _upTimer=setTimeout(()=>{
     _upTimer=null;
-    cloudUpload(true).then(ok=>{ if(ok===false) scheduleCloudRetry(); });
+    cloudUpload(true, false, false).then(ok=>{ if(ok===false) scheduleCloudRetry(); });   // silent toast，但显示 pill/状态
   }, 2500);
 }
 // 上传失败退避重试：5s → 15s → 45s，3 次后放弃（手动「上传到云端」可再触发）
@@ -3121,24 +3198,28 @@ function scheduleCloudRetry(){
   clearTimeout(_upRetryTimer);
   _upRetryTimer=setTimeout(()=>{
     _upRetryTimer=null;
-    cloudUpload(true).then(ok=>{ if(ok===false) scheduleCloudRetry(); });
+    cloudUpload(true, false, false).then(ok=>{ if(ok===false) scheduleCloudRetry(); });
   }, 5000*Math.pow(3,_upRetryN-1));
 }
 // 待传兜底：切后台/关闭页面时把排队的防抖上传立即发出（keepalive 卸载后仍能完成）
 window.addEventListener("pagehide", ()=>{
   if(_upTimer){
     clearTimeout(_upTimer); _upTimer=null;
-    if(cloud.auto && cloud.token && cloud.gist) cloudUpload(true, true).then(ok=>{ if(ok===false) scheduleCloudRetry(); });
+    if(cloud.auto && cloud.token && cloud.gist) cloudUpload(true, true, true).then(ok=>{ if(ok===false) scheduleCloudRetry(); });
   }
 });
 
 // 启动：读配置 → 首次拉取合并（失败 30s 后重试，最多 5 次）；成功前禁止自动上传
 async function cloudBoot(){
   cloudLoad();
-  if(!(cloud.token&&cloud.gist)){ _bootPulled=true; return; }   // 未配置：不阻塞本地上传路径（自动上传本身有配置检查）
-  const r=await cloudPull(true);
-  if(r==="fail" && ++_bootTry<=5){ setTimeout(cloudBoot, 30000); return; }
+  if(!(cloud.token&&cloud.gist)){ setCloudPill("off"); setCloudStatus("未配置：填入与任务管理台 / 明信片追踪相同的 Token 与 Gist ID 即可开始同步", false, "info", "未配置"); _bootPulled=true; return; }   // 未配置：不阻塞本地上传路径（自动上传本身有配置检查）
+  setCloudPill("syncing"); setCloudStatus("正在拉取云端数据…", false, "syncing");
+  const r=await cloudPull(true, true);   // quiet：由 cloudBoot 自管 pill/状态，避免重复闪烁
+  if(r==="fail" && ++_bootTry<=5){ setCloudPill("err"); setCloudStatus("首次拉取失败，将自动重试（"+_bootTry+"/5）", true, "err"); setTimeout(cloudBoot, 30000); return; }
   _bootPulled=true;
+  if(r==="fail"){ setCloudPill("err"); setCloudStatus("云端同步失败，请检查 Token / Gist ID 后重试", true, "err"); }
+  else if(r==="empty"){ setCloudPill("ok"); setCloudStatus("云端暂无数据，本地优先 · 保存后自动上传", false, "info"); }
+  else { setCloudPill("ok"); setCloudStatus("已从云端同步 ✓ "+new Date().toLocaleTimeString(), false, "ok"); }
   if(_pendingUpload) cloudAutoUpload();
 }
 
@@ -3149,15 +3230,16 @@ function fillCloudForm(){
   cloudStatusText();
 }
 function cloudStatusText(){
-  const el=F("csStatus");
-  if(cloud.token&&cloud.gist) el.textContent="已配置 ✓ 自动同步"+(cloud.auto?"已开启":"已关闭")+" · 数据存于该 Gist 内的 mediawall.json（与任务台 / 明信片互不覆盖）";
-  else el.textContent="未配置：填入与任务管理台 / 明信片追踪相同的 Token 与 Gist ID 即可开始同步";
+  if(cloud.token&&cloud.gist) setCloudStatus("已配置 ✓ 自动同步"+(cloud.auto?"已开启":"已关闭")+" · 数据存于该 Gist 内的 mediawall.json（与任务台 / 明信片互不覆盖）", false, "ok", "已配置");
+  else setCloudStatus("未配置：填入与任务管理台 / 明信片追踪相同的 Token 与 Gist ID 即可开始同步", false, "info", "未配置");
 }
 function readCloudForm(){
   cloud.token=F("csToken").value.trim(); cloud.gist=F("csGist").value.trim(); cloud.auto=F("csAuto").checked;
   cloudSaveCfg(); cloudStatusText();
 }
 F("btnCloud").addEventListener("click", ()=>{ fillCloudForm(); cloudMask.classList.add("show"); });
+F("cloudPill").addEventListener("click", ()=>{ fillCloudForm(); cloudMask.classList.add("show"); });
+F("cloudPill").addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); fillCloudForm(); cloudMask.classList.add("show"); } });
 cloudMask.addEventListener("click", e=>{ if(e.target===cloudMask || e.target.id==="csClose") cloudMask.classList.remove("show"); });
 F("csToggleToken").addEventListener("click", ()=>{
   const inp=F("csToken"), show=inp.type==="password";
@@ -3168,21 +3250,21 @@ F("csAuto").addEventListener("change", readCloudForm);
 F("csSync").addEventListener("click", async ()=>{
   readCloudForm();
   if(!cloud.token||!cloud.gist){ toast("请先填写 Token 与 Gist ID","danger"); return; }
-  const r=await cloudPull(false);
+  const r=await cloudPull(false, false);
   if(r==="fail") return;
-  if(r==="empty"){ await cloudUpload(false); return; }   // 云端没数据：直接把本地上上去
-  await cloudUpload(false);
+  if(r==="empty"){ await cloudUpload(false, false, false); return; }   // 云端没数据：直接把本地上上去
+  await cloudUpload(false, false, false);
 });
 F("csDownload").addEventListener("click", async ()=>{
   readCloudForm();
   if(!cloud.token||!cloud.gist){ toast("请先填写 Token 与 Gist ID","danger"); return; }
-  const r=await cloudPull(false);
+  const r=await cloudPull(false, false);
   if(r==="empty") toast("云端还没有 mediawall.json，先点「上传到云端」吧");
 });
 F("csUpload").addEventListener("click", async ()=>{
   readCloudForm();
   if(!cloud.token||!cloud.gist){ toast("请先填写 Token 与 Gist ID","danger"); return; }
-  await cloudUpload(false);
+  await cloudUpload(false, false, false);
 });
 F("csCopy").addEventListener("click", async ()=>{
   readCloudForm();
