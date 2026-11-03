@@ -7095,16 +7095,29 @@ function renderTrash(){
   if(cnt) cnt.textContent = a.length ? ("("+a.length+")") : "";
   if(!box) return;
   if(!a.length){ box.innerHTML='<div class="hint">回收站是空的 —— 删除的任务会在此保留最近 '+TRASH_MAX+' 条，可随时恢复</div>'; return; }
-  box.innerHTML=a.slice().reverse().map((it,ix)=>{
-    const idx=a.length-1-ix, t=it.task||{};
+  /* 防御：回收站数组里可能混入损坏记录（null / 缺 task / 缺 task.id），既往版本写入或导入损坏会触发
+     it.task 抛 TypeError 中断整段渲染，但角标已先写好 → 表现「角标 N 却看不到内容」。逐条容错，坏记录单列可清除。 */
+  const valid=[], invalid=[];
+  a.forEach((it,idx)=>{ const ok=it&&typeof it==="object"&&it.task&&typeof it.task==="object"&&it.task.id!=null; (ok?valid:invalid).push(idx); });
+  let html="";
+  valid.slice().reverse().forEach(idx=>{
+    const it=a[idx], t=it.task||{}, at=Number(it.at)||0;
     const meta=[t.cat, t.status==="done"?"已完成":"", t.start?String(t.start).slice(0,10):""].filter(Boolean).join(" · ");
-    return '<div class="ring-item"><div class="ring-info"><div class="ring-time">'+esc(t.title||"(无标题)")+'</div>'
-      +'<div class="hint" style="margin:0">删除于 '+ringTimeStr(it.at)+(meta?" · "+esc(meta):"")+'</div></div>'
+    html+='<div class="ring-item"><div class="ring-info"><div class="ring-time">'+esc(t.title||"(无标题)")+'</div>'
+      +'<div class="hint" style="margin:0">删除于 '+ringTimeStr(at)+(meta?" · "+esc(meta):"")+'</div></div>'
       +'<div style="display:flex;gap:6px;flex:none;"><button class="btn btn-pri btn-sm" type="button" data-trres="'+idx+'">恢复</button>'
       +'<button class="btn btn-ghost btn-sm" type="button" aria-label="彻底删除" data-trdel="'+idx+'" title="彻底删除">✕</button></div></div>';
-  }).join("");
+  });
+  if(invalid.length){
+    html+='<div class="ring-item" style="opacity:.72"><div class="ring-info"><div class="ring-time">'+invalid.length+' 条损坏记录（数据已丢失，无法恢复）</div>'
+      +'<div class="hint" style="margin:0">可点右侧「清除」移除，或用下方「清空回收站」一并清理</div></div>'
+      +'<div style="display:flex;gap:6px;flex:none;"><button class="btn btn-ghost btn-sm" type="button" id="trashClearBad" aria-label="清除损坏记录">清除</button></div></div>';
+  }
+  box.innerHTML=html;
   box.querySelectorAll("[data-trres]").forEach(b=>b.onclick=()=>restoreTrash(+b.dataset.trres));
   box.querySelectorAll("[data-trdel]").forEach(b=>b.onclick=()=>dropTrash(+b.dataset.trdel));
+  const cbad=document.getElementById("trashClearBad");
+  if(cbad) cbad.onclick=()=>{ trashSave(a.filter((_,i)=>valid.indexOf(i)>=0)); renderTrash(); toast("已清除 "+invalid.length+" 条损坏记录"); };
 }
 
 function trashRefresh(){
