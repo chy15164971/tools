@@ -70,6 +70,12 @@
   .cloud-chk{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink);margin:12px 0 2px;cursor:pointer;user-select:none}
   .cloud-chk input{width:15px;height:15px;accent-color:var(--pri);cursor:pointer}
   .wrap{max-width:1240px;margin:0 auto;padding:0 24px}
+  /* 批3 2026-11-03 刘海屏适配：横屏时内容与吸顶栏避开安全区 */
+  @supports(padding:max(0px)){
+    .wrap{padding-left:max(24px,env(safe-area-inset-left));padding-right:max(24px,env(safe-area-inset-right))}
+    .topbar{margin-left:calc(-1*max(24px,env(safe-area-inset-left)));margin-right:calc(-1*max(24px,env(safe-area-inset-right)));
+            padding-left:max(24px,env(safe-area-inset-left));padding-right:max(24px,env(safe-area-inset-right))}
+  }
   /* ===== Filter chips ===== */
   .chips{display:flex;flex-wrap:wrap;gap:9px;margin:0}
   .chip{
@@ -172,6 +178,13 @@
   }
   @keyframes pop{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
   .pcard:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover)}
+  /* 批1 2026-11-03：按压反馈（Pinterest 式下压回弹）；触屏 sticky hover 消除（悬停态仅限精确指针） */
+  .pcard:active{transform:translateY(-1px) scale(.985);transition-duration:.08s}
+  @media(hover:none){
+    .pcard:hover{transform:none;box-shadow:var(--shadow)}
+    .pcard:hover .cover img{transform:none}
+    .s-item:hover{background:transparent}
+  }
   .pcard .cover{position:relative;width:100%;aspect-ratio:2/3;background:#dfe6f1;overflow:hidden}
   /* 2026-11-02 线上反馈：海报加载期间灰卡像「空卡片」→ 高对比骨架：spinner + 流光，图片加载完成后淡入 */
   .pcard .cover:not(.ph)::before{content:"";position:absolute;top:50%;left:50%;width:20px;height:20px;margin:-10px 0 0 -10px;z-index:0;
@@ -213,6 +226,10 @@
   .sb-bg{color:#dde3ec}
   .sb-fg{position:absolute;left:0;top:0;overflow:hidden;white-space:nowrap;color:#f59e0b;pointer-events:none}
   .empty{color:#8b949e;font-size:13px;padding:24px 4px}
+  /* 批2 2026-11-03 无障碍：晕动症用户关闭动效（pop 入场/骨架流光/平滑滚动） */
+  @media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  }
   /* ===== Topbar（吸顶：搜索 + 视图切换 + 分类筛选）===== */
   .topbar{
     position:sticky;top:0;z-index:60;
@@ -252,7 +269,7 @@
   .add-btn:hover{filter:brightness(1.07)}
   /* ===== 新增条目表单 ===== */
   .form-modal{
-    background:var(--card);border-radius:18px;max-width:520px;width:100%;max-height:88vh;
+    background:var(--card);border-radius:18px;max-width:520px;width:100%;max-height:88vh;max-height:88dvh;
     overflow:auto;padding:22px 24px;box-shadow:0 24px 60px rgba(0,0,0,.28);
   }
   .form-modal h2{font-size:17px;font-weight:700;margin-bottom:14px}
@@ -277,10 +294,18 @@
   }
   .del-btn:hover{background:#fee2e2}
   @media(max-width:560px){
-    .toolbar{flex-direction:column}
-    .search-wrap{max-width:none;width:100%}
-    .add-btn{width:100%}
+    /* 批1 2026-11-03：原纵向堆叠使吸顶栏占 250px+ 视口 → 保持单行，新增按钮收窄 */
+    .toolbar{flex-wrap:nowrap}
+    .search-wrap{max-width:none;flex:1;min-width:0}
+    .add-btn{flex:none;padding:9px 13px;min-height:44px}
     .f-grid{grid-template-columns:1fr}
+    /* chips 单行横滑（对齐豆瓣移动端分类栏范式）：不换行 + 隐藏滚动条 + 惯性滚动 */
+    .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;
+      margin-left:calc(-1*max(24px,env(safe-area-inset-left)));
+      margin-right:calc(-1*max(24px,env(safe-area-inset-right)));
+      padding:2px max(24px,env(safe-area-inset-right)) 2px max(24px,env(safe-area-inset-left))}
+    .chips::-webkit-scrollbar{display:none}
+    .chip{flex:none}
   }
   /* ===== Modal ===== */
   .mask{
@@ -290,7 +315,7 @@
   .mask.show{display:flex;animation:fade .2s ease}
   @keyframes fade{from{opacity:0}to{opacity:1}}
   .modal{
-    background:var(--card);border-radius:18px;max-width:640px;width:100%;max-height:86vh;
+    background:var(--card);border-radius:18px;max-width:640px;width:100%;max-height:86vh;max-height:86dvh;
     overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.28);display:flex;gap:0;position:relative;
   }
   .modal .m-cover{flex:none;width:230px;aspect-ratio:2/3;background:#eef1f6}
@@ -2355,7 +2380,7 @@ function cardHTML(it, idx, k){
               onerror="var p=this.parentNode;p.classList.add('ph');p.style.setProperty('--g','${meta.g}');p.insertAdjacentHTML('afterbegin','<span>'+esc(this.alt)+'</span>');this.remove();">
        </div>`
     : `<div class="cover ph" style="--g:${meta.g}"><div class="badge">${esc(it.type)}</div>${hasRev?'<div class="rev-mark" title="已写感想">✍️</div>':''}<span>${esc(it.title)}</span></div>`;
-  return `<div class="pcard" role="button" tabindex="0" data-i="${idx}" aria-label="${esc(it.title)}（${esc(it.type)}）" style="animation-delay:${Math.min((k||0)*25,150)}ms">   <!-- 2026-11-02：delay 用小节内序号封顶 150ms，翻页重播瞬态不再出现成片空洞 -->
+  return `<div class="pcard" role="button" tabindex="0" data-i="${idx}" aria-label="${esc(it.title)}（${esc(it.type)}）" title="${esc(it.title)}" style="animation-delay:${Math.min((k||0)*25,150)}ms">   <!-- 2026-11-02：delay 用小节内序号封顶 150ms，翻页重播瞬态不再出现成片空洞 -->
     ${cover}
     <div class="info">
       <div class="name">${esc(it.title)}</div>
@@ -2368,6 +2393,7 @@ function cardHTML(it, idx, k){
 /* ===== 分页 v2 2026-11-02：① 组级独立分页（三组始终各自可见，修复第一页被书本独占的问题）
    ② 组内细分小节（电影/电视剧/真人秀/纪录片…）③ 每组 48/24 条切片渲染防卡顿 ===== */
 const GROUP_PAGE_SIZE = (window.matchMedia("(max-width:768px)").matches || window.matchMedia("(pointer:coarse)").matches) ? 24 : 48;
+const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion:reduce)").matches;   /* 批2 2026-11-03 */
 let page = { seen:1, read:1, listen:1 };   // 各组独立页码（1-based）
 let curVis = [];                            // 当前筛选下的全量可见条目 [{it,i}]
 const GROUP_TYPES = {};                     // group -> [types]（保 ALL_TYPES 顺序）
@@ -2395,11 +2421,8 @@ function pageOfIdx(items, idx){
   }
   return pages;
 }
-function renderAll(){
-  curVis = MEDIA.map((it,i)=>({it,i})).filter(({it}) =>
-    filter==="全部" ? true : it.type===filter);
-
-  ["seen","read","listen"].forEach(g=>{
+/* 批2 2026-11-03：组级渲染提取——翻页/gotoEntry 只重建目标组，未动组不再重排（原 renderAll 全量重建 ~144 卡） */
+function renderGroup(g){
     const el = document.getElementById(GROUPS[g]);
     const secTitle = document.getElementById("sec-h-"+g);
     const items = curVis.filter(({it}) => (TYPE_META[it.type]?.group)===g);
@@ -2423,7 +2446,12 @@ function renderAll(){
     el.querySelectorAll("img").forEach(im=>{ if(im.complete) im.classList.add("ok"); });   /* 缓存图 onload 未触发的兜底 */
     observeCovers(el);   /* 视口临近预热：进入视口前图片已缓存，滚动/翻页无空卡（2026-11-02 终极版） */
     schedulePrefetch(items, end);   /* 下一页受限预取，与 IO 共用 _warmed 去重 */
-  });
+}
+function renderAll(){
+  curVis = MEDIA.map((it,i)=>({it,i})).filter(({it}) =>
+    filter==="全部" ? true : it.type===filter);
+
+  ["seen","read","listen"].forEach(renderGroup);
 
   document.getElementById("cnt-seen").textContent  = "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="seen").length + " 部";
   document.getElementById("cnt-read").textContent  = "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="read").length + " 本";
@@ -2486,9 +2514,9 @@ document.getElementById("viewWall").addEventListener("click", e=>{
   const b = e.target.closest("button[data-g]"); if(!b || b.disabled) return;
   const g = b.dataset.g;
   page[g] += +b.dataset.d;
-  renderAll();
+  renderGroup(g);   /* 批2：只重建翻页的目标组 */
   const h = document.getElementById("sec-h-"+g);   // 翻页后回到该组标题处
-  if(h) h.scrollIntoView({behavior:"smooth", block:"start"});
+  if(h) h.scrollIntoView({behavior:REDUCED_MOTION?"auto":"smooth", block:"start"});   /* 批2：晕动症关闭平滑滚动 */
 });
 /* 海报加载优化（2026-11-02 终极版）：
    ① 卡片 img 恢复 loading="lazy" → 首屏仅加载视口内图片，消除「一次性 100+ 请求」导致的整页慢加载
@@ -2538,7 +2566,7 @@ function gotoEntry(entry){
   const idx = items.findIndex(({it}) => it===entry);
   if(idx < 0) return false;
   const p = pageOfIdx(items, idx);   /* M-1：与 renderAll 同口径（含扩页回退），跳到条目最早出现页 */
-  if(p !== page[g]){ page[g] = p; renderAll(); }
+  if(p !== page[g]){ page[g] = p; renderGroup(g); }   /* 批2：只重建目标组 */
   return true;
 }
 
