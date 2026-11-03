@@ -294,6 +294,17 @@
   .m-review .r-time{font-size:11.5px;color:var(--ink-soft)}
   .m-review .r-save{flex:none;padding:7px 16px;border-radius:10px;border:none;background:var(--pri);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
   .m-review .r-save:hover{background:var(--pri-deep)}
+  /* 2026-11-03：我的X感想 头部 + 修改按钮 + 内联编辑 */
+  .m-review .r-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+  .m-review .r-head .r-label{margin-bottom:0}
+  .m-review .r-edit{flex:none;padding:4px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink-soft);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+  .m-review .r-edit:hover{border-color:var(--pri);color:var(--pri)}
+  .m-review .r-body{font-size:13.5px;color:var(--ink-soft);white-space:pre-wrap;line-height:1.65}
+  .m-review .r-empty{color:#9aa4b2;font-style:italic}
+  .m-review .r-editbox{margin-top:8px}
+  .m-review .r-btns{display:flex;gap:8px}
+  .m-review .r-cancel{flex:none;padding:7px 16px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink-soft);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+  .m-review .r-cancel:hover{border-color:var(--pri);color:var(--pri)}
   .pcard .rev-mark{
     position:absolute;top:6px;right:6px;z-index:3;width:22px;height:22px;border-radius:50%;
     background:rgba(255,255,255,.92);color:var(--ink);font-size:12px;line-height:22px;text-align:center;
@@ -2306,7 +2317,7 @@ function cardHTML(it, idx, k){
   const meta = TYPE_META[it.type] || { group:"seen", g:"linear-gradient(135deg,#94a3b8,#64748b)" };
   const g0 = (it.genre||"").split(/\s*[/、,，;；]\s*/)[0].trim();   // 主题材 → 卡片标签（2026-11-02 用户要求每张卡可见题材）
   const sub = [it.creator, it.year].filter(Boolean).join(" · ") || it.platform || "";
-  const hasRev = !!reviews[reviewKey(it)];
+  const hasRev = !!(reviews[reviewKey(it)] || it.note);   /* 2026-11-03：简评(豆瓣短评)也视为「我的感想」→ 卡片 ✍️ 角标一致 */
   const cover = it.poster
     ? `<div class="cover"><div class="badge">${esc(it.type)}</div>${hasRev?'<div class="rev-mark" title="已写感想">✍️</div>':''}
          <img src="${esc(it.poster)}" alt="${esc(it.title)}" loading="lazy" decoding="async"
@@ -2638,15 +2649,26 @@ function openDetail(it){
       ${it.year ? `<div class="m-row">年份 <b>${esc(it.year)}</b></div>` : ""}
       ${it.platform ? `<div class="m-row">平台 <b>${esc(it.platform)}</b></div>` : ""}
       ${it.date ? `<div class="m-row">完成于 <b>${esc(it.date)}</b></div>` : ""}
-      ${it.note ? `<div class="m-note">${esc(it.note)}</div>` : ""}
       ${(() => {
-        const rk = reviewKey(it), rv = reviews[rk];
-        return `<div class="m-review">
-          <div class="r-label">✍️ 写${reviewLabel(it.type)}</div>
-          <textarea id="revText" data-rk="${esc(rk)}" placeholder="记下这部作品留给你的感受…">${esc(rv ? rv.text : "")}</textarea>
-          <div class="r-actions">
-            <span class="r-time" id="revTime">${rv && rv.ts ? "上次保存：" + new Date(rv.ts).toLocaleString("zh-CN") : "尚未保存"}</span>
-            <button class="r-save" id="btnRevSave" type="button">保存感想</button>
+        const rk = reviewKey(it);
+        const rvText = (reviews[rk] && reviews[rk].text) ? reviews[rk].text : (it.note || "");
+        const has = !!rvText;
+        const savedAt = (reviews[rk] && reviews[rk].ts) ? ("上次保存：" + new Date(reviews[rk].ts).toLocaleString("zh-CN")) : (it.note ? "来自豆瓣简评" : "尚未保存");
+        return `<div class="m-review" data-rk="${esc(rk)}">
+          <div class="r-head">
+            <span class="r-label">✍️ 我的${reviewLabel(it.type)}</span>
+            <button class="r-edit" id="btnRevEdit" type="button">修改</button>
+          </div>
+          <div class="r-body" id="revBody">${has ? esc(rvText) : `<span class="r-empty">还没有写过感想，点「修改」记下你的${reviewLabel(it.type)}…</span>`}</div>
+          <div class="r-editbox" id="revEditbox" style="display:none">
+            <textarea id="revText" data-rk="${esc(rk)}" placeholder="记下这部作品留给你的感受…">${esc(rvText)}</textarea>
+            <div class="r-actions">
+              <span class="r-time" id="revTime">${savedAt}</span>
+              <span class="r-btns">
+                <button class="r-cancel" id="btnRevCancel" type="button">取消</button>
+                <button class="r-save" id="btnRevSave" type="button">保存感想</button>
+              </span>
+            </div>
           </div>
         </div>`;
       })()}
@@ -2654,18 +2676,35 @@ function openDetail(it){
     </div>`;
   mask.classList.add("show");
 }
-// 保存感想（事件委托：modal 内）
+// 感想（我的读后感/观后感/听后感）：查看 / 修改 / 取消 / 保存（事件委托：modal 内）
 document.getElementById("modal").addEventListener("click", e=>{
-  if(e.target.id !== "btnRevSave") return;
-  const ta = document.getElementById("revText");
-  if(!ta) return;
-  const rk = ta.dataset.rk, text = ta.value.trim();
-  if(text){ reviews[rk] = { text, ts: Date.now() }; }
-  else { delete reviews[rk]; }   // 清空保存 = 删除感想
-  if(saveReviews()){
-    document.getElementById("revTime").textContent = reviews[rk] ? ("上次保存：" + new Date(reviews[rk].ts).toLocaleString("zh-CN")) : "尚未保存";
-    renderAll();   // 刷新卡片 ✍️ 角标
-    toast(text ? "感想已保存" : "感想已清除");
+  if(e.target.id === "btnRevEdit"){
+    const box=document.getElementById("revEditbox"), body=document.getElementById("revBody"), ta=document.getElementById("revText");
+    if(!box) return;
+    box.style.display="block"; body.style.display="none"; ta.focus();
+    return;
+  }
+  if(e.target.id === "btnRevCancel"){
+    const box=document.getElementById("revEditbox"), body=document.getElementById("revBody");
+    if(!box) return;
+    box.style.display="none"; body.style.display="block";
+    return;
+  }
+  if(e.target.id === "btnRevSave"){
+    const ta=document.getElementById("revText");
+    if(!ta) return;
+    const key=ta.dataset.rk, text=ta.value.trim();
+    if(text){ reviews[key]={text,ts:Date.now()}; } else { delete reviews[key]; }   // 清空保存 = 删除感想
+    if(saveReviews()){
+      const body=document.getElementById("revBody");
+      body.innerHTML = text ? esc(text) : '<span class="r-empty">还没有写过感想，点「修改」记下你的感受…</span>';
+      body.style.display="block";
+      document.getElementById("revEditbox").style.display="none";
+      document.getElementById("revTime").textContent = reviews[key] ? ("上次保存："+new Date(reviews[key].ts).toLocaleString("zh-CN")) : "尚未保存";
+      renderAll();   // 刷新卡片 ✍️ 角标
+      toast(text ? "感想已保存" : "感想已清除");
+    }
+    return;
   }
 });
 document.body.addEventListener("click", e=>{
