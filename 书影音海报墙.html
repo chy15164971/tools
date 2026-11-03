@@ -442,6 +442,45 @@
   [data-theme="dark"] .empty,[data-theme="dark"] .s-empty,[data-theme="dark"] .foot{color:var(--ink-soft)}
   [data-theme="dark"] .foot code{background:#1c2233}
   [data-theme="dark"] .toast{background:#2a3142;border:1px solid #3a4358}
+  /* ===== 第三轮对标 2026-11-03：排序 / 弹窗导航 / 搜索联动 / 心愿单 / 密度 ===== */
+  .sortsel{height:30px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-size:12.5px;font-weight:600;padding:0 10px;border-radius:999px;cursor:pointer;font-family:inherit;flex:none}
+  .sortsel:focus-visible{outline:2px solid #a855f7;outline-offset:2px}
+  /* 弹窗前后导航（Pinterest 灯箱式：桌面悬于两侧，移动端落到底部两角） */
+  .m-wrap .nav-btn{position:absolute;top:50%;transform:translateY(-50%);z-index:5;width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,.92);color:var(--ink);font-size:22px;line-height:1;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;font-family:inherit}
+  .m-wrap .nav-btn:hover{background:#fff}
+  .m-wrap .nav-btn:disabled{opacity:.3;cursor:not-allowed}
+  .m-wrap .nav-btn.prev{left:-54px}
+  .m-wrap .nav-btn.next{right:-54px}
+  [data-theme="dark"] .m-wrap .nav-btn{background:rgba(23,28,43,.92);color:var(--ink)}
+  @media(max-width:760px){
+    .m-wrap .nav-btn{width:38px;height:38px;top:auto;bottom:12px;transform:none;background:rgba(255,255,255,.88)}
+    .m-wrap .nav-btn.prev{left:8px}
+    .m-wrap .nav-btn.next{right:8px}
+  }
+  /* 搜索联动横幅（P1-4）：搜索词生效时墙内进入过滤态 */
+  .search-banner{display:none;align-items:center;gap:8px;margin:14px 0 0;font-size:12.5px;color:var(--ink);background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.25);border-radius:10px;padding:7px 12px;width:fit-content;max-width:100%}
+  .search-banner.show{display:flex}
+  .search-banner b{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .search-banner .sb-x{border:none;background:transparent;color:var(--ink-soft);cursor:pointer;font-size:14px;line-height:1;padding:2px 4px;font-family:inherit}
+  .search-banner .sb-x:hover{color:var(--danger)}
+  [data-theme="dark"] .search-banner{background:rgba(168,85,247,.14);border-color:rgba(168,85,247,.32)}
+  .s-item.sel{background:#f5f3fb}
+  [data-theme="dark"] .s-item.sel{background:#1c2233}
+  .s-t mark,.s-m mark{background:rgba(168,85,247,.25);color:inherit;border-radius:3px;padding:0 1px}
+  /* 心愿单：卡片第二枚角标（想看/想读/想听）+ 弹窗状态签 */
+  .badge.wish{top:28px;background:#fff7ed;color:#c2410c}
+  [data-theme="dark"] .badge.wish{background:#3b2415;color:#fdba74}
+  .modal .m-wishtag{display:inline-block;font-size:12px;font-weight:600;padding:3px 11px;border-radius:999px;margin:9px 0 2px;background:#fff7ed;color:#c2410c}
+  [data-theme="dark"] .modal .m-wishtag{background:#3b2415;color:#fdba74}
+  /* 密度切换（P2-8）：紧凑 = 更多列 + 隐藏 meta 行 */
+  body.dense .subtype{grid-template-columns:repeat(10,1fr)}
+  @media(max-width:1200px){body.dense .subtype{grid-template-columns:repeat(9,1fr)}}
+  @media(max-width:900px){body.dense .subtype{grid-template-columns:repeat(8,1fr)}}
+  @media(max-width:680px){body.dense .subtype{grid-template-columns:repeat(5,1fr)}}
+  @media(max-width:460px){body.dense .subtype{grid-template-columns:repeat(4,1fr)}}
+  body.dense .pcard .meta{display:none}
+  body.dense .pcard .info{padding:4px 7px 7px}
+  .gp-sentinel{height:2px}
 </style>
 </head>
 <body>
@@ -480,6 +519,7 @@
     </div>
 
     <div id="viewWall">
+      <div class="search-banner" id="searchBanner"></div>
       <div class="stats" id="stats"></div>
 
       <div class="section-title" id="sec-h-seen">📺 已看 <span class="cnt" id="cnt-seen"></span></div>
@@ -505,6 +545,7 @@
       <h2>＋ 新增条目</h2>
       <div class="f-grid">
         <div class="f-field full"><label>名称 *</label><input id="fTitle" type="text" placeholder="如：漫长的季节"></div>
+        <div class="f-field full"><label>状态</label><select id="fStatus"><option value="">✅ 已完成（已看 / 已读 / 已听）</option><option value="wish">⭐ 心愿单（想看 / 想读 / 想听）</option></select></div>
         <div class="f-field"><label>类型</label><select id="fType"></select></div>
         <div class="f-field"><label>评分（0-10 · 豆瓣口径）</label><input id="fRating" type="number" min="0" max="10" step="0.1" placeholder="如 8.5"></div>
         <div class="f-field full"><label>海报图片链接（可留空，自动生成占位封面）</label><input id="fPoster" type="text" placeholder="https://…"></div>
@@ -527,6 +568,8 @@
   <div class="mask" id="mask">
     <div class="m-wrap">
       <button class="close" id="btnClose" type="button" aria-label="关闭详情">✕</button>
+      <button class="nav-btn prev" id="btnPrev" type="button" aria-label="上一条（← 键）" title="上一条（← 键）">‹</button>
+      <button class="nav-btn next" id="btnNext" type="button" aria-label="下一条（→ 键）" title="下一条（→ 键）">›</button>
       <div class="modal" id="modal"></div>
     </div>
   </div>
@@ -2328,6 +2371,13 @@ const TYPE_META = {
 const GROUPS = { seen:"sec-seen", read:"sec-read", listen:"sec-listen" };
 const ALL_TYPES = ["电视剧","电影","真人秀","舞台剧","纪录片","动漫","书本","音乐","广播剧"];
 let filter = "全部";
+/* ===== P0-1 排序（2026-11-03）：default=原序 · recent=最近完成 · rating=评分最高 · year=年份新→旧，选择记忆 ===== */
+const SORT_KEY = "wb_mediawall_sort_v1";
+let sortMode = (()=>{ try{ const v=localStorage.getItem(SORT_KEY); return ["default","recent","rating","year"].includes(v)?v:"default"; }catch(e){ return "default"; } })();
+/* ===== P1-7 心愿单：status==="wish" 为心愿条目（缺省=已完成，旧数据零迁移） ===== */
+const isWish = it => it.status === "wish";
+const wantLabel = t => t==="书本" ? "想读" : (t==="音乐"||t==="广播剧") ? "想听" : "想看";
+const WISH_LABEL = { seen:"想看", read:"想读", listen:"想听" };
 
 /* ===== 自定义条目（localStorage 持久化，与豆瓣导入数据合并显示） ===== */
 const CUSTOM_KEY = "wb_mediawall_custom_v1";
@@ -2352,6 +2402,7 @@ function saveReviews(){
 }
 const reviewKey = it => it.poster || (it.title+"|"+it.type);
 const reviewLabel = t => (t==="书本") ? "读后感" : (t==="音乐"||t==="广播剧") ? "听后感" : "观后感";
+const hasReview = it => !!(reviews[reviewKey(it)] || it.note);   /* P1-5：感想筛选轴共用谓词（豆瓣简评 note 也算） */
 function mergeMedia(){
   // 合并顺序：本页新增(localStorage) → AI代查条目(媒体自定义条目.js) → 豆瓣导入
   const extra = (typeof CUSTOM_EXTRA !== "undefined" && Array.isArray(CUSTOM_EXTRA)) ? CUSTOM_EXTRA : [];
@@ -2372,14 +2423,15 @@ function cardHTML(it, idx, k){
   const meta = TYPE_META[it.type] || { group:"seen", g:"linear-gradient(135deg,#94a3b8,#64748b)" };
   const g0 = (it.genre||"").split(/\s*[/、,，;；]\s*/)[0].trim();   // 主题材 → 卡片标签（2026-11-02 用户要求每张卡可见题材）
   const sub = [it.creator, it.year].filter(Boolean).join(" · ") || it.platform || "";
-  const hasRev = !!(reviews[reviewKey(it)] || it.note);   /* 2026-11-03：简评(豆瓣短评)也视为「我的感想」→ 卡片 ✍️ 角标一致 */
+  const hasRev = hasReview(it);   /* 2026-11-03：简评(豆瓣短评)也视为「我的感想」→ 卡片 ✍️ 角标一致 */
+  const wishB = isWish(it) ? `<div class="badge wish">${wantLabel(it.type)}</div>` : "";   /* P1-7：心愿单角标 */
   const cover = it.poster
-    ? `<div class="cover"><div class="badge">${esc(it.type)}</div>${hasRev?'<div class="rev-mark" title="已写感想">✍️</div>':''}
+    ? `<div class="cover"><div class="badge">${esc(it.type)}</div>${wishB}${hasRev?'<div class="rev-mark" title="已写感想">✍️</div>':''}
          <img src="${esc(it.poster)}" alt="${esc(it.title)}" loading="lazy" decoding="async"
               onload="this.classList.add('ok')"
-              onerror="var p=this.parentNode;p.classList.add('ph');p.style.setProperty('--g','${meta.g}');p.insertAdjacentHTML('afterbegin','<span>'+esc(this.alt)+'</span>');this.remove();">
+              onerror="var p=this.parentNode;p.dataset.src=this.src;p.title='点击重试加载海报';p.classList.add('ph');p.style.setProperty('--g','${meta.g}');p.insertAdjacentHTML('afterbegin','<span>'+esc(this.alt)+'</span>');this.remove();">
        </div>`
-    : `<div class="cover ph" style="--g:${meta.g}"><div class="badge">${esc(it.type)}</div>${hasRev?'<div class="rev-mark" title="已写感想">✍️</div>':''}<span>${esc(it.title)}</span></div>`;
+    : `<div class="cover ph" style="--g:${meta.g}"><div class="badge">${esc(it.type)}</div>${wishB}${hasRev?'<div class="rev-mark" title="已写感想">✍️</div>':''}<span>${esc(it.title)}</span></div>`;
   return `<div class="pcard" role="button" tabindex="0" data-i="${idx}" aria-label="${esc(it.title)}（${esc(it.type)}）" title="${esc(it.title)}" style="animation-delay:${Math.min((k||0)*25,150)}ms">   <!-- 2026-11-02：delay 用小节内序号封顶 150ms，翻页重播瞬态不再出现成片空洞 -->
     ${cover}
     <div class="info">
@@ -2426,44 +2478,84 @@ function renderGroup(g){
     const el = document.getElementById(GROUPS[g]);
     const secTitle = document.getElementById("sec-h-"+g);
     const items = curVis.filter(({it}) => (TYPE_META[it.type]?.group)===g);
-    /* 2026-11-03：按类型筛选时，无匹配的分组直接隐藏标题+内容，避免连刷「暂无记录」 */
-    if(!items.length && filter!=="全部"){ el.innerHTML=""; if(secTitle) secTitle.style.display="none"; return; }
+    /* 2026-11-03：按类型筛选或搜索过滤时，无匹配的分组直接隐藏标题+内容，避免连刷「暂无记录」 */
+    if(!items.length && (filter!=="全部" || searchQ())){ el.innerHTML=""; if(secTitle) secTitle.style.display="none"; return; }
     if(secTitle) secTitle.style.display="";
     if(!items.length){ el.innerHTML = `<div class="empty">暂无记录</div>`; return; }
     const pages = Math.max(1, Math.ceil(items.length / GROUP_PAGE_SIZE));
     page[g] = Math.min(Math.max(1, page[g]), pages);
     const [start, end] = pageSlice(items, page[g]);   /* 共享算法（含 type 完整性回退） */
     const pageItems = items.slice(start, end);
+    const wishItems = pageItems.filter(({it})=>isWish(it));
+    const doneItems = pageItems.filter(({it})=>!isWish(it));
+    const wishAll = items.reduce((s,{it})=>s+(isWish(it)?1:0),0);
 
-    /* 组内细分小节：细分类全量 >0 才画标题；本页切空的小节跳过 */
-    const types = GROUP_TYPES[g].filter(t => items.some(({it})=>it.type===t));
-    el.innerHTML = types.map(t=>{
-      const sub = pageItems.filter(({it})=>it.type===t);
+    let html = "";
+    /* P1-7：心愿单小节（本页切到才画，置顶于组内所有类型小节） */
+    if(wishItems.length){
+      html += `<div class="subtype"><div class="sub-t">⭐ ${WISH_LABEL[g]||"心愿"}心愿单 <b>${wishAll}</b></div>${genreBlocksHTML(wishItems, items)}</div>`;
+    }
+    /* 组内细分小节：细分类全量 >0 才画标题；本页切空的小节跳过（心愿条目不占类型小节） */
+    const types = GROUP_TYPES[g].filter(t => items.some(({it})=>it.type===t && !isWish(it)));
+    html += types.map(t=>{
+      const sub = doneItems.filter(({it})=>it.type===t);
       if(!sub.length) return "";
-      const n = items.reduce((s,{it})=>s+(it.type===t?1:0),0);
+      const n = items.reduce((s,{it})=>s+((it.type===t&&!isWish(it))?1:0),0);
       return `<div class="subtype"><div class="sub-t">${esc(t)} <b>${n}</b></div>${genreBlocksHTML(sub, items)}</div>`;
-    }).join("") + gPagerHTML(g, items.length, pages);
+    }).join("");
+    html += gPagerHTML(g, items.length, pages);
+    /* P1-6 自动翻页哨兵：默认浏览态（无筛选无搜索）且还有下一页时，滚动近底自动续页；连续 2 次后停下露出翻页按钮 */
+    if(_autoIO && filter==="全部" && !searchQ() && end < items.length && (_autoCount[g]||0) < 2){
+      html += `<div class="gp-sentinel" data-g="${g}" aria-hidden="true"></div>`;
+    }
+    el.innerHTML = html;
+    const sent = el.querySelector(".gp-sentinel");
+    if(sent && _autoIO) _autoIO.observe(sent);
     el.querySelectorAll("img").forEach(im=>{ if(im.complete) im.classList.add("ok"); });   /* 缓存图 onload 未触发的兜底 */
     observeCovers(el);   /* 视口临近预热：进入视口前图片已缓存，滚动/翻页无空卡（2026-11-02 终极版） */
     schedulePrefetch(items, end);   /* 下一页受限预取，与 IO 共用 _warmed 去重 */
 }
 function renderAll(){
+  /* P1-4/P1-5（2026-11-03）：筛选谓词扩展——类型 / ✍️有感想 / 搜索词（墙内过滤，与下拉同一 haystack） */
+  const q = searchQ();
   curVis = MEDIA.map((it,i)=>({it,i})).filter(({it}) =>
-    filter==="全部" ? true : it.type===filter);
+    filter==="全部" ? true
+    : filter==="感想" ? hasReview(it)
+    : it.type===filter);
+  if(q) curVis = curVis.filter(({it}) => haystackOf(it).includes(q));
+
+  /* P0-1 排序：稳定排序（同值保持原相对顺序），缺失值沉底 */
+  if(sortMode!=="default"){
+    const cmp = {
+      recent: (a,b)=> (b.it.date||"").localeCompare(a.it.date||"")
+                   || String(b.it.year||"").padStart(4,"0").localeCompare(String(a.it.year||"").padStart(4,"0"))
+                   || a.i-b.i,
+      rating: (a,b)=> (b.it.rating||-1)-(a.it.rating||-1) || a.i-b.i,
+      year:   (a,b)=> String(b.it.year||"").padStart(4,"0").localeCompare(String(a.it.year||"").padStart(4,"0")) || a.i-b.i,
+    }[sortMode];
+    if(cmp) curVis = curVis.map((x,k)=>({x,k})).sort((m,n)=>cmp(m.x,n.x)||m.k-n.k).map(m=>m.x);
+  }
+  /* P1-7：心愿单置顶（排序后稳定分区，组内心愿小节始终在页首） */
+  if(curVis.some(({it})=>isWish(it))){
+    curVis = [...curVis.filter(({it})=>isWish(it)), ...curVis.filter(({it})=>!isWish(it))];
+  }
 
   ["seen","read","listen"].forEach(renderGroup);
 
-  document.getElementById("cnt-seen").textContent  = "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="seen").length + " 部";
-  document.getElementById("cnt-read").textContent  = "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="read").length + " 本";
-  document.getElementById("cnt-listen").textContent= "共 " + MEDIA.filter(i=>TYPE_META[i.type]?.group==="listen").length + " 部";
+  const doneIn = gg => MEDIA.filter(i=>(TYPE_META[i.type]?.group)===gg && !isWish(i));   /* 心愿不计入已完成计数 */
+  document.getElementById("cnt-seen").textContent  = "共 " + doneIn("seen").length + " 部";
+  document.getElementById("cnt-read").textContent  = "共 " + doneIn("read").length + " 本";
+  document.getElementById("cnt-listen").textContent= "共 " + doneIn("listen").length + " 部";
 
   // 统计卡（2026-11-02 分页改造时清理：原 cnt/total/rated/avgR 为死代码且 total 与上方重复声明）
-  // 2026-11-03：动漫并入已看（type 映射已改 group:"seen"），三卡结构
-  const seenTotal = MEDIA.filter(i=>TYPE_META[i.type]?.group==="seen").length;
+  // 2026-11-03：动漫并入已看（type 映射已改 group:"seen"），三卡结构；有心愿单条目时追加第四卡
+  const seenTotal = doneIn("seen").length;
+  const wishTotal = MEDIA.filter(isWish).length;
   document.getElementById("stats").innerHTML = `
     <div class="stat"><div class="num" style="color:var(--pink)">${seenTotal}</div><div class="lbl">已看 · 影 / 剧 / 综 / 舞台 / 纪录 / 动漫</div></div>
-    <div class="stat"><div class="num" style="color:var(--amber)">${MEDIA.filter(i=>TYPE_META[i.type]?.group==="read").length}</div><div class="lbl">已读 · 书本</div></div>
-    <div class="stat"><div class="num" style="color:var(--purple)">${MEDIA.filter(i=>TYPE_META[i.type]?.group==="listen").length}</div><div class="lbl">已听 · 音乐 / 广播剧</div></div>`;
+    <div class="stat"><div class="num" style="color:var(--amber)">${doneIn("read").length}</div><div class="lbl">已读 · 书本</div></div>
+    <div class="stat"><div class="num" style="color:var(--purple)">${doneIn("listen").length}</div><div class="lbl">已听 · 音乐 / 广播剧</div></div>
+    ${wishTotal ? `<div class="stat"><div class="num" style="color:#f97316">${wishTotal}</div><div class="lbl">⭐ 心愿单 · 想看 / 想读 / 想听</div></div>` : ""}`;
 
   if(wallFirstRender){
     wallFirstRender = false;
@@ -2513,6 +2605,7 @@ function gPagerHTML(g, total, pages){
 document.getElementById("viewWall").addEventListener("click", e=>{
   const b = e.target.closest("button[data-g]"); if(!b || b.disabled) return;
   const g = b.dataset.g;
+  _autoCount[g]=0;   /* 手动翻页后恢复自动续页资格 */
   page[g] += +b.dataset.d;
   renderGroup(g);   /* 批2：只重建翻页的目标组 */
   const h = document.getElementById("sec-h-"+g);   // 翻页后回到该组标题处
@@ -2554,13 +2647,33 @@ function observeCovers(el){
 function schedulePrefetch(items, end){
   items.slice(end, end + GROUP_PAGE_SIZE).forEach(({it}) => { if(it.poster) warm(it.poster); });
 }
+/* P1-6（2026-11-03）自动翻页：哨兵进入视口 → 静默续页（复用 renderGroup 局部渲染 + 预取管道）；
+   连续自动 2 页后停止，露出翻页按钮防失控；筛选/搜索/排序变化时 _autoCount 归零恢复自动 */
+const _autoCount = {};
+const _autoIO = ("IntersectionObserver" in window)
+  ? new IntersectionObserver((es)=>{
+      es.forEach(e=>{
+        if(!e.isIntersecting) return;
+        const g = e.target.dataset.g;
+        _autoIO.unobserve(e.target);
+        if((_autoCount[g]||0) >= 2) return;
+        const items = curVis.filter(({it}) => (TYPE_META[it.type]?.group)===g);
+        if(page[g]*GROUP_PAGE_SIZE < items.length){
+          _autoCount[g] = (_autoCount[g]||0)+1;
+          page[g]++;
+          renderGroup(g);
+        }
+      });
+    }, { root:null, rootMargin:"600px 0px", threshold:0 })
+  : null;
 /* 搜索命中 / 新增后：跳到该条目所在组与组内页 */
 function gotoEntry(entry){
   const g = TYPE_META[entry.type]?.group; if(!g) return false;
   let items = curVis.filter(({it}) => (TYPE_META[it.type]?.group)===g);
-  /* 2026-11-03：若当前筛选把该条目过滤掉了，先清筛选再定位（修复「搜索命中但翻页不跳转」） */
-  if(!items.some(({it})=>it===entry) && filter!=="全部"){
-    filter = "全部"; page = { seen:1, read:1, listen:1 }; renderChips(); renderAll();
+  /* 2026-11-03：若当前筛选/搜索把该条目过滤掉了，先清筛选与搜索词再定位（修复「搜索命中但翻页不跳转」） */
+  if(!items.some(({it})=>it===entry) && (filter!=="全部" || searchQ())){
+    filter = "全部"; searchBox.value=""; searchDrop.classList.remove("show");
+    page = { seen:1, read:1, listen:1 }; renderChips(); renderAll(); searchWallSync();
     items = curVis.filter(({it}) => (TYPE_META[it.type]?.group)===g);
   }
   const idx = items.findIndex(({it}) => it===entry);
@@ -2570,18 +2683,47 @@ function gotoEntry(entry){
   return true;
 }
 
-// 筛选 chips
+// 筛选 chips（P1-5：追加「✍️ 有感想」轴；行尾挂排序下拉 P0-1 与密度切换 P2-8）
 function renderChips(){
   const counts = Object.fromEntries(ALL_TYPES.map(t=>[t, MEDIA.filter(i=>i.type===t).length]));
-  const chips = ["全部", ...ALL_TYPES.filter(t=>counts[t]>0)];
+  const nRev = MEDIA.filter(hasReview).length;
+  const chips = ["全部", ...ALL_TYPES.filter(t=>counts[t]>0), ...(nRev?["感想"]:[])];
   document.getElementById("chips").innerHTML = chips.map(t=>{
-    const n = t==="全部" ? MEDIA.length : counts[t];
-    return `<div class="chip ${t===filter?'on':''}" role="button" tabindex="0" data-t="${esc(t)}">${esc(t)} <b>${n}</b></div>`;
-  }).join("");
+    const n = t==="全部" ? MEDIA.length : t==="感想" ? nRev : counts[t];
+    const label = t==="感想" ? "✍️ 有感想" : t;
+    return `<div class="chip ${t===filter?'on':''}" role="button" tabindex="0" data-t="${esc(t)}">${esc(label)} <b>${n}</b></div>`;
+  }).join("")
+  + `<select class="sortsel" id="sortSel" title="排序方式" aria-label="排序方式">
+      <option value="default"${sortMode==="default"?" selected":""}>默认排序</option>
+      <option value="recent"${sortMode==="recent"?" selected":""}>最近完成</option>
+      <option value="rating"${sortMode==="rating"?" selected":""}>评分最高</option>
+      <option value="year"${sortMode==="year"?" selected":""}>年份新→旧</option>
+    </select>`
+  + `<button type="button" class="chip" id="densBtn" title="切换卡片密度（紧凑 / 舒适）">${document.body.classList.contains("dense")?"▢ 舒适":"▦ 紧凑"}</button>`;
 }
 document.getElementById("chips").addEventListener("click", e=>{
-  const c = e.target.closest(".chip"); if(!c) return;
-  filter = c.dataset.t; page = { seen:1, read:1, listen:1 }; renderChips(); renderAll();
+  const c = e.target.closest(".chip"); if(!c || !c.dataset.t) return;   /* 无 data-t 的 chip（密度按钮）不进入筛选 */
+  filter = c.dataset.t; page = { seen:1, read:1, listen:1 };
+  _autoCount.seen = _autoCount.read = _autoCount.listen = 0;
+  renderChips(); renderAll(); syncHash();
+});
+document.getElementById("chips").addEventListener("change", e=>{
+  if(e.target && e.target.id==="sortSel"){
+    sortMode = e.target.value;
+    try{ localStorage.setItem(SORT_KEY, sortMode); }catch(_){}
+    page = { seen:1, read:1, listen:1 };
+    _autoCount.seen = _autoCount.read = _autoCount.listen = 0;
+    renderChips(); renderAll(); syncHash();
+  }
+});
+/* P2-8 密度切换（紧凑=更多列+隐藏 meta 行，记忆） */
+const DENSE_KEY = "wb_mediawall_dense_v1";
+try{ if(localStorage.getItem(DENSE_KEY)==="1") document.body.classList.add("dense"); }catch(e){}
+document.getElementById("chips").addEventListener("click", e=>{
+  if(!(e.target.closest && e.target.closest("#densBtn"))) return;
+  const on = document.body.classList.toggle("dense");
+  try{ localStorage.setItem(DENSE_KEY, on?"1":"0"); }catch(_){}
+  e.target.textContent = on ? "▢ 舒适" : "▦ 紧凑";
 });
 
 /* ===== 视图切换：海报墙 / 汇总分析 ===== */
@@ -2596,14 +2738,52 @@ function setView(v){
   viewStatsEl.classList.toggle("show", v==="stats");
   if(v==="stats") renderStatsView();
   window.scrollTo({top:0});
+  syncHash();   /* P0-3 */
 }
 document.getElementById("vWall").addEventListener("click", ()=>setView("wall"));
 document.getElementById("vStats").addEventListener("click", ()=>setView("stats"));
 
+/* ===== P0-3（2026-11-03）URL hash 状态：v=视图 f=筛选 s=排序 q=搜索词；replaceState 保态不产生历史记录，hashchange 回放外部变更 ===== */
+let _hashSyncing = false;
+function syncHash(){
+  try{
+    const p = new URLSearchParams();
+    if(curView!=="wall") p.set("v", curView);
+    if(filter!=="全部") p.set("f", filter);
+    if(sortMode!=="default") p.set("s", sortMode);
+    const q = searchBox.value.trim(); if(q) p.set("q", q);
+    const s = p.toString();
+    if((location.hash||"").replace(/^#/,"") === s) return;
+    _hashSyncing = true;
+    if(typeof history!=="undefined" && history.replaceState){ history.replaceState(null, "", location.pathname + (s ? "#"+s : "")); }
+    else{ location.hash = s; }
+    _hashSyncing = false;
+  }catch(e){}
+}
+function applyHash(){
+  try{
+    const h = location.hash||"";
+    if(!h || h==="#") return;
+    const p = new URLSearchParams(h.replace(/^#/,""));
+    const v = p.get("v"); if(v==="wall"||v==="stats") curView = v;
+    const f = p.get("f"); if(f && (f==="全部"||f==="感想"||ALL_TYPES.includes(f))) filter = f;
+    const s = p.get("s"); if(["default","recent","rating","year"].includes(s)) sortMode = s;
+    const q = p.get("q"); if(q) searchBox.value = q;
+  }catch(e){}
+}
+window.addEventListener("hashchange", ()=>{
+  if(_hashSyncing) return;
+  applyHash();
+  page = { seen:1, read:1, listen:1 };
+  renderChips(); renderAll();
+  if(searchBox.value.trim()){ doSearch(); searchWallSync(); }
+  setView(curView);
+});
+
 /* ===== 汇总分析渲染 ===== */
 const GROUP_COLOR = { seen:"#ec4899", read:"#f59e0b", listen:"#a855f7" };
 function renderStatsView(){
-  const grp = g => MEDIA.filter(i=>(TYPE_META[i.type]?.group)===g);
+  const grp = g => MEDIA.filter(i=>(TYPE_META[i.type]?.group)===g && !isWish(i));   /* P1-7：已完成口径排除心愿 */
   const seen = grp("seen"), read = grp("read"), listen = grp("listen");
   const rated = MEDIA.filter(i=>i.rating);
   const avg = a => a.length ? (a.reduce((s,i)=>s+i.rating,0)/a.length).toFixed(1) : "—";
@@ -2658,6 +2838,20 @@ function renderStatsView(){
       <div class="tr"><div class="fl" style="width:${(n/bMax*100).toFixed(1)}%;background:linear-gradient(90deg,#f59e0b,#fbbf24)"></div></div>
       <div class="num">${n}</div></div>`).join("");
 
+  // P2-10（2026-11-03）：月度消费节奏（近 24 个月，按完成日期）
+  const monthCnt = {};
+  MEDIA.forEach(i=>{ if(!isWish(i) && i.date && /^\d{4}-\d{2}/.test(i.date)){ const m=i.date.slice(0,7); monthCnt[m]=(monthCnt[m]||0)+1; }});
+  const months = Object.keys(monthCnt).sort().slice(-24);
+  const mMax = months.length ? Math.max(...months.map(m=>monthCnt[m])) : 1;
+  const monthBars = months.map(m=>{
+    const gs = {seen:0,read:0,listen:0};
+    MEDIA.forEach(i=>{ if(i.date && i.date.slice(0,7)===m && !isWish(i)){ const gg=TYPE_META[i.type]?.group; if(gg) gs[gg]++; }});
+    const dom = Object.entries(gs).sort((a,b)=>b[1]-a[1])[0][0];
+    return `<div class="hbar"><div class="lb">${m}</div>
+      <div class="tr"><div class="fl" style="width:${(monthCnt[m]/mMax*100).toFixed(1)}%;background:${GROUP_COLOR[dom]}"></div></div>
+      <div class="num">${monthCnt[m]}</div></div>`;
+  }).join("");
+
   // 口碑之最：评分最高 TOP 12
   const top12 = [...rated].sort((a,b)=>b.rating-a.rating).slice(0,12);
   const topList = top12.map((e,i)=>
@@ -2691,10 +2885,12 @@ function renderStatsView(){
       ${seenCard}
       ${gRow("📖 已读","read",GROUP_COLOR.read,"本")}
       ${gRow("🎧 已听","listen",GROUP_COLOR.listen,"部")}
+      ${MEDIA.some(isWish) ? `<div class="ana-card"><h3>⭐ 心愿单</h3><div class="big" style="color:#f97316">${MEDIA.filter(isWish).length}</div><div class="sm">想看 / 想读 / 想听</div></div>` : ""}
       <div class="ana-card"><h3>平均评分</h3><div class="big" style="color:#6366f1">${avg(rated)}</div><div class="sm">${rated.length} 条有评分（10 分制）</div></div>
     </div>
     <div class="ana-sec"><h3>类型分布</h3>${typeBars}</div>
     <div class="ana-sec"><h3>完成年份分布<span class="hint">按豆瓣标记日期，颜色为主导分区</span></h3>${yearBars}</div>
+    ${months.length ? `<div class="ana-sec"><h3>月度消费节奏<span class="hint">近 ${months.length} 个月，颜色为主导分区</span></h3>${monthBars}</div>` : ""}
     <div class="ana-sec"><h3>题材偏好 TOP 14<span class="hint">来自豆瓣类型标签</span></h3>${genreBars}</div>
     <div class="ana-sec"><h3>我的评分分布</h3>${ratingBars}</div>
     <div class="ana-sec"><h3>口碑之最 · 评分 TOP 12</h3><div class="toplist">${topList}</div></div>`;
@@ -2702,8 +2898,10 @@ function renderStatsView(){
 
 // 详情弹窗（卡片点击 / 搜索结果点击 共用）
 const mask = document.getElementById("mask");
+let _detailEntry = null;   /* P0-2：当前弹窗条目（弹窗内 ‹› 导航与键盘 ←/→ 的定位基准） */
 function openDetail(it){
   const meta = TYPE_META[it.type] || { g:"linear-gradient(135deg,#94a3b8,#64748b)" };
+  _detailEntry = it;
   const cover = it.poster
     ? `<div class="m-cover"><img src="${esc(it.poster)}" alt=""></div>`
     : `<div class="m-cover ph" style="--g:${meta.g}"><span>${esc(it.title)}</span></div>`;
@@ -2712,6 +2910,7 @@ function openDetail(it){
   modal.innerHTML = `
     ${cover}
     <div class="m-body">
+      ${it.status==="wish" ? `<span class="m-wishtag">⭐ ${wantLabel(it.type)} · 心愿单</span>` : ""}
       <h2>${esc(it.title)}</h2>
       <span class="m-type">${esc(it.type)}</span>
       ${it.rating ? `<div class="m-row">评分 <b>${stars(it.rating)}</b></div>` : ""}
@@ -2744,8 +2943,32 @@ function openDetail(it){
         </div>`;
       })()}
       ${it._custom ? `<button class="del-btn" id="btnDel" data-ci="${it._ci}">🗑 删除此条目</button>` : ""}
+      ${it._custom && isWish(it) ? `<button class="mini-btn" id="btnDone" data-ci="${it._ci}" style="margin-top:12px;display:block">✓ 标记为已完成（移出心愿单）</button>` : ""}
     </div>`;
   mask.classList.add("show");
+  updateNavBtns(TYPE_META[it.type]?.group);   /* P0-2：按当前组内位置启用/禁用 ‹› */
+}
+/* ===== P0-2 弹窗前后导航（2026-11-03）：组内顺序即 curVis 顺序（随排序/筛选联动），跨页跳转同步翻页 ===== */
+function detailNav(g, dir){
+  if(!g || !_detailEntry) return;
+  const items = curVis.filter(({it}) => (TYPE_META[it.type]?.group)===g);
+  const idx = items.findIndex(({it}) => it===_detailEntry);
+  if(idx < 0) return;
+  const ni = idx + dir;
+  if(ni < 0 || ni >= items.length) return;
+  const target = items[ni];
+  const p = pageOfIdx(items, ni);
+  if(p !== page[g]){ page[g] = p; renderGroup(g); }   /* 背后墙同步翻到条目所在页 */
+  openDetail(target.it);
+}
+function updateNavBtns(g){
+  const prev=document.getElementById("btnPrev"), next=document.getElementById("btnNext");
+  if(!prev||!next) return;
+  if(!g || !_detailEntry){ prev.disabled=true; next.disabled=true; return; }
+  const items = curVis.filter(({it}) => (TYPE_META[it.type]?.group)===g);
+  const idx = items.findIndex(({it}) => it===_detailEntry);
+  prev.disabled = idx<=0;
+  next.disabled = idx<0 || idx>=items.length-1;
 }
 // 感想（我的读后感/观后感/听后感）：查看 / 修改 / 取消 / 保存（事件委托：modal 内）
 document.getElementById("modal").addEventListener("click", e=>{
@@ -2779,7 +3002,23 @@ document.getElementById("modal").addEventListener("click", e=>{
     return;
   }
 });
+/* P2-11：海报加载失败 → 点击占位封面重试原地址（仅重试，不打开详情） */
+let _retryGuard = false;
+document.getElementById("viewWall").addEventListener("click", e=>{
+  const ph = e.target.closest(".cover.ph");
+  if(!ph || !ph.dataset.src) return;
+  _retryGuard = true;
+  const src = ph.dataset.src;
+  delete ph.dataset.src; ph.title = "";
+  ph.classList.remove("ph"); ph.style.removeProperty("--g");
+  const sp = ph.querySelector("span"); if(sp) sp.remove();
+  ph.insertAdjacentHTML("beforeend",
+    `<img src="${esc(src)}" alt="" loading="lazy" decoding="async" onload="this.classList.add('ok')"
+      onerror="var p=this.parentNode;p.dataset.src=this.src;p.title='点击重试加载海报';p.classList.add('ph');p.insertAdjacentHTML('afterbegin','<span>海报加载失败</span>');this.remove();">`);
+  observeCovers(ph);
+});
 document.body.addEventListener("click", e=>{
+  if(_retryGuard){ _retryGuard = false; return; }   /* 本次点击已用于重试，不再打开详情 */
   const card = e.target.closest(".pcard"); if(!card) return;
   const it = MEDIA[+card.dataset.i];
   if(it) openDetail(it);
@@ -2805,6 +3044,20 @@ document.getElementById("modal").addEventListener("click", e=>{
     }, 8000);
   });
 });
+/* P1-7：心愿条目「标记为已完成」（仅本页新增的自定义条目可改；豆瓣导入条目为只读基线） */
+document.getElementById("modal").addEventListener("click", e=>{
+  if(e.target.id !== "btnDone") return;
+  const ci = +e.target.dataset.ci;
+  const en = customEntries[ci]; if(!en) return;
+  delete en.status;
+  saveCustom(); mergeMedia(); renderChips(); renderAll(); syncHash();
+  toast("已移入「已完成」");
+  const nm = MEDIA.find(m=>m._custom && m._ci===ci);
+  if(nm) openDetail(nm);   /* 重开详情（mergeMedia 重建了对象，需换新引用保证 ‹› 导航可用） */
+});
+/* P0-2：弹窗 ‹ › 按钮 */
+document.getElementById("btnPrev").addEventListener("click", ()=>detailNav(TYPE_META[_detailEntry?.type]?.group, -1));
+document.getElementById("btnNext").addEventListener("click", ()=>detailNav(TYPE_META[_detailEntry?.type]?.group, 1));
 /* M-2 修复(2026-11-03)：详情弹窗统一关闭入口——感想编辑中且有改动时先确认，防止长文按 Esc/误点遮罩静默丢失 */
 function tryCloseDetail(){
   const revBox = document.getElementById("revEditbox");
@@ -2825,39 +3078,86 @@ function tryCloseDetail(){
 }
 mask.addEventListener("click", e=>{ if(e.target===mask || e.target.id==="btnClose") tryCloseDetail(); });
 
-/* ===== 搜索：即搜即显，回车看第一条，点击看详情 ===== */
+/* ===== 搜索：即搜即显，回车看第一条，点击看详情；P1-4 输入即联动墙内过滤 ===== */
 const searchBox = document.getElementById("searchBox");
 const searchDrop = document.getElementById("searchDrop");
-let searchTimer = null;
+let searchTimer = null, sSel = -1;
+const searchQ = () => (searchBox.value||"").trim().toLowerCase();
+const haystackOf = it => ((it.title||"")+" "+(it.creator||"")+" "+(it.genre||"")).toLowerCase();
+/* P2-11：命中词高亮（先切片后逐段转义，防 XSS） */
+function hiLite(text, q){
+  const t = String(text??"");
+  if(!q) return esc(t);
+  const lt = t.toLowerCase(); let out = "", i = 0;
+  for(;;){
+    const j = lt.indexOf(q, i);
+    if(j < 0){ out += esc(t.slice(i)); break; }
+    out += esc(t.slice(i, j)) + "<mark>" + esc(t.slice(j, j+q.length)) + "</mark>";
+    i = j + q.length;
+  }
+  return out;
+}
 function doSearch(){
-  const q = searchBox.value.trim().toLowerCase();
+  const q = searchQ();
+  sSel = -1;
   if(!q){ searchDrop.classList.remove("show"); searchDrop.innerHTML=""; searchDrop._hits=[]; return; }
   const hits = [];
   for(const e of MEDIA){
-    const hay = ((e.title||"")+" "+(e.creator||"")+" "+(e.genre||"")).toLowerCase();
-    if(hay.includes(q)){ hits.push(e); if(hits.length>=30) break; }
+    if(haystackOf(e).includes(q)){ hits.push(e); if(hits.length>=30) break; }
   }
   searchDrop._hits = hits;
   searchDrop.innerHTML = hits.length ? hits.map((e,i)=>{
     const meta = TYPE_META[e.type] || { g:"linear-gradient(135deg,#94a3b8,#64748b)" };
     const thumb = `<div class="s-thumb" style="--g:${meta.g}">${e.poster?`<img src="${esc(e.poster)}" loading="lazy" onerror="this.remove()">`:""}</div>`;
-    return `<div class="s-item" role="button" tabindex="0" data-si="${i}">
+    return `<div class="s-item${i===sSel?' sel':''}" role="button" tabindex="0" data-si="${i}">
       ${thumb}
       <div style="min-width:0;flex:1">
-        <div class="s-t">${esc(e.title)}</div>
-        <div class="s-m">${esc(e.type)}${e.year?" · "+esc(e.year):""}${e.creator?" · "+esc(e.creator):""}</div>
+        <div class="s-t">${hiLite(e.title, q)}</div>
+        <div class="s-m">${esc(e.type)}${e.year?" · "+esc(e.year):""}${e.creator?" · "+hiLite(e.creator, q):""}</div>
       </div>
       ${e.rating?`<div class="s-r">★ ${e.rating}</div>`:""}
     </div>`;
   }).join("") : `<div class="s-empty">没有找到「${esc(searchBox.value.trim())}」相关条目</div>`;
   searchDrop.classList.add("show");
 }
-searchBox.addEventListener("input", ()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(doSearch,120); });
+/* P1-4：搜索词 ↔ 墙内过滤同步（横幅提示 + renderAll 重算 curVis + hash 状态） */
+function searchWallSync(){
+  const q = searchQ();
+  page = { seen:1, read:1, listen:1 };
+  _autoCount.seen = _autoCount.read = _autoCount.listen = 0;
+  renderAll();
+  const banner = document.getElementById("searchBanner");
+  if(banner){
+    if(q){
+      banner.classList.add("show");
+      banner.innerHTML = `🔎 搜索「<b>${esc(searchBox.value.trim())}</b>」· 墙内命中 ${curVis.length} 条 <button class="sb-x" id="sbClear" type="button" aria-label="清除搜索">✕</button>`;
+    }else{
+      banner.classList.remove("show"); banner.innerHTML = "";
+    }
+  }
+  syncHash();
+}
+searchBox.addEventListener("input", ()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(()=>{ doSearch(); searchWallSync(); },120); });
+document.getElementById("searchBanner").addEventListener("click", e=>{
+  if(e.target.id==="sbClear"){ searchBox.value=""; doSearch(); searchWallSync(); searchBox.focus(); }
+});
 searchBox.addEventListener("keydown", e=>{
+  if(e.key==="ArrowDown"||e.key==="ArrowUp"){   /* P2-11：下拉 ↑↓ 键选择 */
+    const hits = searchDrop._hits||[];
+    if(!hits.length || !searchDrop.classList.contains("show")) return;
+    e.preventDefault();
+    sSel = e.key==="ArrowDown" ? (sSel+1)%hits.length : (sSel-1+hits.length)%hits.length;
+    const nodes = searchDrop.querySelectorAll(".s-item");
+    nodes.forEach((n,i)=>n.classList.toggle("sel", i===sSel));
+    if(nodes[sSel] && nodes[sSel].scrollIntoView) nodes[sSel].scrollIntoView({block:"nearest"});
+    return;
+  }
   if(e.key==="Enter"){
     const q = searchBox.value.trim(); if(!q) return;
     doSearch();
-    if((searchDrop._hits||[]).length){ gotoEntry(searchDrop._hits[0]); openDetail(searchDrop._hits[0]); searchDrop.classList.remove("show"); }
+    const hits = searchDrop._hits||[];
+    const pick = hits[sSel>=0 && sSel<hits.length ? sSel : 0];
+    if(pick){ sSel=-1; gotoEntry(pick); openDetail(pick); searchDrop.classList.remove("show"); }
   }else if(e.key==="Escape"){
     searchDrop.classList.remove("show");
   }
@@ -2877,6 +3177,7 @@ const F = id => document.getElementById(id);
 const FV = id => F(id).value.trim();
 document.getElementById("btnAdd").addEventListener("click", ()=>{
   F("fType").innerHTML = ALL_TYPES.map(t=>`<option>${t}</option>`).join("");
+  F("fStatus").value = "";
   F("fDate").value = (()=>{ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); })();  /* P0 2026-11-02：原 toISOString 取 UTC 月，东八区 0–8 点保存会写成上个月（对齐明信片页 P1-7 本地日期口径） */
   formMask.classList.add("show");
   setTimeout(()=>F("fTitle").focus(), 60);
@@ -2899,6 +3200,8 @@ F("fSave").addEventListener("click", async ()=>{
     .forEach(([k,id])=>{ if(FV(id)) entry[k]=FV(id); });
   const r = parseFloat(FV("fRating"));
   if(!isNaN(r) && r>0) entry.rating = Math.min(10, r);
+  /* P1-7：心愿单状态——不填完成日期（month 输入框默认值需清除） */
+  if(F("fStatus").value==="wish"){ entry.status="wish"; delete entry.date; }
   /* P1 2026-11-02：同名查重（豆瓣条目含同名不同版本属正常，故确认而非阻断） */
   if(customEntries.some(x=>x.title===title)){
     if(!(await confirmWall("已存在同名条目「"+title+"」，仍要添加吗？", "仍要添加"))) return;
@@ -2918,12 +3221,22 @@ document.addEventListener("keydown", e=>{
     cloudMask.classList.remove("show");
     searchDrop.classList.remove("show");
   }
+  /* P0-2（2026-11-03）：弹窗打开时 ←/→ 前后切换条目（输入框/感想编辑聚焦时让位） */
+  if((e.key==="ArrowLeft"||e.key==="ArrowRight") && mask.classList.contains("show") && !window.__confirmWallOpen
+     && !formMask.classList.contains("show") && !cloudMask.classList.contains("show")){
+    const tag = (e.target.tagName||"").toLowerCase();
+    if(tag!=="input" && tag!=="textarea"){
+      const g = TYPE_META[_detailEntry?.type]?.group;
+      if(g){ e.preventDefault(); detailNav(g, e.key==="ArrowLeft"?-1:1); }
+      return;
+    }
+  }
   /* P0 2026-11-02：键盘可达——pcard / chip / s-item 的 Enter / Space 触发（全局委托） */
   if(e.key!=="Enter" && e.key!==" ") return;
   const pc = e.target.closest && e.target.closest('.pcard[role="button"]');
   if(pc){ e.preventDefault(); const it = MEDIA[+pc.dataset.i]; if(it) openDetail(it); return; }
   const ch = e.target.closest && e.target.closest('.chip[data-t][role="button"]');
-  if(ch){ e.preventDefault(); filter = ch.dataset.t; page = { seen:1, read:1, listen:1 }; renderChips(); renderAll(); return; }
+  if(ch){ e.preventDefault(); filter = ch.dataset.t; page = { seen:1, read:1, listen:1 }; renderChips(); renderAll(); syncHash(); return; }
   const si = e.target.closest && e.target.closest('.s-item[role="button"]');
   if(si){ e.preventDefault(); const hit = (searchDrop._hits||[])[+si.dataset.si]; if(hit){ gotoEntry(hit); openDetail(hit); searchDrop.classList.remove("show"); } }
 });
@@ -3363,8 +3676,11 @@ function applyWallTheme(t){
 F("btnTheme").addEventListener("click", ()=> applyWallTheme(document.documentElement.dataset.theme==="dark"?"light":"dark"));
 applyWallTheme(document.documentElement.dataset.theme==="dark"?"dark":"light");
 
+applyHash();   /* P0-3：先回放 hash 状态（视图/筛选/排序/搜索词）再首渲染 */
 renderChips();
 renderAll();
+if(searchBox.value.trim()){ doSearch(); searchWallSync(); }   /* hash 带搜索词：恢复搜索态 */
+if(curView==="stats") setView("stats");
 cloudBoot();   /* 云同步启动：读配置 → 首次拉取合并（async，不阻塞首屏渲染） */
 </script>
 </body>
