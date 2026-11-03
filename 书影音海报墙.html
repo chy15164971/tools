@@ -115,6 +115,8 @@
   .hbar .fl{height:100%;border-radius:8px;min-width:2px}
   .hbar .num{width:44px;flex:none;font-weight:600;font-size:12px}
   .toplist .topitem{display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px dashed var(--line);font-size:13px}
+  .toplist button.topitem{background:none;border:none;border-bottom:1px dashed var(--line);font:inherit;color:inherit;text-align:left;width:100%;cursor:pointer;border-radius:6px;transition:background .15s ease}
+  .toplist button.topitem:hover{background:#eef3ff}
   .toplist .topitem:last-child{border-bottom:none}
   .toplist .rk{width:24px;font-weight:700;color:#c0c8d4;font-style:italic;flex:none}
   .toplist .tt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:550}
@@ -481,6 +483,28 @@
   body.dense .pcard .meta{display:none}
   body.dense .pcard .info{padding:4px 7px 7px}
   .gp-sentinel{height:2px}
+  /* ===== 兴趣画像（2026-11-03）：由已看/已读/已听记录自动推导 ===== */
+  .prof-sum{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow)}
+  .prof-sum h3{font-size:15px;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+  .prof-sum .prof-line{font-size:14px;line-height:1.8;color:var(--ink)}
+  .prof-sum .prof-line b{color:var(--pri-deep)}
+  .prof-sum .prof-meta{margin-top:8px;font-size:12px;color:var(--ink-soft)}
+  .prof-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+  .prof-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow);transition:transform .18s ease,box-shadow .18s ease}
+  .prof-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-hover)}
+  .prof-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .prof-head .nm{font-size:14px;font-weight:600;color:var(--ink)}
+  .prof-head .pct{font-size:20px;font-weight:700}
+  .prof-bar{height:7px;border-radius:99px;background:var(--line);overflow:hidden;margin:9px 0 10px}
+  .prof-bar i{display:block;height:100%;border-radius:99px}
+  .prof-info{font-size:12px;color:var(--ink-soft);display:flex;flex-wrap:wrap;gap:5px 12px;margin-bottom:9px}
+  .prof-info .hot{color:var(--warn);font-weight:600}
+  .prof-hits{display:flex;flex-wrap:wrap;gap:6px}
+  .mini-hit{border:1px solid var(--line);background:var(--bg);border-radius:99px;padding:3px 10px;font-size:12px;color:var(--ink);cursor:pointer;font-family:inherit;transition:border-color .15s ease,background .15s ease;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mini-hit:hover{border-color:var(--pri);background:#eef3ff}
+  .mini-hit .sc{color:var(--warn);font-weight:600;margin-left:4px}
+  @media(max-width:560px){.prof-grid{grid-template-columns:1fr 1fr}.prof-card{padding:11px 12px}.prof-sum{padding:13px 14px}}
+  @media(max-width:400px){.prof-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -2780,16 +2804,145 @@ window.addEventListener("hashchange", ()=>{
   setView(curView);
 });
 
+/* ===== 兴趣画像（2026-11-03）：由已完成记录自动推导，每次进分析页实时重算，无需人工维护 =====
+   数据来源：MEDIA（豆瓣导入 + 自定义 + 云同步合并后的全集）的 genre / rating / date / type / creator 字段
+   更新规则（确定性加权，无随机）：
+     维度得分 = Σ 每条已完成记录（心愿单不计）的贡献分
+     贡献分   = 1（基础） × 评分权重 × 近期权重；一条记录含多个题材词时向各维度同时计入
+     评分权重：≥9 → 2.0 · 8–9 → 1.5 · 7–8 → 1.2 · <6 → 0.5（不喜欢）· 其余/无分 → 1.0（5星制先 ×2 归一）
+     近期权重：近 12 个月 → ×1.5（兴趣升温）· 近 24 个月 → ×1.2 · 更早 → ×1.0
+   展示：画像总结句 + 维度卡片（占比条/主媒介/近一年热度/代表作 TOP3 可点击）+ 常伴创作者 */
+const PROF_GENRE_MAP = {
+  "剧情":["剧作故事","🎭"],
+  "爱情":["爱情浪漫","💗"],"同性":["爱情浪漫","💗"],
+  "喜剧":["喜剧搞笑","😂"],"脱口秀":["喜剧搞笑","😂"],
+  "悬疑":["悬疑推理","🔍"],"犯罪":["悬疑推理","🔍"],"惊悚":["悬疑推理","🔍"],"恐怖":["悬疑推理","🔍"],"推理悬疑":["悬疑推理","🔍"],
+  "冒险":["幻想冒险","🚀"],"奇幻":["幻想冒险","🚀"],"科幻":["幻想冒险","🚀"],"动作":["幻想冒险","🚀"],"武侠":["幻想冒险","🚀"],"灾难":["幻想冒险","🚀"],"西部":["幻想冒险","🚀"],
+  "历史":["历史史诗","🏯"],"古装":["历史史诗","🏯"],"战争":["历史史诗","🏯"],"历史·社科":["历史史诗","🏯"],
+  "家庭":["家庭生活","🏡"],"生活·休闲":["家庭生活","🏡"],
+  "动画":["动画影像","🎨"],"短片":["动画影像","🎨"],
+  "流行":["音乐旋律","🎵"],"原声":["音乐旋律","🎵"],"音乐":["音乐旋律","🎵"],"歌舞":["音乐旋律","🎵"],"摇滚":["音乐旋律","🎵"],"民谣":["音乐旋律","🎵"],"放克":["音乐旋律","🎵"],"灵歌":["音乐旋律","🎵"],"R&B":["音乐旋律","🎵"],"电子":["音乐旋律","🎵"],"爵士":["音乐旋律","🎵"],"戏曲":["音乐旋律","🎵"],
+  "外国文学":["文学阅读","📚"],"中国文学":["文学阅读","📚"],"散文随笔":["文学阅读","📚"],"言情小说":["文学阅读","📚"],"纯爱小说":["文学阅读","📚"],"杂志·文摘":["文学阅读","📚"],"青春文学":["文学阅读","📚"],"诗歌词集":["文学阅读","📚"],
+  "传记":["人物传记","👤"],"传记·人物":["人物传记","👤"],
+  "旅行游记":["旅行见闻","✈️"],
+  "设计·UX":["设计与艺术","✏️"],"艺术·摄影":["设计与艺术","✏️"],
+  "运动":["运动竞技","🏃"],
+  "心理·成长":["成长治愈","🌱"],"儿童":["成长治愈","🌱"],
+  "学习·工具":["学习工具","🛠"]
+};
+const PROF_COLORS = ["#ec4899","#6366f1","#f59e0b","#a855f7","#10b981","#f97316","#0ea5e9","#8b5cf6","#14b8a6","#ef4444","#84cc16","#d946ef","#64748b","#0891b2"];
+let _profEntries = [];   /* 画像/口碑之最里可点击条目的引用池（每次渲染重建，data-pi 索引） */
+
+function profRatingW(r){
+  if(!r) return 1;
+  const v = r > 5 ? r : r*2;   /* 5 星制 ×2 归一到 10 分制 */
+  return v>=9 ? 2 : v>=8 ? 1.5 : v>=7 ? 1.2 : v<6 ? 0.5 : 1;
+}
+function profBuild(){
+  const now = new Date();
+  const curIdx = now.getFullYear()*12 + (now.getMonth()+1);
+  const dims = {}, creatorCnt = {}, grpCnt = {seen:0,read:0,listen:0};
+  MEDIA.forEach(it=>{
+    if(isWish(it)) return;
+    const gg = TYPE_META[it.type]?.group; if(gg) grpCnt[gg]++;
+    /* 近期权重 */
+    let rw = 1, hot = false;
+    const mm = /^(\d{4})-(\d{2})/.exec(it.date||"");
+    if(mm){
+      const d = curIdx - (+mm[1]*12 + +mm[2]);
+      if(d>=0){ if(d<=12){ rw=1.5; hot=true; } else if(d<=24) rw=1.2; }
+    }
+    const w = profRatingW(it.rating) * rw;
+    /* 题材维度 */
+    const words = it.genre ? it.genre.split(/\s*[/、,，;；]\s*|\s{2,}/).map(x=>x.trim()).filter(Boolean) : [];
+    words.forEach(g=>{
+      const [label,emoji] = PROF_GENRE_MAP[g] || ["其他","🧩"];
+      const d = dims[label] || (dims[label] = {label,emoji,score:0,count:0,groups:{seen:0,read:0,listen:0},hot12:0,hits:[]});
+      d.score += w; d.count++; if(hot) d.hot12++;
+      if(gg) d.groups[gg]++;
+      d.hits.push(it);
+    });
+    /* 创作者（作者/歌手/主演/导演）：重复出现=常伴；过滤豆瓣 CSV 噪声（[可播放] 等方括号占位符） */
+    if(it.creator){
+      String(it.creator).split(/\s*[/、,，;；]\s*/).forEach(c=>{
+        c = c.trim();
+        if(!c || c.length>20) return;
+        if(/^\[.*\]$/.test(c) || c.includes("可播放")) return;
+        creatorCnt[c] = (creatorCnt[c]||0)+1;
+      });
+    }
+  });
+  const list = Object.values(dims).map((d,i)=>({ ...d, color: PROF_COLORS[i % PROF_COLORS.length] }))
+    .sort((a,b)=>b.score-a.score);
+  const total = list.reduce((s,d)=>s+d.score,0) || 1;
+  const topCreators = Object.entries(creatorCnt).filter(([,n])=>n>=3).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  return { list, total, grpCnt, topCreators };
+}
+function profRenderHTML(prof){
+  if(!prof.list.length) return "";
+  const grpName = {seen:"📺 看剧观影", read:"📖 读书", listen:"🎧 听歌听剧"};
+  const grpEmoji = {seen:"📺", read:"📖", listen:"🎧"};
+  /* 总结句原料 */
+  const mainGrp = Object.entries(prof.grpCnt).sort((a,b)=>b[1]-a[1])[0];
+  const gTotal = Object.values(prof.grpCnt).reduce((s,n)=>s+n,0) || 1;
+  const top3 = prof.list.slice(0,3);
+  const core = top3[0];
+  const hot = [...prof.list].filter(d=>d.hot12>0).sort((a,b)=>b.hot12-a.hot12)[0];
+  const rated = MEDIA.filter(i=>i.rating && !isWish(i));
+  const avgV = rated.length ? rated.reduce((s,i)=>s+(i.rating>5?i.rating:i.rating*2),0)/rated.length : 0;
+  const style = avgV>=8 ? "高分给得克制，片单含金量高" : avgV && avgV<=7 ? "打分偏宽容，图个看得开心" : "品味稳定";
+
+  /* 维度卡（占比 <1.5% 的长尾不展开） */
+  const show = prof.list.filter(d=>d.score/prof.total>=0.015);
+  const cards = show.map(d=>{
+    const pct = (d.score/prof.total*100).toFixed(1);
+    const mg = Object.entries(d.groups).sort((a,b)=>b[1]-a[1])[0];
+    const barW = Math.max(4, d.score/(prof.list[0].score||1)*100).toFixed(1);
+    const hits = d.hits.slice().sort((a,b)=>{
+      const va=a.rating?(a.rating>5?a.rating:a.rating*2):0, vb=b.rating?(b.rating>5?b.rating:b.rating*2):0;
+      return vb-va || String(b.date||"").localeCompare(String(a.date||""));
+    }).slice(0,3);
+    _profEntries.push(...hits);   /* 顺序即 data-pi 索引 */
+    const piBase = _profEntries.length - hits.length;
+    return `<div class="prof-card">
+      <div class="prof-head"><span class="nm">${d.emoji} ${esc(d.label)}</span><span class="pct" style="color:${d.color}">${pct}<small style="font-size:11px;font-weight:400">%</small></span></div>
+      <div class="prof-bar"><i style="width:${barW}%;background:${d.color}"></i></div>
+      <div class="prof-info">
+        <span>主媒介 ${grpEmoji[mg[0]]||""} ${mg[1]}</span>
+        <span>共 ${d.count} 条</span>
+        ${d.hot12 ? `<span class="hot">近一年 +${d.hot12} 🔥</span>` : ""}
+      </div>
+      <div class="prof-hits">${hits.map((e,k)=>`<button type="button" class="mini-hit" data-pi="${piBase+k}" title="${esc(e.title)}">${esc(e.title.length>9?e.title.slice(0,9)+"…":e.title)}${e.rating?`<span class="sc">${e.rating>5?e.rating:e.rating*2}</span>`:""}</button>`).join("")}</div>
+    </div>`;
+  }).join("");
+
+  /* 口碑之最 TOP12 也可点击（索引接在画像 hits 之后） */
+  const creatorLine = prof.topCreators.length
+    ? `<div class="prof-meta">常伴创作者：${prof.topCreators.map(([c,n])=>`${esc(c)}<b style="color:var(--ink)"> ${n}</b>`).join(" · ")}</div>` : "";
+
+  return `<div class="ana-sec" id="profSec"><h3>兴趣画像<span class="hint">由已看 / 已读 / 已听记录自动生成，随每次记录更新</span></h3>
+    <div class="prof-sum">
+      <h3>${core.emoji} 核心兴趣：${esc(core.label)}</h3>
+      <div class="prof-line">你以「<b>${esc(top3.map(d=>d.label).join("、"))}</b>」为主要消费口味（前三占 ${(top3.reduce((s,d)=>s+d.score,0)/prof.total*100).toFixed(0)}%）；媒介上更偏「<b>${grpName[mainGrp[0]]||"—"}</b>」（${(mainGrp[1]/gTotal*100).toFixed(0)}%）；${hot&&hot!==core?`近一年「<b>${esc(hot.label)}</b>」明显升温（+${hot.hot12} 条）`:"近一年兴趣分布平稳"}；平均打 <b>${avgV?avgV.toFixed(1):"—"}</b> 分，${style}。</div>
+      ${creatorLine}
+    </div>
+    <div class="prof-grid">${cards}</div>
+  </div>`;
+}
+
 /* ===== 汇总分析渲染 ===== */
 const GROUP_COLOR = { seen:"#ec4899", read:"#f59e0b", listen:"#a855f7" };
 function renderStatsView(){
+  _profEntries = [];   /* 每次渲染重建点击引用池 */
+  const prof = profBuild();
+  const profHTML = profRenderHTML(prof);
   const grp = g => MEDIA.filter(i=>(TYPE_META[i.type]?.group)===g && !isWish(i));   /* P1-7：已完成口径排除心愿 */
   const seen = grp("seen"), read = grp("read"), listen = grp("listen");
-  const rated = MEDIA.filter(i=>i.rating);
+  const rated = MEDIA.filter(i=>i.rating && !isWish(i));   /* 评分口径统一：心愿单不计 */
   const avg = a => a.length ? (a.reduce((s,i)=>s+i.rating,0)/a.length).toFixed(1) : "—";
 
-  // 类型分布
-  const typeCnt = ALL_TYPES.map(t=>[t, MEDIA.filter(i=>i.type===t).length]).filter(([,n])=>n>0);
+  // 类型分布（口径与概览卡一致：排除心愿单）
+  const typeCnt = ALL_TYPES.map(t=>[t, MEDIA.filter(i=>i.type===t && !isWish(i)).length]).filter(([,n])=>n>0);
   const typeMax = Math.max(...typeCnt.map(([,n])=>n));
   const typeBars = typeCnt.map(([t,n])=>{
     const g = GROUP_COLOR[TYPE_META[t]?.group] || "#94a3b8";
@@ -2852,12 +3005,14 @@ function renderStatsView(){
       <div class="num">${monthCnt[m]}</div></div>`;
   }).join("");
 
-  // 口碑之最：评分最高 TOP 12
+  // 口碑之最：评分最高 TOP 12（可点击开详情，索引接在画像 hits 之后）
   const top12 = [...rated].sort((a,b)=>b.rating-a.rating).slice(0,12);
-  const topList = top12.map((e,i)=>
-    `<div class="topitem"><span class="rk">${String(i+1).padStart(2,"0")}</span>
+  const topList = top12.map((e,i)=>{
+    const pi = _profEntries.push(e) - 1;
+    return `<button type="button" class="topitem" data-pi="${pi}"><span class="rk">${String(i+1).padStart(2,"0")}</span>
       <span class="tt">${esc(e.title)}</span><span class="tp">${esc(e.type)}</span>
-      <span class="yr">${esc(e.year||"")}</span><span class="sc">${e.rating}</span></div>`).join("");
+      <span class="yr">${esc(e.year||"")}</span><span class="sc">${e.rating}</span></button>`;
+  }).join("");
 
   // 分组概览行
   const gRow = (name,g,color,unit) => {
@@ -2888,6 +3043,7 @@ function renderStatsView(){
       ${MEDIA.some(isWish) ? `<div class="ana-card"><h3>⭐ 心愿单</h3><div class="big" style="color:#f97316">${MEDIA.filter(isWish).length}</div><div class="sm">想看 / 想读 / 想听</div></div>` : ""}
       <div class="ana-card"><h3>平均评分</h3><div class="big" style="color:#6366f1">${avg(rated)}</div><div class="sm">${rated.length} 条有评分（10 分制）</div></div>
     </div>
+    ${profHTML || `<div class="ana-sec"><h3>兴趣画像</h3><div class="empty">暂无已完成记录，先去墙上看两页吧</div></div>`}
     <div class="ana-sec"><h3>类型分布</h3>${typeBars}</div>
     <div class="ana-sec"><h3>完成年份分布<span class="hint">按豆瓣标记日期，颜色为主导分区</span></h3>${yearBars}</div>
     ${months.length ? `<div class="ana-sec"><h3>月度消费节奏<span class="hint">近 ${months.length} 个月，颜色为主导分区</span></h3>${monthBars}</div>` : ""}
@@ -2895,6 +3051,13 @@ function renderStatsView(){
     <div class="ana-sec"><h3>我的评分分布</h3>${ratingBars}</div>
     <div class="ana-sec"><h3>口碑之最 · 评分 TOP 12</h3><div class="toplist">${topList}</div></div>`;
 }
+
+/* 兴趣画像/口碑之最内可点击条目 → 直接开详情弹窗（留在分析页上下文，不跳回墙） */
+viewStatsEl.addEventListener("click", e=>{
+  const h = e.target.closest("[data-pi]"); if(!h) return;
+  const it = _profEntries[+h.dataset.pi];
+  if(it) openDetail(it);
+});
 
 // 详情弹窗（卡片点击 / 搜索结果点击 共用）
 const mask = document.getElementById("mask");
