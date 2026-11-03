@@ -40,6 +40,12 @@
   .sib-link:hover{border-color:#c9d2e0;transform:translateY(-1px)}
   .sib-link svg{width:15px;height:15px;flex:none}
   @media(max-width:760px){.brandbar .brand{font-size:16px}.brandbar .brand-sub{display:none}.brandbar .top-actions{margin-left:auto}}
+  /* ===== 云同步弹窗 2026-11-03 ===== */
+  .cloud-hint{font-size:12px;color:var(--ink-soft);line-height:1.65;margin:8px 0 12px}
+  .cloud-status{font-size:12.5px;color:var(--ink-soft);border:1px dashed var(--line);border-radius:10px;padding:9px 12px;margin-bottom:12px;line-height:1.55}
+  .cloud-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .cloud-chk{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink);margin:12px 0 2px;cursor:pointer;user-select:none}
+  .cloud-chk input{width:15px;height:15px;accent-color:var(--pri);cursor:pointer}
   .wrap{max-width:1240px;margin:0 auto;padding:0 24px}
   /* ===== Filter chips ===== */
   .chips{display:flex;flex-wrap:wrap;gap:9px;margin:0}
@@ -390,6 +396,7 @@
       <div class="top-actions">
         <a class="sib-link" href="任务管理台.html" target="_blank" rel="noopener" title="打开任务管理台"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>任务台</a>
         <a class="sib-link" href="明信片追踪.html" target="_blank" rel="noopener" title="打开明信片追踪"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>明信片</a>
+        <button class="sib-link" id="btnCloud" type="button" title="云同步：与任务管理台 / 明信片追踪共用 Token 与 Gist，数据单独存为 mediawall.json"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>云同步</button>
         <button class="sib-link" id="btnTheme" type="button" title="切换主题（与任务台 / 明信片追踪同步记忆）">🌙 深色</button>
       </div>
     </div>
@@ -461,6 +468,40 @@
     <div class="m-wrap">
       <button class="close" id="btnClose" type="button" aria-label="关闭详情">✕</button>
       <div class="modal" id="modal"></div>
+    </div>
+  </div>
+
+  <!-- 云同步设置弹窗（GitHub Gist，与任务台 / 明信片追踪共用 Token+Gist） -->
+  <div class="mask" id="cloudMask">
+    <div class="form-modal" style="max-width:470px" role="dialog" aria-modal="true" aria-label="云同步设置">
+      <h2>☁ 云同步</h2>
+      <p class="cloud-hint">与任务管理台 / 明信片追踪<b>共用同一 Token 与 Gist</b>（任一处填写，三页生效），海报墙数据单独保存为 <b>mediawall.json</b>，互不覆盖。同步内容：自定义条目 + 感想。打开页面自动合并云端，保存后自动上传。</p>
+      <div class="cloud-status" id="csStatus">未配置</div>
+      <div class="f-field full">
+        <label>GitHub Token</label>
+        <div style="display:flex;gap:8px">
+          <input id="csToken" type="password" placeholder="ghp_… 或 github_pat_…" autocomplete="off" style="flex:1">
+          <button type="button" class="mini-btn" id="csToggleToken" title="显示 / 隐藏 Token">显示</button>
+        </div>
+      </div>
+      <div class="f-field full" style="margin-top:10px">
+        <label>Gist ID</label>
+        <input id="csGist" type="text" placeholder="你的 gist id（如 a1b2c3…，只粘 ID 不带 URL）" autocomplete="off">
+      </div>
+      <label class="cloud-chk"><input type="checkbox" id="csAuto" checked> 自动云同步（打开时拉取合并，保存后自动上传）</label>
+      <div class="cloud-btns">
+        <button class="f-save" id="csSync" type="button" title="从云端拉取合并，再上传本地">🔄 立即同步</button>
+        <button class="f-cancel" id="csCopy" type="button" title="复制 Gist ID 与 Token，便于在另一台设备粘贴">复制配置</button>
+        <button class="f-cancel" id="csPaste" type="button" title="从剪贴板读取配置并自动填好">粘贴配置</button>
+      </div>
+      <div class="cloud-btns">
+        <button class="mini-btn" id="csDownload" type="button" title="从云端拉取并合并到本地（条目只增不删，感想取较新）">从云端合并</button>
+        <button class="mini-btn" id="csUpload" type="button" title="用本地数据覆盖云端 mediawall.json">上传到云端</button>
+      </div>
+      <p class="cloud-hint" style="margin-top:10px">⚠️ 合并规则：自定义条目只增不删（本页删除不会同步到其它设备）；同一条目的感想两端都有时，保留更新时间较新的一版。细粒度 Token 需勾选 gist 读写权限。</p>
+      <div class="f-actions" style="margin-top:6px">
+        <button class="f-cancel" id="csClose" type="button">关闭</button>
+      </div>
     </div>
   </div>
 
@@ -2229,7 +2270,7 @@ let customEntries = (()=>{
   catch(e){ return []; }
 })();
 function saveCustom(){
-  try{ localStorage.setItem(CUSTOM_KEY, JSON.stringify(customEntries)); }
+  try{ localStorage.setItem(CUSTOM_KEY, JSON.stringify(customEntries)); touchSavedAt(); cloudAutoUpload(); }
   catch(e){ toast("本地存储不可用，新增条目仅本次会话有效", "danger", null, 5000); }
 }
 const BASE_MEDIA = MEDIA;
@@ -2240,7 +2281,7 @@ let reviews = (()=>{
   catch(e){ return {}; }
 })();
 function saveReviews(){
-  try{ localStorage.setItem(REVIEW_KEY, JSON.stringify(reviews)); return true; }
+  try{ localStorage.setItem(REVIEW_KEY, JSON.stringify(reviews)); touchSavedAt(); cloudAutoUpload(); return true; }
   catch(e){ toast("本地存储不可用，感想仅本次会话有效", "danger", null, 5000); return false; }
 }
 const reviewKey = it => it.poster || (it.title+"|"+it.type);
@@ -2745,6 +2786,7 @@ document.addEventListener("keydown", e=>{
     if(window.__confirmWallOpen) return;   /* P1 2026-11-02：确认弹窗层优先（confirmWall 自己处理 Esc），其余浮层让位 */
     mask.classList.remove("show");
     closeForm();                           /* 表单有未保存内容时不会直接关（见 closeForm 脏检查） */
+    cloudMask.classList.remove("show");
     searchDrop.classList.remove("show");
   }
   /* P0 2026-11-02：键盘可达——pcard / chip / s-item 的 Enter / Space 触发（全局委托） */
@@ -2866,6 +2908,269 @@ F("importFile").addEventListener("change", e=>{
   rd.readAsText(f, "utf-8");
 });
 
+/* ============================================================
+ * 云同步（GitHub Gist）2026-11-03
+ * 契约：与任务管理台 / 明信片追踪共用同一 Token + Gist。
+ *   配置存 localStorage wb_postcards_cloudsync_v1 与 wb_taskhub_cloudsync_v1（双写，
+ *   任一页填写三页生效）；云端文件分工：taskhub.json / postcards.json / mediawall.json。
+ * 同步内容：customEntries（自定义条目）+ reviews（感想）→ mediawall.json。
+ * 合并规则：条目按 title+year+type 只增不删；感想同 key 取 ts 较新者。
+ * 时机：打开页面拉取合并一次（_bootPulled 前禁止上传，防本地旧数据覆盖云端）；
+ *   保存后 2.5s 防抖自动上传（失败 5/15/45s 重试 3 次）；pagehide 补传（keepalive）。
+ * ============================================================ */
+const MW_CLOUD_FILE = "mediawall.json";
+const MW_SAVED_KEY = "wb_mediawall_savedat_v1";
+const MW_CLOUD_KEYS = ["wb_postcards_cloudsync_v1", "wb_taskhub_cloudsync_v1"];
+let cloud = { token:"", gist:"", auto:true };
+let _cloudBusy=false, _pullBusy=false, _upTimer=null, _pendingUpload=false,
+    _bootPulled=false, _bootTry=0, _upRetryN=0, _upRetryTimer=null;
+
+function cloudLoad(){
+  let o=null;
+  for(const k of MW_CLOUD_KEYS){
+    try{ const r=localStorage.getItem(k); if(r){ const p=JSON.parse(r); if(p&&(p.token||p.gist)){ o=p; break; } } }catch(e){}
+  }
+  if(o) cloud={ token:o.token||"", gist:o.gist||"", auto:o.auto!==false };
+}
+function cloudSaveCfg(){
+  try{
+    const s=JSON.stringify({token:cloud.token, gist:cloud.gist, auto:cloud.auto});
+    MW_CLOUD_KEYS.forEach(k=>localStorage.setItem(k,s));
+  }catch(e){}
+}
+function touchSavedAt(){ try{ localStorage.setItem(MW_SAVED_KEY, String(Date.now())); }catch(e){} }
+const localSavedAt = () => Number(localStorage.getItem(MW_SAVED_KEY)||0);
+function authHeader(){ return (cloud.token||"").startsWith("github_pat_") ? "Bearer "+cloud.token : "token "+cloud.token; }   // 与任务台同款：细粒度 PAT 用 Bearer，经典 token 用 token 前缀
+function fetchT(url, opt, ms){
+  const ctl = ("AbortController" in window) ? new AbortController() : null;
+  const timer = ctl ? setTimeout(()=>ctl.abort(), ms||20000) : null;
+  const p = fetch(url, Object.assign({}, opt||{}, ctl?{signal:ctl.signal}:{}));
+  if(timer) p.finally(()=>clearTimeout(timer));
+  return p;
+}
+function cloudErrText(status, act){
+  const m={401:"Token 无效或已过期，请重新粘贴（需 gist 读写权限）",403:"没有访问权限（Token 权限不足或被限流）",404:"找不到该 Gist，请检查 Gist ID（只粘 ID 不带 URL）",422:"Gist ID 格式不对"};
+  return act+"失败：HTTP "+status+(m[status]?" · "+m[status]:"");
+}
+function syncPayload(){ return { _app:"wb-mediawall", entries: customEntries, reviews, savedAt: Date.now() }; }
+
+// 读云端 mediawall.json 的 savedAt（上传冲突检测）。{empty:true}=云端无文件（首次上传安全）
+async function cloudPeek(){
+  try{
+    const res=await fetchT("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 20000);
+    if(!res.ok) return {err:true, status:res.status};   // 401/404 等配置类错误带出状态码，上传层翻成可行动文案
+    const data=await res.json();
+    const f=data.files&&data.files[MW_CLOUD_FILE];
+    if(!f||!f.content) return {empty:true};
+    const obj=JSON.parse(f.content);
+    return {savedAt: obj.savedAt||null};
+  }catch(e){ return {err:true}; }
+}
+
+async function cloudUpload(silent, keepalive){
+  if(_cloudBusy){ _pendingUpload=true; return false; }   // 自锁：忙时记待传，收尾统一补传（对齐明信片 R4）
+  if(!keepalive) _cloudBusy=true;
+  try{
+    const r=await _cloudUploadInner(silent, keepalive);
+    return r;
+  }finally{
+    if(!keepalive){ _cloudBusy=false; if(_pendingUpload) cloudAutoUpload(); }
+  }
+}
+async function _cloudUploadInner(silent, keepalive){
+  if(!cloud.token||!cloud.gist){ if(!silent) toast("请先填写 Token 与 Gist ID","danger"); return false; }
+  if(!_bootPulled && !keepalive){ _pendingUpload=true; return false; }   // 启动拉取未完成不上传（防旧数据覆盖云端）；pagehide 补传例外（有定时器才触发，必已过启动期）
+  // 冲突检测：云端比本地新 → 不静默覆盖（keepalive 卸载期只有一次请求机会，跳过 peek 直接传）
+  const peek=keepalive?{err:false,empty:false,savedAt:null}:await cloudPeek();
+  if(peek.err){
+    if(!silent) toast(peek.status ? cloudErrText(peek.status,"上传") : "无法读取云端状态，已放弃上传以避免覆盖云端数据","danger",null,5000);
+    return false;
+  }
+  const remote=peek.empty?null:peek.savedAt;
+  if(remote && remote>localSavedAt()+2000){
+    if(silent){ await cloudPull(true); return true; }   // 自动上传遇云端更新 → 拉取合并自愈，合并后 save 钩子会再排队上传
+    if(!(await confirmWall("云端数据比本地更新（"+new Date(remote).toLocaleString()+"），上传将用本地覆盖云端，继续？","仍上传"))) return true;
+  }
+  try{
+    const content=JSON.stringify(syncPayload(),null,2);
+    const res=await fetchT("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{
+      method:"PATCH",
+      headers:{"Authorization":authHeader(),"Content-Type":"application/json"},
+      keepalive:!!keepalive,
+      body:JSON.stringify({files:{ [MW_CLOUD_FILE]: {content} }})
+    }, 20000);
+    if(!res.ok){ const e2=new Error(cloudErrText(res.status,"上传")); e2.status=res.status; throw e2; }
+    _upRetryN=0;
+    if(!silent) toast("已上传到云端 ✓");
+    return true;
+  }catch(e){
+    if(!silent) toast(e.message||"上传失败","danger",null,5000);
+    return false;
+  }
+}
+
+// 拉取云端并合并。返回 "ok"|"same"|"empty"|"fail"
+async function cloudPull(silent){
+  if(_pullBusy) return false;
+  _pullBusy=true;
+  try{ return await _cloudPullInner(silent); }
+  finally{
+    _pullBusy=false;
+    if(_pendingUpload){ _pendingUpload=false; cloudAutoUpload(); }   // 拉取期间的本地保存统一补传
+  }
+}
+async function _cloudPullInner(silent){
+  if(!cloud.token||!cloud.gist){ if(!silent) toast("请先填写 Token 与 Gist ID","danger"); return "fail"; }
+  // 详情/新增弹窗打开中不拉取：感想 textarea 正在编辑，合并后保存会用旧表单值覆盖云端新值
+  if(formMask.classList.contains("show") || mask.classList.contains("show")){
+    if(!silent) toast("有弹窗打开中，请先关闭再同步","danger");
+    return "fail";
+  }
+  try{
+    const res=await fetchT("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{headers:{"Authorization":authHeader()}}, 20000);
+    if(!res.ok){ const e2=new Error(cloudErrText(res.status,"下载")); e2.status=res.status; throw e2; }
+    const data=await res.json();
+    const f=data.files&&data.files[MW_CLOUD_FILE];
+    if(!f||!f.content) return "empty";   // 云端还没有 mediawall.json（首次使用）
+    const obj=JSON.parse(f.content);
+    let changed=0;
+    // 自定义条目：title+year+type 判重，只增不删（_custom/_ci 渲染字段入库前清洗，与手动导入同规则）
+    const key = x => (x.title||"")+"\u0001"+(x.year||"")+"\u0001"+(x.type||"");
+    const seen = new Set(customEntries.map(key));
+    (Array.isArray(obj.entries)?obj.entries:[]).forEach(x=>{
+      if(x && typeof x.title==="string" && x.title.trim() && !seen.has(key(x))){
+        const c=Object.assign({},x); delete c._custom; delete c._ci;
+        customEntries.push(c); seen.add(key(x)); changed++;
+      }
+    });
+    // 感想：同 key 双方都有 → ts 较新者胜；单方有 → 直接并入
+    const rv=(obj.reviews && typeof obj.reviews==="object" && !Array.isArray(obj.reviews)) ? obj.reviews : {};
+    for(const [k,v] of Object.entries(rv)){
+      if(!v || typeof v.text!=="string") continue;
+      const lv=reviews[k];
+      if(!lv || (v.ts||0)>(lv.ts||0)){ reviews[k]=v; changed++; }
+    }
+    if(changed){
+      saveCustom(); saveReviews(); mergeMedia(); renderChips(); renderAll();
+      if(typeof curView!=="undefined" && curView==="stats") renderStatsView();
+    }
+    if(obj.savedAt){ try{ localStorage.setItem(MW_SAVED_KEY, String(Math.max(Date.now(), obj.savedAt))); }catch(e){} }   // 抬平 savedAt，防拉取后被冲突检测误判
+    if(!silent) toast(changed ? ("同步完成 ✓ 新增/更新 "+changed+" 项") : "云端无新内容，已是最新");
+    return changed ? "ok" : "same";
+  }catch(e){
+    if(!silent) toast(e.message||"下载失败","danger",null,5000);
+    return "fail";
+  }
+}
+
+// 保存后防抖自动上传（saveCustom/saveReviews 钩子进入）
+function cloudAutoUpload(){
+  if(!cloud.auto || !cloud.token || !cloud.gist) return;
+  if(_pullBusy || _cloudBusy || !_bootPulled){ _pendingUpload=true; return; }
+  _pendingUpload=false;
+  if(_upTimer) clearTimeout(_upTimer);
+  _upTimer=setTimeout(()=>{
+    _upTimer=null;
+    cloudUpload(true).then(ok=>{ if(ok===false) scheduleCloudRetry(); });
+  }, 2500);
+}
+// 上传失败退避重试：5s → 15s → 45s，3 次后放弃（手动「上传到云端」可再触发）
+function scheduleCloudRetry(){
+  if(!cloud.auto || !cloud.token || !cloud.gist) return;
+  if(_upRetryN>=3){ toast("云同步多次失败，已暂停自动重试；可稍后在云同步面板手动上传","danger",null,5000); return; }
+  _upRetryN++;
+  clearTimeout(_upRetryTimer);
+  _upRetryTimer=setTimeout(()=>{
+    _upRetryTimer=null;
+    cloudUpload(true).then(ok=>{ if(ok===false) scheduleCloudRetry(); });
+  }, 5000*Math.pow(3,_upRetryN-1));
+}
+// 待传兜底：切后台/关闭页面时把排队的防抖上传立即发出（keepalive 卸载后仍能完成）
+window.addEventListener("pagehide", ()=>{
+  if(_upTimer){
+    clearTimeout(_upTimer); _upTimer=null;
+    if(cloud.auto && cloud.token && cloud.gist) cloudUpload(true, true).then(ok=>{ if(ok===false) scheduleCloudRetry(); });
+  }
+});
+
+// 启动：读配置 → 首次拉取合并（失败 30s 后重试，最多 5 次）；成功前禁止自动上传
+async function cloudBoot(){
+  cloudLoad();
+  if(!(cloud.token&&cloud.gist)){ _bootPulled=true; return; }   // 未配置：不阻塞本地上传路径（自动上传本身有配置检查）
+  const r=await cloudPull(true);
+  if(r==="fail" && ++_bootTry<=5){ setTimeout(cloudBoot, 30000); return; }
+  _bootPulled=true;
+  if(_pendingUpload) cloudAutoUpload();
+}
+
+/* ===== 云同步设置面板 UI ===== */
+const cloudMask=document.getElementById("cloudMask");
+function fillCloudForm(){
+  F("csToken").value=cloud.token; F("csGist").value=cloud.gist; F("csAuto").checked=cloud.auto;
+  cloudStatusText();
+}
+function cloudStatusText(){
+  const el=F("csStatus");
+  if(cloud.token&&cloud.gist) el.textContent="已配置 ✓ 自动同步"+(cloud.auto?"已开启":"已关闭")+" · 数据存于该 Gist 内的 mediawall.json（与任务台 / 明信片互不覆盖）";
+  else el.textContent="未配置：填入与任务管理台 / 明信片追踪相同的 Token 与 Gist ID 即可开始同步";
+}
+function readCloudForm(){
+  cloud.token=F("csToken").value.trim(); cloud.gist=F("csGist").value.trim(); cloud.auto=F("csAuto").checked;
+  cloudSaveCfg(); cloudStatusText();
+}
+F("btnCloud").addEventListener("click", ()=>{ fillCloudForm(); cloudMask.classList.add("show"); });
+cloudMask.addEventListener("click", e=>{ if(e.target===cloudMask || e.target.id==="csClose") cloudMask.classList.remove("show"); });
+F("csToggleToken").addEventListener("click", ()=>{
+  const inp=F("csToken"), show=inp.type==="password";
+  inp.type=show?"text":"password";
+  F("csToggleToken").textContent=show?"隐藏":"显示";
+});
+F("csAuto").addEventListener("change", readCloudForm);
+F("csSync").addEventListener("click", async ()=>{
+  readCloudForm();
+  if(!cloud.token||!cloud.gist){ toast("请先填写 Token 与 Gist ID","danger"); return; }
+  const r=await cloudPull(false);
+  if(r==="fail") return;
+  if(r==="empty"){ await cloudUpload(false); return; }   // 云端没数据：直接把本地上上去
+  await cloudUpload(false);
+});
+F("csDownload").addEventListener("click", async ()=>{
+  readCloudForm();
+  if(!cloud.token||!cloud.gist){ toast("请先填写 Token 与 Gist ID","danger"); return; }
+  const r=await cloudPull(false);
+  if(r==="empty") toast("云端还没有 mediawall.json，先点「上传到云端」吧");
+});
+F("csUpload").addEventListener("click", async ()=>{
+  readCloudForm();
+  if(!cloud.token||!cloud.gist){ toast("请先填写 Token 与 Gist ID","danger"); return; }
+  await cloudUpload(false);
+});
+F("csCopy").addEventListener("click", async ()=>{
+  readCloudForm();
+  if(!cloud.gist&&!cloud.token){ toast("还没有可复制的配置","danger"); return; }
+  try{
+    await navigator.clipboard.writeText("Gist ID: "+cloud.gist+"\nToken: "+cloud.token);
+    toast("配置已复制，可到另一台设备点「粘贴配置」");
+  }catch(e){ toast("复制失败，请手动复制输入框内容","danger"); }
+});
+F("csPaste").addEventListener("click", async ()=>{
+  let t="";
+  try{ t=await navigator.clipboard.readText(); }catch(e){ toast("读取剪贴板失败，请手动粘贴到输入框","danger"); return; }
+  const out={gist:"",token:""};
+  (t||"").split(/\n+/).forEach(ln=>{
+    const m=ln.match(/^\s*(Gist\s*ID|Gist|Token)\s*[:：]\s*(.*)$/i);
+    if(!m) return;
+    const k=m[1].toLowerCase().replace(/\s/g,""), v=m[2].trim();
+    if(!v) return;
+    if(k.indexOf("gist")===0) out.gist=v; else if(k==="token") out.token=v;
+  });
+  if(!out.gist&&!out.token){ toast("剪贴板里没识别到「Gist ID: … / Token: …」格式的配置","danger",null,4500); return; }
+  if(out.gist) F("csGist").value=out.gist;
+  if(out.token) F("csToken").value=out.token;
+  readCloudForm();
+  toast("已粘贴配置");
+});
+
 /* ===== P3 2026-11-02：深色主题开关（共用兄弟页 wb_theme_v1，跨页主题联动）===== */
 const WALL_THEME_KEY="wb_theme_v1";
 function applyWallTheme(t){
@@ -2881,6 +3186,7 @@ applyWallTheme(document.documentElement.dataset.theme==="dark"?"dark":"light");
 
 renderChips();
 renderAll();
+cloudBoot();   /* 云同步启动：读配置 → 首次拉取合并（async，不阻塞首屏渲染） */
 </script>
 </body>
 </html>
