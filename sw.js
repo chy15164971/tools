@@ -4,8 +4,11 @@
    注意：本文件与 manifest.json/icons 只在部署到 https 时生效；本地双击 HTML 不会触发注册。 */
 const PLAN_CACHE="wb-remind-plan";
 const SENT_CACHE="wb-remind-sent";
-const APP_CACHE="wb-app-v2";
-const PRECACHE=["./", "./home.html", "./任务管理台.html", "./明信片追踪.html", "./书影音海报墙.html", "./icons/icon-192.png"];
+const APP_CACHE="wb-app-v3";
+/* v3（2026-11-04）：换了工作台图标（三卡组取代任务台对勾），提升版本号让已安装的
+   客户端重新 install 并清掉旧缓存；同时把新 maskable 图标纳入预缓存。 */
+const PRECACHE=["./", "./home.html", "./任务管理台.html", "./明信片追踪.html", "./书影音海报墙.html",
+                "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-512-maskable.png"];
 
 // 2026-11-04 站点统一：预缓存门户 + 三个子页，离线可从任一页兜底回工作台首页
 self.addEventListener("install", function(e){

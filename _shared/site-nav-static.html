@@ -1,0 +1,35 @@
+<!-- 站点统一导航条 · 静态首屏版 v2（2026-11-04）
+     唯一真相源：_shared/site-nav-static.html，由 inject_shared.py 内联到五页 <body> 开头。
+     为什么静态：v1 由 site-nav.js 在 DOMContentLoaded 后才 createElement 插入，任务台 HTML
+     约 831KB，实测 FCP 1220ms / DCL 1555ms —— 中间约 335ms 首屏是「没有导航条的旧版
+     任务台」，导航条插入后整页下移，用户看到闪一下旧画面。静态渲染后首屏解析即有导航条。
+     当前页高亮与 PWA 注册仍由 _shared/site-nav.js 补（纯样式变化，不引起布局跳动）。 -->
+<style id="__wsn_style">
+.__wsn_bar{display:flex;align-items:center;gap:14px;padding:7px 16px;box-sizing:border-box;
+  width:100%;background:var(--card,#fff);color:var(--ink,#1f2430);
+  border-bottom:1px solid var(--line,#e7ebf2);font-size:13px;line-height:1.5;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  position:relative;z-index:1}
+.__wsn_brand{font-weight:600;letter-spacing:.02em;white-space:nowrap;color:var(--ink,#1f2430)}
+.__wsn_links{display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+.__wsn_links::-webkit-scrollbar{display:none}
+.__wsn_links a{display:inline-block;padding:3px 11px;border-radius:999px;text-decoration:none;
+  white-space:nowrap;color:var(--sub,#6b7280);border:1px solid transparent;transition:background .15s ease,color .15s ease}
+.__wsn_links a:hover{background:var(--hover,var(--pri-soft,#eaf0ff));color:var(--ink,#1f2430)}
+.__wsn_links a.__wsn_on{color:#fff;background:var(--pri-deep,#3D68F0);border-color:var(--pri-deep,#3D68F0)}
+.__wsn_hint{font-size:12px;color:var(--sub,#9aa3b2);white-space:nowrap}
+.__wsn_bar a:focus-visible{outline:2px solid var(--pri,#4F7CFF);outline-offset:2px}
+@media(max-width:680px){.__wsn_bar{gap:9px;padding:6px 10px}.__wsn_hint{display:none}
+  .__wsn_links a{padding:3px 9px;font-size:12px}}
+@media(prefers-reduced-motion:reduce){.__wsn_links a{transition:none}}
+</style>
+<nav id="__wsn_bar" class="__wsn_bar" aria-label="站点导航">
+  <span class="__wsn_brand">工作台</span>
+  <div class="__wsn_links">
+    <a href="home.html" data-page="home">首页</a>
+    <a href="任务管理台.html" data-page="tasks">任务台</a>
+    <a href="明信片追踪.html" data-page="postcards">明信片</a>
+    <a href="书影音海报墙.html" data-page="media">海报墙</a>
+  </div>
+  <span class="__wsn_hint">同一工作台 · 数据保存在本机</span>
+</nav>

@@ -4,14 +4,17 @@
 改完源文件后运行：  python3 _shared/inject_shared.py
 单文件 HTML 仍保持零依赖、可离线、双击即用（内容是内联的，不是 <src> 引用）。
 
-两块，互不影响（2026-11-04 站点统一）：
+三块，互不影响（2026-11-04 站点统一）：
   1) SHARED  —— shared.js，仅任务管理台 / 明信片追踪 两页（云同步公共层）
        ⚠️ 不可注入海报墙与门户页 home.html：shared.js 的 esc/toast/setCloudStatus 等顶层声明
           与海报墙同名，整块注入会 SyntaxError 白屏（已实测 6 处冲突）。
-  2) SITE-NAV —— site-nav.js，四页共用（站点导航条，零依赖，无命名冲突）
-       2026-11-04 审查轮：新增门户 home.html（currentPage() 已支持，高亮「首页」）。
+  2) SITE-NAV-HTML —— site-nav-static.html，五页共用，位于 <body> 开头。
+       导航条 HTML + CSS 静态渲染，首屏解析即存在，避免 JS 在 DOMContentLoaded 才插入
+       造成的「旧版任务台画面闪一下」（实测 FCP 1220ms / DCL 1555ms）。
+  3) SITE-NAV —— site-nav.js，五页共用（行为层：当前页高亮 + 站点级 PWA 注册）。
+       不再创建/插入导航条本体；与 SITE-NAV-HTML 配对使用。
 
-铁律：凡进这两块的代码必须同时写进对应源文件，否则下次 inject 整块覆盖。
+铁律：凡进这三块的代码必须同时写进对应源文件，否则下次 inject 整块覆盖。
 """
 import io, os, re, sys
 
@@ -27,6 +30,17 @@ BLOCKS = [
                     os.path.join(PROJ, "index.html")],
         "begin": "/* >>> SHARED:BEGIN —— 由 _shared/shared.js 自动生成，请勿直接编辑本块 */",
         "end":   "/* <<< SHARED:END */",
+    },
+    {
+        "name": "SITE-NAV-HTML",
+        "src": os.path.join(HERE, "site-nav-static.html"),
+        "targets": [os.path.join(PROJ, "任务管理台.html"),
+                    os.path.join(PROJ, "明信片追踪.html"),
+                    os.path.join(PROJ, "书影音海报墙.html"),
+                    os.path.join(PROJ, "home.html"),
+                    os.path.join(PROJ, "index.html")],
+        "begin": "<!-- >>> SITE-NAV-HTML:BEGIN —— 由 _shared/site-nav-static.html 自动生成，请勿直接编辑本块 -->",
+        "end":   "<!-- <<< SITE-NAV-HTML:END -->",
     },
     {
         "name": "SITE-NAV",
