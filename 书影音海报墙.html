@@ -35,7 +35,7 @@
   /* ===== 品牌行 2026-11-02：对齐任务台/明信片 topbar 结构（brand+logo+top-actions），去渐变 banner ===== */
   .brandbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 0 10px}
   .brandbar .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:18px}
-  .brandbar .logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--pri),#a855f7);display:flex;align-items:center;justify-content:center;flex:none}
+  .brandbar .logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--pri),#7aa0ff);display:flex;align-items:center;justify-content:center;flex:none}
   .brandbar .logo svg{width:17px;height:17px}
   .brandbar .brand-sub{font-size:12px;font-weight:500;color:var(--ink-soft);margin-left:2px;letter-spacing:.02em}
   .brandbar .spacer{flex:1}
@@ -72,12 +72,12 @@
   .cloud-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
   .cloud-chk{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink);margin:12px 0 2px;cursor:pointer;user-select:none}
   .cloud-chk input{width:15px;height:15px;accent-color:var(--pri);cursor:pointer}
-  .wrap{max-width:1240px;margin:0 auto;padding:0 24px}
+  .wrap{max-width:1360px;margin:0 auto;padding:0 18px}
   /* 批3 2026-11-03 刘海屏适配：横屏时内容与吸顶栏避开安全区 */
   @supports(padding:max(0px)){
-    .wrap{padding-left:max(24px,env(safe-area-inset-left));padding-right:max(24px,env(safe-area-inset-right))}
-    .topbar{margin-left:calc(-1*max(24px,env(safe-area-inset-left)));margin-right:calc(-1*max(24px,env(safe-area-inset-right)));
-            padding-left:max(24px,env(safe-area-inset-left));padding-right:max(24px,env(safe-area-inset-right))}
+    .wrap{padding-left:max(18px,env(safe-area-inset-left));padding-right:max(18px,env(safe-area-inset-right))}
+    .topbar{margin-left:calc(-1*max(18px,env(safe-area-inset-left)));margin-right:calc(-1*max(18px,env(safe-area-inset-right)));
+            padding-left:max(18px,env(safe-area-inset-left));padding-right:max(18px,env(safe-area-inset-right))}
   }
   /* ===== Filter chips ===== */
   .chips{display:flex;flex-wrap:wrap;gap:9px;margin:0}
@@ -176,7 +176,7 @@
   /* ===== Poster card ===== */
   .pcard{
     break-inside:avoid;margin-bottom:0;cursor:pointer;   /* 2026-11-02 六轮：垂直间距改由 .subtype grid gap 提供 */
-    background:var(--card);border-radius:10px;overflow:hidden;
+    background:var(--card);border-radius:var(--radius);overflow:hidden;
     box-shadow:var(--shadow);border:1px solid var(--line);
     transition:transform .2s ease,box-shadow .2s ease;
     animation:pop .3s cubic-bezier(.22,1,.36,1) backwards;   /* 2026-11-02：.45s→.3s，重渲染瞬态窗口收敛 */
@@ -238,7 +238,7 @@
   /* ===== Topbar（吸顶：搜索 + 视图切换 + 分类筛选）===== */
   .topbar{
     position:sticky;top:0;z-index:60;
-    margin:0 -24px;padding:14px 24px 10px;
+    margin:0 -18px;padding:14px 18px 10px;
     background:rgba(248,250,252,.92);
     backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
     box-shadow:0 1px 0 rgba(16,24,40,.06);
@@ -268,7 +268,7 @@
   .s-empty{padding:14px;color:#8b949e;font-size:12.5px;text-align:center}
   .add-btn{
     flex:none;padding:9px 16px;border-radius:12px;border:none;cursor:pointer;
-    background:linear-gradient(120deg,#a855f7,#ec4899);color:#fff;
+    background:linear-gradient(135deg,var(--pri),var(--pri-deep));color:#fff;
     font-size:13.5px;font-weight:600;box-shadow:var(--shadow);font-family:inherit;
   }
   .add-btn:hover{filter:brightness(1.07)}
@@ -299,16 +299,19 @@
   }
   .del-btn:hover{background:#fee2e2}
   @media(max-width:560px){
-    /* 批1 2026-11-03：原纵向堆叠使吸顶栏占 250px+ 视口 → 保持单行，新增按钮收窄 */
-    .toolbar{flex-wrap:nowrap}
+    /* 批1 2026-11-03：原纵向堆叠使吸顶栏占 250px+ 视口 → 保持紧凑，新增按钮收窄
+       审查轮 2026-11-04 P0：工具栏允许换行，两个视图 tab 独占第二行；修复 390px 下
+       .viewtabs 把 #vStats 推出视口、搜索框被压住的横向溢出（仅增加约 44px 高度）。 */
+    .toolbar{flex-wrap:wrap;row-gap:8px}
+    .viewtabs{order:3;margin-left:0;width:100%;justify-content:center}
     .search-wrap{max-width:none;flex:1;min-width:0}
     .add-btn{flex:none;padding:9px 13px;min-height:44px}
     .f-grid{grid-template-columns:1fr}
     /* chips 单行横滑（对齐豆瓣移动端分类栏范式）：不换行 + 隐藏滚动条 + 惯性滚动 */
     .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;
-      margin-left:calc(-1*max(24px,env(safe-area-inset-left)));
-      margin-right:calc(-1*max(24px,env(safe-area-inset-right)));
-      padding:2px max(24px,env(safe-area-inset-right)) 2px max(24px,env(safe-area-inset-left))}
+      margin-left:calc(-1*max(18px,env(safe-area-inset-left)));
+      margin-right:calc(-1*max(18px,env(safe-area-inset-right)));
+      padding:2px max(18px,env(safe-area-inset-right)) 2px max(18px,env(safe-area-inset-left))}
     .chips::-webkit-scrollbar{display:none}
     .chip{flex:none}
   }
@@ -2972,7 +2975,7 @@ function renderStatsView(){
   const grp = g => MEDIA.filter(i=>(TYPE_META[i.type]?.group)===g && !isWish(i));   /* P1-7：已完成口径排除心愿 */
   const seen = grp("seen"), read = grp("read"), listen = grp("listen");
   const rated = MEDIA.filter(i=>i.rating && !isWish(i));   /* 评分口径统一：心愿单不计 */
-  const avg = a => { const r = a.filter(i=>i.rating); return r.length ? (r.reduce((s,i)=>s+i.rating,0)/r.length).toFixed(1) : "—"; };
+  const avg = a => { const r = a.filter(i=>i.rating); return r.length ? (r.reduce((s,i)=>s+(i.rating>5?i.rating:i.rating*2),0)/r.length).toFixed(1) : "—"; };   /* 5 星制归一到 10 分制，与评分分布/画像/TOP12 同口径 */
 
   // 类型分布（口径与概览卡一致：排除心愿单）
   const typeCnt = ALL_TYPES.map(t=>[t, MEDIA.filter(i=>i.type===t && !isWish(i)).length]).filter(([,n])=>n>0);
@@ -3039,12 +3042,13 @@ function renderStatsView(){
   }).join("");
 
   // 口碑之最：评分最高 TOP 12（可点击开详情，索引接在画像 hits 之后）
-  const top12 = [...rated].sort((a,b)=>b.rating-a.rating).slice(0,12);
+  const r10 = i => i.rating>5 ? i.rating : i.rating*2;   /* 5 星制统一折算为 10 分制再比较 */
+  const top12 = [...rated].sort((a,b)=>r10(b)-r10(a)).slice(0,12);
   const topList = top12.map((e,i)=>{
     const pi = _profEntries.push(e) - 1;
     return `<button type="button" class="topitem" data-pi="${pi}"><span class="rk">${String(i+1).padStart(2,"0")}</span>
       <span class="tt">${esc(e.title)}</span><span class="tp">${esc(e.type)}</span>
-      <span class="yr">${esc(e.year||"")}</span><span class="sc">${e.rating}</span></button>`;
+      <span class="yr">${esc(e.year||"")}</span><span class="sc">${r10(e)}</span></button>`;
   }).join("");
 
   // 分组概览行
@@ -3074,7 +3078,7 @@ function renderStatsView(){
       ${gRow("📖 已读","read",GROUP_COLOR.read,"本")}
       ${gRow("🎧 已听","listen",GROUP_COLOR.listen,"部")}
       ${MEDIA.some(isWish) ? `<div class="ana-card"><h3>⭐ 心愿单</h3><div class="big" style="color:#f97316">${MEDIA.filter(isWish).length}</div><div class="sm">想看 / 想读 / 想听</div></div>` : ""}
-      <div class="ana-card"><h3>平均评分</h3><div class="big" style="color:#6366f1">${avg(rated)}</div><div class="sm">${rated.length} 条有评分（10 分制）</div></div>
+      <div class="ana-card"><h3>平均评分</h3><div class="big" style="color:#6366f1">${avg(rated)}</div><div class="sm">${rated.length} 条有评分（5 星制已换算为 10 分制）</div></div>
     </div>
     ${profHTML || `<div class="ana-sec"><h3>兴趣画像</h3><div class="empty">暂无已完成记录，先去墙上看两页吧</div></div>`}
     <div class="ana-sec"><h3>类型分布</h3>${typeBars}</div>
