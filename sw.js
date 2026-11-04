@@ -4,20 +4,25 @@
    注意：本文件与 manifest.json/icons 只在部署到 https 时生效；本地双击 HTML 不会触发注册。 */
 const PLAN_CACHE="wb-remind-plan";
 const SENT_CACHE="wb-remind-sent";
-const APP_CACHE="wb-app-v1";
+const APP_CACHE="wb-app-v2";
+const PRECACHE=["./", "./home.html", "./任务管理台.html", "./明信片追踪.html", "./书影音海报墙.html", "./icons/icon-192.png"];
 
-// P1-3：install 时 precache 首页，让离线兜底真正可用（fetch 兜底 caches.match 才能命中）
+// 2026-11-04 站点统一：预缓存门户 + 三个子页，离线可从任一页兜底回工作台首页
 self.addEventListener("install", function(e){
   self.skipWaiting();
   e.waitUntil((async function(){
     try{
       const c=await caches.open(APP_CACHE);
-      await c.add("./");
+      await Promise.all(PRECACHE.map(function(u){ return c.add(u).catch(function(){}); }));
     }catch(_){}
   })());
 });
 self.addEventListener("activate", function(e){
-  e.waitUntil(self.clients.claim());
+  e.waitUntil((async function(){
+    const names=await caches.keys();
+    await Promise.all(names.filter(function(n){ return n.indexOf("wb-app-")===0 && n!==APP_CACHE; }).map(function(n){ return caches.delete(n); }));
+    await self.clients.claim();
+  })());
 });
 
 async function readCacheJSON(cacheName, key){
@@ -79,7 +84,7 @@ self.addEventListener("fetch", function(e){
   if(e.request.method!=="GET") return;
   e.respondWith(
     fetch(e.request).then(function(r){ return r; }).catch(function(){
-      if(e.request.mode==="navigate") return caches.match("./", {cacheName:APP_CACHE, ignoreSearch:true});
+      if(e.request.mode==="navigate") return caches.match("./home.html", {cacheName:APP_CACHE, ignoreSearch:true}).then(function(r){ return r || caches.match("./", {cacheName:APP_CACHE, ignoreSearch:true}); });
       return Response.error();
     })
   );

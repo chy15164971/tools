@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" id="metaTheme" content="#F8FAFC">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <script>try{var _wt=localStorage.getItem("wb_theme_v1");if(_wt==="dark")document.documentElement.dataset.theme="dark";}catch(e){}</script>
 <title>书影音海报墙 · 已看已读已听</title>
 <style>
@@ -505,6 +508,36 @@
   .mini-hit .sc{color:var(--warn);font-weight:600;margin-left:4px}
   @media(max-width:560px){.prof-grid{grid-template-columns:1fr 1fr}.prof-card{padding:11px 12px}.prof-sum{padding:13px 14px}}
   @media(max-width:400px){.prof-grid{grid-template-columns:1fr}}
+  /* === SHARED TOKENS START === */
+  :root{
+    --bg:#f5f7fb; --card:#ffffff; --ink:#1f2430; --text:#1f2430; --sub:#6b7280; --line:#e7ebf2;
+    /* --pri-ink：主色当**文字**用（#4F7CFF 白底仅 3.71:1 不达标）→ 5.48:1
+       --pri-deep：主色当**底色**、上面压白色小字（12.5–14px 不到大文本门槛）→ 4.73:1
+       纯填充（进度条/图标/色点）继续用 --pri，不受影响。 */
+    --pri-ink:#2F5FE0; --pri-deep:#3D68F0;
+    --pri:#4F7CFF; --pri-soft:#eaf0ff; --ok:#22b07d; --ok-soft:#e7f6ec; --warn:#ff8a3d; --danger:#ef4444;
+    /* 数据色（c4 媒体剧集 / c5 兜底灰在用；c1~c3 已删除，分类/优先级用用户自定义色） */
+    --c4:#ff5c8a; --c5:#9aa0ab; --c6:#9b6bff;
+    --chip-bg:#6b7280;
+    --radius:12px; --radius-sm:8px; --radius-lg:16px; --shadow:0 2px 10px rgba(31,36,48,.06);
+    /* cloudpill / 菜单 hover 此前引用未定义值导致样式退化，统一补全 */
+    --bg2:#f5f7fb; --muted:#6b7280; --hover:#f4f6fb; --soft:#f1f4f9;
+  --accent:#7c5cff; --white:#fff; --ink-strong:#1f2430; }
+  [data-theme="dark"]{
+    --bg:#0f1320; --card:#171c2b; --ink:#e7ebf3; --text:#e7ebf3; --sub:#9aa3b2; --line:#262d3f;
+    --pri-ink:#8FABFF; --pri-deep:#3D68F0;
+    --pri:#5b86ff; --pri-soft:#1c2740; --hover:#1c2236; --bg2:#11162a; --muted:#9aa3b2;
+    --ok:#2dd4a0; --ok-soft:#10312a; --warn:#ff9a52; --danger:#ff5d5d;
+    --c4:#ff7aa6; --c5:#5a6478; --c6:#b08cff;
+    /* 深色下 --muted 是浅灰（#9aa3b2），压白字只有 ~2.4:1 → chip 底色另给一个深灰 */
+    --chip-bg:#5a6478;
+    --shadow:0 2px 10px rgba(0,0,0,.32);
+    --soft:#1c2233;
+  --accent:#9b8cff;
+  /* G19（2026-10-23 修）：dark 补定义 --ink-strong —— 原漏覆盖仍为亮色值 #1f2430，
+     深色下 .today-sec-act:hover 等引用处深字压深底近乎隐形 */
+  --ink-strong:#e7ebf3; }
+  /* === SHARED TOKENS END === */
 </style>
 </head>
 <body>
@@ -517,8 +550,8 @@
       </div>
       <div class="spacer"></div>
       <div class="top-actions">
-        <a class="sib-link" href="任务管理台.html" target="_blank" rel="noopener" title="打开任务管理台"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>任务台</a>
-        <a class="sib-link" href="明信片追踪.html" target="_blank" rel="noopener" title="打开明信片追踪"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>明信片</a>
+        <a class="sib-link" href="任务管理台.html" rel="noopener" title="打开任务管理台"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>任务台</a>
+        <a class="sib-link" href="明信片追踪.html" rel="noopener" title="打开明信片追踪"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>明信片</a>
         <span class="cloudpill off" id="cloudPill" role="button" tabindex="0" title="云同步状态：未配置时数据仅存本机；点击打开云同步设置">仅本地</span>
         <button class="sib-link" id="btnTheme" type="button" title="切换主题（与任务台 / 明信片追踪同步记忆）">🌙 深色</button>
       </div>
@@ -2939,7 +2972,7 @@ function renderStatsView(){
   const grp = g => MEDIA.filter(i=>(TYPE_META[i.type]?.group)===g && !isWish(i));   /* P1-7：已完成口径排除心愿 */
   const seen = grp("seen"), read = grp("read"), listen = grp("listen");
   const rated = MEDIA.filter(i=>i.rating && !isWish(i));   /* 评分口径统一：心愿单不计 */
-  const avg = a => a.length ? (a.reduce((s,i)=>s+i.rating,0)/a.length).toFixed(1) : "—";
+  const avg = a => { const r = a.filter(i=>i.rating); return r.length ? (r.reduce((s,i)=>s+i.rating,0)/r.length).toFixed(1) : "—"; };
 
   // 类型分布（口径与概览卡一致：排除心愿单）
   const typeCnt = ALL_TYPES.map(t=>[t, MEDIA.filter(i=>i.type===t && !isWish(i)).length]).filter(([,n])=>n>0);
@@ -3036,7 +3069,7 @@ function renderStatsView(){
     </div>`;
   viewStatsEl.innerHTML = `
     <div class="ana-grid">
-      <div class="ana-card"><h3>累计记录</h3><div class="big" style="color:#1f2328">${MEDIA.length}</div><div class="sm">影视 / 书 / 音乐全部加起来</div></div>
+      <div class="ana-card"><h3>累计记录</h3><div class="big" style="color:var(--ink)">${MEDIA.length}</div><div class="sm">影视 / 书 / 音乐全部加起来</div></div>
       ${seenCard}
       ${gRow("📖 已读","read",GROUP_COLOR.read,"本")}
       ${gRow("🎧 已听","listen",GROUP_COLOR.listen,"部")}
@@ -3844,7 +3877,94 @@ renderChips();
 renderAll();
 if(searchBox.value.trim()){ doSearch(); searchWallSync(); }   /* hash 带搜索词：恢复搜索态 */
 if(curView==="stats") setView("stats");
+/* 工作台门户摘要（2026-11-04）：把已完成记录总数写入同源 localStorage，供 home.html 读取；每次打开本页自动刷新，新增/导入条目后也随 renderAll 更新 */
+try{ localStorage.setItem("wb_mediawall_stats_v1", JSON.stringify({total:MEDIA.length, ts:Date.now()})); }catch(e){}
 cloudBoot();   /* 云同步启动：读配置 → 首次拉取合并（async，不阻塞首屏渲染） */
+
+/* >>> SITE-NAV:BEGIN —— 由 _shared/site-nav.js 自动生成，请勿直接编辑本块 */
+/* ============================================================
+   SITE-NAV v1（2026-11-04）— 三页共用的站点导航条
+   ------------------------------------------------------------
+   唯一真相源：_shared/site-nav.js，由 inject_shared.py 内联进三页。
+   零外部依赖、幂等、DOM 未就绪时等 DOMContentLoaded。
+   - 非吸顶：不与三页各自 sticky 顶栏抢 top:0，避免遮挡
+   - 颜色全部取页面自身 CSS 变量，跟随三页的亮/暗主题自动切换
+   - 同标签跳转（无 target="_blank"），当前页高亮
+   ============================================================ */
+(function(){
+  if (typeof document === "undefined" || document.getElementById("__wsn_bar")) return;
+
+  var PAGES = [
+    { id:"home",      label:"首页",     href:"home.html" },
+    { id:"tasks",     label:"任务台",   href:"任务管理台.html" },
+    { id:"postcards", label:"明信片",   href:"明信片追踪.html" },
+    { id:"media",     label:"海报墙",   href:"书影音海报墙.html" }
+  ];
+
+  function currentPage(){
+    var f = "";
+    try { f = decodeURIComponent((location.pathname.split("/").pop() || "index.html")).toLowerCase(); } catch(e){ f = "index.html"; }
+    if (!f || f === "index.html") return "tasks";        /* 根入口仍是任务台副本 */
+    if (f.indexOf("home") >= 0) return "home";
+    if (f.indexOf("任务管理台") >= 0 || f.indexOf("taskhub") >= 0) return "tasks";
+    if (f.indexOf("明信片") >= 0 || f.indexOf("postcard") >= 0) return "postcards";
+    if (f.indexOf("书影音海报墙") >= 0 || f.indexOf("media") >= 0) return "media";
+    return "";
+  }
+
+  function init(){
+    if (document.getElementById("__wsn_bar")) return;
+    var css = [
+      ".__wsn_bar{display:flex;align-items:center;gap:14px;padding:7px 16px;box-sizing:border-box;",
+        "width:100%;background:var(--card,#fff);color:var(--ink,#1f2430);",
+        "border-bottom:1px solid var(--line,#e7ebf2);font-size:13px;line-height:1.5;",
+        "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;",
+        "position:relative;z-index:1}",
+      ".__wsn_brand{font-weight:600;letter-spacing:.02em;white-space:nowrap;color:var(--ink,#1f2430)}",
+      ".__wsn_links{display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}",
+      ".__wsn_links::-webkit-scrollbar{display:none}",
+      ".__wsn_links a{display:inline-block;padding:3px 11px;border-radius:999px;text-decoration:none;",
+        "white-space:nowrap;color:var(--sub,#6b7280);border:1px solid transparent;transition:background .15s ease,color .15s ease}",
+      ".__wsn_links a:hover{background:var(--hover,var(--pri-soft,#eaf0ff));color:var(--ink,#1f2430)}",
+      ".__wsn_links a.__wsn_on{color:#fff;background:var(--pri-deep,#3D68F0);border-color:var(--pri-deep,#3D68F0)}",
+      ".__wsn_hint{font-size:12px;color:var(--sub,#9aa3b2);white-space:nowrap}",
+      ".__wsn_bar a:focus-visible{outline:2px solid var(--pri,#4F7CFF);outline-offset:2px}",
+      "@media(max-width:680px){.__wsn_bar{gap:9px;padding:6px 10px}.__wsn_hint{display:none}",
+        ".__wsn_links a{padding:3px 9px;font-size:12px}}",
+      "@media(prefers-reduced-motion:reduce){.__wsn_links a{transition:none}}"
+    ].join("\n");
+    var st = document.createElement("style");
+    st.id = "__wsn_style";
+    st.textContent = css;
+    (document.head || document.documentElement).appendChild(st);
+
+    var nav = document.createElement("nav");
+    nav.id = "__wsn_bar";
+    nav.className = "__wsn_bar";
+    nav.setAttribute("aria-label", "站点导航");
+    var cur = currentPage();
+    var links = PAGES.map(function(p){
+      return '<a href="' + p.href + '"' + (p.id === cur ? ' class="__wsn_on" aria-current="page"' : "") + '>' + p.label + '</a>';
+    }).join("");
+    nav.innerHTML = '<span class="__wsn_brand">工作台</span><div class="__wsn_links">' + links + '</div>' +
+                    '<span class="__wsn_hint">同一工作台 · 数据保存在本机</span>';
+    document.body.insertBefore(nav, document.body.firstChild);
+    registerSW();
+  }
+
+  /* 站点级 PWA：三页 + 门户共用同一个 sw.js，重复 register 天然幂等；file:// 双击时静默跳过 */
+  function registerSW(){
+    try{
+      if(!("serviceWorker" in navigator)) return;
+      if(location.protocol!=="https:" && location.protocol!=="http:") return;
+      navigator.serviceWorker.register("sw.js").catch(function(){});
+    }catch(e){}
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+})();
+/* <<< SITE-NAV:END */
 </script>
 </body>
 </html>
