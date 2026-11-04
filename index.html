@@ -87,8 +87,7 @@
   .wrap{max-width:1360px; margin:0 auto; padding:14px 14px 0;}   /* 2026-10-25：1100→1360，与明信片统一容器宽度（对齐 P 2026-10-21 决策，宽值为基准） */
   .topbar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;}
   .brand{display:flex; align-items:center; gap:9px; font-weight:700; font-size:18px;}
-  .brand .logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--pri),#7aa0ff);display:flex;align-items:center;justify-content:center;}
-  .brand .logo svg{width:18px;height:18px;}
+  .brand .logo{width:32px;height:32px;border-radius:9px;flex:none;display:block;background:url(icons/workbench-icon.svg) center/cover no-repeat;}
   .spacer{flex:1;}
   .sync{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);background:var(--card);border:1px solid var(--line);padding:6px 10px;border-radius:999px;}
   .sync .dot{width:8px;height:8px;border-radius:50%;background:var(--warn);}
@@ -1824,7 +1823,7 @@
 <div class="wrap">
   <div class="topbar">
     <div class="brand">
-      <span class="logo"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+      <span class="logo" aria-hidden="true"></span>
       任务管理台
     </div>
     <div class="spacer"></div>
