@@ -4,12 +4,13 @@
    注意：本文件与 manifest.json/icons 只在部署到 https 时生效；本地双击 HTML 不会触发注册。 */
 const PLAN_CACHE="wb-remind-plan";
 const SENT_CACHE="wb-remind-sent";
-const APP_CACHE="wb-app-v3";
-/* v3（2026-11-04）：换了工作台图标（三卡组取代任务台对勾），提升版本号让已安装的
-   客户端重新 install 并清掉旧缓存；同时把新 maskable 图标纳入预缓存。
-   同轮补：导航请求绕过 Pages 的 max-age=600 磁盘缓存（见下方 fetch）。 */
+const APP_CACHE="wb-app-v4";
+/* v4（2026-11-04）：页头工作台 logo 改用三卡组 SVG（icons/workbench-icon.svg），
+   纳入预缓存让离线也能显示；顺带把改后的 home.html 重新预缓存。
+   v3：换了工作台图标（三卡组取代任务台对勾）+ 导航请求绕过 Pages 的 max-age=600 磁盘缓存。 */
 const PRECACHE=["./", "./home.html", "./任务管理台.html", "./明信片追踪.html", "./书影音海报墙.html",
-                "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-512-maskable.png"];
+                "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-512-maskable.png",
+                "./icons/workbench-icon.svg"];
 
 // 2026-11-04 站点统一：预缓存门户 + 三个子页，离线可从任一页兜底回工作台首页
 self.addEventListener("install", function(e){

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="工作台图标">
+  <defs>
+    <linearGradient id="wbG" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5B86FF"/>
+      <stop offset="1" stop-color="#2F5FE0"/>
+    </linearGradient>
+    <radialGradient id="wbH" cx="180" cy="120" r="640" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- 蓝紫对角渐变底 -->
+  <rect width="1024" height="1024" rx="208" fill="url(#wbG)"/>
+  <!-- 左上柔光 -->
+  <rect width="1024" height="1024" rx="208" fill="url(#wbH)"/>
+  <!-- 白色圆角描边（any 用途） -->
+  <rect x="62" y="62" width="900" height="900" rx="208" fill="none" stroke="#FFFFFF" stroke-opacity="0.8" stroke-width="12"/>
+  <!-- 卡片 0 · 任务台（蓝） -->
+  <g>
+    <rect x="208" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/>
+    <rect x="228" y="426" width="128" height="22" rx="11" fill="#4F7CFF"/>
+    <rect x="228" y="482" width="128" height="14" rx="7" fill="#DBE3F5"/>
+    <rect x="228" y="528" width="102" height="14" rx="7" fill="#DBE3F5"/>
+  </g>
+  <!-- 卡片 1 · 明信片（粉） -->
+  <g>
+    <rect x="428" y="334" width="168" height="372" rx="34" fill="#FFFFFF"/>
+    <rect x="448" y="354" width="128" height="22" rx="11" fill="#D4537E"/>
+    <rect x="448" y="410" width="128" height="14" rx="7" fill="#DBE3F5"/>
+    <rect x="448" y="456" width="102" height="14" rx="7" fill="#DBE3F5"/>
+  </g>
+  <!-- 卡片 2 · 海报墙（紫） -->
+  <g>
+    <rect x="648" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/>
+    <rect x="668" y="426" width="128" height="22" rx="11" fill="#8B5CF6"/>
+    <rect x="668" y="482" width="128" height="14" rx="7" fill="#DBE3F5"/>
+    <rect x="668" y="528" width="102" height="14" rx="7" fill="#DBE3F5"/>
+  </g>
+</svg>
