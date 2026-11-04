@@ -1,0 +1,51 @@
+############ R22 inject_shared.py 退出码（沙盒副本，不触碰真实源码） ############
+--- A: 全部标记块齐全，期望 exit=0 ---
+[SHARED] shared.js → 3 页
+  已同步: 任务管理台.html
+  已同步: 明信片追踪.html
+  已同步: index.html
+[SITE-NAV] site-nav.js → 5 页
+  已同步: 任务管理台.html
+  已同步: 明信片追踪.html
+  已同步: 书影音海报墙.html
+  已同步: home.html
+  已同步: index.html
+A exit=0
+
+--- B: 删除 sandbox home.html 的 SITE-NAV 标记块，期望 exit=1 且报缺标记块 ---
+removed SITE-NAV marker block from sandbox home.html; still has BEGIN? False
+[SHARED] shared.js → 3 页
+  已同步: 任务管理台.html
+  已同步: 明信片追踪.html
+  已同步: index.html
+[SITE-NAV] site-nav.js → 5 页
+  已同步: 任务管理台.html
+  已同步: 明信片追踪.html
+  已同步: 书影音海报墙.html
+  未找到标记块，跳过: home.html
+  已同步: index.html
+注入失败（缺标记块）: [('SITE-NAV', 'home.html')]
+B exit=1
+
+############ R23 sync_tokens.js --check NO_MARKERS（沙盒副本） ############
+--- C: 四页齐全，期望 4×IN_SYNC exit=0 ---
+[IN_SYNC] 任务管理台.html  (IN_SYNC)
+[IN_SYNC] 明信片追踪.html  (IN_SYNC)
+[IN_SYNC] 书影音海报墙.html  (IN_SYNC)
+[IN_SYNC] home.html  (IN_SYNC)
+C exit=0
+
+--- D: 删除 sandbox vault/Projects/home.html 的 SHARED TOKENS 标记区，期望 MISSING + exit=1 ---
+removed SHARED TOKENS block from sandbox vault home.html
+[IN_SYNC] 任务管理台.html  (IN_SYNC)
+[IN_SYNC] 明信片追踪.html  (IN_SYNC)
+[IN_SYNC] 书影音海报墙.html  (IN_SYNC)
+[MISSING] home.html  (NO_MARKERS)
+D exit=1
+
+############ R24 确认真实源码未被沙盒测试改动 ############
+home.html              f7e83df10fc5c48b3a4dff908a31cbf3
+任务管理台.html             81d7ee5b429bd10b0a04fd6e651961f6
+index.html             81d7ee5b429bd10b0a04fd6e651961f6
+明信片追踪.html             0e09e7096edbec3d522160ec470c54f0
+书影音海报墙.html            d2b30b8c821fbaa94a8f36f8bcc66c74

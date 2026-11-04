@@ -1,0 +1,18 @@
+############ B35 暗色 390 截图（干净会话 + 显式写主题键） ############
+home theme="dark"
+✓ Screenshot saved to deliverables/site-ui-review-1104/qa/evidence/recheck/recheck-home-390-dark.png
+wall theme="dark"
+"{\"theme\":\"dark\",\"docW\":375,\"innerW\":390,\"overflow\":false,\"bodyBg\":\"rgb(15, 19, 32)\",\"chipColor\":\"rgb(255, 255, 255)\"}"
+✓ Screenshot saved to deliverables/site-ui-review-1104/qa/evidence/recheck/recheck-mediawall-390-dark.png
+
+############ B36 亮色 1440 门户截图（干净会话） ############
+home theme="light"
+✓ Screenshot saved to deliverables/site-ui-review-1104/qa/evidence/recheck/recheck-home-1440-light.png
+✓ Screenshot saved to deliverables/site-ui-review-1104/qa/evidence/recheck/recheck-mediawall-1440-light.png
+
+############ B37 关闭所有 QA 会话 ############
+closed qarecheck
+closed qaclean
+closed qadiag
+closed qageom
+closed qashot

@@ -1,0 +1,46 @@
+############ B30 §2.7 normal/dense 几何（干净会话，无状态残留） ############
+normal: "{\"dense\":false,\"wrapMax\":\"1360px\",\"contentW\":1360,\"pcardW\":155,\"docW\":1425,\"overflow\":false}"
+dense : "{\"dense\":true,\"wrapMax\":\"1360px\",\"contentW\":1360,\"pcardW\":122,\"docW\":1425,\"overflow\":false}"
+
+############ B31 改动清单第 1/3 条：蓝系 logo / CTA / 概览卡文案 ############
+home logo: "{\"w\":\"30px\",\"h\":\"30px\",\"bg\":\"linear-gradient(135deg, rgb(79, 124, 255), rgb(122, 160, 255))\"}"
+wall logo/CTA: "{\"logoBg\":\"linear-gradient(135deg, rgb(79, 124, 255), rgb(122, 160, 255))\",\"ctaBg\":\"linear-gradient(135deg, rgb(79, 124, 255), rgb(61, 104, 240))\"}"
+
+############ B32 挂账项静态确认：与基线逐行对比（git diff 仅列业务行） ############
+--- 心愿标记完成是否仍不写 date（挂账） ---
+3146:      ${it._custom && isWish(it) ? `<button class="mini-btn" id="btnDone" data-ci="${it._ci}" style="margin-top:12px;display:block">✓ 标记为已完成（移出心愿单）</button>` : ""}
+3147-    </div>`;
+3148-  mask.classList.add("show");
+3149-  updateNavBtns(TYPE_META[it.type]?.group);   /* P0-2：按当前组内位置启用/禁用 ‹› */
+3150-}
+3151-/* ===== P0-2 弹窗前后导航（2026-11-03）：组内顺序即 curVis 顺序（随排序/筛选联动），跨页跳转同步翻页 ===== */
+3152-function detailNav(g, dir){
+--
+3249:  if(e.target.id !== "btnDone") return;
+3250-  const ci = +e.target.dataset.ci;
+3251-  const en = customEntries[ci]; if(!en) return;
+3252-  delete en.status;
+--- 基线同段 ---
+3142:      ${it._custom && isWish(it) ? `<button class="mini-btn" id="btnDone" data-ci="${it._ci}" style="margin-top:12px;display:block">✓ 标记为已完成（移出心愿单）</button>` : ""}
+3143-    </div>`;
+3144-  mask.classList.add("show");
+3145-  updateNavBtns(TYPE_META[it.type]?.group);   /* P0-2：按当前组内位置启用/禁用 ‹› */
+3146-}
+3147-/* ===== P0-2 弹窗前后导航（2026-11-03）：组内顺序即 curVis 顺序（随排序/筛选联动），跨页跳转同步翻页 ===== */
+3148-function detailNav(g, dir){
+--
+3245:  if(e.target.id !== "btnDone") return;
+3246-  const ci = +e.target.dataset.ci;
+3247-  const en = customEntries[ci]; if(!en) return;
+3248-  delete en.status;
+
+############ B33 XSS 转义 / 外链 rel 保留 ############
+esc 定义: 1
+safeUrl/rel=noopener: rel="noopener" 
+
+############ B34 门户概览卡降级文案 + foot 全文 ############
+{
+  "foot": "数据说明：本页只读取同一浏览器（本机文件）保存在本机的摘要，不上传、不改动任何记录。 各页数据仍由页面自身与 GitHub Gist 云同步管理；若某项显示「—」，说明本机浏览器尚未在该页保存过数据，打开对应页面并保存过记录后才会出现（书影音海报墙会在打开时自动写入记录数）。",
+  "ovNote": "以上数字来自同一浏览器本机保存的摘要（任务 / 明信片 / 媒体三项），本页只读不写；显示「—」表示对应页面尚未在本机保存过数据，在该页保存过记录后才会出现。点击下方卡片进入对应工作台。",
+  "promiseAutoAppear": false
+}

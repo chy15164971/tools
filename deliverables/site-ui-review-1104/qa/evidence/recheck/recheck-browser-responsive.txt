@@ -1,0 +1,31 @@
+############ B17 §2.7 四页 × 4 宽度 横向溢出 ############
+w=1440  home.html            "{\"innerW\":1440,\"docW\":1440,\"clientW\":1440,\"overflow\":false,\"cols\":3,\"nav\":true}"
+w=1440  任务管理台.html           "{\"innerW\":1440,\"docW\":1425,\"clientW\":1425,\"overflow\":false,\"cols\":\"NA\",\"nav\":true}"
+w=1440  明信片追踪.html           "{\"innerW\":1440,\"docW\":1440,\"clientW\":1440,\"overflow\":false,\"cols\":\"NA\",\"nav\":true}"
+w=1440  书影音海报墙.html          "{\"innerW\":1440,\"docW\":1425,\"clientW\":1425,\"overflow\":false,\"cols\":\"NA\",\"nav\":true}"
+w=1024  home.html            "{\"innerW\":1024,\"docW\":1024,\"clientW\":1024,\"overflow\":false,\"cols\":3,\"nav\":true}"
+w=1024  任务管理台.html           "{\"innerW\":1024,\"docW\":1009,\"clientW\":1009,\"overflow\":false,\"cols\":\"NA\",\"nav\":true}"
+w=1024  明信片追踪.html           "{\"innerW\":1024,\"docW\":1024,\"clientW\":1024,\"overflow\":false,\"cols\":\"NA\",\"nav\":true}"
+w=1024  书影音海报墙.html          "{\"innerW\":1024,\"docW\":1009,\"clientW\":1009,\"overflow\":false,\"cols\":\"NA\",\"nav\":true}"
+w=768   home.html            "{\"innerW\":768,\"docW\":753,\"clientW\":753,\"overflow\":false,\"cols\":2,\"nav\":true}"
+w=768   任务管理台.html           "{\"innerW\":768,\"docW\":753,\"clientW\":753,\"overflow\":false,\"cols\":\"NA\",\"nav\":true}"
+w=768   明信片追踪.html           "{\"innerW\":768,\"docW\":768,\"clientW\":768,\"overflow\":false,\"cols\":\"NA\",\"nav\":true}"
+w=768   书影音海报墙.html          "{\"innerW\":768,\"docW\":753,\"clientW\":753,\"overflow\":false,\"cols\":\"NA\",\"nav\":true}"
+w=390   home.html            "{\"innerW\":390,\"docW\":375,\"clientW\":375,\"overflow\":false,\"cols\":1,\"nav\":true}"
+w=390   任务管理台.html           "{\"innerW\":390,\"docW\":375,\"clientW\":375,\"overflow\":false,\"cols\":\"NA\",\"nav\":true}"
+w=390   明信片追踪.html           "{\"innerW\":390,\"docW\":375,\"clientW\":375,\"overflow\":false,\"cols\":\"NA\",\"nav\":true}"
+w=390   书影音海报墙.html          "{\"innerW\":390,\"docW\":375,\"clientW\":375,\"overflow\":false,\"cols\":\"NA\",\"nav\":true}"
+
+############ B18 390×844 海报墙细节：#vStats / 搜索框 / viewtabs ############
+"{\"innerW\":390,\"docW\":375,\"overflow\":false,\"viewtabs\":{\"l\":18,\"r\":357,\"w\":339,\"vis\":true},\"search\":{\"l\":18,\"r\":106,\"w\":88,\"vis\":true},\"toolbar\":{\"l\":18,\"r\":357,\"w\":339,\"vis\":true},\"statsWrap\":{\"l\":18,\"r\":357,\"w\":339,\"vis\":true},\"vStats\":{\"l\":185,\"r\":281,\"w\":95,\"vis\":true},\"addBtn\":{\"l\":116,\"r\":213,\"w\":97,\"vis\":true},\"wrap\":{\"l\":0,\"r\":375,\"w\":375,\"vis\":true}}"
+
+############ B19 390×844 门户单列 / 概览卡 ############
+"{\"innerW\":390,\"docW\":375,\"overflow\":false,\"gridCols\":1,\"ovCols\":2,\"ovNote\":true}"
+
+############ B20 暗色 390 截图 ############
+✓ Screenshot saved to deliverables/site-ui-review-1104/qa/evidence/recheck/recheck-home-390-dark.png
+✓ Screenshot saved to deliverables/site-ui-review-1104/qa/evidence/recheck/recheck-mediawall-390-dark.png
+
+############ B21 1440 亮色门户 + 海报墙截图 ############
+✓ Screenshot saved to deliverables/site-ui-review-1104/qa/evidence/recheck/recheck-home-1440-light.png
+✓ Screenshot saved to deliverables/site-ui-review-1104/qa/evidence/recheck/recheck-mediawall-1440-light.png

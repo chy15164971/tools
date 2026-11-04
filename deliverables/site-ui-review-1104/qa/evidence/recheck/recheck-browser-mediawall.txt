@@ -1,0 +1,23 @@
+############ B13 §2.6 分析页评分归一（受控 9 / 4） ############
+✗ Evaluation error: ReferenceError: Cannot access '_profEntries' before initialization
+    at renderStatsView (file:///tmp/toolsrepo2/%E4%B9%A6%E5%BD%B1%E9%9F%B3%E6%B5%B7%E6%8A%A5%E5%A2%99.html:2972:16)
+    at <anonymous>:1:143
+    at <anonymous>:6:163
+
+############ B14 §2.6 心愿单排除口径 ############
+✗ Evaluation error: ReferenceError: Cannot access '_profEntries' before initialization
+    at renderStatsView (file:///tmp/toolsrepo2/%E4%B9%A6%E5%BD%B1%E9%9F%B3%E6%B5%B7%E6%8A%A5%E5%A2%99.html:2972:16)
+    at <anonymous>:1:126
+    at <anonymous>:4:133
+
+############ B15 §2.6 墙视图 / 排序记忆 / hash 保态 ############
+"{\"cards\":0,\"chips\":0,\"stats\":\"\",\"sort\":\"NO_EL\"}"
+✗ Evaluation error: TypeError: Cannot set properties of null (setting 'value')
+    at <anonymous>:1:41
+✗ Evaluation error: ReferenceError: curView is not defined
+    at <anonymous>:1:25
+
+############ B16 §2.6 密度切换 ############
+✗ Evaluation error: TypeError: Cannot read properties of null (reading 'click')
+    at <anonymous>:1:35
+errors=✗  ✗  ✗  

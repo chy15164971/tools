@@ -1,0 +1,47 @@
+############ H1 双 :root（海报墙，挂账） ############
+书影音海报墙.html :root{ 次数=2
+  SHARED TOKENS START=1
+
+############ H2 任务台运行时 manifest / 重复 SW（挂账） ############
+index.html           manifest-links=2
+  sw-register=3
+任务管理台.html           manifest-links=2
+  sw-register=3
+
+############ H3 file:// fetch 兜底死代码（挂账） ############
+210:  var MEDIA_CACHE_KEY = "wb_workbench_media_count_v1";
+279:    var c=read(MEDIA_CACHE_KEY);
+283:  function fetchMediaCount(force){
+286:      fetch("书影音海报墙.html", {cache:"no-store"}).then(function(r){ return r.text(); }).then(function(txt){
+288:        if(n>0){ try{ localStorage.setItem(MEDIA_CACHE_KEY, JSON.stringify({total:n, ts:Date.now()})); }catch(e){} render(); }
+322:    if(m.total===null) fetchMediaCount(false);
+326:    try{ localStorage.removeItem(MEDIA_CACHE_KEY); }catch(e){}
+
+############ H4 PWA 离线策略（挂账） ############
+PRECACHE: "./", "./home.html", "./任务管理台.html", "./明信片追踪.html", "./书影音海报墙.html", "./icons/icon-192.png"
+has manifest.json: false has icon-512: false has icon-180: false
+
+############ H5 vault 共享工具副本 ############
+-rw-r--r--  1 chenhuiying staff   2835 2026-11-02 19:56 design_tokens.css
+-rw-r--r--  1 chenhuiying staff   3477 2026-11-04 20:01 inject_shared.py
+-rw-r--r--  1 chenhuiying staff   3395 2026-11-04 19:55 sync_tokens.js
+--- vault 是否有 inject_shared.py 副本 ---
+/Users/chenhuiying/Documents/Obsidian Vault/_ops/_整理记录/站点统一_备份_20261104/repo/inject_shared.py
+/Users/chenhuiying/Documents/Obsidian Vault/_ops/_workbench/inject_shared.py
+
+############ H6 精确对比度复核：亮色 ov-cell 标签 ############
+--sub(#6b7280) on --hover(#f4f6fb) .ov-cell .k/.s = 4.471
+--sub on --bg(#f5f7fb) .ov-note           = 4.508
+--sub on --card(#ffffff) .card .desc       = 4.834
+
+############ H7 最终 MD5 冻结复核（QA 全程未改应用源码） ############
+home.html              f7e83df10fc5c48b3a4dff908a31cbf3
+任务管理台.html             81d7ee5b429bd10b0a04fd6e651961f6
+index.html             81d7ee5b429bd10b0a04fd6e651961f6
+明信片追踪.html             0e09e7096edbec3d522160ec470c54f0
+书影音海报墙.html            d2b30b8c821fbaa94a8f36f8bcc66c74
+--- git status ---
+ M _shared/inject_shared.py
+ M home.html
+ M "\344\271\246\345\275\261\351\237\263\346\265\267\346\212\245\345\242\231.html"
+?? deliverables/

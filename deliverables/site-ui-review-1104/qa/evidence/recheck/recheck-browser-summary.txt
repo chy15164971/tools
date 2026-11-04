@@ -1,0 +1,13 @@
+############ B7 §2.2 正常输入：5 条任务 + 明信片 fixtures ############
+"fixtures set; today=2026-11-04"
+"{\"vals\":{\"mTaskOpen\":\"1\",\"mTaskDone\":\"2\",\"mTaskAll\":\"5\",\"mPcTransit\":\"2\",\"mPcArrived\":\"2\",\"mPcAll\":\"7\",\"mMediaAll\":\"1731\",\"mMediaCustom\":\"2\",\"ovTotal\":\"1743\",\"ovTask\":\"5\",\"ovPc\":\"7\",\"ovMedia\":\"1731\"},\"dim\":0,\"foot\":\"数据说明：本页只读取同一浏览器（本机文件）保存在本机的摘要，不上传、不改动任何记录。 各页数据仍由页面自身与 GitHub Gist 云同步管理；若某项显示「—」，说明本机浏览器尚未在该页保存过数据，打开对应页面并保存过记录后才会出现（书影音海报墙会在打开时自动写入记录数）。\"}"
+
+############ B8 §2.2 边界1：键缺失 → 全部降级 ############
+"{\"vals\":{\"mTaskOpen\":\"—\",\"mTaskDone\":\"—\",\"mTaskAll\":\"—\",\"mPcTransit\":\"—\",\"mPcArrived\":\"—\",\"mPcAll\":\"—\",\"mMediaAll\":\"—\",\"mMediaCustom\":\"—\",\"ovTotal\":\"—\",\"ovTask\":\"—\",\"ovPc\":\"—\",\"ovMedia\":\"—\"},\"dim\":8,\"ovNote\":\"以上数字来自同一浏览器本机保存的摘要（任务 / 明信片 / 媒体三项），本页只读不写；显示「—」表示对应页面尚未在本机保存过数据，在该页保存过记录后才会出现。点击下方卡片进入对应工作台。\"}"
+
+############ B9 §2.2 边界2：结构损坏 / 猜错 → 不抛错，显示 — ############
+"{\"mTaskOpen\":\"—\",\"mTaskDone\":\"—\",\"mPcTransit\":\"—\",\"mPcArrived\":\"—\",\"mMediaAll\":\"—\",\"mMediaCustom\":\"—\"}"
+errors=
+
+############ B10 §2.2 边界3：刷新按钮 / 不写业务键 ############
+"{\"all\":\"2\",\"open\":\"1\",\"done\":\"0\",\"wbKeys\":[\"wb_mediawall_custom_v1\",\"wb_mediawall_stats_v1\",\"wb_postcards_cfgsavedat_v1\",\"wb_postcards_links_v1\",\"wb_postcards_theme\",\"wb_postcards_v1\",\"wb_taskhub_full_ring_last_v1\",\"wb_taskhub_full_ring_v1\",\"wb_taskhub_lists_books_migrated\",\"wb_taskhub_lists_v1\",\"wb_taskhub_local_savedAt_v1\",\"wb_taskhub_mediaboard_v1\",\"wb_taskhub_okr_trend_v1\",\"wb_taskhub_okrs_v1\",\"wb_taskhub_projects_v1\",\"wb_taskhub_schema_v1\",\"wb_taskhub_v1\"]}"

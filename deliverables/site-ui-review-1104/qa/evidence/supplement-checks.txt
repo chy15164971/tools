@@ -1,0 +1,72 @@
+=== QA 补充核查证据（主理人 6 点 + 设计成员回归边界） ===
+环境：agent-browser 0.27.0 / Chromium / file://，独立会话 qasupp / qasupp2；基线取 `git show HEAD:<file>`（87d8ba6），避免与 19:50 起进行中的实现交叉。
+
+--- [S1] 主题键：四页基线读/写优先级（`git show HEAD`） ---
+任务管理台.html:4  读 wb_theme_v1 || wb_taskhub_theme_v1
+任务管理台.html:12422 THEME_KEY="wb_theme_v1"；9665 applyTheme 只写 wb_theme_v1；12607 启动读取 THEME_KEY
+明信片追踪.html:4  读 wb_theme_v1 || wb_postcards_theme
+明信片追踪.html:4182-4184 applyTheme 同时写 wb_theme_v1 + wb_postcards_theme；5398 启动读取
+书影音海报墙.html:10 只读 wb_theme_v1；3863-3873 WALL_THEME_KEY="wb_theme_v1" 只写 wb_theme_v1
+home.html:130/145 读 wb_workbench_theme || wb_theme_v1；149-153 切换时同时写 wb_workbench_theme + wb_theme_v1
+=> 门户是唯一「私有键优先于共享键」的页面；三页都以 wb_theme_v1 为主。
+
+--- [S2] 跨页主题不同步（实测复现，会话 qasupp2） ---
+step1 门户点「切换主题」: {"portal":"dark","workbench":"dark","shared":"dark"}
+step2 明信片页点「切换主题」: {"before":"dark"} -> {"after":"light","workbench":"dark","shared":"light","pcPrivate":"light"}
+step3 同一 storage 下四页:
+home.html            {"theme":"dark"}
+任务管理台.html      {"theme":"light"}
+明信片追踪.html      {"theme":"light"}
+书影音海报墙.html    {"theme":"light"}
+=> 三页 -> 门户 不同步；门户 -> 三页 同步（门户会写 wb_theme_v1，静态代码确认）。
+（注：任务台 #btnTheme 点击未触发主题变化，改用明信片页的显式 onclick 复现；任务台按钮绑定路径未在本次细查。）
+
+--- [S3] 任务台完成状态字段：`doneDates` 只属于重复任务 ---
+任务管理台.html:4707-4717 toggleTaskDone：非重复 `t.status="done"` + `setDoneAt(t,date,markIso)`，**不写 doneDates**；重复任务才 `t.doneDates.push(k)`。
+任务管理台.html:4095-4098 doneAtKey：非重复返回 "self"，重复返回 ymdOf(date)。
+任务管理台.html:5035-5043 doneOnDate：重复读 doneDates.includes(k)；非重复读 status==="done" + doneAt[k] 或 doneAt.self 的 ymd。
+任务管理台.html:5022-5032 doneInWindow：非重复读 doneAt.self 时间戳。
+=> 主理人补充的「应为 doneDates 含今日」对非重复任务不成立：一次性任务的 doneDates 恒为 []，只用 doneDates 会把当日完成的一次性任务漏计为 0。建议按 doneOnDate 实现。
+
+--- [S4] 海报墙基线双套 :root（`git show HEAD:书影音海报墙.html`） ---
+13  :root{  --bg:#F8FAFC; --ink:#1f2328; --ink-soft:#57606a; --line:#e6e9ef; ...
+            --shadow-hover:0 4px 10px ...; }
+419 [data-theme="dark"] 中另含 --ink-soft:#9aa3b2
+511 /* === SHARED TOKENS START === */
+512 :root{ --bg:#f5f7fb; --ink:#1f2430; --line:#e7ebf2; ... }
+527 [data-theme="dark"] 覆盖 --bg/--ink/--line
+540 /* === SHARED TOKENS END === */
+统计: SHARED TOKENS START=1，:root{=2
+design_tokens.css: 无 --shadow-hover、无 --ink-soft
+=> 后出现的标记区覆盖前面的私有 --bg/--ink/--line（实测 bodyBg 已是 #f5f7fb，主理人结论一致）；--ink-soft、--shadow-hover 仅存在于私有块，不在共享规范 token 中，属双源维护隐患（静态推断，未见当前渲染故障）。
+
+--- [S5] harness 断言计数与覆盖面 ---
+grep -c 'check(' /tmp/harness.js = 53；其中第 71 行是 `function check(name, cond){` 定义 => 实际断言 52 项，与 `node /tmp/harness.js` 输出「52 通过 / 0 失败」一致。
+harness / verify_partial.js 全部为 DOM 桩 + innerHTML/textContent 内容判断，无 max-width / getBoundingClientRect / offsetWidth / border-radius 等 CSS 或几何断言 => 纯 CSS 宽度改动不会触发 52 项失败，几何必须在真实浏览器单独验（设计成员结论复核通过）。
+
+--- [S6] 共享 token 缺项与基线 padding（静态） ---
+design_tokens.css 不含 --shadow-hover、--ink-soft（grep 无命中）。
+home.html 基线 line 24-26: body{... padding:28px 20px calc(40px + env(safe-area-inset-bottom))}；line 16/21 私有 :root / [data-theme=dark] 定义 --shadow-hover。
+=> site-nav.js 用 body.insertBefore(nav, firstChild) + width:100%，基线 body padding 会让导航条内缩；若接入 SHARED TOKENS 时私有 --shadow-hover 被删且未放到 END 之后，.card:hover 阴影会静默失效。两者均列入 test-plan 实现后断言（当前基线未接入导航条，故未复现）。
+
+--- [S7] inject_shared.py 静默跳过（静态） ---
+inject_shared.py:45-47  `if not pat.search(s): print("  未找到标记块，跳过:", ...); return False`
+main() 不检查返回值、不 sys.exit(1)，故「缺标记块」仍以退出码 0 结束，仅打印一行提示。若只把 home.html 加进 targets 忘加标记块，导航条不会出现而注入命令看似成功。
+
+--- [S8] ui-designer 复核回执对齐（2026-11-04，仅措辞，不改应用源码）---
+来源：ui-designer 复核消息「spec 与实测无实质冲突，仅两处 53 需读作 52」。逐条核对本 QA 产物：
+(1) harness 断言数：spec.md:52 / :463 写「53 处 check」为 grep -c 原始匹配数（含第 71 行 function check 定义）。本 QA 的 findings.md 与 test-plan.md 全文均按 52 断言记（见 findings.md:45,219,272；test-plan.md:147,407,499,503），未引用 spec 的「53」措辞；本文件 [S5] 已完整解释 53→52，无需改动。对 spec 的引用仅 §3.1 量化值、§4.7 断点（test-plan.md:443,458），不含 check 计数。
+(2) 390px：spec.md 未写 471；本 QA 的 390 断言用 overflow===false 而非硬编码 471（dense 实测 scrollWidth=508，硬编码会误报）。ui-designer 同意该写法。
+(3) P2-16 跨页主题不同步（三页→门户）：spec §4.6 只描述 home 机制、从未声称跨页同步，无冲突；按实测复现保留。
+(4) 私有 token 归属（已用 git show HEAD 基线复核，见下方命令输出）：
+    git show HEAD:home.html      | grep -nE '--shadow-hover|--ink-soft|--sub'
+      :13 --sub:#6b7280 / :19 --sub:#9aa3b2 / :16 --shadow-hover / :21 --shadow-hover  => 无 --ink-soft
+    git show HEAD:书影音海报墙.html | grep -nE 'SHARED TOKENS|:root\{'
+      :13 :root{ / :512 :root{ / :511 SHARED TOKENS START / :540 SHARED TOKENS END
+    git show HEAD:书影音海报墙.html | sed -n '419p'  => --ink-soft:#9aa3b2（暗色私有块）
+    git show HEAD:书影音海报墙.html | grep -n -- '--ink-soft:' => :17（亮，行内声明）
+    design_tokens.css | grep -nE '--ink-soft|--shadow-hover' => 无命中
+    结论：--shadow-hover 在 home 与海报墙两页分别私有定义；--ink-soft 只在海报墙，home 用 --sub。
+    已据此收紧 test-plan.md:315「两者为页面私有」→「分别私有保留」，并在 findings.md P2-18 增加补充复核行；结论（双源维护隐患、静态推断、实现后必验）不变。
+(5) 其余（.viewtabs right=471 / #vStats left=376、__wsn_hint ≤680 在 768 仍显示、§3.1 1360 量化值作条件期望）与 spec 一致，无需改动。
+未重跑 harness / --check / 浏览器冒烟；未对实现后版本下任何验收结论。

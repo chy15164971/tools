@@ -1,0 +1,88 @@
+=== DATE / VERSION ===
+2026-11-04 19:42:00
+87d8ba6
+?? deliverables/
+
+=== D1: node --check per script block ===
+home.html            scripts=1 nonempty=1 ALL PASS
+index.html           scripts=3 nonempty=3 ALL PASS
+任务管理台.html           scripts=3 nonempty=3 ALL PASS
+明信片追踪.html           scripts=2 nonempty=2 ALL PASS
+书影音海报墙.html          scripts=3 nonempty=2 ALL PASS
+TOTAL=11 FAIL=0
+
+=== D1b: sw.js / manifests ===
+sw.js: node --check OK
+manifest.json JSON OK, keys: name,short_name,description,start_url,scope,display,orientation,background_color,theme_color,lang,icons,shortcuts
+manifest-postcard.json JSON OK, keys: name,short_name,description,start_url,scope,display,orientation,background_color,theme_color,lang,icons
+
+=== D2: inline blocks vs sources ===
+任务管理台.html           SITE-NAV  MATCH
+任务管理台.html           SHARED    MATCH
+明信片追踪.html           SITE-NAV  MATCH
+明信片追踪.html           SHARED    MATCH
+书影音海报墙.html          SITE-NAV  MATCH
+书影音海报墙.html          SHARED    NO BLOCK
+home.html            SITE-NAV  NO BLOCK
+home.html            SHARED    NO BLOCK
+index.html           SITE-NAV  MATCH
+index.html           SHARED    MATCH
+
+=== D2b: index.html == 任务管理台.html ===
+IDENTICAL
+
+=== clone vs vault ===
+home.html            IDENTICAL
+任务管理台.html           IDENTICAL
+明信片追踪.html           IDENTICAL
+书影音海报墙.html          IDENTICAL
+
+=== D3: sync_tokens --check (vault TARGETS) ===
+[IN_SYNC] 任务管理台.html  (IN_SYNC)
+[IN_SYNC] 明信片追踪.html  (IN_SYNC)
+[IN_SYNC] 书影音海报墙.html  (IN_SYNC)
+exit=0
+
+=== D4: harness / verify_partial ===
+  ✓ hash记录视图
+
+结果: 52 通过 / 0 失败
+初始化后: {"chips":1,"sec-seen":1,"sec-read":1,"sec-listen":1,"stats":1,"cloudPill":1,"csStatusIcon":1} | 翻页后: {"chips":1,"sec-seen":2,"sec-read":1,"sec-listen":1,"stats":1,"cloudPill":1,"csStatusIcon":1}
+翻页增量: {"chips":0,"sec-seen":1,"sec-read":0,"sec-listen":0,"stats":0,"cloudPill":0,"csStatusIcon":0}
+✓ 目标组 sec-seen 已重渲染
+✓ 未动组 sec-read/sec-listen 零重建（局部渲染生效）
+
+=== PWA references ===
+
+=== inject_shared.py targets ===
+BLOCKS = [
+    {
+        "name": "SHARED",
+        "src": os.path.join(HERE, "shared.js"),
+        "targets": [os.path.join(PROJ, "任务管理台.html"),
+                    os.path.join(PROJ, "明信片追踪.html")],
+        "begin": "/* >>> SHARED:BEGIN —— 由 _shared/shared.js 自动生成，请勿直接编辑本块 */",
+        "end":   "/* <<< SHARED:END */",
+    },
+    {
+        "name": "SITE-NAV",
+        "src": os.path.join(HERE, "site-nav.js"),
+        "targets": [os.path.join(PROJ, "任务管理台.html"),
+                    os.path.join(PROJ, "明信片追踪.html"),
+                    os.path.join(PROJ, "书影音海报墙.html")],
+        "begin": "/* >>> SITE-NAV:BEGIN —— 由 _shared/site-nav.js 自动生成，请勿直接编辑本块 */",
+        "end":   "/* <<< SITE-NAV:END */",
+    },
+]
+
+=== sync_tokens TARGETS ===
+const fs = require('fs');
+const path = require('path');
+
+const VAULT = '/Users/chenhuiying/Documents/Obsidian Vault';
+const TOKENS_FILE = path.join(VAULT, '_ops/_workbench/design_tokens.css');
+const TARGETS = [
+  path.join(VAULT, 'Projects/任务管理台.html'),
+  path.join(VAULT, 'Projects/明信片追踪.html'),
+  path.join(VAULT, 'Projects/书影音海报墙.html'),   /* 2026-11-04 站点统一：第三页接入共享 token 体系 */
+];

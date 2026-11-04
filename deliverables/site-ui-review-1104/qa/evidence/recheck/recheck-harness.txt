@@ -1,0 +1,84 @@
+== 初始化 ==
+  ✓ 无异常完成初始化
+  ✓ 已看分区有卡片
+  ✓ 统计卡已渲染
+  ✓ 分区计数已渲染
+  ✓ chips 已渲染
+== 搜索 ==
+  ✓ 下拉有结果
+  ✓ 命中至少1条
+  ✓ 回车打开详情弹窗
+  ✓ 详情含评分星
+== 新增条目 ==
+  ✓ 表单打开
+  ✓ 类型选项填充
+  ✓ 保存后写入 localStorage
+  ✓ 保存后弹详情
+  ✓ 自定义条目带删除按钮
+  ✓ 新条目进入数据层头部
+== 删除自定义条目(经确认弹窗) ==
+  [probe] __confirmWallOpen = true
+  ✓ 删除触发确认弹窗
+  [debug] confirmEl.id: __created_div_z1i9s | class: mask show | hasClick: true
+  [probe] __confirmWallOpen = false
+  ✓ 确认弹窗可点击
+  [debug] __confirmWallOpen: false | customEntries: [] | store: []
+  ✓ 删除后 localStorage 已移除
+  ✓ 删除后弹窗关闭
+== M-1 pageOfIdx 与 renderAll 同口径 ==
+  ✓ pageOfIdx 页号必含条目
+  ✓ 扩页回退不晚于名义页
+  ✓ 中部条目页号一致
+== M-2 感想编辑脏检查 ==
+  [probe] __confirmWallOpen = true
+  ✓ 脏编辑Esc弹确认
+  ✓ 脏编辑Esc不直接关弹窗
+  [probe] __confirmWallOpen = false
+  ✓ 取消后弹窗仍在
+  [probe] __confirmWallOpen = false
+  ✓ 无改动Esc直接关弹窗
+== 汇总分析视图 ==
+  ✓ 分析视图已显示
+  ✓ 含类型分布
+  ✓ 含年份分布
+  ✓ 含题材TOP
+  ✓ 含评分分布
+  ✓ 含口碑榜
+  ✓ 总条目数正确
+  ✓ 切回海报墙
+== 星级十分制 ==
+  9.1 → 见详情渲染无异常
+== 第三轮对标：排序 / 搜索联动 / 心愿单 / 弹窗导航 ==
+  ✓ 感想chip已渲染
+  ✓ 排序下拉已渲染
+  ✓ 密度按钮已渲染
+  ✓ 排序记忆已写入
+  ✓ 排序后墙仍渲染
+  ✓ 搜索横幅显示命中数
+  ✓ hash记录搜索词
+  ✓ 清空后横幅隐藏
+  ✓ 心愿条目入库带status
+  ✓ 心愿条目无完成日期
+  ✓ 统计卡含心愿单
+  ✓ 详情显示心愿签
+  ✓ 心愿可标记完成
+  [probe] __confirmWallOpen = true
+  [probe] __confirmWallOpen = false
+  ✓ 清理心愿条目完成
+  ✓ →切到下一条
+  ✓ ←切回原条目
+  ✓ 导航按钮状态已刷新
+  ✓ hash记录视图
+
+结果: 52 通过 / 0 失败
+harness exit=0
+---
+翻页点击已派发: true
+初始化后: {"chips":1,"sec-seen":1,"sec-read":1,"sec-listen":1,"stats":1,"cloudPill":1,"csStatusIcon":1} | 翻页后: {"chips":1,"sec-seen":2,"sec-read":1,"sec-listen":1,"stats":1,"cloudPill":1,"csStatusIcon":1}
+翻页增量: {"chips":0,"sec-seen":1,"sec-read":0,"sec-listen":0,"stats":0,"cloudPill":0,"csStatusIcon":0}
+✓ 目标组 sec-seen 已重渲染
+✓ 未动组 sec-read/sec-listen 零重建（局部渲染生效）
+verify_partial exit=0
+---
+grep -c check( = 53
+71:function check(name, cond){

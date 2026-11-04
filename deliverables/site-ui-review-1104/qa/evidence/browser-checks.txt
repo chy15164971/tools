@@ -1,0 +1,45 @@
+=== QA browser evidence (agent-browser 0.27.0 / Chromium / file://) ===
+2026-11-04 19:46:00
+
+--- [E1] seed synthetic localStorage in isolated session + home.html summary ---
+"seeded 2026-11-04"
+home metrics:
+"{\"mTaskOpen\":\"1\",\"mTaskDone\":\"3\",\"mTaskAll\":\"5\",\"mPcTransit\":\"1\",\"mPcArrived\":\"3\",\"mPcAll\":\"7\",\"mMediaAll\":\"1731\",\"mMediaCustom\":\"2\"}"
+
+--- [E2] mediawall writes stats incl. wish ---
+"{\"stats\":\"{\\\"total\\\":1733,\\\"ts\\\":1793792776349}\",\"mediaLen\":1733,\"wishCount\":1}"
+
+--- [E3] analysis avg() not normalizing 5/10-point ---
+"{\"cards\":[\"累计记录2影视 / 书 / 音乐全部加起来\",\"📺 已看 含动漫 0 0 平均评分 — · 最近完成 —\",\"📖 已读 2 平均评分 6.5 · 最近完成 2026\",\"🎧 已听 0 平均评分 — · 最近完成 —\",\"平均评分6.52 条有评分（10 分制）\"],\"dist\":\"我的评分分布9-10 分 18-9 分 17-8 分 06-7 分 06 分以下 0\",\"top12\":[\"01 十分制条目书本 9\",\"02 五分制条目书本 4\"]}"
+
+--- [E4] wish mark-done leaves no date ---
+"{\"btnShown\":true,\"entryAfter\":{\"title\":\"心愿测试条目\",\"type\":\"书本\"},\"hasDate\":false}"
+
+--- [E5] wish genre leaks into 题材偏好 ---
+"{\"genreSection\":\"题材偏好 TOP 14来自豆瓣类型标签科幻 1测试题材 1\",\"wishGenreListed\":true}"
+
+--- [E6] nav bar / highlight / same-tab per page ---
+home.html            "{\"nav\":false,\"on\":[],\"blank\":0,\"manifests\":1}"
+index.html           "{\"nav\":true,\"on\":[\"任务台\"],\"blank\":0,\"manifests\":2}"
+任务管理台.html           "{\"nav\":true,\"on\":[\"任务台\"],\"blank\":0,\"manifests\":2}"
+明信片追踪.html           "{\"nav\":true,\"on\":[\"明信片\"],\"blank\":0,\"manifests\":1}"
+书影音海报墙.html          "{\"nav\":true,\"on\":[\"海报墙\"],\"blank\":0,\"manifests\":1}"
+
+--- [E7] main page degrade copy / auto-write check ---
+postcards key after open: "null"
+taskhub key after open:   "null"
+home degrade:             "{\"mMediaAll\":\"—\",\"cache\":null}"
+
+--- [E8] 390px overflow ---
+home.html            "{\"innerW\":390,\"docW\":375,\"overflow\":false,\"viewtabsRight\":0}"
+书影音海报墙.html          "{\"innerW\":390,\"docW\":471,\"overflow\":true,\"viewtabsRight\":471}"
+
+--- [E9] dark theme contrast (home.html after 切换主题) ---
+"{\"theme\":\"dark\",\"goFg\":\"rgb(61, 104, 240)\",\"goBg\":\"rgb(23, 28, 43)\",\"goRatio\":3.59}"
+
+--- [E10] keyboard / hash / density / errors ---
+Enter opens modal:  "true"
+Esc closes modal:   "true"
+"{\"dense\":true,\"stored\":\"1\"}"
+hash replay v=stats: "{\"hash\":\"#v=stats\",\"curView\":\"stats\"}"
+page errors:         

@@ -1,0 +1,19 @@
+############ B22 §2.4 门户亮/暗对比度（.go） ############
+light  "{\"theme\":\"light\",\"goColor\":\"rgb(47, 95, 224)\",\"logoBg\":\"rgba(0, 0, 0, 0)\",\"ratios\":{\"go\":5.48,\"desc\":4.83,\"h2\":15.52,\"btn\":15.52,\"nav_on\":4.73,\"nav_link\":4.73,\"ovk\":4.47}}"
+dark   "{\"theme\":\"light\",\"goColor\":\"rgb(47, 95, 224)\",\"logoBg\":\"rgba(0, 0, 0, 0)\",\"ratios\":{\"go\":5.48,\"desc\":4.83,\"h2\":15.52,\"btn\":15.52,\"nav_on\":4.73,\"nav_link\":4.73,\"ovk\":4.47}}"
+
+############ B23 §2.4 私有 token 静默失效（hover shadow / ink-soft） ############
+home light  "{\"theme\":\"light\",\"hoverShadow\":\"rgba(31, 36, 48, 0.12) 0px 6px 22px 0px\",\"shadowHoverVar\":\"0 6px 22px rgba(31,36,48,.12)\",\"bodyBg\":\"rgb(245, 247, 251)\"}"
+wall light  "{\"theme\":\"light\",\"inkSoft\":\"#57606a\",\"bodyBg\":\"rgb(245, 247, 251)\",\"chipColor\":\"rgb(255, 255, 255)\",\"pcardRadius\":\"12px\"}"
+home dark   "{\"theme\":\"light\",\"hoverShadow\":\"rgba(31, 36, 48, 0.12) 0px 6px 22px 0px\",\"shadowHoverVar\":\"0 6px 22px rgba(31,36,48,.12)\",\"bodyBg\":\"rgb(245, 247, 251)\"}"
+wall dark   "{\"theme\":\"light\",\"inkSoft\":\"#57606a\",\"bodyBg\":\"rgb(245, 247, 251)\",\"chipColor\":\"rgb(255, 255, 255)\",\"pcardRadius\":\"12px\"}"
+
+############ B24 §2.4 reduced-motion ############
+"{\"reduce\":true,\"cardTransition\":\"0s\",\"bodyTransition\":\"0s\"}"
+
+############ B25 §2.4 跨页主题一致性（D-7 挂账，未改） ############
+after home toggle: "{\"workbench\":\"dark\",\"shared\":\"dark\",\"portal\":\"dark\"}"
+home.html            "dark"
+任务管理台.html           "light"
+明信片追踪.html           "light"
+书影音海报墙.html          "light"

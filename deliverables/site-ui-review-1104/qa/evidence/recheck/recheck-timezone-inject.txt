@@ -1,0 +1,17 @@
+############ B38 真实写入格式 fixture（本地 YYYY-MM-DDTHH:MM）复测今日完成 ############
+"{\"localNow\":\"2026-11-04T20:20\",\"today\":\"2026-11-04\"}"
+"{\"mTaskOpen\":\"1\",\"mTaskDone\":\"2\",\"mTaskAll\":\"5\",\"mPcTransit\":\"2\",\"mPcArrived\":\"2\",\"mPcAll\":\"7\"}"
+
+############ B39 边界：doneAt[今日] 显式键（重复任务补打卡） ############
+"2026-11-04"
+punch+once: "{\"done\":\"2\",\"open\":\"0\",\"all\":\"2\"}"
+
+############ B40 注入后 index.html ≡ 任务管理台.html（沙盒已运行过 inject） ############
+SANDBOX AFTER INJECT: IDENTICAL (PASS)
+真实仓库: IDENTICAL (PASS)
+
+############ B41 门户概览卡合计口径 ############
+"{\"ovTotal\":\"1740\",\"ovTask\":\"2\",\"ovPc\":\"7\",\"ovMedia\":\"1731\",\"mMediaAll\":\"1731\",\"mMediaCustom\":\"0\"}"
+
+############ B42 关闭会话 ############
+closed qatz

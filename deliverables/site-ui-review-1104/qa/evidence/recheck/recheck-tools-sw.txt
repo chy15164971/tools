@@ -1,0 +1,42 @@
+############ H8 改动清单第 5 条：共享工具 vault 副本与仓库一致性 ############
+inject_shared.py 仓库 vs vault: IDENTICAL
+sync_tokens.js TARGETS 行数: 4
+--- vault inject_shared.py targets ---
+9:       ⚠️ 不可注入海报墙与门户页 home.html：shared.js 的 esc/toast/setCloudStatus 等顶层声明
+12:       2026-11-04 审查轮：新增门户 home.html（currentPage() 已支持，高亮「首页」）。
+25:        "targets": [os.path.join(PROJ, "任务管理台.html"),
+27:                    os.path.join(PROJ, "index.html")],
+34:        "targets": [os.path.join(PROJ, "任务管理台.html"),
+37:                    os.path.join(PROJ, "home.html"),
+38:                    os.path.join(PROJ, "index.html")],
+59:    failed = []
+62:            print("缺少源文件:", b["src"]); sys.exit(1)
+64:        print("[%s] %s → %d 页" % (b["name"], os.path.basename(b["src"]), len(b["targets"])))
+65:        for p in b["targets"]:
+70:            else: failed.append((b["name"], os.path.basename(p)))
+73:    if failed:
+74:        print("注入失败（缺标记块）:", failed)
+75:        sys.exit(1)
+
+############ H9 任务台 3 处 SW 注册来源（挂账项，确认非本轮新增） ############
+3301:      navigator.serviceWorker.register("sw.js").catch(function(){});
+11375: * PWA          sw.js(独立)/serviceWorker.register
+12648:(function(){ try{ if("serviceWorker" in navigator && /^https?:$/.test(location.protocol)){ navigator.serviceWorker.register("sw.js").catch(function(){}); } }catch(e){} })();
+--- 基线对照 ---
+3301:      navigator.serviceWorker.register("sw.js").catch(function(){});
+11375: * PWA          sw.js(独立)/serviceWorker.register
+12648:(function(){ try{ if("serviceWorker" in navigator && /^https?:$/.test(location.protocol)){ navigator.serviceWorker.register("sw.js").catch(function(){}); } }catch(e){} })();
+
+############ H10 门户 SW 注册守卫与次数 ############
+409-      if(!("serviceWorker" in navigator)) return;
+410-      if(location.protocol!=="https:" && location.protocol!=="http:") return;
+411:      navigator.serviceWorker.register("sw.js").catch(function(){});
+412-    }catch(e){}
+413-  }
+
+############ H11 manifest.json 三页引用检查 ############
+home.html            manifest.json link=1
+任务管理台.html           manifest.json link=2
+明信片追踪.html           manifest.json link=1
+书影音海报墙.html          manifest.json link=1
+index.html           manifest.json link=2

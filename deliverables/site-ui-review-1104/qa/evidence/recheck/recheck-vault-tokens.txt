@@ -1,0 +1,15 @@
+home.html            IDENTICAL
+任务管理台.html           IDENTICAL
+明信片追踪.html           IDENTICAL
+书影音海报墙.html          IDENTICAL
+--- sync_tokens.js --check ---
+[IN_SYNC] 任务管理台.html  (IN_SYNC)
+[IN_SYNC] 明信片追踪.html  (IN_SYNC)
+[IN_SYNC] 书影音海报墙.html  (IN_SYNC)
+[IN_SYNC] home.html  (IN_SYNC)
+sync_tokens exit=0
+--- 克隆侧 token 标记 / radius ---
+home.html            SHARED TOKENS markers=1  --radius=12px  body15=True
+任务管理台.html           SHARED TOKENS markers=1  --radius=12px  body15=True
+明信片追踪.html           SHARED TOKENS markers=1  --radius=12px  body15=True
+书影音海报墙.html          SHARED TOKENS markers=1  --radius=12px  body15=True

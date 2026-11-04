@@ -1,0 +1,12 @@
+############ B22' §2.4 门户亮/暗对比度（正确构造暗色） ############
+light  "{\"theme\":\"light\",\"goColor\":\"rgb(47, 95, 224)\",\"icoTaskBg\":\"rgb(234, 240, 255)\",\"ovCellBg\":\"rgb(244, 246, 251)\",\"bodyBg\":\"rgb(245, 247, 251)\",\"ratios\":{\"go\":5.48,\"desc\":4.83,\"h2\":15.52,\"btn\":15.52,\"nav_on\":4.73,\"nav_link\":4.73,\"ovk\":4.47,\"icoTask\":4.15,\"icoPc\":3.41,\"icoMedia\":3.61}}"
+dark   "{\"theme\":\"dark\",\"goColor\":\"rgb(143, 176, 255)\",\"icoTaskBg\":\"rgb(28, 39, 64)\",\"ovCellBg\":\"rgb(28, 34, 54)\",\"bodyBg\":\"rgb(15, 19, 32)\",\"ratios\":{\"go\":7.94,\"desc\":6.67,\"h2\":14.2,\"btn\":14.2,\"nav_on\":4.73,\"nav_link\":4.73,\"ovk\":6.2,\"icoTask\":6.95,\"icoPc\":7.12,\"icoMedia\":6.53}}"
+
+############ B23' §2.4 私有 token 亮/暗（hover shadow / ink-soft） ############
+home light  "{\"theme\":\"light\",\"hoverShadow\":\"rgba(31, 36, 48, 0.12) 0px 6px 22px 0px\",\"shadowHoverVar\":\"0 6px 22px rgba(31,36,48,.12)\",\"icoVars\":[\"#eaf0ff\",\"#3D68F0\",\"#fdeaf1\",\"#f0eafe\"]}"
+wall light  "{\"theme\":\"light\",\"inkSoft\":\"#57606a\",\"bodyBg\":\"rgb(245, 247, 251)\",\"chipColor\":\"rgb(255, 255, 255)\",\"chipBg\":\"rgb(61, 104, 240)\",\"pcardRadius\":\"12px\"}"
+home dark   "{\"theme\":\"dark\",\"hoverShadow\":\"rgba(0, 0, 0, 0.45) 0px 6px 22px 0px\",\"shadowHoverVar\":\"0 6px 22px rgba(0,0,0,.45)\",\"icoVars\":[\"#1c2740\",\"#8fb0ff\",\"#3a1f2c\",\"#2a2140\"]}"
+wall dark   "{\"theme\":\"dark\",\"inkSoft\":\"#9aa3b2\",\"bodyBg\":\"rgb(15, 19, 32)\",\"chipColor\":\"rgb(255, 255, 255)\",\"chipBg\":\"rgb(61, 104, 240)\",\"pcardRadius\":\"12px\"}"
+
+############ B24' reduced-motion（重确认） ############
+"{\"reduce\":true,\"cardTransition\":\"0s\"}"

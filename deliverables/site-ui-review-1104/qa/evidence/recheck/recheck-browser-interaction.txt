@@ -1,0 +1,26 @@
+############ B26 §2.4 ov-cell .k 对比度精确复核（亮色 4.47 疑点） ############
+"{\"el\":\".ov-cell .k\",\"color\":\"rgb(107, 114, 128)\",\"fontSize\":\"11.5px\",\"bg\":\"rgb(244, 246, 251)\",\"ratio\":4.471}"
+
+############ B27 §2.7 几何断言（1440 normal / dense） ############
+home.html            "{\"wrapMax\":\"1360px\",\"contentW\":1360,\"bodyFont\":\"15px\",\"radius\":\"12px\",\"pcardW\":\"NA\",\"anaCols\":\"NA\",\"dense\":false}"
+任务管理台.html           "{\"wrapMax\":\"1360px\",\"contentW\":1360,\"bodyFont\":\"15px\",\"radius\":\"12px\",\"pcardW\":\"NA\",\"anaCols\":\"NA\",\"dense\":false}"
+明信片追踪.html           "{\"wrapMax\":\"1360px\",\"contentW\":1360,\"bodyFont\":\"15px\",\"radius\":\"12px\",\"pcardW\":\"NA\",\"anaCols\":\"NA\",\"dense\":false}"
+书影音海报墙.html          "{\"wrapMax\":\"1360px\",\"contentW\":1360,\"bodyFont\":\"15px\",\"radius\":\"12px\",\"pcardW\":122,\"anaCols\":\"NA\",\"dense\":true}"
+--- 海报墙 dense 态 ---
+"{\"dense\":false,\"wrapMax\":\"1360px\",\"pcardW\":155,\"anaCols\":\"NA\",\"docW\":1425,\"overflow\":false}"
+
+############ B28 §2.5 键盘可达 ############
+home Tab1: "{\"tag\":\"A\",\"id\":\"\",\"href\":\"home.html\",\"fv\":true,\"outline\":\"2px\"}"
+home Tab2: "{\"tag\":\"A\",\"id\":\"\",\"href\":\"任务管理台.html\"}"
+wall Enter mask.show: "true"
+"红楼梦"
+wall ArrowRight h2: "摩登家庭 第十一季 Modern Family Season 11"
+wall Escape closed: "true"
+
+############ B29 §2.8 五页 errors / 外部依赖 ############
+home.html            errors=
+index.html           errors=
+任务管理台.html           errors=
+明信片追踪.html           errors=
+书影音海报墙.html          errors=
+home 外链(排除 w3.org): (空=无外链)

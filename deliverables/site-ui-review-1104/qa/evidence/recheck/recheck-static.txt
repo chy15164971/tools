@@ -1,0 +1,42 @@
+############ R1 版本冻结 ############
+home.html              f7e83df10fc5c48b3a4dff908a31cbf3
+任务管理台.html             81d7ee5b429bd10b0a04fd6e651961f6
+index.html             81d7ee5b429bd10b0a04fd6e651961f6
+明信片追踪.html             0e09e7096edbec3d522160ec470c54f0
+书影音海报墙.html            d2b30b8c821fbaa94a8f36f8bcc66c74
+
+############ R2 §1.1 五页分块 node --check ############
+home.html            scripts=1 nonempty=1 ALL PASS
+index.html           scripts=3 nonempty=3 ALL PASS
+任务管理台.html           scripts=3 nonempty=3 ALL PASS
+明信片追踪.html           scripts=2 nonempty=2 ALL PASS
+书影音海报墙.html          scripts=3 nonempty=2 ALL PASS
+TOTAL=11 FAIL=0
+  node-check exit=0
+
+############ R3 §1.2 sw.js / manifests ############
+sw.js OK (exit=0)
+manifest.json JSON OK name,short_name,description,start_url,scope,display,orientation,background_color,theme_color,lang,icons,shortcuts
+manifest-postcard.json JSON OK name,short_name,description,start_url,scope,display,orientation,background_color,theme_color,lang,icons
+start_url ./home.html shortcuts ./任务管理台.html|./明信片追踪.html|./书影音海报墙.html scope ./ icons icons/icon-192.png|icons/icon-512.png
+MANIFEST ASSERT PASS
+
+############ R4 §1.4 shared.js 未注入海报墙/门户 ############
+书影音海报墙.html          OK: 无 SHARED 块
+home.html            OK: 无 SHARED 块
+
+############ R5 §1.5 index.html ≡ 任务管理台.html ############
+IDENTICAL (PASS)
+
+############ R6 §1.8 业务键 / 数据体未改 ############
+MEDIA {"title": 计数: 1731
+海报墙 wb_ 键: wb_mediawall_custom_v1 wb_mediawall_dense_v1 wb_mediawall_reviews_v1 wb_mediawall_savedat_v1 wb_mediawall_sort_v1 wb_mediawall_stats_v1 wb_postcards_cloudsync_v1 wb_taskhub_cloudsync_v1 wb_theme_v1 
+home wb_ 键: wb_mediawall_custom_v1 wb_mediawall_stats_v1 wb_postcards_v1 wb_taskhub_v1 wb_theme_v1 wb_workbench_media_count_v1 wb_workbench_theme 
+
+############ R7 §2.9 PWA 静态 ############
+home.html            manifest-links=1
+index.html           manifest-links=2
+任务管理台.html           manifest-links=2
+明信片追踪.html           manifest-links=1
+书影音海报墙.html          manifest-links=1
+PRECACHE: "./", "./home.html", "./任务管理台.html", "./明信片追踪.html", "./书影音海报墙.html", "./icons/icon-192.png"

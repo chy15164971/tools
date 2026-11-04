@@ -1,0 +1,18 @@
+############ B1 §2.1 五页导航条 / 高亮 / hrefs / blank ############
+home.html            "{\"nav\":true,\"on\":[\"首页\"],\"cur\":[\"首页\"],\"blank\":0,\"hrefs\":[\"home.html\",\"任务管理台.html\",\"明信片追踪.html\",\"书影音海报墙.html\"],\"navpos\":\"relative\"}"
+index.html           "{\"nav\":true,\"on\":[\"任务台\"],\"cur\":[\"任务台\"],\"blank\":0,\"hrefs\":[\"home.html\",\"任务管理台.html\",\"明信片追踪.html\",\"书影音海报墙.html\"],\"navpos\":\"relative\"}"
+任务管理台.html           "{\"nav\":true,\"on\":[\"任务台\"],\"cur\":[\"任务台\"],\"blank\":0,\"hrefs\":[\"home.html\",\"任务管理台.html\",\"明信片追踪.html\",\"书影音海报墙.html\"],\"navpos\":\"relative\"}"
+明信片追踪.html           "{\"nav\":true,\"on\":[\"明信片\"],\"cur\":[\"明信片\"],\"blank\":0,\"hrefs\":[\"home.html\",\"任务管理台.html\",\"明信片追踪.html\",\"书影音海报墙.html\"],\"navpos\":\"relative\"}"
+书影音海报墙.html          "{\"nav\":true,\"on\":[\"海报墙\"],\"cur\":[\"海报墙\"],\"blank\":0,\"hrefs\":[\"home.html\",\"任务管理台.html\",\"明信片追踪.html\",\"书影音海报墙.html\"],\"navpos\":\"relative\"}"
+
+############ B2 §2.1 导航条全宽几何 / 768 hint ############
+w=1440  "{\"navLeft\":0,\"navRight\":1440,\"innerW\":1440,\"bodyPadLeft\":\"0px\",\"linksScroll\":1186,\"linksClient\":1186,\"hintVisible\":true,\"barOverflow\":false,\"docW\":1440}"
+w=1024  "{\"navLeft\":0,\"navRight\":1024,\"innerW\":1024,\"bodyPadLeft\":\"0px\",\"linksScroll\":770,\"linksClient\":770,\"hintVisible\":true,\"barOverflow\":false,\"docW\":1024}"
+w=768   "{\"navLeft\":0,\"navRight\":753,\"innerW\":768,\"bodyPadLeft\":\"0px\",\"linksScroll\":499,\"linksClient\":499,\"hintVisible\":true,\"barOverflow\":false,\"docW\":753}"
+w=390   "{\"navLeft\":0,\"navRight\":375,\"innerW\":390,\"bodyPadLeft\":\"0px\",\"linksScroll\":306,\"linksClient\":306,\"hintVisible\":false,\"barOverflow\":false,\"docW\":375}"
+
+############ B3 同标签跳转 ############
+href="file:///tmp/toolsrepo2/home.html"
+tabs=→ [t1] home.html - file:///tmp/toolsrepo2/home.html 
+
+############ B4 errors（本轮 nav 阶段） ############

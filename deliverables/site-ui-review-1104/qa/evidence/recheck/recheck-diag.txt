@@ -1,0 +1,18 @@
+############ D1 新鲜会话打开海报墙 ############
+✓ 书影音海报墙 · 已看已读已听
+  file:///tmp/toolsrepo2/%E4%B9%A6%E5%BD%B1%E9%9F%B3%E6%B5%B7%E6%8A%A5%E5%A2%99.html
+href="file:///tmp/toolsrepo2/%E4%B9%A6%E5%BD%B1%E9%9F%B3%E6%B5%B7%E6%8A%A5%E5%A2%99.html"
+title="书影音海报墙 · 已看已读已听"
+ready="complete"
+bodylen=556334
+ids(sel)="[[\"sortSel\",true],[\"densBtn\",true],[\"viewWall\",true],[\"viewStats\",true],[\"stats\",true],[\"chips\",true],[\"mask\",true],[\"modal\",true],[\"searchBox\",true],[\"btnAdd\",true]]"
+--- page errors ---
+--- console ---
+
+############ D2 源码：_profEntries 声明位置 / sortSel 是否静态 ############
+2870:let _profEntries = [];   /* 画像/口碑之最里可点击条目的引用池（每次渲染重建，data-pi 索引） */
+2941:    _profEntries.push(...hits);   /* 顺序即 data-pi 索引 */
+2942:    const piBase = _profEntries.length - hits.length;
+2972:  _profEntries = [];   /* 每次渲染重建点击引用池 */
+3048:    const pi = _profEntries.push(e) - 1;
+3095:  const it = _profEntries[+h.dataset.pi];

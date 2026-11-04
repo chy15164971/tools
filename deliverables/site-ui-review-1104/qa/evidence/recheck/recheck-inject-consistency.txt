@@ -1,0 +1,11 @@
+任务管理台.html           SITE-NAV  present=1 expected=1 OK
+任务管理台.html           SHARED    present=1 expected=1 OK
+index.html           SITE-NAV  present=1 expected=1 OK
+index.html           SHARED    present=1 expected=1 OK
+明信片追踪.html           SITE-NAV  present=1 expected=1 OK
+明信片追踪.html           SHARED    present=1 expected=1 OK
+书影音海报墙.html          SITE-NAV  present=1 expected=1 OK
+书影音海报墙.html          SHARED    present=0 expected=0 OK
+home.html            SITE-NAV  present=1 expected=1 OK
+home.html            SHARED    present=0 expected=0 OK
+RESULT: PASS
