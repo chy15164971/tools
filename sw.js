@@ -6,7 +6,8 @@ const PLAN_CACHE="wb-remind-plan";
 const SENT_CACHE="wb-remind-sent";
 const APP_CACHE="wb-app-v3";
 /* v3（2026-11-04）：换了工作台图标（三卡组取代任务台对勾），提升版本号让已安装的
-   客户端重新 install 并清掉旧缓存；同时把新 maskable 图标纳入预缓存。 */
+   客户端重新 install 并清掉旧缓存；同时把新 maskable 图标纳入预缓存。
+   同轮补：导航请求绕过 Pages 的 max-age=600 磁盘缓存（见下方 fetch）。 */
 const PRECACHE=["./", "./home.html", "./任务管理台.html", "./明信片追踪.html", "./书影音海报墙.html",
                 "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-512-maskable.png"];
 
@@ -83,11 +84,28 @@ setInterval(remindTick, 30000);
 remindTick();
 
 // 静态资源：先网络（保证拿到最新代码），失败回退缓存首页（离线可用）
+// 2026-11-04 加固：GitHub Pages 对 HTML 返回 cache-control: max-age=600，
+// 普通 fetch(req) 的 cache:"default" 会命中浏览器磁盘缓存，改版后 10 分钟内
+// 从门户点进子页可能仍是旧版 HTML（用户报告「看到之前的任务台画面」的次要成因）。
+// 导航请求用 URL 重新构造并指定 no-store 强制走网络；不能直接 fetch(e.request, init)，
+// 因为 navigate 模式的 Request 带 init 重建在部分浏览器会抛 TypeError。
+// 任何失败都退回原请求，再走缓存兜底；离线行为不变。
+function offlineFallback(){
+  return caches.match("./home.html", {cacheName:APP_CACHE, ignoreSearch:true})
+    .then(function(r){ return r || caches.match("./", {cacheName:APP_CACHE, ignoreSearch:true}); });
+}
 self.addEventListener("fetch", function(e){
   if(e.request.method!=="GET") return;
+  var upstream;
+  if(e.request.mode==="navigate"){
+    upstream = fetch(e.request.url, {cache:"no-store", credentials:"same-origin", redirect:"follow"})
+      .catch(function(){ return fetch(e.request); });
+  }else{
+    upstream = fetch(e.request);
+  }
   e.respondWith(
-    fetch(e.request).then(function(r){ return r; }).catch(function(){
-      if(e.request.mode==="navigate") return caches.match("./home.html", {cacheName:APP_CACHE, ignoreSearch:true}).then(function(r){ return r || caches.match("./", {cacheName:APP_CACHE, ignoreSearch:true}); });
+    upstream.catch(function(){
+      if(e.request.mode==="navigate") return offlineFallback();
       return Response.error();
     })
   );
