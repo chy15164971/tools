@@ -8241,7 +8241,9 @@ function renderInbox(){
     const done=t.status==="done";
     const pc=priColor(t.priority), cc=catColor(t.cat);
     const sub=(t.subtasks&&t.subtasks.length)?`<span class="sub-badge">子任务 ${subBadge(t).trim()}</span>`:"";
-    html+=`<div class="inbox-item ${done?'done':''} ${t.dropped?'dropped':''} ${(selMode&&selIds.has(t.id))?'sel-checked':''}" data-id="${t.id}" draggable="true">   /* 建议3：可拖到日历/时间轴的某一天直接安排 */
+    // 建议3：draggable 供「拖到日历/时间轴某一天直接安排」使用，落点绑定见 bindScheduleDropZones()。
+    // 该提示的正式文案只在顶部 .inbox-hint 说明，切勿把注释写进模板字符串（会被当作正文渲染）。
+    html+=`<div class="inbox-item ${done?'done':''} ${t.dropped?'dropped':''} ${(selMode&&selIds.has(t.id))?'sel-checked':''}" data-id="${t.id}" draggable="true">
       ${selMode?selCheckHTML(t.id):""}
       <div class="ibar" style="background:${pc}"></div>
       <div class="ibm">
