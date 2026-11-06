@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-把 _shared 下的共享代码内联进四个单文件 HTML。
+把 _shared 下的共享代码内联进五个单文件 HTML（含 index.html——它是任务管理台.html 的逐字节副本）。
 改完源文件后运行：  python3 _shared/inject_shared.py
 单文件 HTML 仍保持零依赖、可离线、双击即用（内容是内联的，不是 <src> 引用）。
 
 三块，互不影响（2026-11-04 站点统一）：
-  1) SHARED  —— shared.js，仅任务管理台 / 明信片追踪 两页（云同步公共层）
+  1) SHARED  —— shared.js，仅任务管理台 / 明信片追踪 / index.html 三页（云同步公共层）
        ⚠️ 不可注入海报墙与门户页 home.html：shared.js 的 esc/toast/setCloudStatus 等顶层声明
           与海报墙同名，整块注入会 SyntaxError 白屏（已实测 6 处冲突）。
   2) SITE-NAV-HTML —— site-nav-static.html，五页共用，位于 <body> 开头。

@@ -763,14 +763,15 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
      当前页高亮与 PWA 注册仍由 _shared/site-nav.js 补（纯样式变化，不引起布局跳动）。
      品牌图标：__wsn_brand 前内联同款三卡组 SVG（与首页 logo / PWA 图标同源），
      用 inline 而非 <img> 引用外部文件——零额外请求、首屏即显示、离线绝对稳，且不依赖 SW 缓存；
-     渐变 id 加 __wsn_ 前缀避免同页 id 冲突。 -->
+     渐变 id 加 __wsn_ 前缀避免同页 id 冲突。
+     2026-11-06 D-16：品牌由 <span> 改为 <a href="home.html">，四个子页可点左上角回首页。 -->
 <style id="__wsn_style">
 .__wsn_bar{display:flex;align-items:center;gap:14px;padding:7px 16px;box-sizing:border-box;
   width:100%;background:var(--card,#fff);color:var(--ink,#1f2430);
   border-bottom:1px solid var(--line,#e7ebf2);font-size:13px;line-height:1.5;
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
   position:relative;z-index:1}
-.__wsn_brand{display:inline-flex;align-items:center;gap:7px;font-weight:600;letter-spacing:.02em;white-space:nowrap;color:var(--ink,#1f2430)}
+.__wsn_brand{display:inline-flex;align-items:center;gap:7px;font-weight:600;letter-spacing:.02em;white-space:nowrap;color:var(--ink,#1f2430);text-decoration:none;cursor:pointer}
 .__wsn_icon{width:20px;height:20px;border-radius:5px;flex:none;display:block}
 .__wsn_links{display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
 .__wsn_links::-webkit-scrollbar{display:none}
@@ -785,7 +786,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
 @media(prefers-reduced-motion:reduce){.__wsn_links a{transition:none}}
 </style>
 <nav id="__wsn_bar" class="__wsn_bar" aria-label="站点导航">
-  <span class="__wsn_brand"><svg class="__wsn_icon" viewBox="0 0 1024 1024" aria-hidden="true"><defs><linearGradient id="__wsn_wbG" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5B86FF"/><stop offset="1" stop-color="#2F5FE0"/></linearGradient></defs><rect width="1024" height="1024" rx="208" fill="url(#__wsn_wbG)"/><rect x="62" y="62" width="900" height="900" rx="208" fill="none" stroke="#FFFFFF" stroke-opacity="0.8" stroke-width="12"/><rect x="208" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="228" y="426" width="128" height="22" rx="11" fill="#4F7CFF"/><rect x="428" y="334" width="168" height="372" rx="34" fill="#FFFFFF"/><rect x="448" y="354" width="128" height="22" rx="11" fill="#D4537E"/><rect x="648" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="668" y="426" width="128" height="22" rx="11" fill="#8B5CF6"/></svg>工作台</span>
+  <a class="__wsn_brand" href="home.html" aria-label="工作台首页"><svg class="__wsn_icon" viewBox="0 0 1024 1024" aria-hidden="true"><defs><linearGradient id="__wsn_wbG" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5B86FF"/><stop offset="1" stop-color="#2F5FE0"/></linearGradient></defs><rect width="1024" height="1024" rx="208" fill="url(#__wsn_wbG)"/><rect x="62" y="62" width="900" height="900" rx="208" fill="none" stroke="#FFFFFF" stroke-opacity="0.8" stroke-width="12"/><rect x="208" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="228" y="426" width="128" height="22" rx="11" fill="#4F7CFF"/><rect x="428" y="334" width="168" height="372" rx="34" fill="#FFFFFF"/><rect x="448" y="354" width="128" height="22" rx="11" fill="#D4537E"/><rect x="648" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="668" y="426" width="128" height="22" rx="11" fill="#8B5CF6"/></svg>工作台</a>
   <div class="__wsn_links">
     <a href="home.html" data-page="home">首页</a>
     <a href="任务管理台.html" data-page="tasks">任务台</a>
@@ -832,13 +833,10 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   <div class="topbar">
     <div class="brand">
       <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg></div>
-      明信片追踪<span id="appVer" style="font-size:10px;font-weight:500;color:var(--sub);margin-left:6px;letter-spacing:.02em;">v2026-10-23d</span>
+      明信片追踪
     </div>
     <div class="spacer"></div>
     <div class="top-actions">
-      <a class="sib-link" href="任务管理台.html" rel="noopener" title="打开任务管理台">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>任务台
-      </a>
       <button class="btn btn-ghost btn-sm" id="btnTheme" title="切换深浅色">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
       </button>
@@ -1503,15 +1501,16 @@ var _emojiRe=null;
 (function(){
 /* >>> SHARED:BEGIN —— 由 _shared/shared.js 自动生成，请勿直接编辑本块 */
 /* ============================================================================
- * shared.js —— 任务管理台 / 明信片追踪 公共层（单一事实源）
+ * shared.js —— 任务管理台 / 明信片追踪 / index.html 公共层（单一事实源）
  * ----------------------------------------------------------------------------
  * 用法：改完本文件后运行 `python3 _shared/inject_shared.py`，
- *       会把本文件内容内联进两个 HTML 的 SHARED 块（保持单文件零依赖可离线）。
+ *       会把本文件内容内联进三个 HTML 的 SHARED 块（保持单文件零依赖可离线）。
  *
  * 收录原则（实测依据见代码审查报告第九节）：
  *   1. 两文件实现逐字节一致 → 直接抽；
  *   2. 有分歧但可统一且某版更优 → 取优版（本文件 3 处，见下）；
- *   3. 同名但实现不同（esc / save / load / renderAll …）→ 一律不抽。
+ *   3. 同名但实现不同（save / load / renderAll …）→ 一律不抽。
+ *      例外：esc 已于 2026-09-17 统一下沉到本层（见文末 :472），宿主不再各自定义。
  *
  * 已取优统一的分歧：
  *   · fetchWithTimeout —— 任务台 12000ms / 明信片 15000ms → 统一 15000（云同步更宽容）
@@ -2994,6 +2993,10 @@ function proxySharedMeta(data){
 
 function saveProxyModal(){
   const id=document.getElementById("pId").value.trim();
+  /* Q-06：区分「留空」与「明确填 0 / 负数 / 非法值」——留空沿用旧默认 1（不破坏既有流程），
+     明确输入的非法值就地提示并拒绝保存，绝不静默改写成 1。 */
+  const rawCount=String(document.getElementById("pCardCount").value||"").trim();
+  const countOk=rawCount==="" || (/^\d+$/.test(rawCount) && +rawCount>=1);
   const mode = document.getElementById("pProxyMode").value.trim()==="oneway" ?PMODE.ONEWAY:PMODE.BACK;
   const data={
     proxy: document.getElementById("pProxy").value.trim(),
@@ -3002,7 +3005,7 @@ function saveProxyModal(){
     platform: document.getElementById("pPlatform").value.trim(),
     type: document.getElementById("pType").value.trim(),
     exchange: document.getElementById("pExchange").value.trim(),
-    cardCount: Math.max(1, parseInt(document.getElementById("pCardCount").value,10)||1),
+    cardCount: rawCount==="" ? 1 : +rawCount,
     sent: document.getElementById("pSent").value.trim(),
     proxyRecv: document.getElementById("pProxyRecv").value.trim(),
     proxyBack: document.getElementById("pProxyBack").value.trim(),
@@ -3013,6 +3016,7 @@ function saveProxyModal(){
     proxyMode: mode
   };
   if(!data.proxy){ fieldError("pProxy","请填写对方（代寄人）"); return; }   // P2-13
+  if(!countOk || !(data.cardCount>=1)){ fieldError("pCardCount","张数至少为 1"); return; }   // Q-06
   // 单向代寄：用到 对方寄出(envSent) + 我收(envRecv) + 我写回寄出(sent) + 完成(gotBack)，清空写回步骤并强制 direction=me
   if(mode==="oneway"){ data.proxyRecv=""; data.proxyBack=""; data.direction=PDIR.ME; }
   else { data.envSent=""; data.envRecv=""; } // 往返模式不携带单向信封字段
@@ -4954,7 +4958,7 @@ let typeList=TYPE_DEFAULT.slice();
 let countryList=COUNTRY_DEFAULT.slice();
 let optsKind="platform", optsReturn=null;
 
-const cleanArr=v=>sanitizeArr(v);   // 旧名保留兼容（两文件不用，但改调用点风险大时可用）
+const cleanArr=v=>sanitizeArr(v);   // 旧名保留兼容：云同步 collect 映射仍有 4 处在用（postcards/received/proxies/activities），勿删
 /* ===== 本地存储统一写入口 =====
    原实现把 QuotaExceededError 静默吞掉 → 界面显示「已保存」、刷新后数据全丢且毫无提示。
    明信片含 base64 图片，极易触发配额上限，这里必须显式告警。 */

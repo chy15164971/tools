@@ -4,13 +4,17 @@
    注意：本文件与 manifest.json/icons 只在部署到 https 时生效；本地双击 HTML 不会触发注册。 */
 const PLAN_CACHE="wb-remind-plan";
 const SENT_CACHE="wb-remind-sent";
-const APP_CACHE="wb-app-v4";
-/* v4（2026-11-04）：页头工作台 logo 改用三卡组 SVG（icons/workbench-icon.svg），
-   纳入预缓存让离线也能显示；顺带把改后的 home.html 重新预缓存。
-   v3：换了工作台图标（三卡组取代任务台对勾）+ 导航请求绕过 Pages 的 max-age=600 磁盘缓存。 */
+const APP_CACHE="wb-app-v5";
+/* v5（2026-11-06 审查修复 C-11/C-12）：补齐 PRECACHE 缺项；navigate 失败按路径回对应页；
+   非导航失败先查预缓存；海报图做限量 CacheFirst。升版本以强制重新预缓存。
+   v4：页头工作台 logo 改用三卡组 SVG（icons/workbench-icon.svg）并纳入预缓存。
+   v3：换了工作台图标 + 导航请求绕过 Pages 的 max-age=600 磁盘缓存。 */
+/* "./" 是目录根，GitHub Pages 在该路径提供的正是 index.html，故不另列 ./index.html。 */
 const PRECACHE=["./", "./home.html", "./任务管理台.html", "./明信片追踪.html", "./书影音海报墙.html",
+                "./manifest.json", "./媒体自定义条目.js", "./媒体进度看板.html",
+                "./icons/icon-152.png", "./icons/icon-167.png", "./icons/icon-180.png",
                 "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-512-maskable.png",
-                "./icons/workbench-icon.svg"];
+                "./icons/favicon.ico", "./icons/workbench-icon.svg"];
 
 // 2026-11-04 站点统一：预缓存门户 + 三个子页，离线可从任一页兜底回工作台首页
 self.addEventListener("install", function(e){
@@ -91,12 +95,57 @@ remindTick();
 // 导航请求用 URL 重新构造并指定 no-store 强制走网络；不能直接 fetch(e.request, init)，
 // 因为 navigate 模式的 Request 带 init 重建在部分浏览器会抛 TypeError。
 // 任何失败都退回原请求，再走缓存兜底；离线行为不变。
-function offlineFallback(){
-  return caches.match("./home.html", {cacheName:APP_CACHE, ignoreSearch:true})
-    .then(function(r){ return r || caches.match("./", {cacheName:APP_CACHE, ignoreSearch:true}); });
+/* C-11：离线时按 URL 回对应缓存页，回不到才退门户；避免「打开任务台却被门户替换」。 */
+const NAV_MAP=[
+  ["任务管理台.html", "./任务管理台.html"],
+  ["明信片追踪.html", "./明信片追踪.html"],
+  ["书影音海报墙.html", "./书影音海报墙.html"],
+  ["媒体进度看板.html", "./媒体进度看板.html"],
+  ["index.html", "./"],
+  ["home.html", "./home.html"]
+];
+function offlineFallback(url){
+  var p="";
+  try{ p=decodeURIComponent(new URL(url).pathname); }catch(_){}
+  var chain=[];
+  for(var i=0;i<NAV_MAP.length;i++){
+    if(p.indexOf(NAV_MAP[i][0])>=0){ chain.push(NAV_MAP[i][1]); break; }
+  }
+  chain.push("./home.html", "./");
+  return chain.reduce(function(prev,u){
+    return prev.then(function(r){
+      return r || caches.match(u, {cacheName:APP_CACHE, ignoreSearch:true});
+    });
+  }, Promise.resolve(null)).then(function(r){ return r || Response.error(); });
+}
+/* C-11：海报图做限量 CacheFirst（只缓存本次 SW 生命周期内前 120 张，避免撑爆配额）。 */
+const POSTER_CACHE_LIMIT=120;
+var posterCached=0;
+function isPosterRequest(url){
+  try{ return decodeURIComponent(new URL(url).pathname).indexOf("/媒体海报/")>=0; }catch(_){ return false; }
+}
+function fromCache(req){
+  return caches.match(req, {cacheName:APP_CACHE, ignoreSearch:true})
+    .then(function(r){ return r || Response.error(); });
 }
 self.addEventListener("fetch", function(e){
   if(e.request.method!=="GET") return;
+  if(e.request.mode!=="navigate" && isPosterRequest(e.request.url)){
+    e.respondWith(
+      caches.match(e.request, {cacheName:APP_CACHE, ignoreSearch:true}).then(function(hit){
+        if(hit) return hit;
+        return fetch(e.request).then(function(res){
+          if(res && res.ok && posterCached < POSTER_CACHE_LIMIT){
+            posterCached++;
+            var copy=res.clone();
+            caches.open(APP_CACHE).then(function(c){ return c.put(e.request, copy); }).catch(function(){});
+          }
+          return res;
+        }).catch(function(){ return fromCache(e.request); });
+      })
+    );
+    return;
+  }
   var upstream;
   if(e.request.mode==="navigate"){
     upstream = fetch(e.request.url, {cache:"no-store", credentials:"same-origin", redirect:"follow"})
@@ -106,8 +155,8 @@ self.addEventListener("fetch", function(e){
   }
   e.respondWith(
     upstream.catch(function(){
-      if(e.request.mode==="navigate") return offlineFallback();
-      return Response.error();
+      if(e.request.mode==="navigate") return offlineFallback(e.request.url);
+      return fromCache(e.request);
     })
   );
 });

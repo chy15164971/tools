@@ -61,6 +61,23 @@
   .metric .n{font-size:26px;font-weight:600;line-height:1.2;color:var(--ink)}
   .metric .n.dim{color:var(--sub);font-weight:400}
   .metric .l{font-size:11.5px;color:var(--sub);margin-top:2px}
+  /* D-03：最小化 toast（仅刷新反馈复用，不做全站组件抽取） */
+  .toast{position:fixed;left:50%;transform:translateX(-50%) translateY(8px);
+         bottom:calc(24px + env(safe-area-inset-bottom) + var(--kb,0px));
+         max-width:min(88vw,420px);padding:10px 16px;border-radius:11px;
+         background:var(--ink);color:var(--card);font-size:13px;line-height:1.5;
+         box-shadow:0 8px 26px rgba(0,0,0,.18);opacity:0;pointer-events:none;
+         transition:opacity .18s ease,transform .18s ease;z-index:50}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.success{border-left:4px solid var(--ok)}
+  .toast.danger{border-left:4px solid var(--danger)}
+  .toast.warn{border-left:4px solid var(--warn)}
+  /* D-12：主 CTA 统一按压态（不恢复导航条 hover 位移动效） */
+  .card:active{transform:translateY(-1px) scale(.99);border-color:var(--pri-deep)}
+  .btn:active{transform:scale(.96);border-color:var(--pri-deep)}
+  /* D-04：空态与子页 .empty 视觉语言统一（居中、--sub 弱化） */
+  .metric .n.dim,.ov-cell .v.dim{text-align:center}
+  .ov-note{text-align:center}
   .go{font-size:13px;color:var(--pri-ink);font-weight:600;margin-top:auto}
   [data-theme="dark"] .go{color:#8fb0ff}
   /* 概览卡：只复用已有的三个摘要数据 + 本次读取时间，不新增 localStorage 键、不新增业务数据 */
@@ -86,7 +103,7 @@
   @media(max-width:560px){.wrap{padding:16px 14px 32px}
     .head h1{font-size:22px}.grid{grid-template-columns:1fr}.grid .card:nth-child(3){grid-column:auto}
     .card{min-height:0}.card .desc{min-height:0}}
-  @media(prefers-reduced-motion:reduce){.card,.btn,body{transition:none}.card:hover{transform:none}}
+  @media(prefers-reduced-motion:reduce){.card,.btn,.toast,body{transition:none}.card:hover{transform:none}}
   /* === SHARED TOKENS START === */
   :root{
     --bg:#f5f7fb; --card:#ffffff; --ink:#1f2430; --text:#1f2430; --sub:#6b7280; --line:#e7ebf2;
@@ -129,14 +146,15 @@
      当前页高亮与 PWA 注册仍由 _shared/site-nav.js 补（纯样式变化，不引起布局跳动）。
      品牌图标：__wsn_brand 前内联同款三卡组 SVG（与首页 logo / PWA 图标同源），
      用 inline 而非 <img> 引用外部文件——零额外请求、首屏即显示、离线绝对稳，且不依赖 SW 缓存；
-     渐变 id 加 __wsn_ 前缀避免同页 id 冲突。 -->
+     渐变 id 加 __wsn_ 前缀避免同页 id 冲突。
+     2026-11-06 D-16：品牌由 <span> 改为 <a href="home.html">，四个子页可点左上角回首页。 -->
 <style id="__wsn_style">
 .__wsn_bar{display:flex;align-items:center;gap:14px;padding:7px 16px;box-sizing:border-box;
   width:100%;background:var(--card,#fff);color:var(--ink,#1f2430);
   border-bottom:1px solid var(--line,#e7ebf2);font-size:13px;line-height:1.5;
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
   position:relative;z-index:1}
-.__wsn_brand{display:inline-flex;align-items:center;gap:7px;font-weight:600;letter-spacing:.02em;white-space:nowrap;color:var(--ink,#1f2430)}
+.__wsn_brand{display:inline-flex;align-items:center;gap:7px;font-weight:600;letter-spacing:.02em;white-space:nowrap;color:var(--ink,#1f2430);text-decoration:none;cursor:pointer}
 .__wsn_icon{width:20px;height:20px;border-radius:5px;flex:none;display:block}
 .__wsn_links{display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
 .__wsn_links::-webkit-scrollbar{display:none}
@@ -151,7 +169,7 @@
 @media(prefers-reduced-motion:reduce){.__wsn_links a{transition:none}}
 </style>
 <nav id="__wsn_bar" class="__wsn_bar" aria-label="站点导航">
-  <span class="__wsn_brand"><svg class="__wsn_icon" viewBox="0 0 1024 1024" aria-hidden="true"><defs><linearGradient id="__wsn_wbG" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5B86FF"/><stop offset="1" stop-color="#2F5FE0"/></linearGradient></defs><rect width="1024" height="1024" rx="208" fill="url(#__wsn_wbG)"/><rect x="62" y="62" width="900" height="900" rx="208" fill="none" stroke="#FFFFFF" stroke-opacity="0.8" stroke-width="12"/><rect x="208" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="228" y="426" width="128" height="22" rx="11" fill="#4F7CFF"/><rect x="428" y="334" width="168" height="372" rx="34" fill="#FFFFFF"/><rect x="448" y="354" width="128" height="22" rx="11" fill="#D4537E"/><rect x="648" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="668" y="426" width="128" height="22" rx="11" fill="#8B5CF6"/></svg>工作台</span>
+  <a class="__wsn_brand" href="home.html" aria-label="工作台首页"><svg class="__wsn_icon" viewBox="0 0 1024 1024" aria-hidden="true"><defs><linearGradient id="__wsn_wbG" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5B86FF"/><stop offset="1" stop-color="#2F5FE0"/></linearGradient></defs><rect width="1024" height="1024" rx="208" fill="url(#__wsn_wbG)"/><rect x="62" y="62" width="900" height="900" rx="208" fill="none" stroke="#FFFFFF" stroke-opacity="0.8" stroke-width="12"/><rect x="208" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="228" y="426" width="128" height="22" rx="11" fill="#4F7CFF"/><rect x="428" y="334" width="168" height="372" rx="34" fill="#FFFFFF"/><rect x="448" y="354" width="128" height="22" rx="11" fill="#D4537E"/><rect x="648" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="668" y="426" width="128" height="22" rx="11" fill="#8B5CF6"/></svg>工作台</a>
   <div class="__wsn_links">
     <a href="home.html" data-page="home">首页</a>
     <a href="任务管理台.html" data-page="tasks">任务台</a>
@@ -193,11 +211,11 @@
     <a class="card" href="明信片追踪.html" id="cardPostcards">
       <div class="ico ico-pcards">✉</div>
       <h2>明信片追踪</h2>
-      <div class="desc">寄出 / 收到 / 代寄 / 活动，寄送状态全生命周期</div>
+      <div class="desc">寄出 / 收到 / 代寄 / 活动；寄收·在途 / 寄收·已到仅统计寄出与收到两类，全部为记录条数（含代寄与活动，代寄按条数不计张数）</div>
       <div class="metrics">
-        <div class="metric"><div class="n" id="mPcTransit">—</div><div class="l">在途</div></div>
-        <div class="metric"><div class="n" id="mPcArrived">—</div><div class="l">已到 / 已收</div></div>
-        <div class="metric"><div class="n" id="mPcAll">—</div><div class="l">全部记录</div></div>
+        <div class="metric"><div class="n" id="mPcTransit">—</div><div class="l">寄收·在途</div></div>
+        <div class="metric"><div class="n" id="mPcArrived">—</div><div class="l">寄收·已到</div></div>
+        <div class="metric"><div class="n" id="mPcAll">—</div><div class="l">记录条数</div></div>
       </div>
       <div class="go">打开明信片 →</div>
     </a>
@@ -207,7 +225,7 @@
       <h2>书影音海报墙</h2>
       <div class="desc">已看 / 已读 / 已听，海报墙与兴趣画像</div>
       <div class="metrics">
-        <div class="metric"><div class="n" id="mMediaAll">—</div><div class="l">已记录</div></div>
+        <div class="metric"><div class="n" id="mMediaAll">—</div><div class="l">已记录（含自定义 / 代查）</div></div>
         <div class="metric"><div class="n" id="mMediaCustom">—</div><div class="l">自定义条目</div></div>
       </div>
       <div class="go">打开海报墙 →</div>
@@ -250,15 +268,28 @@
   </div>
 </div>
 
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
 <script>
 (function(){
   "use strict";
   var THEME_KEY = "wb_workbench_theme";
+  /* C-04：wb_mediawall_stats_v1.total 是媒体总记录数唯一权威口径；本缓存键与 fetch 兜底只补同一个 total 值，不另立第二套计数 */
   var MEDIA_CACHE_KEY = "wb_workbench_media_count_v1";
 
   function read(k){ try{ var s=localStorage.getItem(k); return s?JSON.parse(s):null; }catch(e){ return null; } }
   function setText(id, v){ var el=document.getElementById(id); if(el){ el.textContent=(v===null||v===undefined)?"—":String(v); el.classList.toggle("dim", v===null||v===undefined); } }
   function today(){ var d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+
+  /* D-03：最小化 toast，仅供刷新反馈复用（role=status / aria-live=polite 已写在元素上） */
+  var toastTimer=null;
+  function toast(msg, kind){
+    var el=document.getElementById("toast"); if(!el) return;
+    el.className="toast "+(kind||"success")+" show";
+    el.textContent=msg;
+    if(toastTimer) clearTimeout(toastTimer);
+    toastTimer=setTimeout(function(){ el.classList.remove("show"); }, 2200);
+  }
 
   /* ===== 主题：沿用三页共用的 wb_theme_v1，允许本页单独覆盖 ===== */
   function applyTheme(t){
@@ -268,7 +299,7 @@
   }
   function initTheme(){
     var t=null;
-    try{ t=localStorage.getItem(THEME_KEY)||localStorage.getItem("wb_theme_v1"); }catch(e){}
+    try{ t=localStorage.getItem("wb_theme_v1")||localStorage.getItem(THEME_KEY); }catch(e){}
     if(!t) t = (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark":"light";
     applyTheme(t);
   }
@@ -282,6 +313,41 @@
   /* ===== 摘要：任务台 wb_taskhub_v1（数组） =====
      今日完成复刻任务台 doneOnDate(t,k)：重复任务看 doneDates 含今日，非重复任务看 doneAt 当日键或 doneAt.self 日期；
      status==="done" 与 doneDates 仅用于「进行中」判定。2026-11-04 审查轮按 QA fixtures 校正。 */
+  /* ===== C-01：复刻任务台 isTaskDoneNow()/recPeriodStart()（任务管理台.html:5007-5027），
+     仅在本页内联等价实现，不引用任务台文件、不改任务台。辅助函数语义对齐 :3339-3355。 */
+  function hParseLocal(s){
+    if(!s) return new Date();
+    if(s instanceof Date) return new Date(s.getTime());
+    var m=String(s).match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+    if(m) return new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5]);
+    m=String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+    return new Date(s);
+  }
+  function hStartOfDay(d){ var x=new Date(d); x.setHours(0,0,0,0); return x; }
+  function hAddDays(d,n){ var x=new Date(d); x.setDate(x.getDate()+n); return x; }
+  function hRecPeriodStart(t, ref){
+    var r=(t&&t.recurrence)||{}, f=r.freq;
+    var iv=Math.max(1, Math.round(+r.interval||1));
+    var d=hStartOfDay(ref||new Date());
+    if(f==="daily") return hStartOfDay(hAddDays(d,-(iv-1)));
+    if(f==="weekly") return hStartOfDay(hAddDays(d,-(((d.getDay()+6)%7)+7*(iv-1))));
+    if(f==="monthly"){ var m=new Date(d.getFullYear(), d.getMonth()-(iv-1), 1); return hStartOfDay(m); }
+    return d;
+  }
+  function isDoneNow(t, ref){
+    if(!t) return false;
+    if(!t.recurrence || t.recurrence.freq==="none") return String(t.status)==="done";
+    var dd=Array.isArray(t.doneDates)?t.doneDates:[];
+    var now=hStartOfDay(ref||new Date());
+    var u=t.recurrence.until;
+    if(u){ var ud=hParseLocal(u); if(!isNaN(ud) && hStartOfDay(ud)<now) return dd.length>0; }
+    var from=hRecPeriodStart(t, ref);
+    for(var i=dd.length-1;i>=0;i--){ var x=hParseLocal(dd[i]); if(!isNaN(x) && hStartOfDay(x)>=from) return true; }
+    return false;
+  }
+  function isRecTask(t){ return !!(t && t.recurrence && t.recurrence.freq!=="none"); }
+
   function summaryTasks(){
     var a=read("wb_taskhub_v1");
     if(!Array.isArray(a)) return null;
@@ -295,10 +361,13 @@
       var doneToday = recurring
         ? dd.some(function(x){ return String(x).slice(0,10)===td; })
         : (String(t.status)==="done" && !!(da[td] || (da.self && String(da.self).slice(0,10)===td)));
-      var isDone = String(t.status)==="done" || dd.length>0;
       if(doneToday) done++;
-      else if(!isDone) open++;
     });
+    /* C-01：进行中 = 未按当前周期判完成 且 非「已标记不补做的非重复任务」；
+       与任务台 renderStats「total - done - droppedCount」口径一致（:8381/:8389）。 */
+    open=a.filter(function(t){
+      return t && typeof t==="object" && !isDoneNow(t) && !( !isRecTask(t) && t.dropped );
+    }).length;
     return { open:open, done:done, all:a.length };
   }
 
@@ -327,14 +396,41 @@
     if(c && typeof c.total==="number") return { total:c.total, custom:customN, cached:true };
     return { total:null, custom:customN, cached:false };
   }
-  function fetchMediaCount(force){
-    if(!window.fetch) return;
+  /* C-04：降级说明写进概览「媒体数据状态」副行，避免只留一个无解释的「—」 */
+  function mediaFallback(msg){
+    var el=document.getElementById("ovMediaS");
+    if(el) el.textContent=msg;
+  }
+  function fetchMediaCount(){
+    /* file:// 下 fetch 相对/绝对路径都会抛 TypeError（QA 实证），兜底原本是死代码；
+       用 location.protocol 守卫跳过，直接给可读降级说明，不再抛未捕获异常。 */
+    if(location.protocol==="file:"){
+      mediaFallback("本机文件模式：无法抓取海报墙统计，打开「书影音海报墙」后会自动写入记录数。");
+      return;
+    }
+    if(!window.fetch){
+      mediaFallback("当前环境不支持抓取；打开「书影音海报墙」后会自动写入记录数。");
+      return;
+    }
+    mediaFallback("正在读取海报墙统计…");
     try{
       fetch("书影音海报墙.html", {cache:"no-store"}).then(function(r){ return r.text(); }).then(function(txt){
         var n=(txt.match(/\{"title":/g)||[]).length;
-        if(n>0){ try{ localStorage.setItem(MEDIA_CACHE_KEY, JSON.stringify({total:n, ts:Date.now()})); }catch(e){} render(); }
-      }).catch(function(){});
-    }catch(e){}
+        if(n>0){
+          /* 唯一权威口径 wb_mediawall_stats_v1.total：缓存键与 fetch 兜底只补同一个记录总数，不另立计数 */
+          try{ localStorage.setItem(MEDIA_CACHE_KEY, JSON.stringify({total:n, ts:Date.now()})); }catch(e){}
+          render();
+        }else{
+          mediaFallback("未在海报墙页面读到记录数；打开「书影音海报墙」后会自动写入。");
+        }
+      }).catch(function(e){
+        console.warn("[home] 海报墙统计兜底抓取失败：", e);
+        mediaFallback("海报墙统计读取失败（详见控制台）；打开「书影音海报墙」后会自动写入记录数。");
+      });
+    }catch(e){
+      console.warn("[home] 海报墙统计兜底抓取异常：", e);
+      mediaFallback("海报墙统计读取失败（详见控制台）；打开「书影音海报墙」后会自动写入记录数。");
+    }
   }
 
   /* ===== 概览卡：只用已有的三个摘要数据，不新增键、不写入业务数据 ===== */
@@ -356,7 +452,7 @@
     var el=document.getElementById("ovTime");
     if(el){
       var d=new Date();
-      el.textContent="最近刷新 "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+      el.textContent="最近刷新 "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")+":"+String(d.getSeconds()).padStart(2,"0");
     }
   }
 
@@ -366,12 +462,17 @@
     setText("mPcTransit", p?p.transit:null); setText("mPcArrived", p?p.arrived:null); setText("mPcAll", p?p.all:null);
     setText("mMediaAll", m.total); setText("mMediaCustom", m.custom===null?null:m.custom);
     renderOverview(t, p, m);
-    if(m.total===null) fetchMediaCount(false);
+    if(m.total===null) fetchMediaCount();
   }
 
   document.getElementById("btnRefresh").addEventListener("click", function(){
     try{ localStorage.removeItem(MEDIA_CACHE_KEY); }catch(e){}
     render();
+    /* D-04：按钮文字 + toast(aria-live) + ovTime 秒级，保证同一分钟内重复点击也有可见反馈 */
+    var b=document.getElementById("btnRefresh");
+    b.textContent="已刷新 ✓";
+    toast("摘要已刷新","success");
+    setTimeout(function(){ b.textContent="刷新摘要"; }, 1200);
   });
   try{ document.getElementById("origin").textContent = location.hostname || "本机文件"; }catch(e){}
   initTheme();

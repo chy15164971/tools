@@ -1743,14 +1743,15 @@
      当前页高亮与 PWA 注册仍由 _shared/site-nav.js 补（纯样式变化，不引起布局跳动）。
      品牌图标：__wsn_brand 前内联同款三卡组 SVG（与首页 logo / PWA 图标同源），
      用 inline 而非 <img> 引用外部文件——零额外请求、首屏即显示、离线绝对稳，且不依赖 SW 缓存；
-     渐变 id 加 __wsn_ 前缀避免同页 id 冲突。 -->
+     渐变 id 加 __wsn_ 前缀避免同页 id 冲突。
+     2026-11-06 D-16：品牌由 <span> 改为 <a href="home.html">，四个子页可点左上角回首页。 -->
 <style id="__wsn_style">
 .__wsn_bar{display:flex;align-items:center;gap:14px;padding:7px 16px;box-sizing:border-box;
   width:100%;background:var(--card,#fff);color:var(--ink,#1f2430);
   border-bottom:1px solid var(--line,#e7ebf2);font-size:13px;line-height:1.5;
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
   position:relative;z-index:1}
-.__wsn_brand{display:inline-flex;align-items:center;gap:7px;font-weight:600;letter-spacing:.02em;white-space:nowrap;color:var(--ink,#1f2430)}
+.__wsn_brand{display:inline-flex;align-items:center;gap:7px;font-weight:600;letter-spacing:.02em;white-space:nowrap;color:var(--ink,#1f2430);text-decoration:none;cursor:pointer}
 .__wsn_icon{width:20px;height:20px;border-radius:5px;flex:none;display:block}
 .__wsn_links{display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
 .__wsn_links::-webkit-scrollbar{display:none}
@@ -1765,7 +1766,7 @@
 @media(prefers-reduced-motion:reduce){.__wsn_links a{transition:none}}
 </style>
 <nav id="__wsn_bar" class="__wsn_bar" aria-label="站点导航">
-  <span class="__wsn_brand"><svg class="__wsn_icon" viewBox="0 0 1024 1024" aria-hidden="true"><defs><linearGradient id="__wsn_wbG" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5B86FF"/><stop offset="1" stop-color="#2F5FE0"/></linearGradient></defs><rect width="1024" height="1024" rx="208" fill="url(#__wsn_wbG)"/><rect x="62" y="62" width="900" height="900" rx="208" fill="none" stroke="#FFFFFF" stroke-opacity="0.8" stroke-width="12"/><rect x="208" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="228" y="426" width="128" height="22" rx="11" fill="#4F7CFF"/><rect x="428" y="334" width="168" height="372" rx="34" fill="#FFFFFF"/><rect x="448" y="354" width="128" height="22" rx="11" fill="#D4537E"/><rect x="648" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="668" y="426" width="128" height="22" rx="11" fill="#8B5CF6"/></svg>工作台</span>
+  <a class="__wsn_brand" href="home.html" aria-label="工作台首页"><svg class="__wsn_icon" viewBox="0 0 1024 1024" aria-hidden="true"><defs><linearGradient id="__wsn_wbG" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5B86FF"/><stop offset="1" stop-color="#2F5FE0"/></linearGradient></defs><rect width="1024" height="1024" rx="208" fill="url(#__wsn_wbG)"/><rect x="62" y="62" width="900" height="900" rx="208" fill="none" stroke="#FFFFFF" stroke-opacity="0.8" stroke-width="12"/><rect x="208" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="228" y="426" width="128" height="22" rx="11" fill="#4F7CFF"/><rect x="428" y="334" width="168" height="372" rx="34" fill="#FFFFFF"/><rect x="448" y="354" width="128" height="22" rx="11" fill="#D4537E"/><rect x="648" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="668" y="426" width="128" height="22" rx="11" fill="#8B5CF6"/></svg>工作台</a>
   <div class="__wsn_links">
     <a href="home.html" data-page="home">首页</a>
     <a href="任务管理台.html" data-page="tasks">任务台</a>
@@ -2451,7 +2452,7 @@
     </div>
     <div class="row2">
       <div class="field"><label>当前进度</label><input id="m_current" type="number" min="0" value="0"></div>
-      <div class="field"><label>总量</label><input id="m_total" type="number" min="1" value="1"></div>
+      <div class="field"><label title="总量可为 0，表示未设定">总量（可为 0）</label><input id="m_total" type="number" min="0" value="1"></div>
     </div>
     <div class="field"><label title="如 章 / 集 / 页 / 课；百分比模式下可留空">单位</label><input id="m_unit" maxlength="8" placeholder="章"></div>
     <label class="chk" style="display:flex;align-items:center;gap:6px;min-height:34px;cursor:pointer;margin:2px 0 6px;"><input type="checkbox" id="m_percent"> 以百分比记录（当前进度直接填 0–100，如 45 表示 45%）</label>
@@ -2744,15 +2745,16 @@
 
 <script>/* >>> SHARED:BEGIN —— 由 _shared/shared.js 自动生成，请勿直接编辑本块 */
 /* ============================================================================
- * shared.js —— 任务管理台 / 明信片追踪 公共层（单一事实源）
+ * shared.js —— 任务管理台 / 明信片追踪 / index.html 公共层（单一事实源）
  * ----------------------------------------------------------------------------
  * 用法：改完本文件后运行 `python3 _shared/inject_shared.py`，
- *       会把本文件内容内联进两个 HTML 的 SHARED 块（保持单文件零依赖可离线）。
+ *       会把本文件内容内联进三个 HTML 的 SHARED 块（保持单文件零依赖可离线）。
  *
  * 收录原则（实测依据见代码审查报告第九节）：
  *   1. 两文件实现逐字节一致 → 直接抽；
  *   2. 有分歧但可统一且某版更优 → 取优版（本文件 3 处，见下）；
- *   3. 同名但实现不同（esc / save / load / renderAll …）→ 一律不抽。
+ *   3. 同名但实现不同（save / load / renderAll …）→ 一律不抽。
+ *      例外：esc 已于 2026-09-17 统一下沉到本层（见文末 :472），宿主不再各自定义。
  *
  * 已取优统一的分歧：
  *   · fetchWithTimeout —— 任务台 12000ms / 明信片 15000ms → 统一 15000（云同步更宽容）
@@ -3607,7 +3609,7 @@ function flushSave(){ // 关闭/切后台前强制落盘，避免 400ms 内未�
 
 function load(){
   let has=false;
-  try{ const raw=localStorage.getItem(KEY); if(raw){ const v=JSON.parse(raw); if(Array.isArray(v)){ state.tasks=v; has=true; } } }catch(e){}
+  try{ const raw=localStorage.getItem(KEY); if(raw){ const v=JSON.parse(raw); if(Array.isArray(v)){ state.tasks=v.filter(t=>t && typeof t==="object"); has=true; } } }catch(e){}
   projectsLoad(); okrsLoad(); annivLoad();   // 有任务时也会提前 return，必须在此无条件加载项目/目标/纪念日，否则刷新即丢失
   return has;
 }
@@ -6431,7 +6433,7 @@ function saveMedia(){
     tot = 100; unit = (document.getElementById("m_unit").value.trim()) || ""; // 百分比模式单位可选：留空则无单位
     cur = Math.max(0, Math.min(100, +document.getElementById("m_current").value||0));
   } else {
-    tot = Math.max(1, +document.getElementById("m_total").value||1);
+    tot = Math.max(0, +document.getElementById("m_total").value||0);   // Q-06：允许 0（表示未设定），不再把用户填的 0 静默改成 1
     unit = (document.getElementById("m_unit").value.trim()) || defaultUnit(kind);
     cur = Math.max(0, Math.min(tot, +document.getElementById("m_current").value||0));
   }
@@ -7163,6 +7165,7 @@ function renderDataHealth(){
   let listItems=0; (lists||[]).forEach(l=>listItems+=(l.items||[]).length);
   const lastBak=ring.length?ringTimeStr(ring[ring.length-1].t):"尚无";
   const doneTotal=(state.tasks||[]).reduce((a,t)=>{
+    if(!t) return a;   // Q-01：脏数据可能含 null/非对象元素，逐条守卫避免读 t.doneDates 抛 TypeError 中断整段渲染
     const dd=(t.doneDates||[]).length;
     const one=(!t.recurrence||t.recurrence.freq==="none") && t.status==="done" && !dd ? 1 : 0;
     return a+dd+one;
@@ -9673,7 +9676,12 @@ function selCheckHTML(id, cls){
 // ⚠️ 防呆：与明信片页 toastUndo 同名不同义（本页 (msg,kind) / 对方 (msg,ms,saveFailed)），勿互抄
 function toastUndo(msg, kind){ toast(msg, kind, CFG_UNDO_TOAST_MS, function(){ try{ undo(); }catch(e){ toast("撤销失败"); } }); }   // 中-6：删除类撤销窗统一为 8000ms（此前 ms=0 走 shared 缺省 4800），跨页一致
 
-function applyTheme(t){ document.documentElement.dataset.theme=t; try{ localStorage.setItem(THEME_KEY,t); }catch(e){} }
+function applyTheme(t){
+  document.documentElement.dataset.theme=t;
+  try{ localStorage.setItem(THEME_KEY,t); }catch(e){}
+  /* D-07：同步 PWA 状态栏颜色，暗色下不再用亮蓝。亮色取静态 meta 初值 #4F7CFF，暗色取页面背景 #0f1320。 */
+  try{ const m=document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute("content", t==="dark"?"#0f1320":"#4F7CFF"); }catch(_){}
+}
 
 function updateThemeBtn(){
   const b=document.getElementById("btnTheme"); if(!b) return; b.setAttribute("aria-pressed", document.documentElement.dataset.theme==="dark"?"true":"false");
@@ -10258,9 +10266,15 @@ function openModal(id, date, scope){
     const t=state.tasks.find(x=>x.id===id);
     f.title.value=t.title; f.priority.value=t.priority; f.cat.value=t.cat; f.desc.value=t.desc||"";
     f.tags.value=(t.tags||[]).join(", ");
-    const nodate=noDate(t);
+    // Q-07：收件箱「安排」/拖放到日历会带 date 打开无日期任务(noDate(t)===true)；
+    // 此时预填该日并取消 nodate，否则日期字段隐藏、保存后 start 仍为空、任务一直留在收件箱。
+    const nodate=noDate(t) && !date;
     document.getElementById("f_nodate").checked=nodate;
-    if(nodate){
+    if(date && noDate(t)){
+      const base=parseLocal(date+"T09:00");
+      f.sdate.value=ymd(base); f.stime.value="09:00";
+      f.edate.value=ymd(base); f.etime.value="10:00";
+    } else if(nodate){
       f.sdate.value=""; f.stime.value=""; f.edate.value=""; f.etime.value="";
     } else {
       f.sdate.value=ymd(parseLocal(t.start)); f.stime.value=fmtTime(parseLocal(t.start));
@@ -12445,17 +12459,10 @@ let bfMode="add";
 let habitEditId=null;
 
 /* ===== 云同步（GitHub Gist） ===== */
-/* ==== 云同步公共模块 CLOUD-COMMON v1（与「明信片追踪.html」保持一致）====
-   两页共用同一套 GitHub Gist 同步协议。以下函数属于跨页契约，实现必须保持一致：
-     parseConfig()  · setCloudStatus()  · cloudUpload()  · cloudSave()  · cloudDownload()
-     cloudPull()（明信片独立封装；任务台等价逻辑内联在 cloudDownload() 内）
-     withBusy()（防重入包装器，）
-   ⚠️ 修改上述任一函数时，必须同步修改 明信片追踪.html 的同名实现，否则两页会静默分叉
-      （曾出现 cloudDownload 相似度仅 15% 的分叉）。
-   已知「有意差异」，请勿强行对齐：
-     · 云端文件名：本页 taskhub.json / 明信片页 postcards.json
-     · cloudSave() 存储字段（任务台多存 auto 自动同步开关）
-     · 首次启动策略（任务台有 _bootSyncAllowed 空数据保护）
+/* ==== 共享代码注入约定（由 inject_shared.py 维护）====
+   SHARED / SITE-NAV-HTML / SITE-NAV 三块由 _shared/inject_shared.py 注入，
+   请勿直接编辑标记区（BEGIN 与 END 注释之间）内的代码：改动会被下次重注入覆盖。
+   本页私有代码一律写在标记区之外。
    ==== */
 let _bootSyncAllowed=false;   // 启动拉取成功前禁止自动上传，避免本地空数据静默覆盖 Gist 导致丢数据
 const CLOUD_KEY="wb_taskhub_cloudsync_v1";
@@ -12576,17 +12583,6 @@ window.addEventListener("focus", ()=>{ cloudSilentPull(); });   // 切回本窗�
   document.addEventListener('touchcancel', onEnd);
 })();
 
-/* ===== PWA：运行时注入 manifest（SVG 图标内联，避免外部文件） ===== */
-(function injectManifest(){
-  try{
-    const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="40" fill="#4F7CFF"/></svg>';
-    const icon="data:image/svg+xml,"+encodeURIComponent(svg);
-    const manifest={name:"任务管理台",short_name:"任务台",start_url:".",display:"standalone",background_color:"#f5f7fb",theme_color:"#4F7CFF",icons:[{src:icon,sizes:"192x192",type:"image/svg+xml"}]};
-    const l=document.createElement("link"); l.rel="manifest"; l.href="data:application/manifest+json,"+encodeURIComponent(JSON.stringify(manifest));
-    document.head.appendChild(l);
-  }catch(e){}
-})();
-
 /* ===== 启动 ===== */
 // 应用前缀隔离迁移（2026-08-27）：旧键→wb_taskhub_*，迁移后清理旧键，已部署用户数据零丢失
 (function(){
@@ -12654,9 +12650,7 @@ if(_ob){ _ob.addEventListener("click", toggleTopOverview); _ob.addEventListener(
   // H2：已配云时 _bootSyncAllowed 仅由 cloudStartupPull 成功拉取后置 true；
   //      失败则保持 false，杜绝「首拉失败 + 近空本地」静默覆盖 Gist。
 })();
-/* ===== M10：注册 Service Worker =====
-   部署到 https 后提供 PWA 可安装性 + M2 关页提醒。本地 file:// 打开或环境不支持时静默跳过，不影响使用。 */
-(function(){ try{ if("serviceWorker" in navigator && /^https?:$/.test(location.protocol)){ navigator.serviceWorker.register("sw.js").catch(function(){}); } }catch(e){} })();
+
 /* 窗口尺寸变化后，重算统计分布条的标签列等宽（列宽变化会改变可用空间） */
 (function(){
   let _t=null;

@@ -11,17 +11,11 @@
 <title>书影音海报墙 · 已看已读已听</title>
 <style>
   :root{
-    --bg:#F8FAFC;
-    --card:#FFFFFF;
-    --ink:#1f2328;
+    /* 本页私有变量；公共 token 见下方「=== SHARED TOKENS ===」标记区（design_tokens.css 注入产物，勿在此重复定义） */
     --ink-soft:#57606a;
-    --line:#e6e9ef;
     --pink:#ec4899;   /* 已看 */
     --amber:#f59e0b;  /* 已读 */
     --purple:#a855f7; /* 已听 */
-    --pri:#4F7CFF; --pri-deep:#3D68F0;   /* P2/P3：主色对齐兄弟页契约（选中态用 --pri-deep 压白字 4.73:1） */
-    --sub:#6b7280; --ok:#22b07d; --warn:#ff8a3d; --danger:#ef4444; --white:#fff;   /* 云同步状态色（对齐任务台 / 明信片契约） */
-    --shadow:0 1px 3px rgba(16,24,40,.06),0 6px 18px rgba(16,24,40,.06);
     --shadow-hover:0 4px 10px rgba(16,24,40,.10),0 14px 34px rgba(16,24,40,.12);
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -272,6 +266,7 @@
     font-size:13.5px;font-weight:600;box-shadow:var(--shadow);font-family:inherit;
   }
   .add-btn:hover{filter:brightness(1.07)}
+  .add-btn:active{transform:scale(.97);background:var(--pri-deep)}
   /* ===== 新增条目表单 ===== */
   .form-modal{
     background:var(--card);border-radius:18px;max-width:520px;width:100%;max-height:88vh;max-height:88dvh;
@@ -304,7 +299,7 @@
        .viewtabs 把 #vStats 推出视口、搜索框被压住的横向溢出（仅增加约 44px 高度）。 */
     .toolbar{flex-wrap:wrap;row-gap:8px}
     .viewtabs{order:3;margin-left:0;width:100%;justify-content:center}
-    .search-wrap{max-width:none;flex:1;min-width:0}
+    .search-wrap{max-width:none;flex:1;min-width:140px}   /* D-11：390px 下给搜索框保底宽度，占位不再被截成「搜索标…」 */
     .add-btn{flex:none;padding:9px 13px;min-height:44px}
     .f-grid{grid-template-columns:1fr}
     /* chips 单行横滑（对齐豆瓣移动端分类栏范式）：不换行 + 隐藏滚动条 + 惯性滚动 */
@@ -388,18 +383,20 @@
   /* ===== P0/P1 2026-11-02：键盘可达焦点 + toast 反馈 ===== */
   a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,
   [tabindex]:focus-visible,[role="button"]:focus-visible{
-    outline:2px solid #a855f7;outline-offset:2px;
+    outline:2px solid var(--pri);outline-offset:2px;
   }
   .pcard:focus-visible{transform:translateY(-3px);box-shadow:var(--shadow-hover)}
   .s-item[tabindex]:focus-visible{background:#f5f3fb}
   .mini-btn{flex:none;padding:9px 12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-size:13px;cursor:pointer;font-family:inherit;transition:all .18s ease}
   .mini-btn:hover{border-color:#c9d2e0;transform:translateY(-1px)}
   @media(max-width:760px){.mini-btn{padding:7px 10px;font-size:12.5px}}
-  .toast-wrap{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:120;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
-  .toast{pointer-events:auto;background:#1f2328;color:#fff;font-size:13px;padding:10px 16px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.28);display:flex;align-items:center;gap:12px;animation:fade .2s ease;max-width:86vw}
-  .toast.danger{background:#dc2626}
-  .toast .t-undo{border:none;background:transparent;color:#fbbf24;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;padding:2px 4px}
-  .toast .t-undo:hover{text-decoration:underline}
+  .toast-wrap{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom) + var(--kb,0px));transform:translateX(-50%);z-index:120;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+  .toast{pointer-events:auto;background:#1f2328;color:#fff;font-size:13px;padding:10px 16px;border-radius:11px;box-shadow:0 8px 24px rgba(0,0,0,.28);display:flex;align-items:center;gap:12px;animation:fade .2s ease;max-width:86vw}
+  .toast.success{background:var(--ok)}
+  .toast.warn{background:var(--warn)}
+  .toast.danger{background:var(--danger)}
+  .toast .t-undo{border:none;background:rgba(255,255,255,.22);color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;padding:4px 10px;border-radius:8px}
+  .toast .t-undo:hover{background:rgba(255,255,255,.36)}
   /* ===== P2 2026-11-02：滚动条主题化（三页统一）===== */
   ::-webkit-scrollbar{width:10px;height:10px}
   ::-webkit-scrollbar-thumb{background:#c9d2e0;border-radius:6px}
@@ -450,9 +447,12 @@
   [data-theme="dark"] .empty,[data-theme="dark"] .s-empty,[data-theme="dark"] .foot{color:var(--ink-soft)}
   [data-theme="dark"] .foot code{background:#1c2233}
   [data-theme="dark"] .toast{background:#2a3142;border:1px solid #3a4358}
+  [data-theme="dark"] .toast.success{background:var(--ok)}
+  [data-theme="dark"] .toast.warn{background:var(--warn)}
+  [data-theme="dark"] .toast.danger{background:var(--danger)}
   /* ===== 第三轮对标 2026-11-03：排序 / 弹窗导航 / 搜索联动 / 心愿单 / 密度 ===== */
   .sortsel{height:30px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-size:12.5px;font-weight:600;padding:0 10px;border-radius:999px;cursor:pointer;font-family:inherit;flex:none}
-  .sortsel:focus-visible{outline:2px solid #a855f7;outline-offset:2px}
+  .sortsel:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
   /* 弹窗前后导航（Pinterest 灯箱式：桌面悬于两侧，移动端落到底部两角） */
   .m-wrap .nav-btn{position:absolute;top:50%;transform:translateY(-50%);z-index:5;width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,.92);color:var(--ink);font-size:22px;line-height:1;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;font-family:inherit}
   .m-wrap .nav-btn:hover{background:#fff}
@@ -553,14 +553,15 @@
      当前页高亮与 PWA 注册仍由 _shared/site-nav.js 补（纯样式变化，不引起布局跳动）。
      品牌图标：__wsn_brand 前内联同款三卡组 SVG（与首页 logo / PWA 图标同源），
      用 inline 而非 <img> 引用外部文件——零额外请求、首屏即显示、离线绝对稳，且不依赖 SW 缓存；
-     渐变 id 加 __wsn_ 前缀避免同页 id 冲突。 -->
+     渐变 id 加 __wsn_ 前缀避免同页 id 冲突。
+     2026-11-06 D-16：品牌由 <span> 改为 <a href="home.html">，四个子页可点左上角回首页。 -->
 <style id="__wsn_style">
 .__wsn_bar{display:flex;align-items:center;gap:14px;padding:7px 16px;box-sizing:border-box;
   width:100%;background:var(--card,#fff);color:var(--ink,#1f2430);
   border-bottom:1px solid var(--line,#e7ebf2);font-size:13px;line-height:1.5;
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
   position:relative;z-index:1}
-.__wsn_brand{display:inline-flex;align-items:center;gap:7px;font-weight:600;letter-spacing:.02em;white-space:nowrap;color:var(--ink,#1f2430)}
+.__wsn_brand{display:inline-flex;align-items:center;gap:7px;font-weight:600;letter-spacing:.02em;white-space:nowrap;color:var(--ink,#1f2430);text-decoration:none;cursor:pointer}
 .__wsn_icon{width:20px;height:20px;border-radius:5px;flex:none;display:block}
 .__wsn_links{display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
 .__wsn_links::-webkit-scrollbar{display:none}
@@ -575,7 +576,7 @@
 @media(prefers-reduced-motion:reduce){.__wsn_links a{transition:none}}
 </style>
 <nav id="__wsn_bar" class="__wsn_bar" aria-label="站点导航">
-  <span class="__wsn_brand"><svg class="__wsn_icon" viewBox="0 0 1024 1024" aria-hidden="true"><defs><linearGradient id="__wsn_wbG" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5B86FF"/><stop offset="1" stop-color="#2F5FE0"/></linearGradient></defs><rect width="1024" height="1024" rx="208" fill="url(#__wsn_wbG)"/><rect x="62" y="62" width="900" height="900" rx="208" fill="none" stroke="#FFFFFF" stroke-opacity="0.8" stroke-width="12"/><rect x="208" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="228" y="426" width="128" height="22" rx="11" fill="#4F7CFF"/><rect x="428" y="334" width="168" height="372" rx="34" fill="#FFFFFF"/><rect x="448" y="354" width="128" height="22" rx="11" fill="#D4537E"/><rect x="648" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="668" y="426" width="128" height="22" rx="11" fill="#8B5CF6"/></svg>工作台</span>
+  <a class="__wsn_brand" href="home.html" aria-label="工作台首页"><svg class="__wsn_icon" viewBox="0 0 1024 1024" aria-hidden="true"><defs><linearGradient id="__wsn_wbG" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5B86FF"/><stop offset="1" stop-color="#2F5FE0"/></linearGradient></defs><rect width="1024" height="1024" rx="208" fill="url(#__wsn_wbG)"/><rect x="62" y="62" width="900" height="900" rx="208" fill="none" stroke="#FFFFFF" stroke-opacity="0.8" stroke-width="12"/><rect x="208" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="228" y="426" width="128" height="22" rx="11" fill="#4F7CFF"/><rect x="428" y="334" width="168" height="372" rx="34" fill="#FFFFFF"/><rect x="448" y="354" width="128" height="22" rx="11" fill="#D4537E"/><rect x="648" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="668" y="426" width="128" height="22" rx="11" fill="#8B5CF6"/></svg>工作台</a>
   <div class="__wsn_links">
     <a href="home.html" data-page="home">首页</a>
     <a href="任务管理台.html" data-page="tasks">任务台</a>
@@ -595,8 +596,6 @@
       </div>
       <div class="spacer"></div>
       <div class="top-actions">
-        <a class="sib-link" href="任务管理台.html" rel="noopener" title="打开任务管理台"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>任务台</a>
-        <a class="sib-link" href="明信片追踪.html" rel="noopener" title="打开明信片追踪"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>明信片</a>
         <span class="cloudpill off" id="cloudPill" role="button" tabindex="0" title="云同步状态：未配置时数据仅存本机；点击打开云同步设置">仅本地</span>
         <button class="sib-link" id="btnTheme" type="button" title="切换主题（与任务台 / 明信片追踪同步记忆）">🌙 深色</button>
       </div>
@@ -2490,6 +2489,7 @@ let customEntries = (()=>{
 function saveCustom(){
   try{ localStorage.setItem(CUSTOM_KEY, JSON.stringify(customEntries)); touchSavedAt(); cloudAutoUpload(); }
   catch(e){ toast("本地存储不可用，新增条目仅本次会话有效", "danger", null, 5000); }
+  syncStats();   /* C-05：新增/删除/撤销后即时刷新门户摘要（纯写 localStorage，不触发 renderAll） */
 }
 const BASE_MEDIA = MEDIA;
 /* ===== 感想（观后感/读后感/听后感）2026-11-03：localStorage 覆盖层，按条目内容定位 ===== */
@@ -2663,6 +2663,7 @@ function renderAll(){
     wallFirstRender = false;
     setTimeout(()=>{ document.getElementById("viewWall").classList.add("no-anim"); }, 900);   // 首屏动画播完后永久关闭
   }
+  syncStats();   /* C-05：每次全量渲染后刷新门户摘要（纯写 localStorage，不触发 renderAll，无递归） */
 }
 
 /* ===== 题材子块 2026-11-02：type 小节内按主 genre（取第一个题材词）分组 ===== */
@@ -2913,7 +2914,7 @@ let _profEntries = [];   /* 画像/口碑之最里可点击条目的引用池（
 
 function profRatingW(r){
   if(!r) return 1;
-  const v = r > 5 ? r : r*2;   /* 5 星制 ×2 归一到 10 分制 */
+  const v = Number(r);   /* 评分本就是 0-10 分制（表单口径），直接取值，不再把低分误判为 5 星制 ×2 */
   return v>=9 ? 2 : v>=8 ? 1.5 : v>=7 ? 1.2 : v<6 ? 0.5 : 1;
 }
 function profBuild(){
@@ -2933,8 +2934,9 @@ function profBuild(){
     const w = profRatingW(it.rating) * rw;
     /* 题材维度 */
     const words = it.genre ? it.genre.split(/\s*[/、,，;；]\s*|\s{2,}/).map(x=>x.trim()).filter(Boolean) : [];
+    if(!words.length) words.push("未标注题材");   /* C-07：无 genre 归入显式桶，画像维度不再零贡献 */
     words.forEach(g=>{
-      const [label,emoji] = PROF_GENRE_MAP[g] || ["其他","🧩"];
+      const [label,emoji] = g==="未标注题材" ? ["未标注题材","🏷️"] : (PROF_GENRE_MAP[g] || ["其他","🧩"]);
       const d = dims[label] || (dims[label] = {label,emoji,score:0,count:0,groups:{seen:0,read:0,listen:0},hot12:0,hits:[]});
       d.score += w; d.count++; if(hot) d.hot12++;
       if(gg) d.groups[gg]++;
@@ -2951,7 +2953,12 @@ function profBuild(){
     }
   });
   const list = Object.values(dims).map((d,i)=>({ ...d, color: PROF_COLORS[i % PROF_COLORS.length] }))
-    .sort((a,b)=>b.score-a.score);
+    .sort((a,b)=>{
+      /* C-07：「未标注题材」是覆盖度显式桶，不是真实兴趣，永远排在真实题材之后 */
+      const ua=a.label==="未标注题材", ub=b.label==="未标注题材";
+      if(ua!==ub) return ua?1:-1;
+      return b.score-a.score;
+    });
   const total = list.reduce((s,d)=>s+d.score,0) || 1;
   const topCreators = Object.entries(creatorCnt).filter(([,n])=>n>=3).sort((a,b)=>b[1]-a[1]).slice(0,8);
   return { list, total, grpCnt, topCreators };
@@ -2963,11 +2970,15 @@ function profRenderHTML(prof){
   /* 总结句原料 */
   const mainGrp = Object.entries(prof.grpCnt).sort((a,b)=>b[1]-a[1])[0];
   const gTotal = Object.values(prof.grpCnt).reduce((s,n)=>s+n,0) || 1;
-  const top3 = prof.list.slice(0,3);
+  /* C-07：核心兴趣 / 前三 / 升温项 / 条形基准一律只用真实题材；
+     未标注题材仍保留自己的维度卡与题材榜条目（反映覆盖度），但不参与这些结论。 */
+  const ranked = prof.list.filter(d=>d.label!=="未标注题材");
+  const basis = ranked.length ? ranked : prof.list;
+  const top3 = basis.slice(0,3);
   const core = top3[0];
-  const hot = [...prof.list].filter(d=>d.hot12>0).sort((a,b)=>b.hot12-a.hot12)[0];
+  const hot = [...basis].filter(d=>d.hot12>0).sort((a,b)=>b.hot12-a.hot12)[0];
   const rated = MEDIA.filter(i=>i.rating && !isWish(i));
-  const avgV = rated.length ? rated.reduce((s,i)=>s+(i.rating>5?i.rating:i.rating*2),0)/rated.length : 0;
+  const avgV = rated.length ? rated.reduce((s,i)=>s+Number(i.rating),0)/rated.length : 0;
   const style = avgV>=8 ? "高分给得克制，片单含金量高" : avgV && avgV<=7 ? "打分偏宽容，图个看得开心" : "品味稳定";
 
   /* 维度卡（占比 <1.5% 的长尾不展开） */
@@ -2975,9 +2986,9 @@ function profRenderHTML(prof){
   const cards = show.map(d=>{
     const pct = (d.score/prof.total*100).toFixed(1);
     const mg = Object.entries(d.groups).sort((a,b)=>b[1]-a[1])[0];
-    const barW = Math.max(4, d.score/(prof.list[0].score||1)*100).toFixed(1);
+    const barW = Math.max(4, d.score/(basis[0].score||1)*100).toFixed(1);
     const hits = d.hits.slice().sort((a,b)=>{
-      const va=a.rating?(a.rating>5?a.rating:a.rating*2):0, vb=b.rating?(b.rating>5?b.rating:b.rating*2):0;
+      const va=a.rating?Number(a.rating):0, vb=b.rating?Number(b.rating):0;
       return vb-va || String(b.date||"").localeCompare(String(a.date||""));
     }).slice(0,3);
     _profEntries.push(...hits);   /* 顺序即 data-pi 索引 */
@@ -2990,7 +3001,7 @@ function profRenderHTML(prof){
         <span>共 ${d.count} 条</span>
         ${d.hot12 ? `<span class="hot">近一年 +${d.hot12} 🔥</span>` : ""}
       </div>
-      <div class="prof-hits">${hits.map((e,k)=>`<button type="button" class="mini-hit" data-pi="${piBase+k}" title="${esc(e.title)}">${esc(e.title.length>9?e.title.slice(0,9)+"…":e.title)}${e.rating?`<span class="sc">${e.rating>5?e.rating:e.rating*2}</span>`:""}</button>`).join("")}</div>
+      <div class="prof-hits">${hits.map((e,k)=>`<button type="button" class="mini-hit" data-pi="${piBase+k}" title="${esc(e.title)}">${esc(e.title.length>9?e.title.slice(0,9)+"…":e.title)}${e.rating?`<span class="sc">${Number(e.rating)}</span>`:""}</button>`).join("")}</div>
     </div>`;
   }).join("");
 
@@ -3017,7 +3028,7 @@ function renderStatsView(){
   const grp = g => MEDIA.filter(i=>(TYPE_META[i.type]?.group)===g && !isWish(i));   /* P1-7：已完成口径排除心愿 */
   const seen = grp("seen"), read = grp("read"), listen = grp("listen");
   const rated = MEDIA.filter(i=>i.rating && !isWish(i));   /* 评分口径统一：心愿单不计 */
-  const avg = a => { const r = a.filter(i=>i.rating); return r.length ? (r.reduce((s,i)=>s+(i.rating>5?i.rating:i.rating*2),0)/r.length).toFixed(1) : "—"; };   /* 5 星制归一到 10 分制，与评分分布/画像/TOP12 同口径 */
+  const avg = a => { const r = a.filter(i=>i.rating); return r.length ? (r.reduce((s,i)=>s+Number(i.rating),0)/r.length).toFixed(1) : "—"; };   /* 0-10 分制直接取值，与评分分布/画像/TOP12 同口径 */
 
   // 类型分布（口径与概览卡一致：排除心愿单）
   const typeCnt = ALL_TYPES.map(t=>[t, MEDIA.filter(i=>i.type===t && !isWish(i)).length]).filter(([,n])=>n>0);
@@ -3047,8 +3058,8 @@ function renderStatsView(){
   // 题材 TOP（影视/音乐的 genre 按 " / " 等分隔拆词）
   const genreCnt = {};
   MEDIA.forEach(i=>{
-    if(!i.genre) return;
-    i.genre.split(/\s*[/、,，;；]\s*|\s{2,}/).forEach(g=>{
+    if(!i.genre) genreCnt["未标注题材"]=(genreCnt["未标注题材"]||0)+1;   /* C-07：无 genre 计入「未标注题材」桶，题材榜不再跳过 */
+    else i.genre.split(/\s*[/、,，;；]\s*|\s{2,}/).forEach(g=>{
       g = g.trim(); if(!g || g.length>10) return;
       genreCnt[g]=(genreCnt[g]||0)+1;
     });
@@ -3060,9 +3071,9 @@ function renderStatsView(){
       <div class="tr"><div class="fl" style="width:${(n/gMax*100).toFixed(1)}%;background:linear-gradient(90deg,#6366f1,#818cf8)"></div></div>
       <div class="num">${n}</div></div>`).join("");
 
-  // 评分分布（10 分制口径，5 分制 ×2）
+  // 评分分布（0-10 分制口径，直接取值）
   const buckets = [["9-10 分",9,10.1],["8-9 分",8,9],["7-8 分",7,8],["6-7 分",6,7],["6 分以下",0,6]];
-  const bCnt = buckets.map(([lb,lo,hi])=>[lb, rated.filter(i=>{const v=i.rating>5?i.rating:i.rating*2; return v>=lo && v<hi;}).length]);
+  const bCnt = buckets.map(([lb,lo,hi])=>[lb, rated.filter(i=>{const v=Number(i.rating); return v>=lo && v<hi;}).length]);
   const bMax = Math.max(...bCnt.map(([,n])=>n), 1);
   const ratingBars = bCnt.map(([lb,n])=>
     `<div class="hbar"><div class="lb">${lb}</div>
@@ -3084,7 +3095,7 @@ function renderStatsView(){
   }).join("");
 
   // 口碑之最：评分最高 TOP 12（可点击开详情，索引接在画像 hits 之后）
-  const r10 = i => i.rating>5 ? i.rating : i.rating*2;   /* 5 星制统一折算为 10 分制再比较 */
+  const r10 = i => Number(i.rating);   /* 评分本就是 0-10 分制，直接取值比较 */
   const top12 = [...rated].sort((a,b)=>r10(b)-r10(a)).slice(0,12);
   const topList = top12.map((e,i)=>{
     const pi = _profEntries.push(e) - 1;
@@ -3120,7 +3131,7 @@ function renderStatsView(){
       ${gRow("📖 已读","read",GROUP_COLOR.read,"本")}
       ${gRow("🎧 已听","listen",GROUP_COLOR.listen,"部")}
       ${MEDIA.some(isWish) ? `<div class="ana-card"><h3>⭐ 心愿单</h3><div class="big" style="color:#f97316">${MEDIA.filter(isWish).length}</div><div class="sm">想看 / 想读 / 想听</div></div>` : ""}
-      <div class="ana-card"><h3>平均评分</h3><div class="big" style="color:#6366f1">${avg(rated)}</div><div class="sm">${rated.length} 条有评分（5 星制已换算为 10 分制）</div></div>
+      <div class="ana-card"><h3>平均评分</h3><div class="big" style="color:#6366f1">${avg(rated)}</div><div class="sm">${rated.length} 条有评分（按 0–10 分制统计）</div></div>
     </div>
     ${profHTML || `<div class="ana-sec"><h3>兴趣画像</h3><div class="empty">暂无已完成记录，先去墙上看两页吧</div></div>`}
     <div class="ana-sec"><h3>类型分布</h3>${typeBars}</div>
@@ -3292,6 +3303,7 @@ document.getElementById("modal").addEventListener("click", e=>{
   const ci = +e.target.dataset.ci;
   const en = customEntries[ci]; if(!en) return;
   delete en.status;
+  en.date = (()=>{ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); })();   /* C-06：补本地完成月份（口径同新增表单 fDate 默认值）；完成年份/月度节奏/最近完成均以 date 过滤 */
   saveCustom(); mergeMedia(); renderChips(); renderAll(); syncHash();
   toast("已移入「已完成」");
   const nm = MEDIA.find(m=>m._custom && m._ci===ci);
@@ -3441,7 +3453,14 @@ F("fSave").addEventListener("click", async ()=>{
   [["creator","fCreator"],["year","fYear"],["platform","fPlatform"],["date","fDate"],["genre","fGenre"],["note","fNote"]]
     .forEach(([k,id])=>{ if(FV(id)) entry[k]=FV(id); });
   const r = parseFloat(FV("fRating"));
-  if(!isNaN(r) && r>0) entry.rating = Math.min(10, r);
+  if(!isNaN(r)){
+    if(r<=0){ toast("评分需大于 0", "danger"); }
+    else {
+      const v = Math.min(10, r);   /* 保留钳制，但越界必须给用户可感知提示，不再静默改写 */
+      entry.rating = v;
+      if(v!==r) toast("评分需在 0–10 之间，已调整为 " + v, "danger");
+    }
+  }
   /* P1-7：心愿单状态——不填完成日期（month 输入框默认值需清除） */
   if(F("fStatus").value==="wish"){ entry.status="wish"; delete entry.date; }
   /* P1 2026-11-02：同名查重（豆瓣条目含同名不同版本属正常，故确认而非阻断） */
@@ -3497,7 +3516,7 @@ function toast(msg, kind, undoFn, ms){
   toastWrap.innerHTML = "";
   if(wallToastTimer) clearTimeout(wallToastTimer);
   const el = document.createElement("div");
-  el.className = "toast" + (kind==="danger" ? " danger" : "");
+  el.className = "toast" + ((kind==="success"||kind==="danger"||kind==="warn") ? " " + kind : "");
   el.setAttribute("role","status");
   el.innerHTML = "<span>"+esc(msg)+"</span>";
   if(undoFn){
@@ -3574,6 +3593,7 @@ F("importFile").addEventListener("change", e=>{
       const c = Object.assign({}, x); delete c._custom; delete c._ci; return c;
     });
     customEntries.push(...add);
+    syncStats();   /* C-05：导入合并后刷新门户摘要 */
     if(revImport){
       let n=0;
       for(const [k,v] of Object.entries(revImport)){
@@ -3923,8 +3943,12 @@ renderChips();
 renderAll();
 if(searchBox.value.trim()){ doSearch(); searchWallSync(); }   /* hash 带搜索词：恢复搜索态 */
 if(curView==="stats") setView("stats");
-/* 工作台门户摘要（2026-11-04）：把已完成记录总数写入同源 localStorage，供 home.html 读取；每次打开本页自动刷新，新增/导入条目后也随 renderAll 更新 */
-try{ localStorage.setItem("wb_mediawall_stats_v1", JSON.stringify({total:MEDIA.length, ts:Date.now()})); }catch(e){}
+/* 工作台门户摘要（2026-11-04）：把记录总数写入同源 localStorage 供 home.html 读取。
+   由 syncStats() 统一落盘，在 saveCustom() / 导入合并 / renderAll() 末尾调用；
+   首屏 renderAll() 即为初始写入点，无需在启动段重复写。syncStats 只写 localStorage、不触发 renderAll，避免递归。 */
+function syncStats(){
+  try{ localStorage.setItem("wb_mediawall_stats_v1", JSON.stringify({total:MEDIA.length, ts:Date.now()})); }catch(e){}
+}
 cloudBoot();   /* 云同步启动：读配置 → 首次拉取合并（async，不阻塞首屏渲染） */
 
 /* >>> SITE-NAV:BEGIN —— 由 _shared/site-nav.js 自动生成，请勿直接编辑本块 */
