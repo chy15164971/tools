@@ -24,8 +24,8 @@
 ## 一键校验
 
 ```bash
-./check.sh              # 发布门禁 + token 一致性 + 回归镜像一致性（秒级）
-./check.sh --full       # 再加全量回归（约 5 分钟）
+./check.sh              # 1–3 步：发布门禁 + token 一致性 + 回归镜像一致性（秒级）
+./check.sh --full       # 再加 4–5 步：全量回归 + 焦点陷阱真浏览器 E2E（约 5 分钟）
 ```
 
 | 检查 | 命令 | 作用 |
@@ -34,13 +34,17 @@
 | 色板同步 | `node "$VAULT/_ops/_workbench/sync_tokens.js" --check --repo .` | 五页 SHARED TOKENS 与 design_tokens.css 一致 |
 | 全量回归 | `python3 "$VAULT/_ops/_workbench/run_regression.py"` | 48 个用例；0 未解释失败才算通过 |
 | 镜像校验 | `... run_regression.py --check-mirror` | pc-app 测试镜像与发布仓库逐字节一致 |
+| 焦点 E2E | `python3 "$VAULT/_ops/_workbench/focus_trap_e2e.py"` | 真实 Chrome Tab / Shift+Tab 回环，覆盖 jsdom 显式 SKIP |
 
 `VAULT` 默认为 `/Users/chenhuiying/Documents/Obsidian Vault`，可用环境变量 `VAULT_DIR` 覆盖。
 
-回归的 8 项已知非应用缺陷（jsdom 焦点限制、10-23 专项探针因 IIFE 重构失效）记录在
-vault `_ops/_workbench/regression-known-limits.json`，报告中显式列为 `KNOWN`，**不静默忽略**；
-任何未列入白名单的失败都会让退出码非零。真浏览器复核证据在
-vault `deliverables/workbench-audit-1105/qa/evidence/`（`w02-*`、`w10-*`、`w13-*`、`w06-*`）。
+2026-11-13 起回归 **48 PASS / 0 KNOWN / 0 FAIL**：6 项失效探针按当前 IIFE 结构真修复
+（`_ops/_workbench/probe_inject.mjs` 统一注入点；两套误读 `PC_HTML` 的冒烟脚本改读 `TH_HTML`），
+2 项 jsdom 焦点限制的运行时断言迁至 `focus_trap_e2e.py`（真实 Chrome，11/11 PASS）。
+jsdom 侧那 6 条断言改为输出显式 `SKIP`（**不伪装成 PASS**），报告逐条列出并指向 E2E。
+白名单 `regression-known-limits.json` 现为空；任何未列入白名单的失败仍让退出码非零。
+证据在 vault `deliverables/workbench-audit-1105/qa/evidence/`（`focus-trap-e2e-*.txt`、
+`known-fix-contrast-*.txt`、`w01-*`、`w04-*`、`w05-*`、`w02-*`、`w10-*`、`w13-*`、`w06-*`）。
 
 ## 发布流程
 
