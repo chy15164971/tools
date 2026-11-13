@@ -4,8 +4,10 @@
    注意：本文件与 manifest.json/icons 只在部署到 https 时生效；本地双击 HTML 不会触发注册。 */
 const PLAN_CACHE="wb-remind-plan";
 const SENT_CACHE="wb-remind-sent";
-const APP_CACHE="wb-app-v5";
-/* v5（2026-11-06 审查修复 C-11/C-12）：补齐 PRECACHE 缺项；navigate 失败按路径回对应页；
+const APP_CACHE="wb-app-v6";
+/* v6（2026-11-13 W-06 方案 A）：任务台收件箱拖放死代码移除、文案改为只提「安排」。
+   只改 HTML 而不改 sw.js 字节不会触发 install，离线用户会继续从 v5 缓存读旧页面，故升版本强制重新预缓存。
+   v5（2026-11-06 审查修复 C-11/C-12）：补齐 PRECACHE 缺项；navigate 失败按路径回对应页；
    非导航失败先查预缓存；海报图做限量 CacheFirst。升版本以强制重新预缓存。
    v4：页头工作台 logo 改用三卡组 SVG（icons/workbench-icon.svg）并纳入预缓存。
    v3：换了工作台图标 + 导航请求绕过 Pages 的 max-age=600 磁盘缓存。 */

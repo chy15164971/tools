@@ -681,10 +681,7 @@
   .lcard .ladd{display:flex;gap:6px;margin-top:10px;}
   .lcard .ladd input{flex:1;border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:16px;font-family:inherit;}
   /* 清单项拖动排序 */
-  .litem[draggable], .lp-item[draggable], .inbox-item[draggable]{cursor:grab;}
-  .inbox-item.dragging{opacity:.4;}
-  /* 建议3：拖放落点高亮（日历格 / 时间轴列） */
-  .tcol.drop-hint,.dcell.drop-hint{outline:2px dashed var(--pri);outline-offset:-2px;}
+  .litem[draggable], .lp-item[draggable]{cursor:grab;}
   .litem.dragging, .lp-item.dragging{opacity:.4;background:var(--pri-soft);border-radius:8px;}
   .drag-h{color:var(--sub);cursor:grab;flex:none;font-size:15px;line-height:1;padding:0 2px;user-select:none;touch-action:none;}
   .drag-h:hover{color:var(--pri);}
@@ -5302,7 +5299,7 @@ async function batchInboxSkip(){
 }
 
 // 把收件箱任务安排进日程：打开编辑弹窗预填日期（默认今天，时间可改）。
-// 建议3：dateStr 支持拖放落点传入（.tcol/.dcell 的 data-day），安排到拖过去的那一天。
+// dateStr 可指定预填日期；Q-07 依赖它取消「不指定日期时间」勾选并写入开始日期。
 function planInbox(id, dateStr){
   const t=state.tasks.find(x=>x.id===id); if(!t) return;
   openModal(id, dateStr||ymd(startOfDay(new Date())));
@@ -7934,7 +7931,7 @@ function renderTimeline(days){
   if(!all.length){
     const isRange=days.length>1;
     document.getElementById("view").innerHTML=emptyState("🗓", isRange?"这一周还没有安排。":"这一天还没有安排。",
-      "在日程视图里点任意时间格即可新建任务；也可以把收件箱里的想法直接拖到某一天来安排。");
+      "在日程视图里点任意时间格即可新建任务；收件箱里的想法点「安排」也能排进来。");
     return;
   }
   const gutter='<div class="tgutter"><div class="ghead"></div>'+Array.from({length:24},(_,h)=>`<div class="ghr">${String(h).padStart(2,"0")}</div>`).join("")+'</div>';
@@ -8228,7 +8225,7 @@ function thPgSig(){
 function renderInbox(){
   const v=document.getElementById("view");
   const list=inboxTasks();
-  let html='<div class="inbox-hint"><b>收件箱</b>存放没有指定日期时间的任务（想法 / 待办清单）。它们不会出现在日历与提醒里；准备好做的时候点「安排」把它排进日程，或直接把它拖到右边日历/时间轴的某一天。新建任务时勾选「不指定日期时间」就会进入这里。</div>';
+  let html='<div class="inbox-hint"><b>收件箱</b>存放没有指定日期时间的任务（想法 / 待办清单）。它们不会出现在日历与提醒里；准备好做的时候点「安排」，选好日期时间就能排进日程。新建任务时勾选「不指定日期时间」就会进入这里。</div>';
   if(!list.length){
     html+='<div style="display:flex;justify-content:flex-end;margin-bottom:10px;"><button class="btn btn-pri btn-sm" id="inboxAdd">+ 添加到收件箱</button></div>';
     html+=emptyState("✨","收件箱是空的。想到什么随手丢进来，之后再安排时间。");
@@ -8244,9 +8241,8 @@ function renderInbox(){
     const done=t.status==="done";
     const pc=priColor(t.priority), cc=catColor(t.cat);
     const sub=(t.subtasks&&t.subtasks.length)?`<span class="sub-badge">子任务 ${subBadge(t).trim()}</span>`:"";
-    // 建议3：draggable 供「拖到日历/时间轴某一天直接安排」使用，落点绑定见 bindScheduleDropZones()。
-    // 该提示的正式文案只在顶部 .inbox-hint 说明，切勿把注释写进模板字符串（会被当作正文渲染）。
-    html+=`<div class="inbox-item ${done?'done':''} ${t.dropped?'dropped':''} ${(selMode&&selIds.has(t.id))?'sel-checked':''}" data-id="${t.id}" draggable="true">
+    // 注意：注释不要写进下面的模板字符串（会被当作正文渲染，2026-11-05 建议3 事故）。
+    html+=`<div class="inbox-item ${done?'done':''} ${t.dropped?'dropped':''} ${(selMode&&selIds.has(t.id))?'sel-checked':''}" data-id="${t.id}">
       ${selMode?selCheckHTML(t.id):""}
       <div class="ibar" style="background:${pc}"></div>
       <div class="ibm">
@@ -9046,7 +9042,6 @@ function renderAllNow(){
   // 时间轴横向滚动位置保护（周/日 .timeline、月/甘特 .tcols），避免整页重渲染后横滚跳回
   const _hsEls = _view ? _view.querySelectorAll(".timeline,.tcols") : [];
   const _hs = Array.from(_hsEls).map(e=>e.scrollLeft);
-  bindScheduleDropZones();   // 建议3：收件箱→日历/时间轴拖放安排（幂等，挂持久元素 #view，任何首视图都能绑上）
   renderCur();
   const isMedia = state.view===VIEWS.MEDIA;
   const isFullPage = isMedia||state.view===VIEWS.STATS||state.view===VIEWS.HABIT||state.view===VIEWS.LISTS||state.view===VIEWS.PROJECTS||state.view===VIEWS.OKR||state.view===VIEWS.REVIEW||state.view===VIEWS.ANNIV||state.view===VIEWS.TODAY; // 整页视图
@@ -10149,38 +10144,6 @@ function bindInboxDelegation(){
   __inboxDelegated=true;
 }
 
-function bindScheduleDropZones(){
-  if(__schedDropBound) return;
-  const view=document.getElementById("view"); if(!view) return;
-  const dayCol=e=>{ const t=e.target; return (t&&t.closest)?(t.closest(".tcol")||t.closest(".dcell")):null; };
-  view.addEventListener("dragstart", e=>{
-    const t=e.target; const el=(t&&t.closest)?t.closest(".inbox-item[data-id]"):null; if(!el) return;
-    try{ e.dataTransfer.setData("application/x-wb-task", el.dataset.id); e.dataTransfer.effectAllowed="copy"; }catch(_){}
-    el.classList.add("dragging");
-  });
-  view.addEventListener("dragend", e=>{
-    const t=e.target; const el=(t&&t.closest)?t.closest(".inbox-item"):null; if(el) el.classList.remove("dragging");
-    document.querySelectorAll(".tcol.drop-hint,.dcell.drop-hint").forEach(x=>x.classList.remove("drop-hint"));
-  });
-  view.addEventListener("dragover", e=>{
-    const col=dayCol(e); if(!col) return;
-    const dt=e.dataTransfer; if(!dt||!dt.types||dt.types.indexOf("application/x-wb-task")<0) return;
-    e.preventDefault();
-    try{ dt.dropEffect="copy"; }catch(_){}
-    document.querySelectorAll(".tcol.drop-hint,.dcell.drop-hint").forEach(x=>{ if(x!==col) x.classList.remove("drop-hint"); });
-    col.classList.add("drop-hint");
-  });
-  view.addEventListener("dragleave", e=>{ const col=dayCol(e); if(col) col.classList.remove("drop-hint"); });
-  view.addEventListener("drop", e=>{
-    const col=dayCol(e); if(!col) return;
-    e.preventDefault(); col.classList.remove("drop-hint");
-    let id=null; try{ id=e.dataTransfer.getData("application/x-wb-task"); }catch(_){}
-    if(!id) return;
-    planInbox(id, col.dataset.day);
-  });
-  __schedDropBound=true;
-}
-
 // 新建时默认勾选「不指定日期」
 function openInboxNew(){
   openModal(null,null);
@@ -10266,7 +10229,7 @@ function openModal(id, date, scope){
     const t=state.tasks.find(x=>x.id===id);
     f.title.value=t.title; f.priority.value=t.priority; f.cat.value=t.cat; f.desc.value=t.desc||"";
     f.tags.value=(t.tags||[]).join(", ");
-    // Q-07：收件箱「安排」/拖放到日历会带 date 打开无日期任务(noDate(t)===true)；
+    // Q-07：收件箱「安排」会带默认日期打开无日期任务(noDate(t)===true)；
     // 此时预填该日并取消 nodate，否则日期字段隐藏、保存后 start 仍为空、任务一直留在收件箱。
     const nodate=noDate(t) && !date;
     document.getElementById("f_nodate").checked=nodate;
@@ -11781,16 +11744,10 @@ try{ const _g=localStorage.getItem("wb_taskhub_gantt_v1"); if(_g){ const _o=JSON
    用 .inbox-wrap 收口作用域（#view 里其他视图也有 data-done 等同名属性，防误触发）。 */
 let __inboxDelegated=false;
 
-/* ===== 建议3：收件箱条目 → 拖到日历（.dcell）/ 时间轴（.tcol）某一天 = 直接安排 =====
-   背景：收件箱正是无日期任务的集中地，此前只能点条目上的「安排」按钮（默认排进今天再改日期），
-   而今日面板的待办反而能拖 —— 交互不对称。现在把「安排」落点扩展到拖放。
-   实现要点：
-   · 拖源用自定义 MIME application/x-wb-task（与清单视图的 text/plain 拖拽区分，互不干扰）；
-   · dragover 只认该 MIME，其它拖拽（清单重排等）不出现落点高亮；
-   · 监听挂持久元素 #view（innerHTML 替换不销毁它），幂等守卫防重复绑定；
-   · 落点取 data-day，复用 planInbox(id, date) 打开编辑弹窗预填该天，时间仍可改。 */
-let __schedDropBound=false;
-
+/* W-06（2026-11-13）：收件箱 → 日历/时间轴拖放已移除。该交互从未可用 ——
+   没有任何视图同屏存在收件箱条目与日历格/时间轴列，文案却一直承诺可以直接排进日历。
+   现统一改为点「安排」按钮（默认今天，日期时间可改），避免无效承诺与死代码。
+   清单项拖动排序、widget 重排、月视图 chip / 时间轴事件改期均不受影响。 */
 
 /* ===== 渲染：统计视图（增强：时间范围 / 习惯契合度 / OKR 进度 / 导出） ===== */
 let statsRange=7;
