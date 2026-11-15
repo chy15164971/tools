@@ -2502,7 +2502,34 @@ function saveReviews(){
   try{ localStorage.setItem(REVIEW_KEY, JSON.stringify(reviews)); touchSavedAt(); cloudAutoUpload(); return true; }
   catch(e){ toast("本地存储不可用，感想仅本次会话有效", "danger", null, 5000); return false; }
 }
-const reviewKey = it => it.poster || (it.title+"|"+it.type);
+/* 2026-11-15 P2：旧版以 poster 为感想键，两条共用默认海报的记录会串写/覆盖。
+   改为「标题|类型|年份」内容唯一键（1731 条实测 0 重复），并做旧键迁移。 */
+const REVIEW_V2_PREFIX = "rk1|";
+function reviewKey(it){ return REVIEW_V2_PREFIX + String(it.title??"") + "|" + String(it.type??"") + "|" + String(it.year??""); }
+function legacyReviewKey(it){ return it.poster || (String(it.title??"")+"|"+String(it.type??"")); }
+let LEGACY_REVIEW_MAP = {};
+function normReviewKey(k){
+  if(!k) return k;
+  return String(k).indexOf(REVIEW_V2_PREFIX)===0 ? k : (LEGACY_REVIEW_MAP[k] || k);
+}
+function buildLegacyReviewMap(){
+  const tmp={};
+  MEDIA.forEach(it=>{ const lk=legacyReviewKey(it); (tmp[lk]||(tmp[lk]=[])).push(it); });
+  const out={};
+  Object.keys(tmp).forEach(k=>{ if(tmp[k].length===1) out[k]=reviewKey(tmp[k][0]); });
+  LEGACY_REVIEW_MAP=out;
+}
+function migrateReviews(){
+  buildLegacyReviewMap();
+  let dirty=false;
+  Object.keys(reviews).forEach(k=>{
+    const nk=normReviewKey(k);
+    if(nk!==k && !reviews[nk]){ reviews[nk]=reviews[k]; delete reviews[k]; dirty=true; }
+  });
+  /* 无法唯一归属的旧键（同一默认海报对应两条记录）原样保留：不丢用户数据，只是不再显示。
+     云同步 / 导入带来的旧键由 normReviewKey 在写入时即时转换。 */
+  if(dirty){ try{ localStorage.setItem(REVIEW_KEY, JSON.stringify(reviews)); }catch(e){} }
+}
 const reviewLabel = t => (t==="书本") ? "读后感" : (t==="音乐"||t==="广播剧") ? "听后感" : "观后感";
 const hasReview = it => !!(reviews[reviewKey(it)] || it.note);   /* P1-5：感想筛选轴共用谓词（豆瓣简评 note 也算） */
 function mergeMedia(){
@@ -2511,14 +2538,18 @@ function mergeMedia(){
   MEDIA = [...customEntries.map((e,i)=>Object.assign({},e,{_custom:1,_ci:i})), ...extra, ...BASE_MEDIA];
 }
 mergeMedia();
+migrateReviews();   /* 2026-11-15 P2：必须在 MEDIA 合并后执行，才能把旧键映射到唯一条目 */
 
 const esc = s => String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const stars = r => {
   if(!r) return "";
-  // 豆瓣为 10 分制，折算 5 星显示；r 也兼容 5 分制手工数据
-  const v = Math.max(0, Math.min(5, r > 5 ? r/2 : r));
+  /* 2026-11-15 P2：表单与统计层早已统一 0–10 分制，星级条不再按数值猜「5 分制手工数据」。
+     旧写法让 4.8 显示 96% 满星、5.0 满星，5.1 却突降到 51%（17 条低分受影响）。 */
+  const n = Number(r);
+  if(!Number.isFinite(n)) return "";
+  const v = Math.max(0, Math.min(5, n/2));
   const pct = (v/5*100).toFixed(1);
-  return `<span class="starbar"><span class="sb-bg">★★★★★</span><span class="sb-fg" style="width:${pct}%">★★★★★</span></span> ${r}`;
+  return `<span class="starbar"><span class="sb-bg">★★★★★</span><span class="sb-fg" style="width:${pct}%">★★★★★</span></span> ${esc(n)}`;
 };
 
 function cardHTML(it, idx, k){
@@ -3597,7 +3628,8 @@ F("importFile").addEventListener("change", e=>{
     if(revImport){
       let n=0;
       for(const [k,v] of Object.entries(revImport)){
-        if(v && typeof v.text==="string" && !reviews[k]){ reviews[k]=v; n++; }
+        const nk=normReviewKey(k);   /* 2026-11-15：兼容旧版 poster 键 */
+        if(v && typeof v.text==="string" && !reviews[nk]){ reviews[nk]=v; n++; }
       }
       if(n) saveReviews();
       saveCustom(); mergeMedia(); renderChips(); renderAll();
@@ -3643,7 +3675,7 @@ function cloudSaveCfg(){
   }catch(e){}
 }
 function touchSavedAt(){ try{ localStorage.setItem(MW_SAVED_KEY, String(Date.now())); }catch(e){} }
-const localSavedAt = () => Number(localStorage.getItem(MW_SAVED_KEY)||0);
+const localSavedAt = () => { try{ return Number(localStorage.getItem(MW_SAVED_KEY)||0); }catch(e){ return 0; } };   /* 2026-11-15 P2：站点数据被禁用时不能抛 SecurityError */
 function authHeader(){ return (cloud.token||"").startsWith("github_pat_") ? "Bearer "+cloud.token : "token "+cloud.token; }   // 与任务台同款：细粒度 PAT 用 Bearer，经典 token 用 token 前缀
 function fetchT(url, opt, ms){
   const ctl = ("AbortController" in window) ? new AbortController() : null;
@@ -3750,7 +3782,7 @@ async function _cloudUploadInner(silent, keepalive, quiet){
     return true;
   }catch(e){
     if(!silent) toast(e.message||"上传失败","danger",null,5000);
-    if(!quiet){ setCloudPill("err"); setCloudStatus("上传失败："+(e.message||"未知错误")+(e.status?("（HTTP "+e.status+"）"):""), true, "err"); }
+    if(!quiet){ setCloudPill("err"); setCloudStatus((e&&e.status)?(e.message||"上传失败") : ("上传失败："+((e&&e.message)||"未知错误")), true, "err"); }
     return false;
   }
 }
@@ -3795,8 +3827,9 @@ async function _cloudPullInner(silent, quiet){
     const rv=(obj.reviews && typeof obj.reviews==="object" && !Array.isArray(obj.reviews)) ? obj.reviews : {};
     for(const [k,v] of Object.entries(rv)){
       if(!v || typeof v.text!=="string") continue;
-      const lv=reviews[k];
-      if(!lv || (v.ts||0)>(lv.ts||0)){ reviews[k]=v; changed++; }
+      const nk=normReviewKey(k);   /* 2026-11-15：兼容旧版 poster 键 */
+      const lv=reviews[nk];
+      if(!lv || (v.ts||0)>(lv.ts||0)){ reviews[nk]=v; changed++; }
     }
     if(changed){
       saveCustom(); saveReviews(); mergeMedia(); renderChips(); renderAll();
@@ -3808,7 +3841,7 @@ async function _cloudPullInner(silent, quiet){
     return changed ? "ok" : "same";
   }catch(e){
     if(!silent) toast(e.message||"下载失败","danger",null,5000);
-    if(!quiet){ setCloudPill("err"); setCloudStatus("拉取失败："+(e.message||"未知错误")+(e.status?("（HTTP "+e.status+"）"):""), true, "err"); }
+    if(!quiet){ setCloudPill("err"); setCloudStatus((e&&e.status)?(e.message||"拉取失败") : ("拉取失败："+((e&&e.message)||"未知错误")), true, "err"); }
     return "fail";
   }
 }
@@ -3950,6 +3983,60 @@ function syncStats(){
   try{ localStorage.setItem("wb_mediawall_stats_v1", JSON.stringify({total:MEDIA.length, ts:Date.now()})); }catch(e){}
 }
 cloudBoot();   /* 云同步启动：读配置 → 首次拉取合并（async，不阻塞首屏渲染） */
+
+/* ===== 2026-11-15 P1：弹窗无障碍（背景锁滚 + 焦点陷阱 + 归还焦点）=====
+   与任务台 / 明信片 SHARED 内的同款 IIFE 同源（_shared/shared.js），但本页不注入整份
+   shared.js（esc/toast 等顶层声明会冲突白屏），故在此单独内联一份。
+   增强点：本页 confirmWall 是运行时 createElement 并带 class="mask show" 直接插入、
+   关闭时 m.remove()，没有 class 变更事件 —— 因此额外监听 childList，
+   否则动态确认框打开不锁背景滚动、关闭后滚动不还原。 */
+(function(){
+  var SEL='.mask';
+  function topModal(){
+    var all=Array.prototype.slice.call(document.querySelectorAll(SEL+'.show'));
+    return all.length?all[all.length-1]:null;
+  }
+  function fmap(el){
+    var raw=Array.prototype.slice.call(el.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'));
+    return raw.filter(function(x){ return x.offsetParent!==null; });
+  }
+  function focusInto(el){
+    if(!el._a11yStored){ el._a11yStored=document.activeElement; }
+    var f=fmap(el);
+    if(f.length && !el.contains(document.activeElement)){ try{ f[0].focus(); }catch(e){} }
+  }
+  function releaseFrom(el){
+    if(el._a11yStored && el._a11yStored.focus && document.contains(el._a11yStored)){ try{ el._a11yStored.focus(); }catch(e){} }
+    el._a11yStored=null;
+  }
+  var obs=new MutationObserver(function(muts){
+    muts.forEach(function(m){
+      if(m.type==='childList'){
+        Array.prototype.forEach.call(m.addedNodes,function(n){
+          if(n instanceof Element && n.matches && n.matches(SEL+'.show')) focusInto(n);
+        });
+        Array.prototype.forEach.call(m.removedNodes,function(n){
+          if(n instanceof Element && n.matches && n.matches(SEL)) releaseFrom(n);
+        });
+        return;
+      }
+      var el=m.target;
+      if(!(el instanceof Element)||!el.matches||!el.matches(SEL)||m.attributeName!=='class') return;
+      if(el.classList.contains('show')) focusInto(el); else releaseFrom(el);
+    });
+    document.body.style.overflow = topModal()?'hidden':'';
+  });
+  obs.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class'],childList:true});
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Tab') return;
+    if(e.target && e.target.tagName==='TEXTAREA') return;
+    var root=topModal(); if(!root) return;
+    var f=fmap(root); if(!f.length) return;
+    var first=f[0], last=f[f.length-1];
+    if(e.shiftKey){ if(document.activeElement===first||!root.contains(document.activeElement)){ e.preventDefault(); last.focus(); } }
+    else { if(document.activeElement===last||!root.contains(document.activeElement)){ e.preventDefault(); first.focus(); } }
+  });
+})();
 
 /* >>> SITE-NAV:BEGIN —— 由 _shared/site-nav.js 自动生成，请勿直接编辑本块 */
 /* ============================================================

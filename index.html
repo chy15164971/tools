@@ -3353,7 +3353,16 @@ function endOfDay(d){const x=new Date(d);x.setHours(23,59,59,999);return x;}
 
 function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x;}
 
-function addMonths(d,n){const x=new Date(d);x.setMonth(x.getMonth()+n);return x;}
+/* 2026-11-15 P1：clamp 到目标月最后一天。原 setMonth 在 1/31+1 → 3/3（跳过 2 月）、
+   3/31-1 → 3/3（等于没翻页）。调用点：nav() 月/甘特翻页、parseNL「已过去推到明年」。 */
+function addMonths(d,n){
+  const x=new Date(d), y=x.getFullYear(), m=x.getMonth()+n, day=x.getDate();
+  const first=new Date(y,m,1);
+  const lastDay=new Date(first.getFullYear(),first.getMonth()+1,0).getDate();
+  first.setDate(Math.min(day,lastDay));
+  first.setHours(x.getHours(),x.getMinutes(),x.getSeconds(),x.getMilliseconds());
+  return first;
+}
 
 function sameDay(a,b){return ymd(a)===ymd(b);}
 
@@ -5254,6 +5263,7 @@ function applyBatchProps(){
   let n=0;
   state.tasks.forEach(t=>{
     if(!selIds.has(t.id)) return;
+    const before=JSON.stringify([t.cat,t.priority,t.tags,t.start,t.end]);
     if(wantCat) t.cat = vCat || "";
     if(wantPri) t.priority = vPri || "";
     if(wantTag && tagItems.length){
@@ -5262,16 +5272,24 @@ function applyBatchProps(){
       else if(tagMode==="set") t.tags = tagItems.slice();
       else t.tags = Array.from(new Set(cur.concat(tagItems)));
     }
-    if(wantDate && t.start && t.end){
-      const os=parseLocal(t.start), oe=parseLocal(t.end);
-      const nd=parseLocal(vDate+"T"+fmtTime(os));
-      if(t.recurrence && t.recurrence.freq!=="none"){ t.start=toStr(nd); }   // 重复任务：整组起始日移到该日（时刻不变）
-      else { t.start=toStr(nd); t.end=toStr(new Date(nd.getTime()+(oe-os))); } // 普通任务：保留原时长平移
+    if(wantDate){
+      if(t.start && t.end){
+        const os=parseLocal(t.start), oe=parseLocal(t.end);
+        const nd=parseLocal(vDate+"T"+fmtTime(os));
+        if(t.recurrence && t.recurrence.freq!=="none"){ t.start=toStr(nd); }   // 重复任务：整组起始日移到该日（时刻不变）
+        else { t.start=toStr(nd); t.end=toStr(new Date(nd.getTime()+(oe-os))); } // 普通任务：保留原时长平移
+      } else {
+        /* 2026-11-15 P2：收件箱任务 noDate(t)===true 原先被整段跳过，UI 却承诺「将移到该日」
+           且 n++ 照算 → 静默失效 + 假成功提示。与 planInbox→openModal 的 Q-07 默认值一致：09:00–10:00。 */
+        const nd=parseLocal(vDate+"T09:00");
+        t.start=toStr(nd); t.end=toStr(new Date(nd.getTime()+60*60*1000));
+      }
     }
-    touchTask(t); n++;
+    const changed = JSON.stringify([t.cat,t.priority,t.tags,t.start,t.end])!==before;
+    touchTask(t); if(changed) n++;   /* 只统计真正发生变更的项 */
   });
   save(); renderAll(); closeBatchProps(); selClear();
-  toastUndo("已批量修改 "+n+" 项");
+  toastUndo(n ? ("已批量修改 "+n+" 项") : "所选项目没有需要修改的属性");
 }
 
 function batchInboxClearDone(){
@@ -9396,18 +9414,23 @@ function renderTagList(){
 
 function mCard(c, kind){
   const k=M_KINDS[kind]||M_KINDS.books;
-  const unit = c.unit || defaultUnit(kind);
+  /* 2026-11-15 P2：unit/current/total 可来自导入 JSON / 云同步 / 备份恢复，不受表单
+     maxlength=8 与 type=number 约束。统一先 esc + 数值化再进 innerHTML，杜绝标签/属性注入。 */
+  const unit = esc(c.unit || defaultUnit(kind));
+  const num = v => { const x=Number(v); return Number.isFinite(x)?x:0; };
+  const cur = num(c.current), total = num(c.total);
   const isPct = !!c.percent;
-  const p = mPct(c);
+  const p = num(mPct(c));
   const dn = mediaDone(c);
+  const unitAttr = isPct ? "%" : unit;
   const hintTxt = isPct
-    ? (dn ? "✓ 已完成 · 100%" : (k.verb+" "+c.current+"%（剩余 "+(100-c.current)+"%）"))
-    : (dn ? ("✓ 已完成 · 共 "+c.total+" "+unit) : (k.verb+" "+c.current+" "+unit+"，剩余 "+(c.total-c.current)));
-  const pctText = isPct ? (c.current+"%") : (p+"%");
-  const metaHtml = isPct ? ("进度 <b>"+c.current+"%</b>") : ("进度 <b>"+c.current+" / "+c.total+"</b> "+unit);
+    ? (dn ? "✓ 已完成 · 100%" : (k.verb+" "+cur+"%（剩余 "+(100-cur)+"%）"))
+    : (dn ? ("✓ 已完成 · 共 "+total+" "+unit) : (k.verb+" "+cur+" "+unit+"，剩余 "+(total-cur)));
+  const pctText = isPct ? (cur+"%") : (p+"%");
+  const metaHtml = isPct ? ("进度 <b>"+cur+"%</b>") : ("进度 <b>"+cur+" / "+total+"</b> "+unit);
   const finBtn = dn ? '<button class="munfin" data-unfinish title="撤销完成" aria-label="撤销完成">↺ 撤销</button>'
                     : '<button class="mfin" data-finish title="标记完成（进度直接到 100%）" aria-label="标记完成">✓ 完成</button>';
-  return `<div class="mcard ${k.cls}${dn?" done":""}" data-id="${c.id}" data-kind="${kind}">
+  return `<div class="mcard ${k.cls}${dn?" done":""}" data-id="${esc(c.id)}" data-kind="${esc(kind)}">
     <div class="mtop">
       <div class="mname">${esc(c.title)}</div>
       <div class="mright">
@@ -9417,8 +9440,8 @@ function mCard(c, kind){
       </div>
     </div>
     <div class="mmeta">${metaHtml} · 平台 ${esc(c.platform||"—")}</div>
-    <div class="mbar"><div class="track"><i class="fill" data-w="${p}"></i></div><div class="mpct">${pctText}</div></div>
-    <div class="mhint"><span class="mhint-txt">${hintTxt}</span><span class="mstep"><button data-step="-1" title="减 1 ${isPct?'%':unit}" aria-label="「${esc(c.title)}」减 1 ${isPct?'%':unit}">−</button><button data-step="1" title="加 1 ${isPct?'%':unit}" aria-label="「${esc(c.title)}」加 1 ${isPct?'%':unit}">+</button>${finBtn}</span></div>
+    <div class="mbar"><div class="track"><i class="fill" data-w="${esc(p)}"></i></div><div class="mpct">${esc(pctText)}</div></div>
+    <div class="mhint"><span class="mhint-txt">${hintTxt}</span><span class="mstep"><button data-step="-1" title="减 1 ${unitAttr}" aria-label="「${esc(c.title)}」减 1 ${unitAttr}">−</button><button data-step="1" title="加 1 ${unitAttr}" aria-label="「${esc(c.title)}」加 1 ${unitAttr}">+</button>${finBtn}</span></div>
   </div>`;
 }
 
@@ -10894,7 +10917,7 @@ async function _cloudUploadInner(silent, keepalive){
       return;
     }
     setCloudPill("err");
-    if(!silent) setCloudStatus("上传失败："+(e&&e.message?e.message:e), true);
+    if(!silent) setCloudStatus((e&&e.status)?(e.message||"上传失败") : ("上传失败："+(e&&e.message?e.message:e)), true);
     else { scheduleCloudRetry(); const _n=Date.now(); if(_n-(window._lastCloudErrToast||0)>CFG_WARN_THROTTLE_MS){ window._lastCloudErrToast=_n; toast("云同步失败："+(e&&e.message?e.message:e)+"（将自动重试）", "danger"); } }
   }
 }
@@ -10944,9 +10967,13 @@ async function _cloudDownloadInner(){
     renderAll();
   }catch(e){ if(DEBUG)console.error("云下载失败：", e);
     let msg=(e&&e.message)?e.message:e;
-    if(e&&e.name==="AbortError") msg="网络超时：无法在 15 秒内连接 GitHub（可能受网络限制）。可改用「离线恢复书签」一键恢复数据。";
-    else if(/Failed to fetch|NetworkError|Load failed/i.test(msg)) msg="网络不可达：浏览器无法连接 GitHub（可能受网络限制）。可改用「离线恢复书签」一键恢复数据。";
-    setCloudStatus("下载失败："+msg, true); toast("下载失败："+msg, "danger");
+    /* 2026-11-15 P2：HTTP 错误的 explainHttp(...) 本身已含「下载失败：HTTP n」，
+       此前外层又拼一次 → 「下载失败：下载失败：…」。对齐明信片 :4701 的写法。 */
+    let selfExplained = !!(e && e.status);
+    if(e&&e.name==="AbortError"){ msg="网络超时：无法在 15 秒内连接 GitHub（可能受网络限制）。可改用「离线恢复书签」一键恢复数据。"; selfExplained=false; }
+    else if(/Failed to fetch|NetworkError|Load failed/i.test(msg)){ msg="网络不可达：浏览器无法连接 GitHub（可能受网络限制）。可改用「离线恢复书签」一键恢复数据。"; selfExplained=false; }
+    const shown = selfExplained ? msg : ("下载失败："+msg);
+    setCloudStatus(shown, true); toast(shown, "danger");
   }
 }
 
@@ -12565,7 +12592,9 @@ const CLEARED_FLAG = "wb_taskhub_cleared_20260821";
 const _hadTasks = load();
 undoLoad();
 // 新用户首次运行引导：仅当任务键从未存在、且非「主动清空」状态才 seed（避免「清空后复活」）
-if(!_hadTasks && !localStorage.getItem(CLEARED_FLAG)){ try{ seed(); }catch(e){ if(DEBUG)console.error("seed err", e); } }
+/* 2026-11-15 P2：getItem 也必须在 try 内 —— 浏览器禁用站点数据时这里抛 SecurityError，
+   会中断其后主题初始化 / 分类加载 / 云同步等整条启动链（真浏览器对照实测 aria-pressed=null）。 */
+try{ if(!_hadTasks && !localStorage.getItem(CLEARED_FLAG)){ seed(); } }catch(e){ if(DEBUG)console.error("seed err", e); }
 
 /* 主题初始化（P2） */
 try{ const _st=localStorage.getItem(THEME_KEY); if(_st) applyTheme(_st); }catch(e){}

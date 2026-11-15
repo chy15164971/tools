@@ -4580,7 +4580,8 @@ async function cloudUpload(silent, keepalive){
 
 async function _cloudUploadInner(silent, keepalive){
   if(!cloud.token||!cloud.gist){ if(!silent) setCloudStatus("请先填写 Token 与 Gist ID", true); return false; }
-  const localSavedAt=Number(localStorage.getItem(SAVED_AT)||0);
+  /* 2026-11-15 P2：站点数据被禁用时不能抛 SecurityError 中断云同步 */
+  let localSavedAt=0; try{ localSavedAt=Number(localStorage.getItem(SAVED_AT)||0); }catch(e){}
   // 冲突检测：云端有比本地更新的保存时，不应静默覆盖（多标签/多设备场景防数据丢失）
   // H1 修复：读云端失败 → 放弃本次上传，绝不拿「可能过旧的本地整包」覆盖云端（此前"数据消失"的共同机理）
   // keepalive 模式：卸载期只能发一次请求，跳过 peek（两次往返来不及），直接覆盖。
