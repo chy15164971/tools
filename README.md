@@ -21,8 +21,8 @@
    导航条必须是 `<body>` 开头的静态 HTML，不能退回 JS 延迟插入（会重现首屏闪旧画面）。
 3. 共享色板唯一真相源是 vault `_ops/_workbench/design_tokens.css`；
    私有变量写在 `SHARED TOKENS START/END` 标记区**之外**，否则下次同步会被整块覆盖。
-4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v12）：SW 字节不变就不触发 install，
-   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12 均按此处理）。
+4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v13）：SW 字节不变就不触发 install，
+   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13 均按此处理）。
    导航请求用 `fetch(url,{cache:"no-store"})` 绕过 Pages 的 `max-age=600`；
    不要写成 `fetch(e.request, init)`（navigate 模式重建 Request 会抛 TypeError）。
 5. `_shared/` 目录以下划线开头，GitHub Pages 不发布；源文件已内联进五个 HTML，线上 404 属预期。
@@ -38,7 +38,7 @@
 |---|---|---|
 | 发布门禁 | `python3 _shared/verify_release.py` | 7 项：index 契约、17 个内联块、导航块位置、tokens、PRECACHE、品牌链接、**弹窗无障碍唯一源守卫** |
 | 色板同步 | `node "$VAULT/_ops/_workbench/sync_tokens.js" --check --repo .` | 五页 SHARED TOKENS 与 design_tokens.css 一致 |
-| 全量回归 | `python3 "$VAULT/_ops/_workbench/run_regression.py"` | 54 个用例；0 未解释失败才算通过 |
+| 全量回归 | `python3 "$VAULT/_ops/_workbench/run_regression.py"` | 55 个用例；0 未解释失败才算通过 |
 | 镜像校验 | `... run_regression.py --check-mirror` | 显式清单 23 项逐字节一致（含 `sw.js`、`_shared/modal-a11y.js`、`index.html`、`home.html`、海报墙、`icons/` 全部图标；11-16 删除无引用的 `manifest-postcard.json`） |
 | 焦点 E2E | `python3 "$VAULT/_ops/_workbench/focus_trap_e2e.py"` | 真实 Chrome Tab / Shift+Tab 回环；任务台 / 明信片 / 海报墙四弹窗 + 待认领弹窗，含动态确认框与背景锁滚 |
 
@@ -115,6 +115,30 @@ jsdom 侧那 6 条断言改为输出显式 `SKIP`（**不伪装成 PASS**），�
 2026-11-15 P1+P2 修复（8 项必修复）执行记录与证据：`deliverables/workbench-audit-1105/P1P2修复执行报告_20261115.md`。
 证据在 vault `deliverables/workbench-audit-1105/qa/evidence/`（`focus-trap-e2e-*.txt`、
 `known-fix-contrast-*.txt`、`w01-*`、`w04-*`、`w05-*`、`w02-*`、`w10-*`、`w13-*`、`w06-*`）。
+
+2026-11-17 第一批 P1（用户「先帮我做第一批」，来源全站审查报告三条数据正确性缺陷）：
+① **P1-1 任务台云上传漏合并次级集合**——上传读回后原先只并 `tasks` / `habits` / `media`，
+`lists` / `cats` / `tagTree` / `pris` / `projects` / `okrs` / `anniv` 会被紧随其后的 `syncPayload()`
+整包写回覆盖，跨设备新建的项目/目标/清单在下一轮上传后丢失。改为读回后调用既有
+`mergeCloudSecondaryUnion(o2)`（只补「云端有本地缺」并保留本地同名项，幂等、不反向覆盖）。
+② **P1-2 明信片墓碑仲裁**——`tombMap` 把 `moved[id]=…` 写在时间戳仲裁块**之外**无条件执行，
+导致时间戳更旧的 `move` 墓碑架空新 `delete`（已删记录复活），或更旧的 move 覆盖更新的 move
+（记录错位到目标数组）。改为 move 登记随胜出墓碑一起仲裁，胜出者非 move 时 `delete moved[id]`。
+③ **P1-3 海报墙分页重叠**——旧 `pageSlice` 每页独立把 `end` 向后扩到类型块边界，但下一页
+`start` 仍固定 `(p-1)*S`，相邻页区间重叠。实测真实 1731 条 S=48 时 146 条重复、S=24 时 199 条。
+改为 `computePageBounds()` 一次性顺序推导连续页边界（上一页 end = 下一页 start），
+`pageOfIndex` / 自动续页判断 / 翻页条页数统一走同一口径。
+实施中发现并入 `mergeCloudSecondaryUnion` 会让其内部 `*Save()` 在上传忙锁内再次排队，
+把刚清掉的 `_pendingUpload` 重新置位成「幽灵待传」——补 `_suppressCloudAuto` 窄范围抑制开关
+（合并结果已由随后 `syncPayload()` 整包写回承载，无需再排一次上传）。
+新增 `_测试/站点_第一批P1_20261117.冒烟测试.mjs`（36 条断言；改前对照 **17 PASS / 19 FAIL**，
+对当前源码与改前备份双跑结果一致，证明测试不是空跑）。
+另修复 `明信片追踪_第3批_逻辑断言.cjs` 的时区抖动：原用 `toISOString()`（UTC）取日期、
+应用用本地日期，在 CST 00:00–08:00 会差一天而误报（CST 58/1、TZ=UTC 59/0 已实证，改为本地日期后两时区均 59/0）。
+本轮最终门禁：全量回归 **55 PASS / 0 KNOWN / 0 FAIL**、焦点 E2E **36 PASS / 0 FAIL**、镜像 23 项一致、
+P1-9 分层守卫 **42 PASS / 0 FAIL**（`_cloudUploadInner` / `cloudAutoUpload` / `tombMap` 合法重冻）、
+真浏览器三处修复 **9 PASS / 0 FAIL**（含四页零 JS 错误）。升 `APP_CACHE` v12 → **v13**。
+执行记录与证据：`deliverables/workbench-audit-1105/第一批P1修复执行报告_20261117.md`。
 
 ## 发布流程
 

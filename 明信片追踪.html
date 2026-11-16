@@ -3288,9 +3288,13 @@ function tombMap(cloudDeleted){
     if(cur===undefined||t.ts>cur){
       del.set(t.id, t.ts);
       tombs.set(t.id, (o&&typeof o==="object") ? {id:t.id, ts:t.ts, op:o.op, to:o.to} : {id:t.id, ts:t.ts});
+      // R2-2：op==="move" 的墓碑额外登记目标数组，供 mergeById 区分"原位置该删/新位置该留"
+      /* P1-2 修复 2026-11-17：move 登记必须随胜出墓碑一起仲裁。旧实现在仲裁块外无条件写 moved[t.id]，
+         导致时间戳更旧的 move 架空新 delete（已删记录复活），或更旧的 move 覆盖更新的 move（目标数组错位）。
+         胜出墓碑不是 move 时同步清掉旧登记，确保 moved 表始终反映当前时间戳胜出者。 */
+      if(o && o.op==="move") moved[t.id]=String(o.to||"");
+      else delete moved[t.id];
     }
-    // R2-2：op==="move" 的墓碑额外登记目标数组，供 mergeById 区分"原位置该删/新位置该留"
-    if(o && o.op==="move") moved[t.id]=String(o.to||"");
   };
   (deletedIds||[]).forEach(add); (cloudDeleted||[]).forEach(add);
   return del;

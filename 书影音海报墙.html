@@ -2634,25 +2634,36 @@ ALL_TYPES.forEach(t=>{ const g = TYPE_META[t]?.group; if(g) (GROUP_TYPES[g] = GR
 
 let wallFirstRender = true;   // 空卡片修复 2026-11-02：入场动画只播首屏，翻页/筛选后关闭
 /* M-1 修复(2026-11-03)：分页切片共享算法——renderAll 与 gotoEntry 共用同一口径，
-   消除「type 扩页回退导致搜索跳转页号错位」；gotoEntry 用 pageOfIdx 取条目最早出现页 */
-function pageSlice(items, p){
+   消除「type 扩页回退导致搜索跳转页号错位」；gotoEntry 用 pageOfIdx 取条目最早出现页
+   P1-3 修复(2026-11-17)：改为一次性顺序推导连续页边界——上一页 end 即下一页 start。
+   旧算法每页独立把 end 向后扩到类型块边界，但下一页 start 仍固定 (p-1)*S，
+   造成相邻页区间重叠、同一卡片在两页重复出现（真实数据 S=48 时 146 条重复）。 */
+function computePageBounds(items){
   const S = GROUP_PAGE_SIZE;
-  const start = (p-1)*S;
-  let end = Math.min(items.length, start+S);
-  if(end < items.length && items[end].it.type === items[end-1].it.type){
-    let e2 = end;
-    while(e2 < items.length && items[e2].it.type === items[e2-1].it.type) e2++;
-    if(e2 - end <= S) end = e2;
+  const bounds = [0];
+  let i = 0;
+  while(i < items.length){
+    let end = Math.min(items.length, i + S);
+    if(end < items.length && items[end].it.type === items[end-1].it.type){
+      let e2 = end;
+      while(e2 < items.length && items[e2].it.type === items[e2-1].it.type) e2++;
+      if(e2 - end <= S) end = e2;   /* 单个类型块最多扩到 2S，避免超长页卡顿 */
+    }
+    bounds.push(end);
+    i = end;
   }
-  return [start, end];
+  if(bounds.length === 1) bounds.push(items.length);   /* 空组也返回 [0,0] */
+  return bounds;
+}
+function pageSlice(items, p){
+  const b = computePageBounds(items);
+  const k = Math.max(1, Math.min(p|0, b.length-1));
+  return [b[k-1], b[k]];
 }
 function pageOfIdx(items, idx){
-  const S = GROUP_PAGE_SIZE, pages = Math.max(1, Math.ceil(items.length/S));
-  for(let p=1; p<=pages; p++){
-    const end = pageSlice(items, p)[1];
-    if(idx < end) return p;
-  }
-  return pages;
+  const b = computePageBounds(items);
+  for(let p=1; p<b.length; p++){ if(idx < b[p]) return p; }
+  return Math.max(1, b.length-1);
 }
 /* 批2 2026-11-03：组级渲染提取——翻页/gotoEntry 只重建目标组，未动组不再重排（原 renderAll 全量重建 ~144 卡） */
 function renderGroup(g){
@@ -2663,9 +2674,10 @@ function renderGroup(g){
     if(!items.length && (filter!=="全部" || searchQ())){ el.innerHTML=""; if(secTitle) secTitle.style.display="none"; return; }
     if(secTitle) secTitle.style.display="";
     if(!items.length){ el.innerHTML = `<div class="empty">暂无记录</div>`; return; }
-    const pages = Math.max(1, Math.ceil(items.length / GROUP_PAGE_SIZE));
+    const bounds = computePageBounds(items);   /* P1-3：页边界唯一真相源 */
+    const pages = Math.max(1, bounds.length-1);
     page[g] = Math.min(Math.max(1, page[g]), pages);
-    const [start, end] = pageSlice(items, page[g]);   /* 共享算法（含 type 完整性回退） */
+    const start = bounds[page[g]-1], end = bounds[page[g]];   /* 相邻页不重叠（P1-3） */
     const pageItems = items.slice(start, end);
     const wishItems = pageItems.filter(({it})=>isWish(it));
     const doneItems = pageItems.filter(({it})=>!isWish(it));
@@ -2778,7 +2790,7 @@ function genreBlocksHTML(sub, items){
 
 /* ===== 组级分页条：‹ 共 N 条 · x / y ›（单页组不显示） ===== */
 function gPagerHTML(g, total, pages){
-  if(total<=GROUP_PAGE_SIZE) return "";
+  if(pages<=1) return "";   /* P1-3：页大小可变，按实际页数判断是否显示翻页条 */
   return `<div class="gpager"><span class="gp-info">共 ${total} 条</span>
     <button type="button" data-g="${g}" data-d="-1" aria-label="上一页" ${page[g]<=1?"disabled":""}>‹</button>
     <span class="gp-cur">${page[g]} / ${pages}</span>
@@ -2840,7 +2852,7 @@ const _autoIO = ("IntersectionObserver" in window)
         _autoIO.unobserve(e.target);
         if((_autoCount[g]||0) >= 2) return;
         const items = curVis.filter(({it}) => (TYPE_META[it.type]?.group)===g);
-        if(page[g]*GROUP_PAGE_SIZE < items.length){
+        if(pageSlice(items, page[g])[1] < items.length){   /* P1-3：与切片同口径 */
           _autoCount[g] = (_autoCount[g]||0)+1;
           page[g]++;
           renderGroup(g);

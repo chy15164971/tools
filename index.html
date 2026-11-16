@@ -10918,7 +10918,9 @@ async function _cloudUploadInner(silent, keepalive){
       // 编辑弹窗打开时不做云端合并：mergeTasksIntoLocal 会就地改写/删除 state.tasks，正在编辑的任务可能被移走（P0-2 的另一半）。
       // 改为排队补传；设置弹窗不受影响（这里只拦任务编辑 #mask 与详情 #detailMask 两个数据弹窗）。
       if(document.querySelector("#mask.show,#detailMask.show")){ _pendingUpload=true; setCloudPill("ok"); return false; }
-      const o2=JSON.parse(ff.content); mergeTasksIntoLocal(o2); if(Array.isArray(o2.habits)) habits=mergeHabits(habits, o2.habits, o2.deleted); if(o2.media) media=mediaMergeKeep(o2.media, o2.deleted);
+      const o2=JSON.parse(ff.content); mergeTasksIntoLocal(o2);
+      _suppressCloudAuto=true;
+      try{ mergeCloudSecondaryUnion(o2); } finally { _suppressCloudAuto=false; }   /* P1-1 修复 2026-11-17：读回后并集合并全部次级集合（项目/目标/清单/分类/优先级/标签树/纪念日/习惯/媒体），    旧实现只并 habits/media，其余次级集合会被紧随其后的 syncPayload() 整包写回覆盖，造成跨设备数据丢失。    该函数仅补「云端有本地缺」的项并保留本地同名项，幂等且不会反向覆盖本地。 */
     }
     phase="write";
     const res=await fetchWithTimeout("https://api.github.com/gists/"+encodeURIComponent(cloud.gist),{
@@ -11051,7 +11053,12 @@ function scheduleCloudRetry(minDelay){
   }, delay);
 }
 
+/* P1-1 修复 2026-11-17：上传路径里合并次级集合时，各 *Save() 会再次调用 cloudAutoUpload；
+   此时 _cloudBusy 正处于上传中，会把刚清掉的 _pendingUpload 重新置位成「幽灵待传」。
+   合并结果已包含在紧随其后的 syncPayload() 整包写回里，无需再排一次上传。 */
+let _suppressCloudAuto=false;
 function cloudAutoUpload(){
+  if(_suppressCloudAuto) return;
   if(_cloudBusy){ if(cloud.auto&&cloud.token&&cloud.gist) _pendingUpload=true; return; }   // 忙 → 排队，收尾统一补传（对齐明信片 4276）
   if(!cloud.auto) return;
   if(!cloud.token||!cloud.gist) return;
