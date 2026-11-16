@@ -4,7 +4,7 @@
 改完源文件后运行：  python3 _shared/inject_shared.py
 单文件 HTML 仍保持零依赖、可离线、双击即用（内容是内联的，不是 <src> 引用）。
 
-三块，互不影响（2026-11-04 站点统一）：
+四块，互不影响（2026-11-04 站点统一；2026-11-16 新增第 4 块）：
   1) SHARED  —— shared.js，仅任务管理台 / 明信片追踪 / index.html 三页（云同步公共层）
        ⚠️ 不可注入海报墙与门户页 home.html：shared.js 的 esc/toast/setCloudStatus 等顶层声明
           与海报墙同名，整块注入会 SyntaxError 白屏（已实测 6 处冲突）。
@@ -13,13 +13,33 @@
        造成的「旧版任务台画面闪一下」（实测 FCP 1220ms / DCL 1555ms）。
   3) SITE-NAV —— site-nav.js，五页共用（行为层：当前页高亮 + 站点级 PWA 注册）。
        不再创建/插入导航条本体；与 SITE-NAV-HTML 配对使用。
+  4) MODAL-A11Y —— modal-a11y.js，四页共用（任务台 / 明信片 / index / 海报墙）。
+       2026-11-16 遗留风险修复：弹窗无障碍 IIFE 曾同时存在于 shared.js 与海报墙
+       （手抄的第二份），改共享层极易漏同步。现收敛为唯一源文件，四页都由本注入器
+       生成，verify_release.py 逐字节比对，漂移会直接让发布门禁失败。
+       海报墙因 confirmWall 动态插入/移除需要 childList 兜底，用 a11y_src(True)
+       把配置位翻成 true；其余三页保持 false，行为与 11-15 版一致。
 
-铁律：凡进这三块的代码必须同时写进对应源文件，否则下次 inject 整块覆盖。
+铁律：凡进这四块的代码必须同时写进对应源文件，否则下次 inject 整块覆盖。
 """
 import io, os, re, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.dirname(HERE)
+
+A11Y_FILE = os.path.join(HERE, "modal-a11y.js")
+A11Y_TOKEN = "/* A11Y_CHILDLIST */ false"
+
+
+def a11y_src(childlist=False):
+    """唯一真相源的渲染入口：inject_shared.py 与 verify_release.py 共用，避免两处口径分叉。"""
+    s = io.open(A11Y_FILE, encoding="utf-8").read().rstrip()
+    if s.count(A11Y_TOKEN) != 1:
+        raise RuntimeError("modal-a11y.js 的 A11Y_CHILDLIST 配置位缺失或重复")
+    if not childlist:
+        return s
+    return s.replace(A11Y_TOKEN, "/* A11Y_CHILDLIST */ true", 1)
+
 
 BLOCKS = [
     {
@@ -53,6 +73,17 @@ BLOCKS = [
         "begin": "/* >>> SITE-NAV:BEGIN —— 由 _shared/site-nav.js 自动生成，请勿直接编辑本块 */",
         "end":   "/* <<< SITE-NAV:END */",
     },
+    {
+        "name": "MODAL-A11Y",
+        "src": A11Y_FILE,
+        "targets": [os.path.join(PROJ, "任务管理台.html"),
+                    os.path.join(PROJ, "明信片追踪.html"),
+                    os.path.join(PROJ, "书影音海报墙.html"),
+                    os.path.join(PROJ, "index.html")],
+        "begin": "/* >>> MODAL-A11Y:BEGIN —— 由 _shared/modal-a11y.js 自动生成，请勿直接编辑本块 */",
+        "end":   "/* <<< MODAL-A11Y:END */",
+        "render": lambda p: a11y_src(os.path.basename(p) == "书影音海报墙.html"),
+    },
 ]
 
 
@@ -74,11 +105,12 @@ def main():
     for b in BLOCKS:
         if not os.path.exists(b["src"]):
             print("缺少源文件:", b["src"]); sys.exit(1)
-        src = io.open(b["src"], encoding="utf-8").read().rstrip()
+        base_src = io.open(b["src"], encoding="utf-8").read().rstrip()
         print("[%s] %s → %d 页" % (b["name"], os.path.basename(b["src"]), len(b["targets"])))
         for p in b["targets"]:
             if not os.path.exists(p):
                 print("  跳过（文件不存在）:", os.path.basename(p)); continue
+            src = b["render"](p) if b.get("render") else base_src
             ok = inject(p, src, b["begin"], b["end"])
             if ok: print("  已同步:", os.path.basename(p))
             else: failed.append((b["name"], os.path.basename(p)))

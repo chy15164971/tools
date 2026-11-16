@@ -8,11 +8,13 @@
 
 检查项：
   1. index.html 必须是 任务管理台.html 的逐字节副本（发布契约铁律）
-  2. 13 个共享内联块（SHARED×3 + SITE-NAV-HTML×5 + SITE-NAV×5）与源文件逐字节一致
+  2. 17 个共享内联块（SHARED×3 + SITE-NAV-HTML×5 + SITE-NAV×5 + MODAL-A11Y×4）与源文件逐字节一致
   3. 5 页 SITE-NAV-HTML 静态块紧贴 <body> 开头（防止退回 JS 延迟插入导致首屏闪烁）
   4. 5 页 SHARED TOKENS 标记区与 design_tokens.css 规范块一致
   5. sw.js PRECACHE 里列出的本地文件必须真实存在
   6. 导航品牌必须是可点击 <a>（D-16 回归守卫）
+  7. 弹窗无障碍唯一源守卫（2026-11-16）：四页各恰好一份 MODAL-A11Y、门户零份、
+     shared.js 内不再有第二份副本、海报墙未注入整份 SHARED（防白屏）
 
 退出码：0 = 全通过；1 = 任一失败。只读，不改任何文件。
 """
@@ -21,6 +23,8 @@ import io
 import os
 import re
 import sys
+
+from inject_shared import a11y_src  # 唯一源渲染入口，与注入器共用（避免两处口径分叉）
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_TOKENS = "/Users/chenhuiying/Documents/Obsidian Vault/_ops/_workbench/design_tokens.css"
@@ -46,7 +50,12 @@ BLOCKS = [
      ["任务管理台.html", "明信片追踪.html", "书影音海报墙.html", "home.html", "index.html"],
      "/* >>> SITE-NAV:BEGIN —— 由 _shared/site-nav.js 自动生成，请勿直接编辑本块 */",
      "/* <<< SITE-NAV:END */"),
+    ("MODAL-A11Y", "modal-a11y.js",
+     ["任务管理台.html", "明信片追踪.html", "书影音海报墙.html", "index.html"],
+     "/* >>> MODAL-A11Y:BEGIN —— 由 _shared/modal-a11y.js 自动生成，请勿直接编辑本块 */",
+     "/* <<< MODAL-A11Y:END */"),
 ]
+A11Y_PAGES = ["任务管理台.html", "明信片追踪.html", "书影音海报墙.html", "index.html"]
 ALL_PAGES = ["任务管理台.html", "明信片追踪.html", "书影音海报墙.html", "home.html", "index.html"]
 TOKEN_START = "/* === SHARED TOKENS START === */"
 TOKEN_END = "/* === SHARED TOKENS END === */"
@@ -85,15 +94,16 @@ def main():
     else:
         bad("index ≡ 任务管理台（逐字节）", "%s != %s" % (md5(a), md5(b)))
 
-    # 2) 13 个共享内联块
+    # 2) 17 个共享内联块（MODAL-A11Y 按页面渲染，海报墙 childList=true）
     total = 0
     for name, srcname, targets, begin, end in BLOCKS:
         src_path = os.path.join(HERE, srcname)
         if not os.path.exists(src_path):
             bad("共享源文件", srcname)
             continue
-        src = read(src_path).rstrip()
+        base_src = read(src_path).rstrip()
         for t in targets:
+            src = a11y_src(t == "书影音海报墙.html") if name == "MODAL-A11Y" else base_src
             p = os.path.join(REPO, t)
             html = read(p)
             m = re.search(re.escape(begin) + r"\n(.*?)\n" + re.escape(end), html, re.S)
@@ -103,10 +113,10 @@ def main():
                 bad("内联块不一致", "%s / %s (%dB vs %dB)" % (name, t, len(m.group(1)), len(src)))
             else:
                 total += 1
-    if total == 13:
-        ok("13 个共享内联块与源文件逐字节一致", "13/13")
+    if total == 17:
+        ok("17 个共享内联块与源文件逐字节一致", "17/17")
     else:
-        bad("共享内联块总数", "%d/13" % total)
+        bad("共享内联块总数", "%d/17" % total)
 
     # 3) 静态导航块紧贴 <body>
     nav_begin = BLOCKS[1][3]
@@ -176,6 +186,31 @@ def main():
             ok("导航品牌为可点击首页链接", "D-16")
         else:
             bad("导航品牌不是可点击首页链接", "D-16")
+
+    # 7) 弹窗无障碍唯一源守卫（2026-11-16 遗留风险修复）
+    a11y_ok = True
+    for t in A11Y_PAGES:
+        html = read(os.path.join(REPO, t))
+        if html.count("/* >>> MODAL-A11Y:BEGIN") != 1 or html.count("var OBS_CHILDLIST") != 1:
+            bad("弹窗无障碍块重复或缺失", t)
+            a11y_ok = False
+    home = read(os.path.join(REPO, "home.html"))
+    if "/* >>> MODAL-A11Y:BEGIN" in home:
+        bad("门户不应注入弹窗无障碍块", "home.html")
+        a11y_ok = False
+    shared = read(os.path.join(HERE, "shared.js"))
+    if "new MutationObserver" in shared:
+        bad("shared.js 仍有第二份无障碍 IIFE", "单一事实源被破坏")
+        a11y_ok = False
+    wall = read(os.path.join(REPO, "书影音海报墙.html"))
+    if "/* >>> SHARED:BEGIN" in wall:
+        bad("海报墙被注入整份 SHARED", "会顶层同名冲突白屏")
+        a11y_ok = False
+    if "/* A11Y_CHILDLIST */ true" not in wall:
+        bad("海报墙缺 childList 兜底", "confirmWall 动态插入会失效")
+        a11y_ok = False
+    if a11y_ok:
+        ok("弹窗无障碍唯一源守卫", "四页各一份 / 门户零份 / shared.js 无副本 / 海报墙 childList 开启")
 
     print("-" * 60)
     if fails:

@@ -423,46 +423,9 @@ function emptyState(icon, text, sub, actionHtml){
     '</div>'+(actionHtml||'')+'</div>';
 }
 
-/* 弹窗无障碍：背景锁滚 + 焦点陷阱（审查 M4/M5，单一事实源）。
-   监听 .mask 的 show 增删：打开时锁 body 滚动 + 聚焦首个可聚焦元素（除非打开者已显式聚焦）；
-   关闭时归还焦点 + 还原滚动。全局 Tab 仅最上层弹窗响应，边界回环。 */
-(function(){
-  var SEL='.mask';
-  function topModal(){
-    var all=Array.prototype.slice.call(document.querySelectorAll(SEL+'.show'));
-    return all.length?all[all.length-1]:null;
-  }
-  function fmap(el){
-    // 批 A（2026-10-24）：过滤 display:none 元素（如 confirmMask 内常驻隐藏的 confirmExtra），否则首焦点落到隐藏元素导致 focus() 静默失败。
-    var raw=Array.prototype.slice.call(el.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'));
-    return raw.filter(function(x){ return x.offsetParent!==null; });
-  }
-  var obs=new MutationObserver(function(muts){
-    muts.forEach(function(m){
-      var el=m.target;
-      if(!(el instanceof Element)||!el.matches||!el.matches(SEL)||m.attributeName!=='class') return;
-      if(el.classList.contains('show')){
-        if(!el._a11yStored){ el._a11yStored=document.activeElement; }
-        var f=fmap(el);
-        if(f.length && !el.contains(document.activeElement)){ try{ f[0].focus(); }catch(e){} }
-      }else{
-        if(el._a11yStored && el._a11yStored.focus && document.contains(el._a11yStored)){ try{ el._a11yStored.focus(); }catch(e){} }
-        el._a11yStored=null;
-      }
-    });
-    document.body.style.overflow = topModal()?'hidden':'';
-  });
-  obs.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class']});
-  document.addEventListener('keydown',function(e){
-    if(e.key!=='Tab') return;
-    if(e.target && e.target.tagName==='TEXTAREA') return;   /* 多行文本域内应自由用 Tab 缩进，陷阱只在真正到边界时才接管 */
-    var root=topModal(); if(!root) return;
-    var f=fmap(root); if(!f.length) return;
-    var first=f[0], last=f[f.length-1];
-    if(e.shiftKey){ if(document.activeElement===first||!root.contains(document.activeElement)){ e.preventDefault(); last.focus(); } }
-    else { if(document.activeElement===last||!root.contains(document.activeElement)){ e.preventDefault(); first.focus(); } }
-  });
-})();
+/* 弹窗无障碍 IIFE 已抽到 _shared/modal-a11y.js（2026-11-16 遗留风险修复）：
+   由 inject_shared.py 以独立 MODAL-A11Y 块注入四页，本文件不再持有副本，
+   避免 shared.js 与海报墙两份同源代码漂移。 */
 
 /* ---------- esc（审查 C3：从两文件宿主代码下沉，单一事实源）----------
  * 2026-09-17 P1-1 已把 esc 改为纯 HTML 转义（不再内嵌 iconify）；此处统一维护，

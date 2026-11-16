@@ -40,6 +40,19 @@
   @media(max-width:760px){.brandbar .brand{font-size:16px}.brandbar .brand-sub{display:none}.brandbar .top-actions{margin-left:auto}}
   /* ===== 云同步弹窗 2026-11-03 ===== */
   .cloud-hint{font-size:12px;color:var(--ink-soft);line-height:1.65;margin:8px 0 12px}
+  /* ===== 待认领感想 2026-11-16 ===== */
+  .claim-list{max-height:56vh;overflow:auto;display:flex;flex-direction:column;gap:12px;margin-bottom:14px}
+  .claim-empty{font-size:13px;color:var(--ink-soft);margin:8px 0}
+  .claim-item{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--card)}
+  .claim-text{font-size:13.5px;line-height:1.7;white-space:pre-wrap;word-break:break-word;max-height:120px;overflow:auto;color:var(--ink)}
+  .claim-key{font-size:11.5px;color:var(--ink-soft);margin:8px 0;word-break:break-all}
+  .claim-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .claim-sel{flex:1 1 200px;min-width:0;max-width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:12.5px;font-family:inherit}
+  .claim-ok,.claim-del{padding:7px 12px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .claim-ok{border-color:var(--pri);color:var(--pri)}
+  .claim-del{color:#dc2626}
+  .claim-search{width:100%;margin-top:8px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:12.5px;font-family:inherit}
+  @media(max-width:560px){.claim-sel{flex-basis:100%}}
   /* 云同步状态胶囊（顶栏，对齐任务台 / 明信片：同步中… / 已同步 / 同步失败 / 仅本地） */
   .cloudpill{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;padding:5px 12px;border-radius:999px;background:var(--pri-deep);color:var(--white);border:1px solid var(--pri);box-shadow:0 1px 3px rgba(79,124,255,.25);white-space:nowrap;cursor:pointer;}
   .cloudpill .ic{width:14px;height:14px;margin-right:0;}
@@ -610,6 +623,7 @@
         <button class="add-btn" id="btnAdd">＋ 新增条目</button>
         <button class="mini-btn" id="btnExport" title="导出自定义条目（JSON 备份）">⬇ 导出</button>
         <button class="mini-btn" id="btnImport" title="从 JSON 备份导入自定义条目">⬆ 导入</button>
+        <button class="mini-btn" id="btnClaim" type="button" title="旧版感想无法自动归属，点此查看并认领" style="display:none">🧾 待认领 <span id="claimCount">0</span></button>
         <input type="file" id="importFile" accept=".json,application/json" style="display:none" aria-hidden="true">
         <div class="viewtabs">
           <button class="vtab on" id="vWall">🎞 海报墙</button>
@@ -712,6 +726,17 @@
       <div class="f-actions" style="margin-top:6px">
         <button class="f-cancel" id="csClose" type="button">关闭</button>
       </div>
+    </div>
+  </div>
+
+  <!-- 待认领感想弹窗（2026-11-16 遗留风险修复：旧键不再「保留但不可见」） -->
+  <div class="mask" id="claimMask">
+    <div class="form-modal" style="max-width:560px" role="dialog" aria-modal="true" aria-labelledby="claimTitle">
+      <h2 id="claimTitle">🧾 待认领感想</h2>
+      <p class="cloud-hint">旧版按海报文件名保存感想，<b>共用默认海报的条目无法自动判断归属</b>。这些文字一直完整保存在本机，只是没有显示。请选择对应作品认领；也可以删除（不可自动撤销）。</p>
+      <div id="claimList" class="claim-list"></div>
+      <datalist id="claimTitles"></datalist>
+      <div class="f-actions"><button class="f-cancel" id="claimClose" type="button">关闭</button></div>
     </div>
   </div>
 
@@ -2510,7 +2535,11 @@ function legacyReviewKey(it){ return it.poster || (String(it.title??"")+"|"+Stri
 let LEGACY_REVIEW_MAP = {};
 function normReviewKey(k){
   if(!k) return k;
-  return String(k).indexOf(REVIEW_V2_PREFIX)===0 ? k : (LEGACY_REVIEW_MAP[k] || k);
+  if(String(k).indexOf(REVIEW_V2_PREFIX)===0) return k;
+  /* 2026-11-16：已认领的旧键保留在 reviews 里做「已处理」标记，不再归一，
+     否则云端并集合并会把标记对象写回目标键、覆盖真正被认领的感想。 */
+  if(reviews[k] && reviews[k]._claimedTo) return k;
+  return LEGACY_REVIEW_MAP[k] || k;
 }
 function buildLegacyReviewMap(){
   const tmp={};
@@ -2526,9 +2555,25 @@ function migrateReviews(){
     const nk=normReviewKey(k);
     if(nk!==k && !reviews[nk]){ reviews[nk]=reviews[k]; delete reviews[k]; dirty=true; }
   });
-  /* 无法唯一归属的旧键（同一默认海报对应两条记录）原样保留：不丢用户数据，只是不再显示。
+  /* 无法唯一归属的旧键（同一默认海报对应两条记录）原样保留：不丢用户数据。
+     2026-11-16 起不再是「保留但不可见」——由顶栏「待认领」入口展示全文并可认领。
      云同步 / 导入带来的旧键由 normReviewKey 在写入时即时转换。 */
   if(dirty){ try{ localStorage.setItem(REVIEW_KEY, JSON.stringify(reviews)); }catch(e){} }
+}
+/* 2026-11-16 遗留风险修复：让「无法自动归属」的旧键可见、可认领。
+   legacyCandidates 给出共用同一旧键的候选条目；unclaimedReviewKeys 只取
+   仍有正文、未被认领标记过的旧键（v2 键与已处理标记都不算待认领）。 */
+function legacyCandidates(k){
+  return MEDIA.filter(it => legacyReviewKey(it) === k);
+}
+function unclaimedReviewKeys(){
+  return Object.keys(reviews).filter(k => {
+    if(String(k).indexOf(REVIEW_V2_PREFIX)===0) return false;
+    const v = reviews[k];
+    if(!v || typeof v.text!=="string" || !v.text.trim()) return false;
+    if(v._claimedTo) return false;
+    return true;
+  });
 }
 const reviewLabel = t => (t==="书本") ? "读后感" : (t==="音乐"||t==="广播剧") ? "听后感" : "观后感";
 const hasReview = it => !!(reviews[reviewKey(it)] || it.note);   /* P1-5：感想筛选轴共用谓词（豆瓣简评 note 也算） */
@@ -3505,17 +3550,108 @@ F("fSave").addEventListener("click", async ()=>{
   ["fTitle","fPoster","fCreator","fYear","fPlatform","fNote","fRating","fGenre"].forEach(id=>F(id).value="");
   openDetail(MEDIA[customEntries.length-1]);  // 保存后立即展示新条目详情
 });
+/* ===== 2026-11-16 遗留风险修复：歧义观后感旧键「可见 / 可认领 / 可显式删除」 =====
+   旧键认领后不删除，而是写 _claimedTo 标记并抬高 ts：云端 reviews 是并集合并，
+   直接 delete 会被另一台设备的旧快照重新并回来，标记才可让每台设备都视为已处理。 */
+const claimMask = F("claimMask");
+function claimLabelMap(){
+  const m={};
+  MEDIA.forEach((it,i)=>{
+    const label=String(it.title??"")+" · "+String(it.type??"")+" · "+String(it.year??"")+" #"+i;
+    m[label]=reviewKey(it);
+  });
+  return m;
+}
+function updateClaimBadge(){
+  const n=unclaimedReviewKeys().length;
+  F("claimCount").textContent=String(n);
+  F("btnClaim").style.display=n?"":"none";
+}
+function renderClaimList(){
+  const keys=unclaimedReviewKeys(), list=F("claimList");
+  updateClaimBadge();
+  if(!keys.length){
+    list.innerHTML='<p class="claim-empty">没有待认领的感想，全部感想都已归属到具体条目。</p>';
+    return;
+  }
+  const labels=Object.keys(claimLabelMap());
+  F("claimTitles").innerHTML=labels.map(l=>`<option value="${esc(l)}"></option>`).join("");
+  list.innerHTML=keys.map(k=>{
+    const v=reviews[k], cand=legacyCandidates(k);
+    const opts=cand.map(it=>`<option value="${esc(reviewKey(it))}">${esc(it.title)} · ${esc(it.type||"")}${it.year?" ("+esc(it.year)+")":""}</option>`).join("");
+    const when=v.ts?new Date(v.ts).toLocaleDateString("zh-CN"):"无时间戳";
+    return `<div class="claim-item" data-k="${esc(k)}">
+      <div class="claim-text">${esc(v.text)}</div>
+      <div class="claim-key">旧键 ${esc(k)} · ${esc(when)} · 共用该键 ${cand.length} 条</div>
+      <div class="claim-row">
+        <select class="claim-sel" aria-label="选择归属条目">${opts||'<option value="">（没有共用条目，请用下方标题搜索）</option>'}</select>
+        <button class="claim-ok" type="button">认领</button>
+        <button class="claim-del" type="button">删除</button>
+      </div>
+      <input class="claim-search" type="text" list="claimTitles" placeholder="或按「标题 · 类型 · 年份 #序号」搜索其他条目">
+    </div>`;
+  }).join("");
+}
+function claimTargetOf(item){
+  const typed=item.querySelector(".claim-search").value.trim();
+  if(typed){
+    const rk=claimLabelMap()[typed];
+    if(!rk){ toast("没有找到这个条目，请从下拉提示里选完整的一行", "warn"); return null; }
+    return rk;
+  }
+  const sel=item.querySelector(".claim-sel").value;
+  if(!sel){ toast("请先选择归属条目", "warn"); return null; }
+  return sel;
+}
+function doClaim(item){
+  const k=item.dataset.k, v=reviews[k];
+  if(!v){ toast("这条旧感想已不存在", "warn"); return; }
+  const target=claimTargetOf(item); if(!target) return;
+  const apply=()=>{
+    const now=Date.now();
+    reviews[target]={text:v.text, ts:now, _claimedFrom:k};
+    reviews[k]={text:v.text, ts:now, _claimedTo:target};
+    saveReviews();
+    renderClaimList(); renderChips(); renderAll();
+    if(curView==="stats") renderStatsView();
+    toast("已认领到「"+target.replace(REVIEW_V2_PREFIX,"").split("|")[0]+"」", "success");
+  };
+  const exists=reviews[target];
+  if(exists && typeof exists.text==="string" && exists.text.trim() && !exists._claimedTo){
+    confirmWall("目标条目已有感想，认领会覆盖它。确定继续吗？", "覆盖").then(ok=>{ if(ok) apply(); });
+  } else apply();
+}
+function doDeleteClaim(item){
+  const k=item.dataset.k;
+  confirmWall("确定删除这条旧感想？删除后无法自动撤销。", "删除").then(ok=>{
+    if(!ok) return;
+    delete reviews[k];
+    saveReviews(); renderClaimList();
+    toast("已删除一条待认领感想", "warn");
+  });
+}
+F("btnClaim").addEventListener("click", ()=>{ renderClaimList(); claimMask.classList.add("show"); });
+F("claimClose").addEventListener("click", ()=>claimMask.classList.remove("show"));
+claimMask.addEventListener("click", e=>{ if(e.target===claimMask) claimMask.classList.remove("show"); });
+F("claimList").addEventListener("click", e=>{
+  const item=e.target.closest(".claim-item"); if(!item) return;
+  if(e.target.closest(".claim-ok")) doClaim(item);
+  else if(e.target.closest(".claim-del")) doDeleteClaim(item);
+});
+
 document.addEventListener("keydown", e=>{
   if(e.key==="Escape"){
     if(window.__confirmWallOpen) return;   /* P1 2026-11-02：确认弹窗层优先（confirmWall 自己处理 Esc），其余浮层让位 */
     tryCloseDetail();                      /* M-2：感想编辑脏检查后再关 */
     closeForm();                           /* 表单有未保存内容时不会直接关（见 closeForm 脏检查） */
     cloudMask.classList.remove("show");
+    claimMask.classList.remove("show");
     searchDrop.classList.remove("show");
   }
   /* P0-2（2026-11-03）：弹窗打开时 ←/→ 前后切换条目（输入框/感想编辑聚焦时让位） */
   if((e.key==="ArrowLeft"||e.key==="ArrowRight") && mask.classList.contains("show") && !window.__confirmWallOpen
-     && !formMask.classList.contains("show") && !cloudMask.classList.contains("show")){
+     && !formMask.classList.contains("show") && !cloudMask.classList.contains("show")
+     && !claimMask.classList.contains("show")){
     const tag = (e.target.tagName||"").toLowerCase();
     if(tag!=="input" && tag!=="textarea"){
       const g = TYPE_META[_detailEntry?.type]?.group;
@@ -3974,6 +4110,7 @@ applyWallTheme(document.documentElement.dataset.theme==="dark"?"dark":"light");
 applyHash();   /* P0-3：先回放 hash 状态（视图/筛选/排序/搜索词）再首渲染 */
 renderChips();
 renderAll();
+updateClaimBadge();   /* 2026-11-16：旧感想待认领角标（无待认领时按钮隐藏） */
 if(searchBox.value.trim()){ doSearch(); searchWallSync(); }   /* hash 带搜索词：恢复搜索态 */
 if(curView==="stats") setView("stats");
 /* 工作台门户摘要（2026-11-04）：把记录总数写入同源 localStorage 供 home.html 读取。
@@ -3984,19 +4121,31 @@ function syncStats(){
 }
 cloudBoot();   /* 云同步启动：读配置 → 首次拉取合并（async，不阻塞首屏渲染） */
 
-/* ===== 2026-11-15 P1：弹窗无障碍（背景锁滚 + 焦点陷阱 + 归还焦点）=====
-   与任务台 / 明信片 SHARED 内的同款 IIFE 同源（_shared/shared.js），但本页不注入整份
-   shared.js（esc/toast 等顶层声明会冲突白屏），故在此单独内联一份。
-   增强点：本页 confirmWall 是运行时 createElement 并带 class="mask show" 直接插入、
-   关闭时 m.remove()，没有 class 变更事件 —— 因此额外监听 childList，
-   否则动态确认框打开不锁背景滚动、关闭后滚动不还原。 */
+/* >>> MODAL-A11Y:BEGIN —— 由 _shared/modal-a11y.js 自动生成，请勿直接编辑本块 */
+/* ============================================================
+   MODAL-A11Y —— 弹窗无障碍唯一真相源（_shared/modal-a11y.js）
+   ------------------------------------------------------------
+   由 _shared/inject_shared.py 内联进四页：任务管理台 / 明信片追踪 /
+   index.html / 书影音海报墙。门户 home.html 无弹窗，不注入。
+   ⚠️ 海报墙不注入整份 shared.js（esc / toast / setCloudStatus 等顶层
+      同名声明会冲突白屏），只注入本块；2026-11-15 前这里曾手抄一份
+      同源 IIFE，改共享层时容易漏同步 —— 2026-11-16 收敛为单一源。
+
+   行为：.mask.show 打开时锁背景滚动 + 聚焦首个可聚焦元素；关闭时
+   归还焦点并还原滚动；Tab / Shift+Tab 只在最上层弹窗内回环。
+   配置：A11Y_CHILDLIST —— 海报墙的 confirmWall 是 createElement 带
+   class="mask show" 直接插入、关闭时 m.remove()，没有 class 变更事件，
+   必须靠 childList 兜底；其余三页保持 false，维持既有行为不变。
+   ============================================================ */
 (function(){
   var SEL='.mask';
+  var OBS_CHILDLIST = /* A11Y_CHILDLIST */ true;
   function topModal(){
     var all=Array.prototype.slice.call(document.querySelectorAll(SEL+'.show'));
     return all.length?all[all.length-1]:null;
   }
   function fmap(el){
+    // 批 A（2026-10-24）：过滤 display:none 元素（如 confirmMask 内常驻隐藏的 confirmExtra），否则首焦点落到隐藏元素导致 focus() 静默失败。
     var raw=Array.prototype.slice.call(el.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'));
     return raw.filter(function(x){ return x.offsetParent!==null; });
   }
@@ -4026,10 +4175,10 @@ cloudBoot();   /* 云同步启动：读配置 → 首次拉取合并（async，�
     });
     document.body.style.overflow = topModal()?'hidden':'';
   });
-  obs.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class'],childList:true});
+  obs.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class'],childList:OBS_CHILDLIST});
   document.addEventListener('keydown',function(e){
     if(e.key!=='Tab') return;
-    if(e.target && e.target.tagName==='TEXTAREA') return;
+    if(e.target && e.target.tagName==='TEXTAREA') return;   /* 多行文本域内应自由用 Tab 缩进，陷阱只在真正到边界时才接管 */
     var root=topModal(); if(!root) return;
     var f=fmap(root); if(!f.length) return;
     var first=f[0], last=f[f.length-1];
@@ -4037,6 +4186,7 @@ cloudBoot();   /* 云同步启动：读配置 → 首次拉取合并（async，�
     else { if(document.activeElement===last||!root.contains(document.activeElement)){ e.preventDefault(); first.focus(); } }
   });
 })();
+/* <<< MODAL-A11Y:END */
 
 /* >>> SITE-NAV:BEGIN —— 由 _shared/site-nav.js 自动生成，请勿直接编辑本块 */
 /* ============================================================
