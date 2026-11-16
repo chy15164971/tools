@@ -21,8 +21,8 @@
    导航条必须是 `<body>` 开头的静态 HTML，不能退回 JS 延迟插入（会重现首屏闪旧画面）。
 3. 共享色板唯一真相源是 vault `_ops/_workbench/design_tokens.css`；
    私有变量写在 `SHARED TOKENS START/END` 标记区**之外**，否则下次同步会被整块覆盖。
-4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v9）：SW 字节不变就不触发 install，
-   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9 均按此处理）。
+4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v10）：SW 字节不变就不触发 install，
+   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10 均按此处理）。
    导航请求用 `fetch(url,{cache:"no-store"})` 绕过 Pages 的 `max-age=600`；
    不要写成 `fetch(e.request, init)`（navigate 模式重建 Request 会抛 TypeError）。
 5. `_shared/` 目录以下划线开头，GitHub Pages 不发布；源文件已内联进五个 HTML，线上 404 属预期。
@@ -38,8 +38,8 @@
 |---|---|---|
 | 发布门禁 | `python3 _shared/verify_release.py` | 7 项：index 契约、17 个内联块、导航块位置、tokens、PRECACHE、品牌链接、**弹窗无障碍唯一源守卫** |
 | 色板同步 | `node "$VAULT/_ops/_workbench/sync_tokens.js" --check --repo .` | 五页 SHARED TOKENS 与 design_tokens.css 一致 |
-| 全量回归 | `python3 "$VAULT/_ops/_workbench/run_regression.py"` | 51 个用例；0 未解释失败才算通过 |
-| 镜像校验 | `... run_regression.py --check-mirror` | 显式清单 24 项逐字节一致（含 `sw.js`、`_shared/modal-a11y.js`、`index.html`、`home.html`、海报墙、`icons/` 全部图标） |
+| 全量回归 | `python3 "$VAULT/_ops/_workbench/run_regression.py"` | 52 个用例；0 未解释失败才算通过 |
+| 镜像校验 | `... run_regression.py --check-mirror` | 显式清单 23 项逐字节一致（含 `sw.js`、`_shared/modal-a11y.js`、`index.html`、`home.html`、海报墙、`icons/` 全部图标；11-16 删除无引用的 `manifest-postcard.json`） |
 | 焦点 E2E | `python3 "$VAULT/_ops/_workbench/focus_trap_e2e.py"` | 真实 Chrome Tab / Shift+Tab 回环；任务台 / 明信片 / 海报墙四弹窗 + 待认领弹窗，含动态确认框与背景锁滚 |
 
 `VAULT` 默认为 `/Users/chenhuiying/Documents/Obsidian Vault`，可用环境变量 `VAULT_DIR` 覆盖。
@@ -62,6 +62,16 @@
 新增 `_测试/站点_低风险批_20261116.冒烟测试.mjs`（22 条断言，含 4 组 SW 行为复跑；改前对照 **7 PASS / 13 FAIL**）。
 本轮最终门禁：全量回归 **51 PASS / 0 KNOWN / 0 FAIL**、焦点 E2E **36 PASS / 0 FAIL**、镜像 24 项一致。
 执行记录与证据：`deliverables/workbench-audit-1105/低风险批修复执行报告_20261116.md`。
+
+2026-11-16 第三梯队（用户「帮我做第三梯队」）：① 明信片编辑弹窗新增「解除与对方的关联」入口，
+二次确认后跨 sent / received / proxies 三数组清除 pairId（记录本身保留，只进不出的问题闭环）；
+② 门户明信片卡 67 字 desc 精简为 21 字，完整统计口径移到 title，390px 下三卡 desc 同为 21px；
+③ SW 预缓存失败改为收集并 `console.warn`（不再静默吞），海报缓存改为按 `cache.keys()` 计数 +
+LRU 淘汰最旧海报键（原先生命周期计数器重启归零后可无限增长，且只筛海报键不动 16 项 PRECACHE）；
+④ 媒体进度看板跳转壳补 `prefers-color-scheme: dark`；⑤ 删除无任何引用的 `manifest-postcard.json`，
+镜像清单 24 → 23 项。新增 `_测试/站点_第三梯队_20261116.冒烟测试.mjs`（22 条断言，含解绑与 LRU 两组行为复跑；
+改前对照 **3 PASS / 19 FAIL**）。本轮最终门禁：全量回归 **52 PASS**、焦点 E2E **36 PASS**、镜像 23 项一致。
+执行记录与证据：`deliverables/workbench-audit-1105/第三梯队修复执行报告_20261116.md`。
 
 2026-11-15 起回归 **49 PASS / 0 KNOWN / 0 FAIL**（新增 `_测试/站点_P1P2修复_20261115.冒烟测试.mjs`，
 覆盖月末翻页、收件箱批量改日期、媒体卡转义、观后感键、星级条、云同步文案、弹窗无障碍等 8 项修复分支；

@@ -988,6 +988,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
     </div>
     <label class="chk"><input type="checkbox" id="fExchangeChk"> 🔗 这是一次交换（保存后自动生成并关联对方条目）</label>
     <button type="button" class="btn btn-ghost btn-sm" id="fLinkBtn" style="margin-top:4px;display:none;">🔗 关联已有对方（事后绑定）</button>
+    <button type="button" class="btn btn-ghost btn-sm" id="fUnlinkBtn" style="margin-top:4px;display:none;">🔗 解除与对方的关联（记录保留）</button>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btnCancel">取消</button>
       <button class="btn btn-pri" id="btnSave">保存</button>
@@ -1051,6 +1052,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
     </div>
     <label class="chk"><input type="checkbox" id="rExchangeChk"> 🔗 这是一次交换（保存后自动生成并关联对方条目）</label>
     <button type="button" class="btn btn-ghost btn-sm" id="rLinkBtn" style="margin-top:4px;display:none;">🔗 关联已有对方（事后绑定）</button>
+    <button type="button" class="btn btn-ghost btn-sm" id="rUnlinkBtn" style="margin-top:4px;display:none;">🔗 解除与对方的关联（记录保留）</button>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btnRecvCancel">取消</button>
       <button class="btn btn-pri" id="btnRecvSave">保存</button>
@@ -1223,6 +1225,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
     </div>
     <label class="chk"><input type="checkbox" id="pMutualChk"> 🔁 互相代寄（同时记录对方那张片，自动关联、共享信息预填）</label>
     <button type="button" class="btn btn-ghost btn-sm" id="pLinkBtn" style="margin-top:4px;display:none;">🔗 关联已有对方（事后绑定）</button>
+    <button type="button" class="btn btn-ghost btn-sm" id="pUnlinkBtn" style="margin-top:4px;display:none;">🔗 解除与对方的关联（记录保留）</button>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btnProxyCancel">取消</button>
       <button class="btn btn-pri" id="btnProxySave">保存</button>
@@ -4333,6 +4336,36 @@ function bindImgPreview(inputId, prevId){
   ri.oninput=upd; upd(); pv.onclick=()=>openLightbox(pv.src);
 }
 
+/* 2026-11-16 第三梯队：解除互寄关联。pairId 跨 sent / received / proxies 三个数组，
+   必须全扫；只删当前记录会留下另一腿显示「↔ 对方」却点不开的死链。记录本身保留。 */
+function unlinkPair(dir, id){
+  const cur=id?findRec(dir,id):null;
+  if(!cur || !cur.pairId){ toast("这条记录没有关联对方","warn"); return; }
+  confirmDialog("确定解除与对方的关联吗？两条记录的关联标记都会被清除，记录本身保留。",{ok:"解除关联"}).then(ok=>{
+    if(ok!==true) return;
+    const pid=cur.pairId;
+    const all=REC_DEFS.sent.arr().concat(REC_DEFS.received.arr(), proxies);
+    let n=0;
+    all.forEach(x=>{ if(x && x.pairId===pid){ delete x.pairId; touch(x); n++; } });
+    const saved=save(); renderAll();
+    if(!saved){ toast("⚠️ "+SAVE_FAIL_TXT,"danger",CFG_FAIL_TOAST_MS); return; }
+    toast("已解除关联（清理 "+n+" 条）","success");
+  });
+}
+function unlinkProxy(id){
+  const cur=id?proxies.find(x=>x.id===id):null;
+  if(!cur || !cur.pairId){ toast("这条代寄没有关联对方","warn"); return; }
+  confirmDialog("确定解除这条代寄与对方的关联吗？关联标记会清除，记录本身保留。",{ok:"解除关联"}).then(ok=>{
+    if(ok!==true) return;
+    const pid=cur.pairId;
+    const all=REC_DEFS.sent.arr().concat(REC_DEFS.received.arr(), proxies);
+    let n=0;
+    all.forEach(x=>{ if(x && x.pairId===pid){ delete x.pairId; touch(x); n++; } });
+    const saved=save(); renderAll();
+    if(!saved){ toast("⚠️ "+SAVE_FAIL_TXT,"danger",CFG_FAIL_TOAST_MS); return; }
+    toast("已解除关联（清理 "+n+" 条）","success");
+  });
+}
 function openRecModal(dir, id){
   const def=REC_DEFS[dir];
   const sel=document.getElementById(def.statusId);
@@ -4344,6 +4377,7 @@ function openRecModal(dir, id){
   document.getElementById(def.idId).value = id || ""; // 回填 id，否则保存时误判为新增而重复
   const pchk=document.getElementById(def.pairChkId); if(pchk) pchk.checked=!!(p && p.pairId); // 已关联则勾选
   const linkBtn=document.getElementById(dir==="sent"?"fLinkBtn":"rLinkBtn"); if(linkBtn) linkBtn.style.display = (p && p.id)?"" : "none"; // F4 仅编辑已有记录时可事后关联
+  const ub=document.getElementById(dir==="sent"?"fUnlinkBtn":"rUnlinkBtn"); if(ub) ub.style.display = (p && p.pairId)?"":"none"; // 仅已关联时显示解除入口
   // D8 参数化：sent/received 两分支图片预览逻辑同构，抽公共函数
   if(dir==="received") bindImgPreview("rImage","rImgPrev");
   else if(dir==="sent") bindImgPreview("fImage","fImgPrev");
@@ -4490,6 +4524,7 @@ function openProxyModal(id){
   ["pProxy","pCountry","pCity","pExchange","pCardCount","pSent","pProxyRecv","pProxyBack","pGotBack","pEnvSent","pEnvRecv","pNote"].forEach(g);
   document.getElementById("pId").value=id||"";
   const pLB=document.getElementById("pLinkBtn"); if(pLB) pLB.style.display = id?"" : "none"; // F4 仅编辑已有代寄时可事后关联
+  const pUB=document.getElementById("pUnlinkBtn"); if(pUB) pUB.style.display = (p && p.pairId)?"":"none";
   fillOptions("pPlatform", proxies.map(x=>x.platform).concat(platList));
   fillOptions("pType", proxies.map(x=>x.type).concat(typeList));
   fillOptions("pCountry", proxies.map(x=>x.country).concat(countryList));
@@ -5334,8 +5369,11 @@ document.getElementById("optsNew").addEventListener("keydown",e=>{ if(e.key==="E
 document.getElementById("optsDone").onclick=closeOpts;
 // F4 事后关联按钮与关闭
 document.getElementById("fLinkBtn").onclick=()=>openLinkModal("sent", document.getElementById("fId").value);
+document.getElementById("fUnlinkBtn").onclick=()=>unlinkPair("sent", document.getElementById("fId").value);
 document.getElementById("rLinkBtn").onclick=()=>openLinkModal("received", document.getElementById("rId").value);
+document.getElementById("rUnlinkBtn").onclick=()=>unlinkPair("received", document.getElementById("rId").value);
 document.getElementById("pLinkBtn").onclick=()=>openLinkModal("proxy", document.getElementById("pId").value);
+document.getElementById("pUnlinkBtn").onclick=()=>unlinkProxy(document.getElementById("pId").value);
 document.getElementById("linkClose").onclick=closeLinkModal;
 document.getElementById("linkCancel").onclick=closeLinkModal;
 document.getElementById("linkModal").onclick=e=>{ if(e.target.id==="linkModal") closeLinkModal(); };

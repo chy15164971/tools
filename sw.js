@@ -4,11 +4,15 @@
    注意：本文件与 manifest.json/icons 只在部署到 https 时生效；本地双击 HTML 不会触发注册。 */
 const PLAN_CACHE="wb-remind-plan";
 const SENT_CACHE="wb-remind-sent";
+/* v10（2026-11-16 第三梯队）：明信片解除关联、门户卡片文案、看板暗色跳转壳
+   三处 HTML 字节变化；另外预缓存失败不再静默吞掉（记录并 console.warn），
+   海报缓存改为按 cache.keys() 计数 + LRU 淘汰（原先生命周期计数器重启归零，
+   缓存可无限增长）。沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存。 */
+const APP_CACHE="wb-app-v10";
 /* v9（2026-11-16 低风险批）：海报墙补 viewport-fit / 缩略图 alt / 遮罩前缀，
    任务台与 index 补 -webkit- 前缀，门户降级计数标签纠正口径；另外 navigate
    分支补 res.ok 检查——此前 HTTP 404 会 resolve(!ok) 直接漏给离线用户。
    沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存。 */
-const APP_CACHE="wb-app-v9";
 /* v8（2026-11-16 遗留风险修复）：弹窗无障碍 IIFE 抽唯一源后四页 HTML 字节全变，
    海报墙另加「待认领感想」入口。沿用既有约定：只改 HTML 不触发 install，
    离线用户会继续读旧预缓存，故升版本强制重新预缓存。 */
@@ -33,7 +37,13 @@ self.addEventListener("install", function(e){
   e.waitUntil((async function(){
     try{
       const c=await caches.open(APP_CACHE);
-      await Promise.all(PRECACHE.map(function(u){ return c.add(u).catch(function(){}); }));
+      var failed=[];
+      await Promise.all(PRECACHE.map(function(u){
+        return c.add(u).then(function(){}, function(err){
+          failed.push(u); console.warn("[sw] 预缓存失败:", u, err && err.message);
+        });
+      }));
+      if(failed.length) console.warn("[sw] 预缓存完成，失败 "+failed.length+"/"+PRECACHE.length+": "+failed.join(", "));
     }catch(_){}
   })());
 });
@@ -131,7 +141,22 @@ function offlineFallback(url){
 }
 /* C-11：海报图做限量 CacheFirst（只缓存本次 SW 生命周期内前 120 张，避免撑爆配额）。 */
 const POSTER_CACHE_LIMIT=120;
-var posterCached=0;
+/* 2026-11-16 第三梯队：原先 posterCached 是 SW 生命周期内计数器，重启归零后缓存可无限增长。
+   改为按 cache.keys() 里真正的海报条目计数并淘汰最旧的（keys 按插入顺序）；
+   串行链避免并发请求同时判断超量。只淘汰海报键，不动 PRECACHE 的 16 项。 */
+var posterChain=Promise.resolve();
+function cachePoster(req, copy){
+  posterChain=posterChain.then(function(){
+    return caches.open(APP_CACHE).then(function(c){
+      return c.keys().then(function(keys){
+        var posters=keys.filter(function(k){ return isPosterRequest(k.url); });
+        var over=posters.length-POSTER_CACHE_LIMIT+1;
+        if(over>0) return Promise.all(posters.slice(0,over).map(function(k){ return c.delete(k); }));
+      }).then(function(){ return c.put(req, copy); });
+    });
+  }).catch(function(){});
+  return posterChain;
+}
 function isPosterRequest(url){
   try{ return decodeURIComponent(new URL(url).pathname).indexOf("/媒体海报/")>=0; }catch(_){ return false; }
 }
@@ -146,11 +171,7 @@ self.addEventListener("fetch", function(e){
       caches.match(e.request, {cacheName:APP_CACHE, ignoreSearch:true}).then(function(hit){
         if(hit) return hit;
         return fetch(e.request).then(function(res){
-          if(res && res.ok && posterCached < POSTER_CACHE_LIMIT){
-            posterCached++;
-            var copy=res.clone();
-            caches.open(APP_CACHE).then(function(c){ return c.put(e.request, copy); }).catch(function(){});
-          }
+          if(res && res.ok){ cachePoster(e.request, res.clone()); }
           return res;
         }).catch(function(){ return fromCache(e.request); });
       })
