@@ -225,7 +225,7 @@
       <h2>书影音海报墙</h2>
       <div class="desc">已看 / 已读 / 已听，海报墙与兴趣画像</div>
       <div class="metrics">
-        <div class="metric"><div class="n" id="mMediaAll">—</div><div class="l">已记录（含自定义 / 代查）</div></div>
+        <div class="metric"><div class="n" id="mMediaAll">—</div><div class="l" id="mMediaAllLabel">已记录（含自定义 / 代查）</div></div>
         <div class="metric"><div class="n" id="mMediaCustom">—</div><div class="l">自定义条目</div></div>
       </div>
       <div class="go">打开海报墙 →</div>
@@ -391,15 +391,18 @@
     var s=read("wb_mediawall_stats_v1");
     var custom=read("wb_mediawall_custom_v1");
     var customN=Array.isArray(custom)?custom.length:null;
-    if(s && typeof s.total==="number") return { total:s.total, custom:customN, cached:true };
+    if(s && typeof s.total==="number") return { total:s.total, custom:customN, cached:true, source:"authoritative" };
     var c=read(MEDIA_CACHE_KEY);
-    if(c && typeof c.total==="number") return { total:c.total, custom:customN, cached:true };
+    if(c && typeof c.total==="number") return { total:c.total, custom:customN, cached:true, source:c.fallback?"fallback":"authoritative" };
     return { total:null, custom:customN, cached:false };
   }
   /* C-04：降级说明写进概览「媒体数据状态」副行，避免只留一个无解释的「—」 */
   function mediaFallback(msg){
     var el=document.getElementById("ovMediaS");
     if(el) el.textContent=msg;
+    /* 2026-11-16 低风险批：fetch 兜底只数内嵌 MEDIA，不含自定义条目，标签同步修正 */
+    var lab=document.getElementById("mMediaAllLabel");
+    if(lab) lab.textContent="已记录（不含自定义条目）";
   }
   function fetchMediaCount(){
     /* file:// 下 fetch 相对/绝对路径都会抛 TypeError（QA 实证），兜底原本是死代码；
@@ -418,7 +421,7 @@
         var n=(txt.match(/\{"title":/g)||[]).length;
         if(n>0){
           /* 唯一权威口径 wb_mediawall_stats_v1.total：缓存键与 fetch 兜底只补同一个记录总数，不另立计数 */
-          try{ localStorage.setItem(MEDIA_CACHE_KEY, JSON.stringify({total:n, ts:Date.now()})); }catch(e){}
+          try{ localStorage.setItem(MEDIA_CACHE_KEY, JSON.stringify({total:n, ts:Date.now(), fallback:true})); }catch(e){}
           render();
         }else{
           mediaFallback("未在海报墙页面读到记录数；打开「书影音海报墙」后会自动写入。");
@@ -461,6 +464,8 @@
     setText("mTaskOpen", t?t.open:null); setText("mTaskDone", t?t.done:null); setText("mTaskAll", t?t.all:null);
     setText("mPcTransit", p?p.transit:null); setText("mPcArrived", p?p.arrived:null); setText("mPcAll", p?p.all:null);
     setText("mMediaAll", m.total); setText("mMediaCustom", m.custom===null?null:m.custom);
+    var lab=document.getElementById("mMediaAllLabel");
+    if(lab) lab.textContent=(m && m.source==="fallback")?"已记录（不含自定义条目）":"已记录（含自定义 / 代查）";
     renderOverview(t, p, m);
     if(m.total===null) fetchMediaCount();
   }

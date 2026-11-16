@@ -4,10 +4,14 @@
    注意：本文件与 manifest.json/icons 只在部署到 https 时生效；本地双击 HTML 不会触发注册。 */
 const PLAN_CACHE="wb-remind-plan";
 const SENT_CACHE="wb-remind-sent";
+/* v9（2026-11-16 低风险批）：海报墙补 viewport-fit / 缩略图 alt / 遮罩前缀，
+   任务台与 index 补 -webkit- 前缀，门户降级计数标签纠正口径；另外 navigate
+   分支补 res.ok 检查——此前 HTTP 404 会 resolve(!ok) 直接漏给离线用户。
+   沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存。 */
+const APP_CACHE="wb-app-v9";
 /* v8（2026-11-16 遗留风险修复）：弹窗无障碍 IIFE 抽唯一源后四页 HTML 字节全变，
    海报墙另加「待认领感想」入口。沿用既有约定：只改 HTML 不触发 install，
    离线用户会继续读旧预缓存，故升版本强制重新预缓存。 */
-const APP_CACHE="wb-app-v8";
 /* v7（2026-11-15 P1+P2 修复）：任务台 / 海报墙 / 明信片三个 HTML 字节已变，
    沿用 v6 的约定：只改 HTML 不触发 install，离线用户会继续读旧预缓存，故升版本强制重新预缓存。 */
 /* v6（2026-11-13 W-06 方案 A）：任务台收件箱拖放死代码移除、文案改为只提「安排」。
@@ -156,7 +160,13 @@ self.addEventListener("fetch", function(e){
   var upstream;
   if(e.request.mode==="navigate"){
     upstream = fetch(e.request.url, {cache:"no-store", credentials:"same-origin", redirect:"follow"})
-      .catch(function(){ return fetch(e.request); });
+      .then(function(res){ if(res && !res.ok) throw new Error("HTTP "+res.status); return res; })
+      .catch(function(){
+        return fetch(e.request).then(function(res){
+          if(res && !res.ok) throw new Error("HTTP "+res.status);
+          return res;
+        });
+      });
   }else{
     upstream = fetch(e.request);
   }

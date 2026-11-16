@@ -21,8 +21,8 @@
    导航条必须是 `<body>` 开头的静态 HTML，不能退回 JS 延迟插入（会重现首屏闪旧画面）。
 3. 共享色板唯一真相源是 vault `_ops/_workbench/design_tokens.css`；
    私有变量写在 `SHARED TOKENS START/END` 标记区**之外**，否则下次同步会被整块覆盖。
-4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v8）：SW 字节不变就不触发 install，
-   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8 均按此处理）。
+4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v9）：SW 字节不变就不触发 install，
+   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9 均按此处理）。
    导航请求用 `fetch(url,{cache:"no-store"})` 绕过 Pages 的 `max-age=600`；
    不要写成 `fetch(e.request, init)`（navigate 模式重建 Request 会抛 TypeError）。
 5. `_shared/` 目录以下划线开头，GitHub Pages 不发布；源文件已内联进五个 HTML，线上 404 属预期。
@@ -38,7 +38,7 @@
 |---|---|---|
 | 发布门禁 | `python3 _shared/verify_release.py` | 7 项：index 契约、17 个内联块、导航块位置、tokens、PRECACHE、品牌链接、**弹窗无障碍唯一源守卫** |
 | 色板同步 | `node "$VAULT/_ops/_workbench/sync_tokens.js" --check --repo .` | 五页 SHARED TOKENS 与 design_tokens.css 一致 |
-| 全量回归 | `python3 "$VAULT/_ops/_workbench/run_regression.py"` | 50 个用例；0 未解释失败才算通过 |
+| 全量回归 | `python3 "$VAULT/_ops/_workbench/run_regression.py"` | 51 个用例；0 未解释失败才算通过 |
 | 镜像校验 | `... run_regression.py --check-mirror` | 显式清单 24 项逐字节一致（含 `sw.js`、`_shared/modal-a11y.js`、`index.html`、`home.html`、海报墙、`icons/` 全部图标） |
 | 焦点 E2E | `python3 "$VAULT/_ops/_workbench/focus_trap_e2e.py"` | 真实 Chrome Tab / Shift+Tab 回环；任务台 / 明信片 / 海报墙四弹窗 + 待认领弹窗，含动态确认框与背景锁滚 |
 
@@ -53,6 +53,15 @@
 改前对照 **3 PASS / 17 FAIL**），真浏览器认领 E2E 与 `focus_trap_e2e.py` 的 claimMask 断言同步落地。
 本轮最终门禁：全量回归 **50 PASS / 0 KNOWN / 0 FAIL**（SKIP 6 显式披露）、焦点 E2E **36 PASS / 0 FAIL**、镜像 24 项一致。
 执行记录与证据：`deliverables/workbench-audit-1105/遗留风险修复执行报告_20261116.md`。
+
+2026-11-16 低风险批（用户从推荐清单选择「打包做低风险批」）：① 海报墙补 `viewport-fit=cover`
+（7+ 处 `env()` 此前恒为 0）、搜索建议缩略图补 `alt=""`、遮罩补 `-webkit-backdrop-filter`；
+② 任务台 / index 同类前缀；③ 门户降级计数标签不再错误承诺「含自定义」，按数据来源
+（`source:"fallback"`）判定；④ SW navigate 分支补 `res.ok` 检查——此前 HTTP 404 会
+`resolve(!ok)` 直接漏给离线用户，现在两次请求都非 2xx 才交回 `offlineFallback`。
+新增 `_测试/站点_低风险批_20261116.冒烟测试.mjs`（22 条断言，含 4 组 SW 行为复跑；改前对照 **7 PASS / 13 FAIL**）。
+本轮最终门禁：全量回归 **51 PASS / 0 KNOWN / 0 FAIL**、焦点 E2E **36 PASS / 0 FAIL**、镜像 24 项一致。
+执行记录与证据：`deliverables/workbench-audit-1105/低风险批修复执行报告_20261116.md`。
 
 2026-11-15 起回归 **49 PASS / 0 KNOWN / 0 FAIL**（新增 `_测试/站点_P1P2修复_20261115.冒烟测试.mjs`，
 覆盖月末翻页、收件箱批量改日期、媒体卡转义、观后感键、星级条、云同步文案、弹窗无障碍等 8 项修复分支；
