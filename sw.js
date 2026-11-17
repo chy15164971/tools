@@ -1,14 +1,15 @@
 /* 任务管理台 Service Worker
    - M10/PWA：提供 fetch 处理（静态直连 + 离线兜底首页）满足可安装性
    - M2：页面关闭后定时检查提醒计划（Cache 'wb-remind-plan'），到点弹系统通知（尽力而为）
-   注意：本文件与 manifest.json/icons 只在部署到 https 时生效；本地双击 HTML 不会触发注册。 */
+   注意：本文件与 manifest.json/icons 只在部署到 https 时生效；本地双击 HTML 不会触发注册。
+   P2-11：SW 空闲会被浏览器冻结/终止，setInterval 仅尽力而为；页面关闭后不保证准时提醒。 */
 const PLAN_CACHE="wb-remind-plan";
 const SENT_CACHE="wb-remind-sent";
 /* v10（2026-11-16 第三梯队）：明信片解除关联、门户卡片文案、看板暗色跳转壳
    三处 HTML 字节变化；另外预缓存失败不再静默吞掉（记录并 console.warn），
    海报缓存改为按 cache.keys() 计数 + LRU 淘汰（原先生命周期计数器重启归零，
    缓存可无限增长）。沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存。 */
-const APP_CACHE="wb-app-v13";
+const APP_CACHE="wb-app-v14";
 /* v9（2026-11-16 低风险批）：海报墙补 viewport-fit / 缩略图 alt / 遮罩前缀，
    任务台与 index 补 -webkit- 前缀，门户降级计数标签纠正口径；另外 navigate
    分支补 res.ok 检查——此前 HTTP 404 会 resolve(!ok) 直接漏给离线用户。

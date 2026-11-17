@@ -21,8 +21,8 @@
    导航条必须是 `<body>` 开头的静态 HTML，不能退回 JS 延迟插入（会重现首屏闪旧画面）。
 3. 共享色板唯一真相源是 vault `_ops/_workbench/design_tokens.css`；
    私有变量写在 `SHARED TOKENS START/END` 标记区**之外**，否则下次同步会被整块覆盖。
-4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v13）：SW 字节不变就不触发 install，
-   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13 均按此处理）。
+4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v14）：SW 字节不变就不触发 install，
+   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14 均按此处理）。
    导航请求用 `fetch(url,{cache:"no-store"})` 绕过 Pages 的 `max-age=600`；
    不要写成 `fetch(e.request, init)`（navigate 模式重建 Request 会抛 TypeError）。
 5. `_shared/` 目录以下划线开头，GitHub Pages 不发布；源文件已内联进五个 HTML，线上 404 属预期。
@@ -38,7 +38,7 @@
 |---|---|---|
 | 发布门禁 | `python3 _shared/verify_release.py` | 7 项：index 契约、17 个内联块、导航块位置、tokens、PRECACHE、品牌链接、**弹窗无障碍唯一源守卫** |
 | 色板同步 | `node "$VAULT/_ops/_workbench/sync_tokens.js" --check --repo .` | 五页 SHARED TOKENS 与 design_tokens.css 一致 |
-| 全量回归 | `python3 "$VAULT/_ops/_workbench/run_regression.py"` | 55 个用例；0 未解释失败才算通过 |
+| 全量回归 | `python3 "$VAULT/_ops/_workbench/run_regression.py"` | 56 个用例；0 未解释失败才算通过 |
 | 镜像校验 | `... run_regression.py --check-mirror` | 显式清单 23 项逐字节一致（含 `sw.js`、`_shared/modal-a11y.js`、`index.html`、`home.html`、海报墙、`icons/` 全部图标；11-16 删除无引用的 `manifest-postcard.json`） |
 | 焦点 E2E | `python3 "$VAULT/_ops/_workbench/focus_trap_e2e.py"` | 真实 Chrome Tab / Shift+Tab 回环；任务台 / 明信片 / 海报墙四弹窗 + 待认领弹窗，含动态确认框与背景锁滚 |
 
@@ -139,6 +139,25 @@ jsdom 侧那 6 条断言改为输出显式 `SKIP`（**不伪装成 PASS**），�
 P1-9 分层守卫 **42 PASS / 0 FAIL**（`_cloudUploadInner` / `cloudAutoUpload` / `tombMap` 合法重冻）、
 真浏览器三处修复 **9 PASS / 0 FAIL**（含四页零 JS 错误）。升 `APP_CACHE` v12 → **v13**。
 执行记录与证据：`deliverables/workbench-audit-1105/第一批P1修复执行报告_20261117.md`。
+
+## 2026-11-17 P2 批（全站审查 11 项一般优化，已上线）
+
+- **P2-1** 明信片残缺 CSS 注释（裸文本带 `*/`）吞掉暗色 `.cloudpill.off` 规则 → 补成合法注释；真浏览器 CSSOM 实证背景由 `rgb(233,237,245)` 变为 `rgb(35,42,58)`。
+- **P2-2 / P2-3** 任务台批量取消 / 补打卡漏写 `habitday` 墓碑与 `dayTs` → 与单格打卡 / 本周清空同口径（取消删时刻 + 写墓碑，补卡写时刻 + 清墓碑）。
+- **P2-4** 周目标双口径 → `habitFitRate()` 对 weekly 改用 `habitWeekGoal()` / `habitWeekCount()` 的本周任意 N 天口径，与「3/3 达标」一致；`habitWeekTargetDays()` 的前 N 天明确降级为「补卡建议日」。
+- **P2-5** 月度重复任务起始日 29/30/31 在短月静默跳过 → `want = Math.min(baseStart.getDate(), 当月天数)` 钳制。
+- **P2-6** 「进行中」虚高 → `droppedCount` 用 `isDropped(t, todayYmd)` 纳入重复任务当日 skip。
+- **P2-7** 海报墙评分 0 / 负数 / 非数字只提示不阻断 → `toast + focus + return`。
+- **P2-8** 感想删除后云端旧副本复活 → 删除写 `{_del:true,ts}` 墓碑，合并规则允许无 text 的墓碑参与 ts 仲裁，`hasReview` / 时间显示跳过墓碑；待认领删除同步改墓碑。
+- **P2-9** home 暗色 FOUC → head 内 `<style>` 之前加同步主题脚本，html 去掉硬编码 `data-theme="light"`。
+- **P2-10** 移动端触控目标 → 导航链接 `inline-flex + min-height:44px`、品牌与 home `.btn` 移动端 44px（改共享源后重注入五页）。
+- **P2-11** 提醒可靠性落差 → 提醒按钮 title / 习惯提醒时间说明 / SW 注释明确「仅在页面或后台脚本活跃时尽力提醒，关闭页面后不保证准时送达」。
+
+新增 `_测试/站点_P2批_20261117.冒烟测试.mjs`（33 条断言；改前对照 **6 PASS / 27 FAIL**，证明非空调）。
+P1-9 守卫因 5 个函数体合法改动重冻基线（改前字节 40 PASS / 0 FAIL → 重冻后 42 PASS / 0 FAIL）。
+`站点_遗留风险修复_20261116.冒烟测试.mjs` 的 B6 断言适配 P2-8 墓碑语义（改前 25 PASS / 1 FAIL → 改后 26 PASS / 0 FAIL）。
+本轮最终门禁：专项 **33 PASS / 0 FAIL**、全量回归 **56 PASS / 0 KNOWN / 0 FAIL**、焦点 E2E **36 PASS / 0 FAIL**、P1-9 守卫 **42 PASS / 0 FAIL**、真浏览器 P2 实证 **9 PASS / 0 FAIL**。升 `APP_CACHE` v13 → **v14**。
+执行记录与证据：`deliverables/workbench-audit-1105/P2批修复执行报告_20261117.md`。
 
 ## 发布流程
 

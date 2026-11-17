@@ -578,14 +578,15 @@
 .__wsn_icon{width:20px;height:20px;border-radius:5px;flex:none;display:block}
 .__wsn_links{display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
 .__wsn_links::-webkit-scrollbar{display:none}
-.__wsn_links a{display:inline-block;padding:3px 11px;border-radius:999px;text-decoration:none;
+.__wsn_links a{display:inline-flex;align-items:center;min-height:36px;padding:3px 11px;border-radius:999px;text-decoration:none;
   white-space:nowrap;color:var(--sub,#6b7280);border:1px solid transparent;transition:background .15s ease,color .15s ease}
 .__wsn_links a:hover{background:var(--hover,var(--pri-soft,#eaf0ff));color:var(--ink,#1f2430)}
 .__wsn_links a.__wsn_on{color:#fff;background:var(--pri-deep,#3D68F0);border-color:var(--pri-deep,#3D68F0)}
 .__wsn_hint{font-size:12px;color:var(--sub,#9aa3b2);white-space:nowrap}
 .__wsn_bar a:focus-visible{outline:2px solid var(--pri,#4F7CFF);outline-offset:2px}
 @media(max-width:680px){.__wsn_bar{gap:9px;padding:6px 10px}.__wsn_hint{display:none}
-  .__wsn_links a{padding:3px 9px;font-size:12px}}
+  .__wsn_brand{min-height:44px}
+  .__wsn_links a{padding:3px 9px;font-size:12px;min-height:44px}}
 @media(prefers-reduced-motion:reduce){.__wsn_links a{transition:none}}
 </style>
 <nav id="__wsn_bar" class="__wsn_bar" aria-label="站点导航">
@@ -2579,7 +2580,7 @@ function unclaimedReviewKeys(){
   });
 }
 const reviewLabel = t => (t==="书本") ? "读后感" : (t==="音乐"||t==="广播剧") ? "听后感" : "观后感";
-const hasReview = it => !!(reviews[reviewKey(it)] || it.note);   /* P1-5：感想筛选轴共用谓词（豆瓣简评 note 也算） */
+const hasReview = it => { const rv=reviews[reviewKey(it)]; return !!(rv && !rv._del) || !!it.note; };   /* P1-5：感想筛选轴共用谓词（豆瓣简评 note 也算；P2-8：墓碑不算感想） */
 function mergeMedia(){
   // 合并顺序：本页新增(localStorage) → AI代查条目(媒体自定义条目.js) → 豆瓣导入
   const extra = (typeof CUSTOM_EXTRA !== "undefined" && Array.isArray(CUSTOM_EXTRA)) ? CUSTOM_EXTRA : [];
@@ -3333,13 +3334,13 @@ document.getElementById("modal").addEventListener("click", e=>{
     const ta=document.getElementById("revText");
     if(!ta) return;
     const key=ta.dataset.rk, text=ta.value.trim();
-    if(text){ reviews[key]={text,ts:Date.now()}; } else { delete reviews[key]; }   // 清空保存 = 删除感想
+    if(text){ reviews[key]={text,ts:Date.now()}; } else { reviews[key]={_del:true,ts:Date.now()}; }   // 清空保存 = 删除感想（写墓碑，压过云端旧副本，防复活）
     if(saveReviews()){
       const body=document.getElementById("revBody");
       body.innerHTML = text ? esc(text) : '<span class="r-empty">还没有写过感想，点「修改」记下你的感受…</span>';
       body.style.display="block";
       document.getElementById("revEditbox").style.display="none";
-      document.getElementById("revTime").textContent = reviews[key] ? ("上次保存："+new Date(reviews[key].ts).toLocaleString("zh-CN")) : "尚未保存";
+      document.getElementById("revTime").textContent = reviews[key] && !reviews[key]._del ? ("上次保存："+new Date(reviews[key].ts).toLocaleString("zh-CN")) : "尚未保存";
       renderAll();   // 刷新卡片 ✍️ 角标
       toast(text ? "感想已保存" : "感想已清除");
     }
@@ -3543,9 +3544,11 @@ F("fSave").addEventListener("click", async ()=>{
   const entry = { title, type: F("fType").value || ALL_TYPES[0], poster: FV("fPoster") };
   [["creator","fCreator"],["year","fYear"],["platform","fPlatform"],["date","fDate"],["genre","fGenre"],["note","fNote"]]
     .forEach(([k,id])=>{ if(FV(id)) entry[k]=FV(id); });
-  const r = parseFloat(FV("fRating"));
+  const ratingRaw = FV("fRating");
+  const r = parseFloat(ratingRaw);
+  if(ratingRaw && isNaN(r)){ toast("评分需为 0–10 的数字", "danger"); F("fRating").focus(); return; }
   if(!isNaN(r)){
-    if(r<=0){ toast("评分需大于 0", "danger"); }
+    if(r<=0){ toast("评分需大于 0", "danger"); F("fRating").focus(); return; }
     else {
       const v = Math.min(10, r);   /* 保留钳制，但越界必须给用户可感知提示，不再静默改写 */
       entry.rating = v;
@@ -3640,7 +3643,7 @@ function doDeleteClaim(item){
   const k=item.dataset.k;
   confirmWall("确定删除这条旧感想？删除后无法自动撤销。", "删除").then(ok=>{
     if(!ok) return;
-    delete reviews[k];
+    reviews[k]={_del:true,ts:Date.now()};   // P2-8：写墓碑，压过云端旧副本防复活
     saveReviews(); renderClaimList();
     toast("已删除一条待认领感想", "warn");
   });
@@ -3977,7 +3980,7 @@ async function _cloudPullInner(silent, quiet){
     // 感想：同 key 双方都有 → ts 较新者胜；单方有 → 直接并入
     const rv=(obj.reviews && typeof obj.reviews==="object" && !Array.isArray(obj.reviews)) ? obj.reviews : {};
     for(const [k,v] of Object.entries(rv)){
-      if(!v || typeof v.text!=="string") continue;
+      if(!v || (typeof v.text!=="string" && !v._del)) continue;   // P2-8：墓碑无 text 也要参与 ts 仲裁，否则删除会被云端旧稿覆盖
       const nk=normReviewKey(k);   /* 2026-11-15：兼容旧版 poster 键 */
       const lv=reviews[nk];
       if(!lv || (v.ts||0)>(lv.ts||0)){ reviews[nk]=v; changed++; }

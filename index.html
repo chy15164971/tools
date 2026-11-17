@@ -1752,14 +1752,15 @@
 .__wsn_icon{width:20px;height:20px;border-radius:5px;flex:none;display:block}
 .__wsn_links{display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
 .__wsn_links::-webkit-scrollbar{display:none}
-.__wsn_links a{display:inline-block;padding:3px 11px;border-radius:999px;text-decoration:none;
+.__wsn_links a{display:inline-flex;align-items:center;min-height:36px;padding:3px 11px;border-radius:999px;text-decoration:none;
   white-space:nowrap;color:var(--sub,#6b7280);border:1px solid transparent;transition:background .15s ease,color .15s ease}
 .__wsn_links a:hover{background:var(--hover,var(--pri-soft,#eaf0ff));color:var(--ink,#1f2430)}
 .__wsn_links a.__wsn_on{color:#fff;background:var(--pri-deep,#3D68F0);border-color:var(--pri-deep,#3D68F0)}
 .__wsn_hint{font-size:12px;color:var(--sub,#9aa3b2);white-space:nowrap}
 .__wsn_bar a:focus-visible{outline:2px solid var(--pri,#4F7CFF);outline-offset:2px}
 @media(max-width:680px){.__wsn_bar{gap:9px;padding:6px 10px}.__wsn_hint{display:none}
-  .__wsn_links a{padding:3px 9px;font-size:12px}}
+  .__wsn_brand{min-height:44px}
+  .__wsn_links a{padding:3px 9px;font-size:12px;min-height:44px}}
 @media(prefers-reduced-motion:reduce){.__wsn_links a{transition:none}}
 </style>
 <nav id="__wsn_bar" class="__wsn_bar" aria-label="站点导航">
@@ -1857,7 +1858,7 @@
           </div>
           <div class="menu-body">
           <div class="mgroup">提醒</div>
-          <button class="mitem" id="btnRemind" title="开启 / 关闭浏览器任务提醒（iOS 后台提醒可能受限）" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>提醒 关</button>
+          <button class="mitem" id="btnRemind" title="开启 / 关闭浏览器任务提醒（仅在页面或后台脚本活跃时尽力提醒，关闭页面后不保证准时送达）" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>提醒 关</button>
           <div class="mrow"><span class="mlabel">提前提醒</span><select id="fLead" class="leadsel" title="提前提醒分钟数（iOS 后台提醒可能受限）" aria-label="提前提醒分钟数">
             <option value="5">5 分钟</option>
             <option value="10" selected>10 分钟</option>
@@ -2507,7 +2508,7 @@
       <div class="field">
         <label>提醒时间（可选）</label>
         <input id="habitTime" type="time">
-        <span class="hint" style="margin-top:2px;">设置时间后，打开顶栏「提醒」开关即可在每天该时间收到浏览器通知（当天未打卡时提醒）。</span>
+        <span class="hint" style="margin-top:2px;">设置时间后，打开顶栏「提醒」开关即可在每天该时间收到浏览器通知（当天未打卡时提醒；仅在页面或后台脚本活跃时尽力提醒，关闭页面后不保证准时送达）。</span>
       </div>
     </div>
     <div class="modal-actions">
@@ -3894,7 +3895,9 @@ function recMatch(date, rule, baseStart){
     return diffW % iv === 0;
   }
   if(rule.freq==="monthly"){
-    if(date.getDate()!==baseStart.getDate()) return false;
+    // P2-5：起始日 29/30/31 在短月钳到当月最后一天，避免整月静默跳过
+    const want=Math.min(baseStart.getDate(), new Date(date.getFullYear(), date.getMonth()+1, 0).getDate());
+    if(date.getDate()!==want) return false;
     const diffM = (date.getFullYear()-baseStart.getFullYear())*12 + (date.getMonth()-baseStart.getMonth());
     return diffM % iv === 0;
   }
@@ -5357,7 +5360,7 @@ function planInbox(id, dateStr){
 function habitWeekTargetDays(h){
   const weekDays=habitWeekDays();
   if(h.freq==="daily") return weekDays.map(ymd);
-  if(h.freq==="weekly"){ // 每周 N 次：取本周前 N 天作为目标日（简单稳定策略）
+  if(h.freq==="weekly"){ // 每周 N 次：前 N 天为建议日（补卡用）；达标判定按本周任意 N 天（habitWeekCount），两处同口径 P2-4
     const n=Math.min(7, Math.max(1, parseInt(h.freqN)||3));
     return weekDays.slice(0,n).map(ymd);
   }
@@ -5370,6 +5373,12 @@ function habitFitRate(){
   if(!active.length) return null;
   let tot=0, got=0;
   for(const h of active){
+    if(h.freq==="weekly"){
+      // P2-4：与「本周目标 3/3」同口径——本周任意 N 天完成即达标，不再只认周一~周前 N 天
+      const g=habitWeekGoal(h); if(!g) continue;
+      tot+=g; got+=Math.min(g, habitWeekCount(h));
+      continue;
+    }
     const targets=habitWeekTargetDays(h); if(!targets.length) continue;
     const days=h.days||[];
     tot+=targets.length; got+=targets.filter(d=>days.includes(d)).length;
@@ -6987,10 +6996,20 @@ function confirmHabitBackfill(){
     h.days=h.days||[];
     const pool = (onlyTarget ? habitWeekTargetDays(h) : days).filter(d=>days.includes(d));
     if(bfMode==="add"){
-      for(const d of pool){ if(!h.days.includes(d)){ h.days.push(d); total++; } }
+      for(const d of pool){ if(!h.days.includes(d)){
+        h.days.push(d);
+        h.dayTs=h.dayTs||{}; h.dayTs[d]=Date.now();     // P2-3：与单格打卡同口径，记时刻解「云端残留墓碑」死锁
+        clearKindTomb("habitday", habitDayKey(h.id,d));  // P2-3：补打卡要清墓碑，否则被旧墓碑回滚
+        total++;
+      } }
     } else {
       const before=h.days.length;
+      const removed=pool.filter(d=>h.days.includes(d));
       h.days=h.days.filter(d=>!pool.includes(d));
+      removed.forEach(d=>{                              // P2-2：与单格取消 / 本周清空同口径
+        if(h.dayTs) delete h.dayTs[d];
+        pushKindTomb("habitday", habitDayKey(h.id,d));   // 取消打卡必须能跨设备传播
+      });
       total += before - h.days.length;
     }
   }
@@ -8425,7 +8444,8 @@ function renderStats(){
   const okrAvg = state.okrs.length ? Math.round(state.okrs.reduce((s,o)=>s+okrOverall(o),0)/state.okrs.length) : null;
   let html=`<div class="stats-wrap">`;
   html+=noSearchNote("统计");
-  const droppedCount=tasks.filter(t=>!isRecTask(t)&&t.dropped).length;
+  const todayYmd=ymd(startOfDay(new Date()));   // P2-6：重复任务的「不补做」按当日实例判定
+  const droppedCount=tasks.filter(t=> isRecTask(t) ? isDropped(t, todayYmd) : !!t.dropped).length;
   html+=`<div class="stats-ranges">${rangeBtns}<span style="flex:1"></span><button class="btn btn-ghost btn-sm" id="btnExportStats">📤 导出统计报告</button></div>`;
   /* ：完成率环形图并入指标行（原来独占一整行），指标卡改为自适应列数 */
   html+=`<div class="stat-cards">
