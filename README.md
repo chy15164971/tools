@@ -21,8 +21,8 @@
    导航条必须是 `<body>` 开头的静态 HTML，不能退回 JS 延迟插入（会重现首屏闪旧画面）。
 3. 共享色板唯一真相源是 vault `_ops/_workbench/design_tokens.css`；
    私有变量写在 `SHARED TOKENS START/END` 标记区**之外**，否则下次同步会被整块覆盖。
-4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v15）：SW 字节不变就不触发 install，
-   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15 均按此处理）。
+4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v16）：SW 字节不变就不触发 install，
+   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15→v16 均按此处理）。
    导航请求用 `fetch(url,{cache:"no-store"})` 绕过 Pages 的 `max-age=600`；
    不要写成 `fetch(e.request, init)`（navigate 模式重建 Request 会抛 TypeError）。
 5. `_shared/` 目录以下划线开头，GitHub Pages 不发布；源文件已内联进五个 HTML，线上 404 属预期。
@@ -38,7 +38,7 @@
 |---|---|---|
 | 发布门禁 | `python3 _shared/verify_release.py` | 7 项：index 契约、17 个内联块、导航块位置、tokens、PRECACHE、品牌链接、**弹窗无障碍唯一源守卫** |
 | 色板同步 | `node "$VAULT/_ops/_workbench/sync_tokens.js" --check --repo .` | 五页 SHARED TOKENS 与 design_tokens.css 一致 |
-| 全量回归 | `python3 "$VAULT/_ops/_workbench/run_regression.py"` | 57 个用例；0 未解释失败才算通过 |
+| 全量回归 | `python3 "$VAULT/_ops/_workbench/run_regression.py"` | 58 个用例；0 未解释失败才算通过 |
 | 镜像校验 | `... run_regression.py --check-mirror` | 显式清单 23 项逐字节一致（含 `sw.js`、`_shared/modal-a11y.js`、`index.html`、`home.html`、海报墙、`icons/` 全部图标；11-16 删除无引用的 `manifest-postcard.json`） |
 | 焦点 E2E | `python3 "$VAULT/_ops/_workbench/focus_trap_e2e.py"` | 真实 Chrome Tab / Shift+Tab 回环；任务台 / 明信片 / 海报墙四弹窗 + 待认领弹窗，含动态确认框与背景锁滚 |
 
@@ -172,6 +172,21 @@ P1-9 守卫因 5 个函数体合法改动重冻基线（改前字节 40 PASS / 0
 P1-9 守卫因 `confirmHabitBackfill` / `habitRowHtml` 两函数体合法改动重冻基线（改前字节 40 PASS / 0 FAIL → 重冻后 42 PASS / 0 FAIL）。
 本轮最终门禁：专项 **26 PASS / 0 FAIL**、全量回归 **57 PASS / 0 KNOWN / 0 FAIL**、焦点 E2E **36 PASS / 0 FAIL**、P1-9 守卫 **42 PASS / 0 FAIL**、真浏览器 P3 实证 **16 PASS / 0 FAIL**。升 `APP_CACHE` v14 → **v15**。
 执行记录与证据：`deliverables/workbench-audit-1105/P3第一梯队修复执行报告_20261118.md`。
+
+## 2026-11-18 P3 第二/三梯队（全站审查剩余 11 项，已上线）
+
+- **P3-5/6/7**（home）陈旧注释更正；兜底缓存 total 补上自定义条目数，权威/fallback 两来源口径统一，标签固定「已记录（含自定义 / 代查）」；`render(keepTime)` 让兜底抓取只更新媒体数、不重写 `ovTime`。
+- **P3-8/9**（明信片）`convertRecord` 清理镜像腿 `pairId` 后补 `touch(o)`，与 `unlinkPartnerIfOrphan` 对齐；单向代寄 `envSent`/`envRecv` 归入既有 5 态桶，Σ 与总张数一致。
+- **P3-12/13/14/15**（海报墙）心愿小节题材计数只用心愿条目；题材偏好 TOP14 排除心愿单；表单脏检查补 `fDate`/`fStatus`、chip 键盘激活重置翻页计数、搜索同词不重复全量重建且防抖 120→200ms；自定义条目卡片带稳定 `data-cid`，详情保存按语义标记定位而非隐式数组顺序。
+- **墓碑增长**：感想删除墓碑加 90 天 TTL，在 `saveReviews()` 与启动时统一收敛超期墓碑（近期墓碑保留，防复活能力不变）。
+- **卡片内部触控补漏**：三页新增 `#p3-touch-fix`，≤680px 下卡片内部小按钮补齐 `min-width/min-height:44px`（沿用 P2-10 导航口径）。
+
+新增 `_测试/站点_P3第二三梯队_20261118.冒烟测试.mjs`（58 条断言；改前对照 **11 PASS / 47 FAIL**，证明非空调）。
+P1-9 守卫因 `convertRecord` / `renderStats` 函数体合法改动重冻基线（改前字节 40 PASS / 0 FAIL → 重冻后 42 PASS / 0 FAIL）。
+`站点_低风险批_20261116.冒烟测试.mjs` 的 4.2/4.3/4.4 断言适配 P3-6 口径统一（改前 19 PASS / 3 FAIL → 改后 22 PASS / 0 FAIL）；
+`站点_遗留风险修复_20261116.冒烟测试.mjs` 的 B6 把「换键 delete」按 `migrateReviews` 函数体核对，避免与 TTL 收敛的 `delete reviews[k]` 混淆。
+本轮最终门禁：专项 **58 PASS / 0 FAIL**、全量回归 **58 PASS / 0 KNOWN / 0 FAIL**、焦点 E2E **36 PASS / 0 FAIL**、P1-9 守卫 **42 PASS / 0 FAIL**。升 `APP_CACHE` v15 → **v16**。
+执行记录与证据：`deliverables/workbench-audit-1105/P3第二三梯队修复执行报告_20261118.md`。
 
 ## 发布流程
 

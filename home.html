@@ -82,7 +82,7 @@
   .ov-note{text-align:center}
   .go{font-size:13px;color:var(--pri-ink);font-weight:600;margin-top:auto}
   [data-theme="dark"] .go{color:#8fb0ff}
-  /* 概览卡：只复用已有的三个摘要数据 + 本次读取时间，不新增 localStorage 键、不新增业务数据 */
+  /* P3-5：概览卡复用三个摘要数据 + 媒体计数兜底缓存（同一 total 口径）+ 本次读取时间，不新增业务数据 */
   .overview{margin-top:16px;background:var(--card);border:1px solid var(--line);
             border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:20px 22px}
   .ov-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:14px}
@@ -408,16 +408,19 @@
     var customN=Array.isArray(custom)?custom.length:null;
     if(s && typeof s.total==="number") return { total:s.total, custom:customN, cached:true, source:"authoritative" };
     var c=read(MEDIA_CACHE_KEY);
-    if(c && typeof c.total==="number") return { total:c.total, custom:customN, cached:true, source:c.fallback?"fallback":"authoritative" };
+    if(c && typeof c.total==="number"){
+      var extra = c.fallback ? (customN||0) : 0;   /* P3-6：兜底缓存只数内嵌 MEDIA，补自定义条目才与权威口径一致 */
+      return { total:c.total+extra, custom:customN, cached:true, source:c.fallback?"fallback":"authoritative" };
+    }
     return { total:null, custom:customN, cached:false };
   }
   /* C-04：降级说明写进概览「媒体数据状态」副行，避免只留一个无解释的「—」 */
   function mediaFallback(msg){
     var el=document.getElementById("ovMediaS");
     if(el) el.textContent=msg;
-    /* 2026-11-16 低风险批：fetch 兜底只数内嵌 MEDIA，不含自定义条目，标签同步修正 */
+    /* P3-6：兜底计数已补自定义条目，标签与权威来源统一 */
     var lab=document.getElementById("mMediaAllLabel");
-    if(lab) lab.textContent="已记录（不含自定义条目）";
+    if(lab) lab.textContent="已记录（含自定义 / 代查）";
   }
   function fetchMediaCount(){
     /* file:// 下 fetch 相对/绝对路径都会抛 TypeError（QA 实证），兜底原本是死代码；
@@ -437,7 +440,7 @@
         if(n>0){
           /* 唯一权威口径 wb_mediawall_stats_v1.total：缓存键与 fetch 兜底只补同一个记录总数，不另立计数 */
           try{ localStorage.setItem(MEDIA_CACHE_KEY, JSON.stringify({total:n, ts:Date.now(), fallback:true})); }catch(e){}
-          render();
+          render(true);   /* P3-7：只更新媒体数，不覆盖用户看到的刷新时间 */
         }else{
           mediaFallback("未在海报墙页面读到记录数；打开「书影音海报墙」后会自动写入。");
         }
@@ -451,7 +454,7 @@
     }
   }
 
-  /* ===== 概览卡：只用已有的三个摘要数据，不新增键、不写入业务数据 ===== */
+  /* ===== 概览卡：三个摘要数据 + 媒体计数兜底缓存，不写入业务数据 ===== */
   function ovSet(id, v, statusId){
     setText(id, v);
     if(statusId){
@@ -459,7 +462,7 @@
       if(el) el.textContent = (v===null||v===undefined) ? "暂无本机数据" : "已读取 · 共 "+v+" 条";
     }
   }
-  function renderOverview(t, p, m){
+  function renderOverview(t, p, m, keepTime){   /* P3-7：keepTime=true 时不重写 ovTime（兜底抓取不伪装成用户刷新） */
     var vals=[ t?t.all:null, p?p.all:null, (m && typeof m.total==="number")?m.total:null ];
     var sum=0, any=false;
     vals.forEach(function(v){ if(typeof v==="number"){ sum+=v; any=true; } });
@@ -467,21 +470,23 @@
     ovSet("ovTask", t?t.all:null, "ovTaskS");
     ovSet("ovPc", p?p.all:null, "ovPcS");
     ovSet("ovMedia", vals[2], "ovMediaS");
-    var el=document.getElementById("ovTime");
-    if(el){
-      var d=new Date();
-      el.textContent="最近刷新 "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")+":"+String(d.getSeconds()).padStart(2,"0");
+    if(!keepTime){
+      var el=document.getElementById("ovTime");
+      if(el){
+        var d=new Date();
+        el.textContent="最近刷新 "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")+":"+String(d.getSeconds()).padStart(2,"0");
+      }
     }
   }
 
-  function render(){
+  function render(keepTime){
     var t=summaryTasks(), p=summaryPostcards(), m=summaryMedia();
     setText("mTaskOpen", t?t.open:null); setText("mTaskDone", t?t.done:null); setText("mTaskAll", t?t.all:null);
     setText("mPcTransit", p?p.transit:null); setText("mPcArrived", p?p.arrived:null); setText("mPcAll", p?p.all:null);
     setText("mMediaAll", m.total); setText("mMediaCustom", m.custom===null?null:m.custom);
     var lab=document.getElementById("mMediaAllLabel");
-    if(lab) lab.textContent=(m && m.source==="fallback")?"已记录（不含自定义条目）":"已记录（含自定义 / 代查）";
-    renderOverview(t, p, m);
+    if(lab) lab.textContent="已记录（含自定义 / 代查）";   /* P3-6：两来源口径已对齐，标签不再跳变 */
+    renderOverview(t, p, m, keepTime);
     if(m.total===null) fetchMediaCount();
   }
 

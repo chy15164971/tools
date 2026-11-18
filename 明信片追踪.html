@@ -752,6 +752,12 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
 }
 
 </style>
+<style id="p3-touch-fix">
+/* P3 第三梯队：卡片内部触控目标补漏（移动端 ≥44px，沿用 P2-10 导航口径） */
+@media(max-width:680px){
+  .w-ctrl button,.linkbtn,.chip,.st-sel,.pgbtn{min-width:44px;min-height:44px}
+}
+</style>
 </head>
 <body>
 <!-- >>> SITE-NAV-HTML:BEGIN —— 由 _shared/site-nav-static.html 自动生成，请勿直接编辑本块 -->
@@ -3168,7 +3174,7 @@ function convertRecord(dir, id, target){
   if(rec.pairId){
     const pid = rec.pairId; // 捕获比较键：proxy 分支中 rec 本身也在 otherArr(proxies) 内，循环内删除 rec.pairId 会让后续比较失效
     const otherArr = dir==="proxy"?proxies:(dir==="sent"?received:postcards);
-    otherArr.forEach(o=>{ if(o.pairId===pid) delete o.pairId; });
+    otherArr.forEach(o=>{ if(o.pairId===pid){ delete o.pairId; touch(o); } });   /* P3-8：与 unlinkPartnerIfOrphan 对齐，避免云端 LWW 判定陈旧 */
   }
   delete out.pairId;
   /* R2-2：源数组的这份要打"移动墓碑"，否则其他设备会把云端那条当新记录追加回来 → 复活成两条。
@@ -3560,7 +3566,12 @@ function renderStats(){
     const ST_LABEL=PROXY_STAT_LABELS; // F3 修复：改用共享常量（原内联短标签与 currentWidgetWids 不一致）
     const ST_COLOR={ready:"#9aa3b2", sent:"#f5a623", proxyRecv:"#4aa3ff", proxyBack:"#a06bff", gotBack:"#22b07d"};
     const cntStatus={};
-    proxies.forEach(p=>{ const k=proxyStatusOf(p); cntStatus[k]=(cntStatus[k]||0)+cc(p); });
+    proxies.forEach(p=>{
+      let k=proxyStatusOf(p);   /* P3-9：单向代寄 envSent/envRecv 归入既有 5 态桶，保证 Σ = 总张数 */
+      if(k===PSTEP.ENV_SENT) k=PSTEP.SENT;
+      else if(k===PSTEP.ENV_RECV) k=PSTEP.PROXY_RECV;
+      cntStatus[k]=(cntStatus[k]||0)+cc(p);
+    });
     const s5=k=>({n:cntStatus[k]||0, ratio:totalCards?(cntStatus[k]||0)/totalCards:0});
     auto=[
       {n:totalCards, l:"总张数", c:"var(--pri)", ratio:1},

@@ -1729,6 +1729,12 @@
     #seg{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);}
   }
 </style>
+<style id="p3-touch-fix">
+/* P3 第三梯队：卡片内部触控目标补漏（移动端 ≥44px，沿用 P2-10 导航口径） */
+@media(max-width:680px){
+  .today-acts .btn-sm,.mcard .micon,.lcard .micon,.mstep button,.pgbtn{min-width:44px;min-height:44px}
+}
+</style>
 </head>
 <body>
 <!-- >>> SITE-NAV-HTML:BEGIN —— 由 _shared/site-nav-static.html 自动生成，请勿直接编辑本块 -->
