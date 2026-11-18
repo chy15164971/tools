@@ -1688,7 +1688,7 @@
 
 /* [33/33] (min-width:768px) and (max-width:860px) */
 @media (min-width:768px) and (max-width:860px){
-  .wrap{max-width:100%;padding:14px 20px 0;}          /* 回收两侧留白 */
+  .wrap{max-width:100%;padding:14px 20px calc(16px + env(safe-area-inset-bottom,0px));}  /* P3-2：回收两侧留白，同时保留底部安全区（原简写把 padding-bottom 重置为 0） */
   .stat-cards{grid-template-columns:repeat(3,1fr);}   /* 手机档 2 列 → 平板 3 列 */
   .stat-grid2{grid-template-columns:1fr 1fr;}         /* 手机档单列 → 平板双列 */
   .media-cols{grid-template-columns:repeat(2,1fr);}   /* 手机档单列 → 平板双列 */
@@ -7016,7 +7016,9 @@ function confirmHabitBackfill(){
   habitSave();
   closeHabitBackfill();
   renderAll();
-  toast(bfMode==="add" ? ("已补打 "+total+" 个打卡 ✓") : ("已取消 "+total+" 个打卡"));
+  /* P3-3：0 变化时不弹误导性的「已补打 0 个」，给明确空反馈 */
+  toast(total>0 ? (bfMode==="add" ? ("已补打 "+total+" 个打卡 ✓") : ("已取消 "+total+" 个打卡"))
+                : (bfMode==="add" ? "所选日期均已打卡，无变化" : "所选日期均未打卡，无变化"));
 }
 
 function toggleHabitDay(id, day){
@@ -9796,7 +9798,7 @@ function habitRowHtml(h, weekDays, todayKey, restoreMode){
   const quick = restoreMode ? "" : `<span class="hquick" data-hq="${h.id}" title="快捷：本周目标日全完成 / 清空本周">⚡</span>`;
   return `<div class="hrow${paused?' paused':''}${met?' weekDone':''}${late?' hlate':''}${restoreMode?' data-restore="'+h.id+'"':''}" data-hrow="${h.id}">
     <div class="hinfo"${restoreMode?"":' data-edit="'+h.id+'"'}>
-      <div class="htop"><span class="hemoji">${h.emoji||"🌟"}</span><span class="hname">${esc(h.name)}</span>${editBtn}</div>
+      <div class="htop"><span class="hemoji">${esc(h.emoji||"🌟")}</span><span class="hname">${esc(h.name)}</span>${editBtn}</div>
       <div class="hbottom"><span class="hfreq">${freqLabel}</span>${timeHtml}${goalHtml}<span class="hstreak">${archived?"已归档":(paused?"已暂停":streak+"天")}</span>${quick}</div>
     </div>${cells}</div>`;
 }

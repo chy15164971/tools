@@ -485,14 +485,16 @@
     if(m.total===null) fetchMediaCount();
   }
 
+  var _refreshRestoreTimer=null;   /* P3-4：快速连点刷新时避免旧定时器提前覆盖新反馈 */
   document.getElementById("btnRefresh").addEventListener("click", function(){
     try{ localStorage.removeItem(MEDIA_CACHE_KEY); }catch(e){}
     render();
     /* D-04：按钮文字 + toast(aria-live) + ovTime 秒级，保证同一分钟内重复点击也有可见反馈 */
     var b=document.getElementById("btnRefresh");
+    if(_refreshRestoreTimer){ clearTimeout(_refreshRestoreTimer); _refreshRestoreTimer=null; }
     b.textContent="已刷新 ✓";
     toast("摘要已刷新","success");
-    setTimeout(function(){ b.textContent="刷新摘要"; }, 1200);
+    _refreshRestoreTimer=setTimeout(function(){ b.textContent="刷新摘要"; _refreshRestoreTimer=null; }, 1200);
   });
   try{ document.getElementById("origin").textContent = location.hostname || "本机文件"; }catch(e){}
   initTheme();

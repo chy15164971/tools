@@ -21,8 +21,8 @@
    导航条必须是 `<body>` 开头的静态 HTML，不能退回 JS 延迟插入（会重现首屏闪旧画面）。
 3. 共享色板唯一真相源是 vault `_ops/_workbench/design_tokens.css`；
    私有变量写在 `SHARED TOKENS START/END` 标记区**之外**，否则下次同步会被整块覆盖。
-4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v14）：SW 字节不变就不触发 install，
-   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14 均按此处理）。
+4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v15）：SW 字节不变就不触发 install，
+   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15 均按此处理）。
    导航请求用 `fetch(url,{cache:"no-store"})` 绕过 Pages 的 `max-age=600`；
    不要写成 `fetch(e.request, init)`（navigate 模式重建 Request 会抛 TypeError）。
 5. `_shared/` 目录以下划线开头，GitHub Pages 不发布；源文件已内联进五个 HTML，线上 404 属预期。
@@ -38,7 +38,7 @@
 |---|---|---|
 | 发布门禁 | `python3 _shared/verify_release.py` | 7 项：index 契约、17 个内联块、导航块位置、tokens、PRECACHE、品牌链接、**弹窗无障碍唯一源守卫** |
 | 色板同步 | `node "$VAULT/_ops/_workbench/sync_tokens.js" --check --repo .` | 五页 SHARED TOKENS 与 design_tokens.css 一致 |
-| 全量回归 | `python3 "$VAULT/_ops/_workbench/run_regression.py"` | 56 个用例；0 未解释失败才算通过 |
+| 全量回归 | `python3 "$VAULT/_ops/_workbench/run_regression.py"` | 57 个用例；0 未解释失败才算通过 |
 | 镜像校验 | `... run_regression.py --check-mirror` | 显式清单 23 项逐字节一致（含 `sw.js`、`_shared/modal-a11y.js`、`index.html`、`home.html`、海报墙、`icons/` 全部图标；11-16 删除无引用的 `manifest-postcard.json`） |
 | 焦点 E2E | `python3 "$VAULT/_ops/_workbench/focus_trap_e2e.py"` | 真实 Chrome Tab / Shift+Tab 回环；任务台 / 明信片 / 海报墙四弹窗 + 待认领弹窗，含动态确认框与背景锁滚 |
 
@@ -158,6 +158,20 @@ P1-9 守卫因 5 个函数体合法改动重冻基线（改前字节 40 PASS / 0
 `站点_遗留风险修复_20261116.冒烟测试.mjs` 的 B6 断言适配 P2-8 墓碑语义（改前 25 PASS / 1 FAIL → 改后 26 PASS / 0 FAIL）。
 本轮最终门禁：专项 **33 PASS / 0 FAIL**、全量回归 **56 PASS / 0 KNOWN / 0 FAIL**、焦点 E2E **36 PASS / 0 FAIL**、P1-9 守卫 **42 PASS / 0 FAIL**、真浏览器 P2 实证 **9 PASS / 0 FAIL**。升 `APP_CACHE` v13 → **v14**。
 执行记录与证据：`deliverables/workbench-audit-1105/P2批修复执行报告_20261117.md`。
+
+## 2026-11-18 P3 第一梯队（全站审查 6 项一般优化，已上线）
+
+- **P3-1** 任务台习惯 emoji 经 `innerHTML` 裸插（热力图同数据却转义）→ `habitRowHtml()` 改用 `esc(h.emoji||"🌟")`；真浏览器注入 `<img src=x onerror=...>` 后无子节点、无注入。
+- **P3-2** 768–860px 断点 `.wrap{padding:14px 20px 0}` 把底部安全区重置为 0 → 改为 `padding:14px 20px calc(16px + env(safe-area-inset-bottom,0px))`；800px 视口实测 `padding-bottom:16px`。
+- **P3-3** 批量打卡 0 变化仍弹「已补打 0 个」→ 按 `total>0` 分支，0 变化提示「所选日期均已打卡，无变化」。
+- **P3-4** home 刷新按钮恢复定时器未 `clear` → 保存并清理句柄，快速双击后 1.45s 仍显示「已刷新 ✓」。
+- **P3-10** 海报墙统计卡固定 3 列 + 第 4 张心愿卡成 3+1 孤行 → 有心愿卡时 `.stats.with-wish` 切 2×2，≤560px 回落单列；实测 4 卡 2 列。
+- **P3-11** 海报二次加载失败丢失类型专属渐变 → 重试前读出 `--g`，重试 `onerror` 写回；实测二次失败后 `.ph` 与渐变均恢复。
+
+新增 `_测试/站点_P3第一梯队_20261118.冒烟测试.mjs`（26 条断言；改前对照 **10 PASS / 16 FAIL**，证明非空调）。
+P1-9 守卫因 `confirmHabitBackfill` / `habitRowHtml` 两函数体合法改动重冻基线（改前字节 40 PASS / 0 FAIL → 重冻后 42 PASS / 0 FAIL）。
+本轮最终门禁：专项 **26 PASS / 0 FAIL**、全量回归 **57 PASS / 0 KNOWN / 0 FAIL**、焦点 E2E **36 PASS / 0 FAIL**、P1-9 守卫 **42 PASS / 0 FAIL**、真浏览器 P3 实证 **16 PASS / 0 FAIL**。升 `APP_CACHE` v14 → **v15**。
+执行记录与证据：`deliverables/workbench-audit-1105/P3第一梯队修复执行报告_20261118.md`。
 
 ## 发布流程
 

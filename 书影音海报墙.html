@@ -135,6 +135,7 @@
   .toplist .sc{color:#b45309;font-weight:700;flex:none}   /* P2：原 #f59e0b 白底 2.2:1 不达 AA，深化为 #b45309 4.5:1+ */
   /* ===== Stats ===== */
   .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:16px 0 8px}
+  .stats.with-wish{grid-template-columns:repeat(2,1fr)}  /* P3-10：有心愿卡时改 2×2，避免 3+1 孤行 */
   .stat{
     background:var(--card);border-radius:12px;padding:14px 18px;box-shadow:var(--shadow);
     border:1px solid var(--line);
@@ -386,7 +387,7 @@
   .foot{text-align:center;color:#8b949e;font-size:12px;margin-top:16px}
   .foot code{background:#eef1f6;padding:1px 6px;border-radius:4px;font-size:11px}
   @media(max-width:560px){
-    .stats{grid-template-columns:1fr}
+    .stats,.stats.with-wish{grid-template-columns:1fr}
     .brandbar{padding:10px 0 6px}
     .modal{flex-direction:column;align-items:center}
     .modal .m-cover{width:180px;border-radius:12px;margin-top:-50px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
@@ -2745,7 +2746,9 @@ function renderAll(){
   // 2026-11-03：动漫并入已看（type 映射已改 group:"seen"），三卡结构；有心愿单条目时追加第四卡
   const seenTotal = doneIn("seen").length;
   const wishTotal = MEDIA.filter(isWish).length;
-  document.getElementById("stats").innerHTML = `
+  const statsEl = document.getElementById("stats");
+  statsEl.classList.toggle("with-wish", wishTotal>0);   /* P3-10：4 张卡走 2×2，不出现 3+1 孤行 */
+  statsEl.innerHTML = `
     <div class="stat"><div class="num" style="color:var(--pink)">${seenTotal}</div><div class="lbl">已看 · 影 / 剧 / 综 / 舞台 / 纪录 / 动漫</div></div>
     <div class="stat"><div class="num" style="color:var(--amber)">${doneIn("read").length}</div><div class="lbl">已读 · 书本</div></div>
     <div class="stat"><div class="num" style="color:var(--purple)">${doneIn("listen").length}</div><div class="lbl">已听 · 音乐 / 广播剧</div></div>
@@ -3354,12 +3357,13 @@ document.getElementById("viewWall").addEventListener("click", e=>{
   if(!ph || !ph.dataset.src) return;
   _retryGuard = true;
   const src = ph.dataset.src;
+  const gVal = ph.style.getPropertyValue("--g");   /* P3-11：重试前记住类型专属渐变，二次失败要写回 */
   delete ph.dataset.src; ph.title = "";
   ph.classList.remove("ph"); ph.style.removeProperty("--g");
   const sp = ph.querySelector("span"); if(sp) sp.remove();
   ph.insertAdjacentHTML("beforeend",
     `<img src="${esc(src)}" alt="" loading="lazy" decoding="async" onload="this.classList.add('ok')"
-      onerror="var p=this.parentNode;p.dataset.src=this.src;p.title='点击重试加载海报';p.classList.add('ph');p.insertAdjacentHTML('afterbegin','<span>海报加载失败</span>');this.remove();">`);
+      onerror="var p=this.parentNode;p.dataset.src=this.src;p.title='点击重试加载海报';p.classList.add('ph');p.style.setProperty('--g','${gVal}');p.insertAdjacentHTML('afterbegin','<span>海报加载失败</span>');this.remove();">`);
   observeCovers(ph);
 });
 document.body.addEventListener("click", e=>{
