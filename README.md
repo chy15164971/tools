@@ -21,8 +21,8 @@
    导航条必须是 `<body>` 开头的静态 HTML，不能退回 JS 延迟插入（会重现首屏闪旧画面）。
 3. 共享色板唯一真相源是 vault `_ops/_workbench/design_tokens.css`；
    私有变量写在 `SHARED TOKENS START/END` 标记区**之外**，否则下次同步会被整块覆盖。
-4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v16）：SW 字节不变就不触发 install，
-   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15→v16 均按此处理）。
+4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v17）：SW 字节不变就不触发 install，
+   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15→v16→v17 均按此处理）。
    导航请求用 `fetch(url,{cache:"no-store"})` 绕过 Pages 的 `max-age=600`；
    不要写成 `fetch(e.request, init)`（navigate 模式重建 Request 会抛 TypeError）。
 5. `_shared/` 目录以下划线开头，GitHub Pages 不发布；源文件已内联进五个 HTML，线上 404 属预期。
@@ -38,7 +38,7 @@
 |---|---|---|
 | 发布门禁 | `python3 _shared/verify_release.py` | 7 项：index 契约、17 个内联块、导航块位置、tokens、PRECACHE、品牌链接、**弹窗无障碍唯一源守卫** |
 | 色板同步 | `node "$VAULT/_ops/_workbench/sync_tokens.js" --check --repo .` | 五页 SHARED TOKENS 与 design_tokens.css 一致 |
-| 全量回归 | `python3 "$VAULT/_ops/_workbench/run_regression.py"` | 58 个用例；0 未解释失败才算通过 |
+| 全量回归 | `python3 "$VAULT/_ops/_workbench/run_regression.py"` | 59 个用例；0 未解释失败才算通过 |
 | 镜像校验 | `... run_regression.py --check-mirror` | 显式清单 23 项逐字节一致（含 `sw.js`、`_shared/modal-a11y.js`、`index.html`、`home.html`、海报墙、`icons/` 全部图标；11-16 删除无引用的 `manifest-postcard.json`） |
 | 焦点 E2E | `python3 "$VAULT/_ops/_workbench/focus_trap_e2e.py"` | 真实 Chrome Tab / Shift+Tab 回环；任务台 / 明信片 / 海报墙四弹窗 + 待认领弹窗，含动态确认框与背景锁滚 |
 
@@ -187,6 +187,16 @@ P1-9 守卫因 `convertRecord` / `renderStats` 函数体合法改动重冻基线
 `站点_遗留风险修复_20261116.冒烟测试.mjs` 的 B6 把「换键 delete」按 `migrateReviews` 函数体核对，避免与 TTL 收敛的 `delete reviews[k]` 混淆。
 本轮最终门禁：专项 **58 PASS / 0 FAIL**、全量回归 **58 PASS / 0 KNOWN / 0 FAIL**、焦点 E2E **36 PASS / 0 FAIL**、P1-9 守卫 **42 PASS / 0 FAIL**。升 `APP_CACHE` v15 → **v16**。
 执行记录与证据：`deliverables/workbench-audit-1105/P3第二三梯队修复执行报告_20261118.md`。
+
+## 2026-11-18 三点权衡加固（诚实披露项进一步加固）
+
+- 背景：P3 第二/三梯队执行报告诚实披露三点权衡（墓碑 90 天 TTL 离线复活边界、触控补漏范围、搜索 200ms 防抖非虚拟滚动），本轮逐项加固。
+- **墓碑复活边界**：新增 `REVIEW_TOMB_HARD_TTL=730 天`；`pruneReviewTombs()` 改为双层墓碑——90 天强墓碑降级为轻量墓碑 `{_del:true,ts,_weak:1}`（保留 key 与 ts 继续参与云同步并集合并与 ts 仲裁，正文裁剪控制体积），仅 2 年硬上限才真删。真浏览器实测：100 天墓碑降级、800 天真删、1 秒前保留。
+- **触控补漏范围**：390px 真浏览器扫描三页，补齐 `<44px` 控件中的按钮/筛选/表单类（`.chip/.vtab/.mini-btn/#btnTheme/#densBtn/#btnMenu/.menu-close/select/.search-clear/.btn-reset` 等），并修正 `.filterbar .fsel` / `.filters select` 优先级冲突（同级规则覆盖，不用 `!important`）；日历密集时间 chip 刻意保持原尺寸避免月视图布局破坏。home 实测 0 遗漏。
+- **搜索防抖**：`haystackOf()` 改用对象 `_hay` 预计算缓存，换词/筛选不再对 1731 条反复拼接字符串与 toLowerCase；真浏览器实测命中 23 条只挂载 23 卡，DOM 规模受 pageSize（移动端 24 / 桌面 48）约束，非 1731 张全量灌入。
+- 新增 `_测试/站点权衡加固_20261118.冒烟测试.mjs`（42 断言；改前 23 PASS / 19 FAIL，证明非空调）。P1-9 守卫无需重冻（改动函数不在守卫集），42 PASS / 0 FAIL。
+- 本轮最终门禁：专项 **42 PASS / 0 FAIL**、全量回归 **59 PASS / 0 KNOWN / 0 FAIL**、焦点 E2E **36 PASS / 0 FAIL**、P1-9 守卫 **42 PASS / 0 FAIL**、真浏览器 **25 PASS / 0 FAIL**。升 `APP_CACHE` v16 → **v17**。
+- 执行记录与证据：`deliverables/workbench-audit-1105/权衡加固执行报告_20261118.md`。
 
 ## 发布流程
 

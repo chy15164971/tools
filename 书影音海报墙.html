@@ -560,6 +560,9 @@
 /* P3 第三梯队：卡片内部触控目标补漏（移动端 ≥44px，沿用 P2-10 导航口径） */
 @media(max-width:680px){
   .m-review .r-edit,.m-wrap .nav-btn,.gpager button{min-width:44px;min-height:44px}
+  /* 权衡加固：补实测遗漏的筛选/视图切换/密度按钮/下拉项 */
+  .chip,.vtab,.mini-btn,.add-btn,.del-btn,.f-actions button,.sib-link,#densBtn,.sb-x{min-height:44px}
+  #densBtn,.m-wrap .close,.sb-x{min-width:44px}
 }
 </style>
 </head>
@@ -2530,7 +2533,8 @@ function saveCustom(){
 const BASE_MEDIA = MEDIA;
 /* ===== 感想（观后感/读后感/听后感）2026-11-03：localStorage 覆盖层，按条目内容定位 ===== */
 const REVIEW_KEY = "wb_mediawall_reviews_v1";
-const REVIEW_TOMB_TTL = 90*24*3600*1000;   /* P3-墓碑增长：删除墓碑保留 90 天，超期收敛，避免无限增长 */
+const REVIEW_TOMB_TTL = 90*24*3600*1000;   /* P3-墓碑增长：90 天后强墓碑降级为轻量墓碑 */
+const REVIEW_TOMB_HARD_TTL = 730*24*3600*1000;   /* 权衡加固：轻量墓碑保留 2 年硬上限，兼顾防复活与有界增长 */
 let reviews = (()=>{
   try{ return JSON.parse(localStorage.getItem(REVIEW_KEY)||"{}"); }
   catch(e){ return {}; }
@@ -2539,7 +2543,15 @@ function pruneReviewTombs(){
   const now=Date.now(); let n=0;
   for(const k of Object.keys(reviews)){
     const v=reviews[k];
-    if(v && v._del && typeof v.ts==="number" && now - v.ts > REVIEW_TOMB_TTL){ delete reviews[k]; n++; }
+    if(!v || !v._del || typeof v.ts!=="number") continue;
+    const age = now - v.ts;
+    if(age > REVIEW_TOMB_HARD_TTL){ delete reviews[k]; n++; continue; }   /* 2 年硬上限：极长尾才真删，避免无限增长 */
+    if(age > REVIEW_TOMB_TTL && !v._weak){
+      /* 权衡加固：强墓碑 90 天后降级为轻量墓碑——保留 key 与 ts，继续参与云同步并集合并与 ts 仲裁，
+         使「墓碑消失 → 离线旧稿复活」在 2 年窗口内不再可能；只裁剪正文等大字段控制体积。 */
+      reviews[k] = {_del:true, ts:v.ts, _weak:1};
+      n++;
+    }
   }
   return n;
 }
@@ -3452,7 +3464,12 @@ const searchBox = document.getElementById("searchBox");
 const searchDrop = document.getElementById("searchDrop");
 let searchTimer = null, sSel = -1;
 const searchQ = () => (searchBox.value||"").trim().toLowerCase();
-const haystackOf = it => ((it.title||"")+" "+(it.creator||"")+" "+(it.genre||"")).toLowerCase();
+/* 权衡加固：预计算 haystack 缓存——1731 条换词/筛选时不再反复拼接字符串与 toLowerCase，
+   以对象自身 _hay 承载（MEDIA 不参与 JSON 序列化，无污染风险）。 */
+const haystackOf = it => {
+  if(it._hay === undefined) it._hay = ((it.title||"")+" "+(it.creator||"")+" "+(it.genre||"")).toLowerCase();
+  return it._hay;
+};
 /* P2-11：命中词高亮（先切片后逐段转义，防 XSS） */
 function hiLite(text, q){
   const t = String(text??"");

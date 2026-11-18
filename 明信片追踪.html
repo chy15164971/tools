@@ -756,6 +756,11 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
 /* P3 第三梯队：卡片内部触控目标补漏（移动端 ≥44px，沿用 P2-10 导航口径） */
 @media(max-width:680px){
   .w-ctrl button,.linkbtn,.chip,.st-sel,.pgbtn{min-width:44px;min-height:44px}
+  /* 权衡加固：补实测遗漏的主题按钮/菜单/表单控件 */
+  .btn,.btn-sm,.sib-link,select,.search-clear,.btn-reset,#btnTheme{min-height:44px}
+  #btnMenu,.search-clear{min-width:44px}
+  /* 同优先级压过 .filters select / .link-add select 的 min-height:38px */
+  .filters select,.link-add select{min-height:44px}
 }
 </style>
 </head>

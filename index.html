@@ -1733,6 +1733,11 @@
 /* P3 第三梯队：卡片内部触控目标补漏（移动端 ≥44px，沿用 P2-10 导航口径） */
 @media(max-width:680px){
   .today-acts .btn-sm,.mcard .micon,.lcard .micon,.mstep button,.pgbtn{min-width:44px;min-height:44px}
+  /* 权衡加固：实测 390px 下仍 <44px 的按钮/筛选/表单控件（日历密集时间 chip 保持原尺寸，避免月视图布局破坏） */
+  .btn,.btn-sm,.sib-link,.fsel,select,.menu-close,#btnMenu{min-height:44px}
+  #btnMenu,.menu-close{min-width:44px}
+  /* 同优先级压过 .filterbar .fsel/.fsearch 的 min-height:40px */
+  .filterbar .fsel,.filterbar .fsearch{min-height:44px}
 }
 </style>
 </head>
