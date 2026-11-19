@@ -21,8 +21,8 @@
    导航条必须是 `<body>` 开头的静态 HTML，不能退回 JS 延迟插入（会重现首屏闪旧画面）。
 3. 共享色板唯一真相源是 vault `_ops/_workbench/design_tokens.css`；
    私有变量写在 `SHARED TOKENS START/END` 标记区**之外**，否则下次同步会被整块覆盖。
-4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v17）：SW 字节不变就不触发 install，
-   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15→v16→v17 均按此处理）。
+4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v18）：SW 字节不变就不触发 install，
+   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15→v16→v17、11-19 v18 均按此处理）。
    导航请求用 `fetch(url,{cache:"no-store"})` 绕过 Pages 的 `max-age=600`；
    不要写成 `fetch(e.request, init)`（navigate 模式重建 Request 会抛 TypeError）。
 5. `_shared/` 目录以下划线开头，GitHub Pages 不发布；源文件已内联进五个 HTML，线上 404 属预期。
@@ -197,6 +197,14 @@ P1-9 守卫因 `convertRecord` / `renderStats` 函数体合法改动重冻基线
 - 新增 `_测试/站点权衡加固_20261118.冒烟测试.mjs`（42 断言；改前 23 PASS / 19 FAIL，证明非空调）。P1-9 守卫无需重冻（改动函数不在守卫集），42 PASS / 0 FAIL。
 - 本轮最终门禁：专项 **42 PASS / 0 FAIL**、全量回归 **59 PASS / 0 KNOWN / 0 FAIL**、焦点 E2E **36 PASS / 0 FAIL**、P1-9 守卫 **42 PASS / 0 FAIL**、真浏览器 **25 PASS / 0 FAIL**。升 `APP_CACHE` v16 → **v17**。
 - 执行记录与证据：`deliverables/workbench-audit-1105/权衡加固执行报告_20261118.md`。
+
+## 2026-11-19 媒体进度看板「不看 / 不听 / 不读」放弃功能
+
+- 用户诉求：进度看板卡片增加放弃选项；澄清后采用「卡片加放弃按钮」方案。
+- 实现：不删条目，只打 `abandoned:true`；卡片移入各列独立的「⊘ 已放弃 N」分区，退出在追统计与平均进度；显示灰化态、虚线「已放弃」徽标、原进度提示与「↺ 恢复」按钮；文案随类型变化（不读 / 不看 / 不听）；与完成态正交。`mediaSig()` 纳入 `abandoned` 保证放弃态走云同步。
+- 本轮最终门禁：专项 **29 PASS / 0 FAIL**（改前对照 1 PASS / 28 FAIL）、全量回归 **60 PASS / 0 FAIL**、焦点 E2E **36 PASS / 0 FAIL**、P1-9 守卫改前字节对照 **40 PASS** 且重冻后 **42 PASS / 0 FAIL**、媒体放弃真浏览器 E2E **28 PASS / 0 FAIL**。升 `APP_CACHE` v17 → **v18**，commit `c497046`，线上 3/3 MD5 MATCH。
+- 边界：放弃是软状态（仍占存储、仍同步）；三列各有独立已放弃分区；放弃不写墓碑；线上首次访问 SW controller 为空属正常时序。
+- 执行记录与证据：`deliverables/workbench-audit-1105/媒体放弃功能_执行报告_20261119.md`。
 
 ## 发布流程
 
