@@ -633,6 +633,10 @@
   .mstep .mfin{width:auto;padding:0 9px;font-size:11.5px;font-weight:600;color:var(--ok);border-color:rgba(16,185,129,.35);}
   .mstep .mfin:hover{background:rgba(16,185,129,.12);color:var(--ok);}
   .mstep .munfin{width:auto;padding:0 9px;font-size:11.5px;font-weight:600;color:var(--sub);}
+  .mstep .mabandon{width:auto;padding:0 9px;font-size:11.5px;font-weight:600;color:var(--sub);border-color:var(--line);}
+  .mstep .mabandon:hover{background:var(--soft);color:var(--ink);}
+  .mstep .mrestore{width:auto;padding:0 9px;font-size:11.5px;font-weight:600;color:var(--pri);border-color:rgba(79,124,255,.35);}
+  .mstep .mrestore:hover{background:var(--pri-soft);}
   /* 完成态：整体「退到背景层」——大幅淡出 + 去饱和 + 顶部条转灰 + 满条转灰，
      让视线自然落在仍在读/追/听的条目上。悬停/聚焦（或触屏点按）时恢复，
      保证「↺ 撤销」等按钮仍清晰可点。 */
@@ -645,13 +649,22 @@
   .mcard.done .mbadge{background:transparent;border:1px solid var(--line);color:var(--sub);}
   .mcard.done .fill{background:var(--line);}
   .mcard.done .mstep button{opacity:.75;}
+  /* 放弃态：比完成态更淡、去饱和、划线，与「在追」明确区分 */
+  .mcard.abandoned{opacity:.5;filter:grayscale(.75);background:var(--soft);border-color:transparent;}
+  .mcard.abandoned::before{background:var(--line);}
+  .mcard.abandoned .mname{color:var(--sub);text-decoration:line-through;text-decoration-color:var(--line);}
+  .mcard.abandoned .mbadge{background:transparent;border:1px solid var(--line);color:var(--sub);}
+  .mcard.abandoned .fill{background:var(--line);}
+  .mcard.abandoned .mhint{color:var(--sub);}
   /* 恢复可读性：鼠标悬停 / 键盘聚焦卡内控件 / 触屏按压 */
   
   /* 触屏设备无 hover：基准不透明度抬高一点，避免「淡到点不着」 */
   
   .mcard .mdone{flex:none;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:rgba(16,185,129,.14);color:var(--ok);}
+  .mcard .mabandoned{flex:none;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:transparent;border:1px dashed var(--line);color:var(--sub);}
   .mcard.done .mdone{background:transparent;border:1px dashed rgba(16,185,129,.5);}
   .media-done-sep{font-size:12px;font-weight:700;color:var(--ok);margin:8px 2px 0;padding:7px 2px 0;border-top:1px dashed var(--line);}
+  .media-abandon-sep{font-size:12px;font-weight:700;color:var(--sub);margin:8px 2px 0;padding:7px 2px 0;border-top:1px dashed var(--line);}
   .media-empty{text-align:center;color:var(--sub);font-size:13px;padding:18px;}
   .mrec-list{display:flex;flex-direction:column;gap:8px;max-height:min(56vh,560px);overflow:auto;margin-top:4px;}
   .mrec-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--soft);}
@@ -6436,6 +6449,21 @@ function mediaUndoFinish(id, kind){
   mediaSave(); renderMedia(); toast("已撤销完成");
 }
 
+/* 媒体「不看/不听/不读」：不删条目，只打 abandoned 标记，移入独立分区、退出在追统计；可随时恢复。
+   与完成态正交：放弃条目的原进度/完成标记原样保留，恢复后回到原分区。 */
+function mediaAbandon(id, kind){
+  const it=(media[kind]||[]).find(x=>x.id===id); if(!it||it.abandoned) return;
+  snapshot();
+  it.abandoned=true; it.updated=Date.now();
+  mediaSave(); renderAll(); toastUndo("已标记放弃");
+}
+function mediaRestore(id, kind){
+  const it=(media[kind]||[]).find(x=>x.id===id); if(!it||!it.abandoned) return;
+  snapshot();
+  it.abandoned=false; it.updated=Date.now();
+  mediaSave(); renderAll(); toastUndo("已恢复追踪");
+}
+
 // 卡内快捷加减：±1 后就地更新该卡与平均进度，不整页重渲染（避免进度条每次从头动画）
 function stepMedia(id, kind, d){
   const it=(media[kind]||[]).find(x=>x.id===id); if(!it) return;
@@ -9485,35 +9513,43 @@ function mCard(c, kind){
   const isPct = !!c.percent;
   const p = num(mPct(c));
   const dn = mediaDone(c);
+  const ab = !!c.abandoned;
   const unitAttr = isPct ? "%" : unit;
-  const hintTxt = isPct
-    ? (dn ? "✓ 已完成 · 100%" : (k.verb+" "+cur+"%（剩余 "+(100-cur)+"%）"))
-    : (dn ? ("✓ 已完成 · 共 "+total+" "+unit) : (k.verb+" "+cur+" "+unit+"，剩余 "+(total-cur)));
+  const hintTxt = ab
+    ? ("已放弃 · 原进度 "+(isPct ? (cur+"%") : (cur+" / "+total+" "+unit)))
+    : isPct
+      ? (dn ? "✓ 已完成 · 100%" : (k.verb+" "+cur+"%（剩余 "+(100-cur)+"%）"))
+      : (dn ? ("✓ 已完成 · 共 "+total+" "+unit) : (k.verb+" "+cur+" "+unit+"，剩余 "+(total-cur)));
   const pctText = isPct ? (cur+"%") : (p+"%");
   const metaHtml = isPct ? ("进度 <b>"+cur+"%</b>") : ("进度 <b>"+cur+" / "+total+"</b> "+unit);
-  const finBtn = dn ? '<button class="munfin" data-unfinish title="撤销完成" aria-label="撤销完成">↺ 撤销</button>'
-                    : '<button class="mfin" data-finish title="标记完成（进度直接到 100%）" aria-label="标记完成">✓ 完成</button>';
-  return `<div class="mcard ${k.cls}${dn?" done":""}" data-id="${esc(c.id)}" data-kind="${esc(kind)}">
+  const finBtn = ab
+    ? `<button class="mrestore" data-restore title="恢复追踪" aria-label="恢复「${esc(c.title)}」的追踪">↺ 恢复</button>`
+    : dn ? '<button class="munfin" data-unfinish title="撤销完成" aria-label="撤销完成">↺ 撤销</button>'
+         : '<button class="mfin" data-finish title="标记完成（进度直接到 100%）" aria-label="标记完成">✓ 完成</button>';
+  const abBtn = ab ? '' : `<button class="mabandon" data-abandon title="标记${k.skip}（不再追踪）" aria-label="「${esc(c.title)}」${k.skip}">${k.skip}</button>`;
+  return `<div class="mcard ${k.cls}${dn?" done":""}${ab?" abandoned":""}" data-id="${esc(c.id)}" data-kind="${esc(kind)}">
     <div class="mtop">
       <div class="mname">${esc(c.title)}</div>
       <div class="mright">
-        <span class="mbadge">${esc(c.type)}</span>${dn?'<span class="mdone">✓ 已完成</span>':''}
+        <span class="mbadge">${esc(c.type)}</span>${dn?'<span class="mdone">✓ 已完成</span>':''}${ab?'<span class="mabandoned">已放弃</span>':''}
         <button class="micon" data-edit title="编辑" aria-label="编辑「${esc(c.title)}」">✎</button>
         <button class="micon" data-del title="删除" aria-label="删除「${esc(c.title)}」"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
       </div>
     </div>
     <div class="mmeta">${metaHtml} · 平台 ${esc(c.platform||"—")}</div>
     <div class="mbar"><div class="track"><i class="fill" data-w="${esc(p)}"></i></div><div class="mpct">${esc(pctText)}</div></div>
-    <div class="mhint"><span class="mhint-txt">${hintTxt}</span><span class="mstep"><button data-step="-1" title="减 1 ${unitAttr}" aria-label="「${esc(c.title)}」减 1 ${unitAttr}">−</button><button data-step="1" title="加 1 ${unitAttr}" aria-label="「${esc(c.title)}」加 1 ${unitAttr}">+</button>${finBtn}</span></div>
+    <div class="mhint"><span class="mhint-txt">${hintTxt}</span><span class="mstep"><button data-step="-1" title="减 1 ${unitAttr}" aria-label="「${esc(c.title)}」减 1 ${unitAttr}">−</button><button data-step="1" title="加 1 ${unitAttr}" aria-label="「${esc(c.title)}」加 1 ${unitAttr}">+</button>${abBtn}${finBtn}</span></div>
   </div>`;
 }
 
 function mediaColHtml(arr, kind, emptyMsg){
-  const act=(arr||[]).filter(c=>!mediaDone(c));
-  const dn=(arr||[]).filter(c=>mediaDone(c));
-  if(!act.length && !dn.length) return '<div class="media-empty">'+emptyMsg+'</div>';
+  const act=(arr||[]).filter(c=>!mediaDone(c)&&!c.abandoned);
+  const dn=(arr||[]).filter(c=>mediaDone(c)&&!c.abandoned);
+  const ab=(arr||[]).filter(c=>c.abandoned);
+  if(!act.length && !dn.length && !ab.length) return '<div class="media-empty">'+emptyMsg+'</div>';
   let h=act.map(c=>mCard(c,kind)).join("");
   if(dn.length) h+='<div class="media-done-sep">✓ 已完成 '+dn.length+'</div>'+dn.map(c=>mCard(c,kind)).join("");
+  if(ab.length) h+='<div class="media-abandon-sep">⊘ 已放弃 '+ab.length+'</div>'+ab.map(c=>mCard(c,kind)).join("");
   return h;
 }
 
@@ -9524,7 +9560,7 @@ function renderMedia(){
   const booksAll=media.books, tvsAll=media.tvs, audsAll=media.auds;
   const books=booksAll.filter(mHit), tvs=tvsAll.filter(mHit), auds=audsAll.filter(mHit);
   const avg=a=> a.length ? Math.round(a.reduce((s,x)=>s+mPct(x),0)/a.length) : 0;
-  const avgAll=avg([...booksAll,...tvsAll,...audsAll].filter(c=>!mediaDone(c)));
+  const avgAll=avg([...booksAll,...tvsAll,...audsAll].filter(c=>!mediaDone(c)&&!c.abandoned));
   let html=`<div class="media-wrap">`;
   if(mq){
     const hitN=books.length+tvs.length+auds.length, allN=booksAll.length+tvsAll.length+audsAll.length;
@@ -9533,12 +9569,12 @@ function renderMedia(){
   html+=`<div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:10px;"><span class="media-avg">平均进度 <b id="mediaAvgN">${avgAll}%</b></span><button class="btn btn-ghost btn-sm" id="mediaRecover">↺ 找回误删</button><button class="btn btn-pri btn-sm" id="mediaAdd">+ 添加媒体</button></div>`;
   // 三列与上方三张统计卡同为 repeat(3,1fr)：在读 / 在追 / 在听 1:1 对齐上方标签
   // 统计卡口径：主数字=进行中（在读/在追/在听），已完成不再计入，另以副标注「已完成 N」呈现
-  const mActive=a=>a.filter(c=>!mediaDone(c)).length, mDone=a=>a.filter(c=>mediaDone(c)).length;
-  const mStat=(act,doneN,label,color)=>`<div class="media-stat"><div class="n" style="color:${color}">${act}</div><div class="l">${label}${doneN?`<span class="msub">已完成 ${doneN}</span>`:""}</div></div>`;
+  const mActive=a=>a.filter(c=>!mediaDone(c)&&!c.abandoned).length, mDone=a=>a.filter(c=>mediaDone(c)&&!c.abandoned).length, mAb=a=>a.filter(c=>c.abandoned).length;
+  const mStat=(act,doneN,abN,label,color)=>`<div class="media-stat"><div class="n" style="color:${color}">${act}</div><div class="l">${label}${doneN?`<span class="msub">已完成 ${doneN}</span>`:""}${abN?`<span class="msub">已放弃 ${abN}</span>`:""}</div></div>`;
   html+=`<div class="media-stats">
-    ${mStat(mActive(books),mDone(books),"在读书籍","var(--pri)")}
-    ${mStat(mActive(tvs),mDone(tvs),"在追剧集","var(--c4)")}
-    ${mStat(mActive(auds),mDone(auds),"在听剧集","var(--c6)")}
+    ${mStat(mActive(books),mDone(books),mAb(books),"在读书籍","var(--pri)")}
+    ${mStat(mActive(tvs),mDone(tvs),mAb(tvs),"在追剧集","var(--c4)")}
+    ${mStat(mActive(auds),mDone(auds),mAb(auds),"在听剧集","var(--c6)")}
   </div>`;
   html+=`<div class="media-cols">`;
   html+=`  <div class="media-col">`;
@@ -9565,6 +9601,8 @@ function renderMedia(){
     card.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>stepMedia(card.dataset.id, card.dataset.kind, +b.dataset.step));
     const mfb=card.querySelector("[data-finish]"); if(mfb) mfb.onclick=()=>mediaFinish(card.dataset.id, card.dataset.kind);
     const mub=card.querySelector("[data-unfinish]"); if(mub) mub.onclick=()=>mediaUndoFinish(card.dataset.id, card.dataset.kind);
+    const mab=card.querySelector("[data-abandon]"); if(mab) mab.onclick=()=>mediaAbandon(card.dataset.id, card.dataset.kind);
+    const mrb=card.querySelector("[data-restore]"); if(mrb) mrb.onclick=()=>mediaRestore(card.dataset.id, card.dataset.kind);
   });
   requestAnimationFrame(()=>setTimeout(()=>{
     v.querySelectorAll(".mcard .fill").forEach(f=>f.style.width=f.dataset.w+"%");
@@ -11250,7 +11288,7 @@ function mergeHabits(loc, cloud, cloudDeleted){
 // 媒体看板签名：dataSig 此前完全不含媒体 → 「本地与云端仅媒体有差异」会被判为情形 3「已是最新」而整段跳过合并，
 // 于是另一台设备新增/删除的媒体条目永远落不到本端（删除传播也失效）。补进签名后此类差异会走正常合并分支。
 function mediaSig(m){
-  const one=a=>(a||[]).map(x=>[x.id,x.current,x.total,x.done?1:0,x.title||""]).sort((p,q)=>String(p[0]).localeCompare(String(q[0])));   // 2026-10-19：签名补 title——只改媒体标题（不改进度）时签名也要变，否则该修改被「内容一致」判据吞掉、永远同步不出去
+  const one=a=>(a||[]).map(x=>[x.id,x.current,x.total,x.done?1:0,x.abandoned?1:0,x.title||""]).sort((p,q)=>String(p[0]).localeCompare(String(q[0])));   // 2026-10-19：签名补 title——只改媒体标题（不改进度）时签名也要变，否则该修改被「内容一致」判据吞掉、永远同步不出去
   const mm=m||{};
   return one(mm.books).concat(one(mm.tvs),one(mm.auds));
 }
@@ -11947,7 +11985,7 @@ document.addEventListener("click",e=>{ const m=document.getElementById("tplMenu"
 /* ===== 媒体进度看板（可编辑） ===== */
 let media = { books:[], tvs:[], auds:[] };
 const MEDIA_KEY = "wb_taskhub_mediaboard_v1";
-const M_KINDS={books:{cls:"",verb:"已读",unit:"章"},tvs:{cls:"tv",verb:"已看",unit:"集"},auds:{cls:"aud",verb:"已听",unit:"集"}};
+const M_KINDS={books:{cls:"",verb:"已读",unit:"章",skip:"不读"},tvs:{cls:"tv",verb:"已看",unit:"集",skip:"不看"},auds:{cls:"aud",verb:"已听",unit:"集",skip:"不听"}};
 let mediaEditId=null, mediaEditKind=null;
 
 /* ===== 从 Gist 历史找回（统一：任务 / 媒体 / 习惯 / 清单 / 项目 / OKR）=====

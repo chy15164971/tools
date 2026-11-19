@@ -9,7 +9,7 @@ const SENT_CACHE="wb-remind-sent";
    三处 HTML 字节变化；另外预缓存失败不再静默吞掉（记录并 console.warn），
    海报缓存改为按 cache.keys() 计数 + LRU 淘汰（原先生命周期计数器重启归零，
    缓存可无限增长）。沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存。 */
-const APP_CACHE="wb-app-v17";
+const APP_CACHE="wb-app-v18";
 /* v9（2026-11-16 低风险批）：海报墙补 viewport-fit / 缩略图 alt / 遮罩前缀，
    任务台与 index 补 -webkit- 前缀，门户降级计数标签纠正口径；另外 navigate
    分支补 res.ok 检查——此前 HTTP 404 会 resolve(!ok) 直接漏给离线用户。
