@@ -21,8 +21,8 @@
    导航条必须是 `<body>` 开头的静态 HTML，不能退回 JS 延迟插入（会重现首屏闪旧画面）。
 3. 共享色板唯一真相源是 vault `_ops/_workbench/design_tokens.css`；
    私有变量写在 `SHARED TOKENS START/END` 标记区**之外**，否则下次同步会被整块覆盖。
-4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v18）：SW 字节不变就不触发 install，
-   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15→v16→v17、11-19 v18 均按此处理）。
+4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v19）：SW 字节不变就不触发 install，
+   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15→v16→v17、11-19 v18、11-21 v19 均按此处理）。
    导航请求用 `fetch(url,{cache:"no-store"})` 绕过 Pages 的 `max-age=600`；
    不要写成 `fetch(e.request, init)`（navigate 模式重建 Request 会抛 TypeError）。
 5. `_shared/` 目录以下划线开头，GitHub Pages 不发布；源文件已内联进五个 HTML，线上 404 属预期。
@@ -205,6 +205,23 @@ P1-9 守卫因 `convertRecord` / `renderStats` 函数体合法改动重冻基线
 - 本轮最终门禁：专项 **29 PASS / 0 FAIL**（改前对照 1 PASS / 28 FAIL）、全量回归 **60 PASS / 0 FAIL**、焦点 E2E **36 PASS / 0 FAIL**、P1-9 守卫改前字节对照 **40 PASS** 且重冻后 **42 PASS / 0 FAIL**、媒体放弃真浏览器 E2E **28 PASS / 0 FAIL**。升 `APP_CACHE` v17 → **v18**，commit `c497046`，线上 3/3 MD5 MATCH。
 - 边界：放弃是软状态（仍占存储、仍同步）；三列各有独立已放弃分区；放弃不写墓碑；线上首次访问 SW controller 为空属正常时序。
 - 执行记录与证据：`deliverables/workbench-audit-1105/媒体放弃功能_执行报告_20261119.md`。
+
+## 2026-11-21 观剧记录上线 + 地点日记（原型）
+
+- 用户诉求：旅行地图地点写日记传照片；记录现场观剧次数并给剧目建议。架构经澄清确认：日记并入地图 / IndexedDB 存照片 / 内置剧目库本地推荐 / 观剧独立页 + 海报墙入口。
+- 旅行地图新增地点日记：IndexedDB `wb_travel_diary_db`（diaries + photos），每地点旁「日记 N」按钮，支持 CRUD、缩略图、原图查看、删除级联；日记按钮与点亮事件隔离。
+- 新建独立页 `观剧记录.html`：localStorage `wb_theatre_v1` + IndexedDB `wb_theatre_db`；四视图（记录 / 统计 / 想看 / 推荐）；28 部内置剧目库 + 本地加权推荐，`normName()` 去重含「二刷」后缀；统计含观演次数 / 剧院 / 票价 / 平均票价。
+- 海报墙 top-actions 加 `🎭 观剧记录` 入口（仅本页 `sib-link`，未动统一导航条）；观剧页加 `‹ 海报墙` 返回链接。
+- 验收：地点日记专项 28 PASS、城市版回归 74 PASS、观剧专项 32 PASS / 0 FAIL；变异测试三处均触发预期失败；真浏览器 E2E 19 项全过、0 报错，桌面 / 移动端截图落盘。
+- 执行记录与证据：`deliverables/workbench-audit-1105/地点日记与观剧记录_执行报告_20261121.md`。
+
+### 观剧记录完整并入站点（v19）
+
+- 用户选择「完整并入站点」：观剧记录成为第六个正式页面，接入统一导航条（「观剧」项 + `data-page="theatre"` 高亮）、PWA precache（`PRECACHE` + `NAV_MAP`）、发布门禁与 manifest shortcuts。
+- 共享层口径升级：注入器 / 门禁页面清单五页 → 六页，共享内联块 17 → 19，`sync_tokens.js` 纳入观剧页；观剧页原私有 token 收敛为仅 `--warm`，其余走共享 token 唯一源。
+- 陈旧断言更新：媒体放弃 F1、权衡加固 D7 的版本断言改为「≥v18」，遗留风险 A8 门禁块数 17→19；P1-9 守卫因导航函数体合法变化触发 G10，已用改前字节对照 40 PASS 证明分辨力，重冻后 42 PASS / 0 FAIL（旧基线备份 `_P1-9基线_改前_v18.json`）。
+- 本轮门禁：发布门禁 0 失败、TOKENS 六页 IN_SYNC、镜像 23 项可跑、全量回归 **63 PASS / 0 FAIL**、焦点 E2E 36 PASS / 0 FAIL；真浏览器验证六页导航条、观剧 CRUD/统计/推荐去重、v19 预缓存、海报墙↔观剧往返、离线回退、390px 无溢出，0 报错。升 `APP_CACHE` v18 → **v19**。
+- 状态：观剧记录已上线；旅行地图地点日记仍为本地原型（地图 key 需自备，`file://` 双击空白属预期），未上线。
 
 ## 发布流程
 

@@ -1,7 +1,7 @@
 /* ============================================================
    SITE-NAV v2（2026-11-04）— 站点导航条的「行为层」
    ------------------------------------------------------------
-   唯一真相源：_shared/site-nav.js，由 inject_shared.py 内联进五页。
+   唯一真相源：_shared/site-nav.js，由 inject_shared.py 内联进六页。
    导航条本体（HTML + CSS）已改为静态块 _shared/site-nav-static.html，
    放在 <body> 开头随文档解析立即呈现，消除 v1 的首屏闪烁：
    v1 在 DOMContentLoaded 才 createElement 插入，任务台 FCP 1220ms /
@@ -22,10 +22,11 @@
     if (f.indexOf("任务管理台") >= 0 || f.indexOf("taskhub") >= 0) return "tasks";
     if (f.indexOf("明信片") >= 0 || f.indexOf("postcard") >= 0) return "postcards";
     if (f.indexOf("书影音海报墙") >= 0 || f.indexOf("media") >= 0) return "media";
+    if (f.indexOf("观剧") >= 0 || f.indexOf("theatre") >= 0) return "theatre";
     return "";
   }
 
-  /* 站点级 PWA：五页共用同一个 sw.js，重复 register 天然幂等；file:// 双击时静默跳过 */
+  /* 站点级 PWA：六页共用同一个 sw.js，重复 register 天然幂等；file:// 双击时静默跳过 */
   function registerSW(){
     try{
       if(!("serviceWorker" in navigator)) return;

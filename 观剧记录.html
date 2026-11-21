@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>观剧记录 · 工作台</title>
+<style>
+  /* === 观剧页私有 token（写在 SHARED TOKENS 标记区之外，sync_tokens.js 不触碰）=== */
+  :root{--warm:#F5A623}
+  /* === SHARED TOKENS START === */
+  :root{
+    --bg:#f5f7fb; --card:#ffffff; --ink:#1f2430; --text:#1f2430; --sub:#6b7280; --line:#e7ebf2;
+    /* --pri-ink：主色当**文字**用（#4F7CFF 白底仅 3.71:1 不达标）→ 5.48:1
+       --pri-deep：主色当**底色**、上面压白色小字（12.5–14px 不到大文本门槛）→ 4.73:1
+       纯填充（进度条/图标/色点）继续用 --pri，不受影响。 */
+    --pri-ink:#2F5FE0; --pri-deep:#3D68F0;
+    --pri:#4F7CFF; --pri-soft:#eaf0ff; --ok:#22b07d; --ok-soft:#e7f6ec; --warn:#ff8a3d; --danger:#ef4444;
+    /* 数据色（c4 媒体剧集 / c5 兜底灰在用；c1~c3 已删除，分类/优先级用用户自定义色） */
+    --c4:#ff5c8a; --c5:#9aa0ab; --c6:#9b6bff;
+    --chip-bg:#6b7280;
+    --radius:12px; --radius-sm:8px; --radius-lg:16px; --shadow:0 2px 10px rgba(31,36,48,.06);
+    /* cloudpill / 菜单 hover 此前引用未定义值导致样式退化，统一补全 */
+    --bg2:#f5f7fb; --muted:#6b7280; --hover:#f4f6fb; --soft:#f1f4f9;
+  --accent:#7c5cff; --white:#fff; --ink-strong:#1f2430; }
+  [data-theme="dark"]{
+    --bg:#0f1320; --card:#171c2b; --ink:#e7ebf3; --text:#e7ebf3; --sub:#9aa3b2; --line:#262d3f;
+    --pri-ink:#8FABFF; --pri-deep:#3D68F0;
+    --pri:#5b86ff; --pri-soft:#1c2740; --hover:#1c2236; --bg2:#11162a; --muted:#9aa3b2;
+    --ok:#2dd4a0; --ok-soft:#10312a; --warn:#ff9a52; --danger:#ff5d5d;
+    --c4:#ff7aa6; --c5:#5a6478; --c6:#b08cff;
+    /* 深色下 --muted 是浅灰（#9aa3b2），压白字只有 ~2.4:1 → chip 底色另给一个深灰 */
+    --chip-bg:#5a6478;
+    --shadow:0 2px 10px rgba(0,0,0,.32);
+    --soft:#1c2233;
+  --accent:#9b8cff;
+  /* G19（2026-10-23 修）：dark 补定义 --ink-strong —— 原漏覆盖仍为亮色值 #1f2430，
+     深色下 .today-sec-act:hover 等引用处深字压深底近乎隐形 */
+  --ink-strong:#e7ebf3; }
+  /* === SHARED TOKENS END === */
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;min-height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);font-size:13px;line-height:1.5}
+header{background:var(--card);border-bottom:1px solid var(--line);padding:14px 18px 0;position:sticky;top:0;z-index:20}
+.h-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font-size:17px;font-weight:600;margin:0;white-space:nowrap}
+.h-sub{color:var(--sub);font-size:12px}
+.spacer{flex:1}
+.btn{min-height:36px;padding:0 13px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--pri);color:var(--pri-deep)}
+.btn.pri{background:var(--pri-deep);border-color:var(--pri-deep);color:#fff}
+.btn.pri:hover{background:#3359d8;color:#fff}
+.tabs{display:flex;gap:4px;margin-top:12px;overflow-x:auto}
+.tab{min-height:38px;padding:0 15px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--sub);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.tab.on{color:var(--pri-deep);border-bottom-color:var(--pri-deep);font-weight:600}
+main{max-width:1080px;margin:0 auto;padding:16px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 15px}
+.stat .n{font-size:24px;font-weight:700;color:var(--pri-deep);line-height:1.1}
+.stat .l{font-size:11px;color:var(--sub);margin-top:4px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+.panel h2{font-size:14px;margin:0 0 12px;font-weight:600}
+.empty{text-align:center;color:var(--sub);padding:36px 12px;font-size:13px}
+.empty .big{font-size:32px;opacity:.35;margin-bottom:8px}
+/* 记录卡 */
+.rec{border:1px solid var(--line);border-radius:11px;padding:13px 14px;margin-bottom:10px;background:var(--card)}
+.rec:hover{border-color:#cdd6f5}
+.rec .rh{display:flex;align-items:flex-start;gap:8px}
+.rec .rt{font-size:15px;font-weight:600;flex:1;min-width:0}
+.badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:999px;background:var(--hover);color:var(--pri-deep);white-space:nowrap}
+.rec .rmeta{color:var(--sub);font-size:11px;margin-top:5px;display:flex;gap:12px;flex-wrap:wrap}
+.rec .rtext{margin:8px 0 0;font-size:13px;white-space:pre-wrap;word-break:break-word}
+.stars{color:var(--warm);font-size:13px;letter-spacing:1px}
+.rphotos{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.rphotos img{width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--line);cursor:zoom-in}
+.ract{display:flex;gap:6px;margin-top:9px}
+.mini{min-height:26px;padding:0 9px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--sub);font:inherit;font-size:11px;cursor:pointer}
+.mini:hover{color:var(--pri-deep);border-color:var(--pri)}
+.mini.del:hover{color:var(--danger);border-color:var(--danger)}
+/* 统计图 */
+.bars{display:flex;flex-direction:column;gap:10px}
+.bar-row{display:grid;grid-template-columns:88px 1fr 42px;align-items:center;gap:10px;font-size:12px}
+.bar-track{height:14px;background:var(--bg);border-radius:7px;overflow:hidden}
+.bar-fill{height:100%;background:linear-gradient(90deg,#4F7CFF,#7BA0FF);border-radius:7px;min-width:2px;transition:width .4s}
+.bar-row .bv{text-align:right;color:var(--sub);font-variant-numeric:tabular-nums}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+/* 想看 */
+.wish{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:8px}
+.wish .wt{flex:1;min-width:0}
+.wish .wt b{font-weight:600}
+.wish .wt span{color:var(--sub);font-size:11px;margin-left:6px}
+.wish.done .wt b{text-decoration:line-through;color:var(--sub)}
+/* 推荐 */
+.reco{border:1px solid var(--line);border-radius:11px;padding:13px 14px;margin-bottom:9px;display:flex;gap:12px;align-items:flex-start}
+.reco .rank{width:28px;height:28px;flex:none;border-radius:8px;background:var(--hover);color:var(--pri-deep);font-weight:700;display:flex;align-items:center;justify-content:center;font-size:13px}
+.reco .rb{flex:1;min-width:0}
+.reco .rb b{font-size:14px}
+.reco .why{color:var(--sub);font-size:11px;margin-top:5px}
+.reco .tags{margin-top:6px;display:flex;gap:5px;flex-wrap:wrap}
+.tag{font-size:10px;padding:2px 7px;border-radius:5px;background:var(--bg);color:var(--sub)}
+/* 弹窗 */
+.mask{display:none;position:fixed;inset:0;z-index:50;background:rgba(20,26,40,.44);align-items:center;justify-content:center;padding:16px}
+.mask.show{display:flex}
+.panel-dialog{width:min(600px,100%);max-height:90vh;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 12px 44px rgba(20,26,40,.2)}
+.dh{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
+.dh b{font-size:15px;flex:1}
+.x{width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--sub);cursor:pointer;font-size:16px;line-height:1}
+.db{overflow-y:auto;padding:14px 16px;flex:1}
+.form label{display:block;font-size:11px;color:var(--sub);margin:0 0 3px}
+.form input[type=text],.form input[type=date],.form input[type=number],.form select,.form textarea{width:100%;min-height:36px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px;background:var(--card);color:var(--ink);margin-bottom:9px}
+.form textarea{min-height:70px;resize:vertical}
+.frow{display:flex;gap:9px}.frow>*{flex:1;min-width:0}
+.form input[type=file]{font-size:11px;max-width:100%;margin-bottom:6px}
+.thumbs{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 8px}
+.thumbs div{position:relative}
+.thumbs img{width:54px;height:54px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
+.thumbs button{position:absolute;top:-5px;right:-5px;width:18px;height:18px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--sub);font-size:11px;line-height:1;cursor:pointer;padding:0}
+.dact{display:flex;gap:8px;padding:11px 16px;border-top:1px solid var(--line);background:var(--bg)}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:70;background:var(--ink);color:#fff;padding:9px 16px;border-radius:999px;font-size:12px;opacity:0;transition:opacity .2s;pointer-events:none}
+@media(max-width:680px){
+  header{padding:12px 12px 0}
+  h1{font-size:15px}
+  .h-sub{display:none}
+  main{padding:10px}
+  .stats{grid-template-columns:1fr 1fr}
+  .grid2{grid-template-columns:1fr}
+  .btn{min-height:44px}
+  .tab{min-height:44px}
+  .bar-row{grid-template-columns:70px 1fr 36px}
+}
+</style>
+</head>
+<body>
+<!-- >>> SITE-NAV-HTML:BEGIN —— 由 _shared/site-nav-static.html 自动生成，请勿直接编辑本块 -->
+<!-- 站点统一导航条 · 静态首屏版 v2（2026-11-04）
+     唯一真相源：_shared/site-nav-static.html，由 inject_shared.py 内联到六页 <body> 开头。
+     为什么静态：v1 由 site-nav.js 在 DOMContentLoaded 后才 createElement 插入，任务台 HTML
+     约 831KB，实测 FCP 1220ms / DCL 1555ms —— 中间约 335ms 首屏是「没有导航条的旧版
+     任务台」，导航条插入后整页下移，用户看到闪一下旧画面。静态渲染后首屏解析即有导航条。
+     当前页高亮与 PWA 注册仍由 _shared/site-nav.js 补（纯样式变化，不引起布局跳动）。
+     品牌图标：__wsn_brand 前内联同款三卡组 SVG（与首页 logo / PWA 图标同源），
+     用 inline 而非 <img> 引用外部文件——零额外请求、首屏即显示、离线绝对稳，且不依赖 SW 缓存；
+     渐变 id 加 __wsn_ 前缀避免同页 id 冲突。
+     2026-11-06 D-16：品牌由 <span> 改为 <a href="home.html">，四个子页可点左上角回首页。 -->
+<style id="__wsn_style">
+.__wsn_bar{display:flex;align-items:center;gap:14px;padding:7px 16px;box-sizing:border-box;
+  width:100%;background:var(--card,#fff);color:var(--ink,#1f2430);
+  border-bottom:1px solid var(--line,#e7ebf2);font-size:13px;line-height:1.5;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  position:relative;z-index:1}
+.__wsn_brand{display:inline-flex;align-items:center;gap:7px;font-weight:600;letter-spacing:.02em;white-space:nowrap;color:var(--ink,#1f2430);text-decoration:none;cursor:pointer}
+.__wsn_icon{width:20px;height:20px;border-radius:5px;flex:none;display:block}
+.__wsn_links{display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+.__wsn_links::-webkit-scrollbar{display:none}
+.__wsn_links a{display:inline-flex;align-items:center;min-height:36px;padding:3px 11px;border-radius:999px;text-decoration:none;
+  white-space:nowrap;color:var(--sub,#6b7280);border:1px solid transparent;transition:background .15s ease,color .15s ease}
+.__wsn_links a:hover{background:var(--hover,var(--pri-soft,#eaf0ff));color:var(--ink,#1f2430)}
+.__wsn_links a.__wsn_on{color:#fff;background:var(--pri-deep,#3D68F0);border-color:var(--pri-deep,#3D68F0)}
+.__wsn_hint{font-size:12px;color:var(--sub,#9aa3b2);white-space:nowrap}
+.__wsn_bar a:focus-visible{outline:2px solid var(--pri,#4F7CFF);outline-offset:2px}
+@media(max-width:680px){.__wsn_bar{gap:9px;padding:6px 10px}.__wsn_hint{display:none}
+  .__wsn_brand{min-height:44px}
+  .__wsn_links a{padding:3px 9px;font-size:12px;min-height:44px}}
+@media(prefers-reduced-motion:reduce){.__wsn_links a{transition:none}}
+</style>
+<nav id="__wsn_bar" class="__wsn_bar" aria-label="站点导航">
+  <a class="__wsn_brand" href="home.html" aria-label="工作台首页"><svg class="__wsn_icon" viewBox="0 0 1024 1024" aria-hidden="true"><defs><linearGradient id="__wsn_wbG" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5B86FF"/><stop offset="1" stop-color="#2F5FE0"/></linearGradient></defs><rect width="1024" height="1024" rx="208" fill="url(#__wsn_wbG)"/><rect x="62" y="62" width="900" height="900" rx="208" fill="none" stroke="#FFFFFF" stroke-opacity="0.8" stroke-width="12"/><rect x="208" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="228" y="426" width="128" height="22" rx="11" fill="#4F7CFF"/><rect x="428" y="334" width="168" height="372" rx="34" fill="#FFFFFF"/><rect x="448" y="354" width="128" height="22" rx="11" fill="#D4537E"/><rect x="648" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="668" y="426" width="128" height="22" rx="11" fill="#8B5CF6"/></svg>工作台</a>
+  <div class="__wsn_links">
+    <a href="home.html" data-page="home">首页</a>
+    <a href="任务管理台.html" data-page="tasks">任务台</a>
+    <a href="明信片追踪.html" data-page="postcards">明信片</a>
+    <a href="书影音海报墙.html" data-page="media">海报墙</a>
+    <a href="观剧记录.html" data-page="theatre">观剧</a>
+  </div>
+  <span class="__wsn_hint">同一工作台 · 数据保存在本机</span>
+</nav>
+<!-- <<< SITE-NAV-HTML:END -->
+<header>
+  <div class="h-top">
+    <h1>观剧记录</h1>
+    <span class="h-sub">记录每一次走进剧场的现场，累积属于你的剧历</span>
+    <a class="btn" href="书影音海报墙.html" style="text-decoration:none" title="返回书影音海报墙">‹ 海报墙</a>
+    <span class="spacer"></span>
+    <button class="btn pri" id="addRec" type="button">+ 记一场</button>
+    <button class="btn" id="addWish" type="button">+ 想看</button>
+  </div>
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-tab="records" type="button">观演记录</button>
+    <button class="tab" data-tab="stats" type="button">数据统计</button>
+    <button class="tab" data-tab="wish" type="button">想看清单</button>
+    <button class="tab" data-tab="reco" type="button">剧目推荐</button>
+  </div>
+</header>
+<main>
+  <div class="stats" id="statsBar"></div>
+  <div id="view"></div>
+</main>
+
+<div class="mask" id="mask">
+  <div class="panel-dialog" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+    <div class="dh"><b id="dlgTitle">记一场</b><button class="x" id="dlgX" type="button" aria-label="关闭">×</button></div>
+    <div class="db form">
+      <input type="hidden" id="fId">
+      <div class="frow">
+        <div><label for="fName">剧目名称 *</label><input type="text" id="fName" placeholder="如：哈姆雷特 / 歌剧魅影"></div>
+        <div><label for="fType">类型 *</label><select id="fType"></select></div>
+      </div>
+      <div class="frow">
+        <div><label for="fDate">观演日期 *</label><input type="date" id="fDate"></div>
+        <div><label for="fVenue">剧院 / 场馆</label><input type="text" id="fVenue" placeholder="如：国家大剧院"></div>
+      </div>
+      <div class="frow">
+        <div><label for="fCity">城市</label><input type="text" id="fCity" placeholder="如：北京"></div>
+        <div><label for="fPrice">票价（元）</label><input type="number" id="fPrice" min="0" step="1" placeholder="0"></div>
+      </div>
+      <div class="frow">
+        <div><label for="fSession">场次 / 卡司</label><input type="text" id="fSession" placeholder="如：晚场 / 主演XXX"></div>
+        <div><label for="fRating">评分</label><select id="fRating"><option value="0">未评分</option><option value="1">★</option><option value="2">★★</option><option value="3">★★★</option><option value="4">★★★★</option><option value="5">★★★★★</option></select></div>
+      </div>
+      <label for="fNote">观演感想</label>
+      <textarea id="fNote" placeholder="这一场最打动你的瞬间…"></textarea>
+      <label for="fFile">添加现场照片（可多选，自动生成缩略图）</label>
+      <input type="file" id="fFile" accept="image/*" multiple>
+      <div class="thumbs" id="fThumbs"></div>
+    </div>
+    <div class="dact">
+      <button class="btn pri" id="fSave" type="button">保存</button>
+      <button class="btn" id="fCancel" type="button">取消</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===== 数据层 ===== */
+const KEY='wb_theatre_v1';
+const TYPES=['话剧','音乐剧','舞剧','戏曲','演唱会','音乐会','魔术马戏','其他'];
+let data={records:[],wishlist:[]};
+try{
+  const s=JSON.parse(localStorage.getItem(KEY)||'null');
+  if(s&&typeof s==='object'){
+    data={records:Array.isArray(s.records)?s.records:[],wishlist:Array.isArray(s.wishlist)?s.wishlist:[]};
+  }
+}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(data));}catch(e){toast('本地存储写入失败');}}
+
+/* IndexedDB：照片存原图 Blob + 缩略图 */
+const DB='wb_theatre_db';
+let _dbp=null;
+function openDB(){
+  if(_dbp)return _dbp;
+  _dbp=new Promise((res,rej)=>{
+    let q;try{q=indexedDB.open(DB,1);}catch(e){rej(e);return;}
+    q.onupgradeneeded=()=>{const d=q.result;if(!d.objectStoreNames.contains('photos'))d.createObjectStore('photos',{keyPath:'id'});};
+    q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);q.onblocked=()=>rej(new Error('db blocked'));
+  });
+  return _dbp;
+}
+function idbAll(){return openDB().then(db=>new Promise((res,rej)=>{const r=db.transaction('photos').objectStore('photos').getAll();r.onsuccess=()=>res(r.result||[]);r.onerror=()=>rej(r.error);}));}
+function idbPut(v){return openDB().then(db=>new Promise((res,rej)=>{const tx=db.transaction('photos','readwrite');tx.objectStore('photos').put(v);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);}));}
+function idbDel(k){return openDB().then(db=>new Promise((res,rej)=>{const tx=db.transaction('photos','readwrite');tx.objectStore('photos').delete(k);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);}));}
+function uid(p){return (p||'r')+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function stars(n){n=Number(n)||0;return '★'.repeat(n)+'☆'.repeat(5-n);}
+
+/* 内置剧目库（本地推荐用，离线可用） */
+const LIB=[
+  {n:'哈姆雷特',t:'话剧',tags:['经典','莎士比亚','悲剧']},
+  {n:'茶馆',t:'话剧',tags:['经典','老舍','京味']},
+  {n:'雷雨',t:'话剧',tags:['经典','曹禺','家庭']},
+  {n:'暗恋桃花源',t:'话剧',tags:['赖声川','喜剧','悲喜']},
+  {n:'如梦之梦',t:'话剧',tags:['赖声川','史诗','沉浸式']},
+  {n:'恋爱的犀牛',t:'话剧',tags:['孟京辉','爱情','先锋']},
+  {n:'活着',t:'话剧',tags:['改编','余华','史诗']},
+  {n:'平凡的世界',t:'话剧',tags:['改编','现实主义']},
+  {n:'歌剧魅影',t:'音乐剧',tags:['经典','韦伯','爱情']},
+  {n:'猫',t:'音乐剧',tags:['经典','韦伯','歌舞']},
+  {n:'悲惨世界',t:'音乐剧',tags:['经典','雨果','史诗']},
+  {n:'西区故事',t:'音乐剧',tags:['经典','爱情','歌舞']},
+  {n:'妈妈咪呀',t:'音乐剧',tags:['轻松','ABBA','喜剧']},
+  {n:'剧院魅影：真爱不死',t:'音乐剧',tags:['续集','韦伯']},
+  {n:'我的祖国',t:'音乐剧',tags:['中文原创','现实']},
+  {n:'永不消逝的电波',t:'舞剧',tags:['红色','谍战','口碑']},
+  {n:'只此青绿',t:'舞剧',tags:['国风','宋韵','爆款']},
+  {n:'朱鹮',t:'舞剧',tags:['国风','唯美']},
+  {n:'天鹅湖',t:'舞剧',tags:['经典','芭蕾','柴可夫斯基']},
+  {n:'红色娘子军',t:'舞剧',tags:['经典','芭蕾','红色']},
+  {n:'牡丹亭',t:'戏曲',tags:['昆曲','经典','爱情']},
+  {n:'霸王别姬',t:'戏曲',tags:['京剧','经典','悲剧']},
+  {n:'天仙配',t:'戏曲',tags:['黄梅戏','经典']},
+  {n:'梁山伯与祝英台',t:'戏曲',tags:['越剧','经典','爱情']},
+  {n:' ERA——时空之旅',t:'魔术马戏',tags:['舞台秀','视觉','上海']},
+  {n:'宋城千古情',t:'魔术马戏',tags:['实景','歌舞','旅游']},
+  {n:'维也纳新年音乐会',t:'音乐会',tags:['古典','新年','维也纳']},
+  {n:'久石让作品音乐会',t:'音乐会',tags:['动漫','治愈','久石让']}
+];
+
+let thumbsCache=Object.create(null);
+function loadThumbs(){return idbAll().then(ps=>{thumbsCache=Object.create(null);ps.forEach(p=>thumbsCache[p.id]=p.thumb);}).catch(()=>{});}
+
+/* ===== 渲染 ===== */
+let curTab='records';
+const view=document.getElementById('view');
+const statsBar=document.getElementById('statsBar');
+
+function renderStats(){
+  const rs=data.records;
+  const total=rs.length;
+  const spend=rs.reduce((s,r)=>s+(Number(r.price)||0),0);
+  const venues=new Set(rs.map(r=>r.venue).filter(Boolean)).size;
+  const year=new Date().getFullYear();
+  const thisYear=rs.filter(r=>String(r.date||'').startsWith(String(year))).length;
+  statsBar.innerHTML=[
+    ['累计观演',total+' 场'],
+    [year+' 年',thisYear+' 场'],
+    ['到访剧院',venues+' 家'],
+    ['累计票价','¥ '+spend.toLocaleString()]
+  ].map(x=>'<div class="stat"><div class="n">'+esc(x[1])+'</div><div class="l">'+esc(x[0])+'</div></div>').join('');
+}
+function recHtml(r){
+  const imgs=(r.photoIds||[]).map(id=>thumbsCache[id]?'<img src="'+thumbsCache[id]+'" data-photo="'+esc(id)+'" alt="现场照片">':'').join('');
+  return '<div class="rec" data-rec="'+esc(r.id)+'">'
+    +'<div class="rh"><div class="rt">'+esc(r.name)+'</div><span class="badge">'+esc(r.type||'其他')+'</span><span class="stars">'+stars(r.rating)+'</span></div>'
+    +'<div class="rmeta">'+(r.date?'<span>'+esc(r.date)+'</span>':'')+(r.venue?'<span>'+esc(r.venue)+'</span>':'')+(r.city?'<span>'+esc(r.city)+'</span>':'')+(r.session?'<span>'+esc(r.session)+'</span>':'')+(Number(r.price)>0?'<span>¥'+Number(r.price)+'</span>':'')+'</div>'
+    +(r.note?'<p class="rtext">'+esc(r.note)+'</p>':'')
+    +(imgs?'<div class="rphotos">'+imgs+'</div>':'')
+    +'<div class="ract"><button class="mini" data-edit="'+esc(r.id)+'" type="button">编辑</button><button class="mini del" data-del="'+esc(r.id)+'" type="button">删除</button></div>'
+    +'</div>';
+}
+function renderRecords(){
+  if(!data.records.length){view.innerHTML='<div class="panel"><div class="empty"><div class="big">◎</div>还没有观演记录，点右上角「记一场」开始你的剧历。</div></div>';return;}
+  const sorted=data.records.slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+  view.innerHTML='<div class="panel"><h2>观演记录 · '+sorted.length+' 场</h2>'+sorted.map(recHtml).join('')+'</div>';
+}
+function groupBars(counts){
+  const arr=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  if(!arr.length)return '<div class="empty">暂无数据</div>';
+  const max=Math.max.apply(null,arr.map(x=>x[1]));
+  return '<div class="bars">'+arr.map(([k,v])=>'<div class="bar-row"><span>'+esc(k)+'</span><div class="bar-track"><div class="bar-fill" style="width:'+Math.round(v/max*100)+'%"></div></div><span class="bv">'+v+'</span></div>').join('')+'</div>';
+}
+function countBy(key){const m={};data.records.forEach(r=>{const k=r[key]||'未填写';m[k]=(m[k]||0)+1;});return m;}
+function renderStatsView(){
+  const years={};data.records.forEach(r=>{const y=String(r.date||'').slice(0,4)||'未填写';years[y]=(years[y]||0)+1;});
+  const venues={};data.records.forEach(r=>{if(r.venue)venues[r.venue]=(venues[r.venue]||0)+1;});
+  const types=countBy('type');
+  view.innerHTML='<div class="grid2">'
+    +'<div class="panel"><h2>按剧目类型</h2>'+groupBars(types)+'</div>'
+    +'<div class="panel"><h2>按观演年份</h2>'+groupBars(years)+'</div>'
+    +'<div class="panel"><h2>常去剧院 Top</h2>'+groupBars(venues)+'</div>'
+    +'<div class="panel"><h2>观演小结</h2>'+summaryHtml()+'</div>'
+    +'</div>';
+}
+function summaryHtml(){
+  const rs=data.records;if(!rs.length)return '<div class="empty">暂无数据</div>';
+  const prices=rs.map(r=>Number(r.price)||0).filter(x=>x>0);
+  const avg=prices.length?Math.round(prices.reduce((a,b)=>a+b,0)/prices.length):0;
+  const rated=rs.filter(r=>Number(r.rating)>0);
+  const avgRate=rated.length?(rated.reduce((a,b)=>a+Number(b.rating),0)/rated.length).toFixed(1):'—';
+  const top=Object.entries(countBy('type')).sort((a,b)=>b[1]-a[1])[0];
+  return '<div style="font-size:13px;line-height:2">'
+    +'· 最常看：<b>'+esc(top?top[0]:'—')+'</b>（'+(top?top[1]:0)+' 场）<br>'
+    +'· 平均票价：<b>¥'+avg+'</b><br>'
+    +'· 平均评分：<b>'+avgRate+'</b> / 5<br>'
+    +'· 已评分场次：<b>'+rated.length+'</b> / '+rs.length
+    +'</div>';
+}
+function renderWish(){
+  if(!data.wishlist.length){view.innerHTML='<div class="panel"><div class="empty"><div class="big">☆</div>想看的剧目加入这里，之后可以转成观演记录。</div></div>';return;}
+  view.innerHTML='<div class="panel"><h2>想看清单 · '+data.wishlist.length+' 部</h2>'+data.wishlist.map(w=>
+    '<div class="wish'+(w.done?' done':'')+'">'
+    +'<input type="checkbox" data-wdone="'+esc(w.id)+'" '+(w.done?'checked':'')+' aria-label="标记已看">'
+    +'<div class="wt"><b>'+esc(w.name)+'</b>'+(w.type?'<span>'+esc(w.type)+'</span>':'')+(w.note?'<span>'+esc(w.note)+'</span>':'')+'</div>'
+    +'<button class="mini" data-watch="'+esc(w.id)+'" type="button">转为记录</button>'
+    +'<button class="mini del" data-wdel="'+esc(w.id)+'" type="button">删除</button>'
+    +'</div>').join('')+'</div>';
+}
+/* 推荐：基于类型偏好 + 评分加成 + 确定性排序，排除已看 */
+function hash(s){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return Math.abs(h);}
+function normName(s){return String(s||'').replace(/[\s（）()【】\[\]《》]/g,'').replace(/二刷|三刷|重看|复刷/g,'');}
+function renderReco(){
+  const seen=data.records.map(r=>normName(r.name));
+  const typeScore={};data.records.forEach(r=>{if(r.type)typeScore[r.type]=(typeScore[r.type]||0)+1+(Number(r.rating)||0)*0.3;});
+  const pool=LIB.filter(x=>{const n=normName(x.n);return !seen.some(s=>s&&(s===n||(n.length>=2&&s.includes(n))));});
+  const scored=pool.map(x=>({x,s:(typeScore[x.t]||0)*3+hash(x.n)%7*0.1})).sort((a,b)=>b.s-a.s).slice(0,6);
+  if(!scored.length){view.innerHTML='<div class="panel"><div class="empty">剧目库里的剧都看过了，太厉害了！</div></div>';return;}
+  const fav=Object.entries(typeScore).sort((a,b)=>b[1]-a[1])[0];
+  view.innerHTML='<div class="panel"><h2>为你推荐</h2>'
+    +'<p style="color:var(--sub);font-size:12px;margin:0 0 12px">'
+    +(fav?'根据你的观演偏好（偏爱'+esc(fav[0])+'）生成，纯本地计算，离线可用。':'根据内置剧目库生成，记录几场后推荐会更贴合你的口味。')
+    +'</p>'
+    +scored.map((o,i)=>'<div class="reco"><div class="rank">'+(i+1)+'</div><div class="rb"><b>'+esc(o.x.n)+'</b> <span class="badge">'+esc(o.x.t)+'</span>'
+      +'<div class="tags">'+o.x.tags.map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+'</div>'
+      +'<div class="why">'+(typeScore[o.x.t]?'你看过 '+Math.round(typeScore[o.x.t])+' 场'+esc(o.x.t)+'，可能会喜欢这类':'拓展新类型，丰富剧历')+'</div>'
+      +'</div><button class="mini" data-addwish="'+esc(o.x.n)+'" type="button">+ 想看</button></div>').join('')
+    +'</div>';
+}
+function renderAll(){renderStats();loadThumbs().then(()=>{
+  if(curTab==='records')renderRecords();
+  else if(curTab==='stats')renderStatsView();
+  else if(curTab==='wish')renderWish();
+  else renderReco();
+});}
+
+/* ===== 交互 ===== */
+document.getElementById('tabs').addEventListener('click',e=>{
+  const b=e.target.closest('[data-tab]');if(!b)return;
+  curTab=b.dataset.tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t===b));
+  renderAll();
+});
+
+/* 弹窗 */
+const mask=document.getElementById('mask');
+const fType=document.getElementById('fType');
+TYPES.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;fType.appendChild(o);});
+let pending=[];
+function closeDlg(){mask.classList.remove('show');}
+function openDlg(rec){
+  document.getElementById('fId').value=rec?rec.id:'';
+  document.getElementById('dlgTitle').textContent=rec?'编辑观演记录':'记一场';
+  document.getElementById('fName').value=rec?rec.name:'';
+  fType.value=rec?rec.type:TYPES[0];
+  document.getElementById('fDate').value=rec?rec.date:new Date().toISOString().slice(0,10);
+  document.getElementById('fVenue').value=rec?rec.venue:'';
+  document.getElementById('fCity').value=rec?rec.city:'';
+  document.getElementById('fPrice').value=rec&&rec.price?rec.price:'';
+  document.getElementById('fSession').value=rec?rec.session:'';
+  document.getElementById('fRating').value=rec?String(rec.rating||0):'0';
+  document.getElementById('fNote').value=rec?rec.note:'';
+  pending=[];
+  existingIds=rec?(rec.photoIds||[]).slice():[];
+  removedIds=[];
+  renderThumbs();
+  mask.classList.add('show');
+  document.getElementById('fName').focus();
+}
+let existingIds=[],removedIds=[];
+function renderThumbs(){
+  let h='';
+  existingIds.forEach(id=>{h+='<div><img src="'+(thumbsCache[id]||'')+'" alt="已有照片"><button type="button" data-rex="'+esc(id)+'" aria-label="移除">×</button></div>';});
+  pending.forEach(p=>{h+='<div><img src="'+esc(p.thumb)+'" alt="'+esc(p.name)+'"><button type="button" data-rp="'+esc(p.id)+'" aria-label="移除">×</button></div>';});
+  document.getElementById('fThumbs').innerHTML=h;
+}
+function makeThumb(file){
+  return new Promise(res=>{
+    const fr=new FileReader();
+    fr.onload=()=>{const img=new Image();img.onload=()=>{
+      try{const max=200,s=Math.min(1,max/Math.max(img.width,img.height)||1);const c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*s));c.height=Math.max(1,Math.round(img.height*s));c.getContext('2d').drawImage(img,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.72));}
+      catch(e){res('');}
+    };img.onerror=()=>res('');img.src=fr.result;};
+    fr.onerror=()=>res('');fr.readAsDataURL(file);
+  });
+}
+document.getElementById('fFile').addEventListener('change',e=>{
+  Array.from(e.target.files||[]).filter(f=>/^image\//.test(f.type)).forEach(f=>{
+    const id=uid('ph');makeThumb(f).then(t=>{pending.push({id,blob:f,thumb:t,name:f.name,type:f.type,size:f.size});renderThumbs();});
+  });
+  e.target.value='';
+});
+document.getElementById('fThumbs').addEventListener('click',e=>{
+  const rp=e.target.closest('[data-rp]');if(rp){pending=pending.filter(p=>p.id!==rp.dataset.rp);renderThumbs();return;}
+  const rx=e.target.closest('[data-rex]');if(rx){const id=rx.dataset.rex;removedIds.push(id);existingIds=existingIds.filter(x=>x!==id);renderThumbs();}
+});
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.opacity='1';clearTimeout(t._t);t._t=setTimeout(()=>t.style.opacity='0',1800);}
+
+document.getElementById('addRec').addEventListener('click',()=>openDlg(null));
+document.getElementById('dlgX').addEventListener('click',closeDlg);
+document.getElementById('fCancel').addEventListener('click',closeDlg);
+mask.addEventListener('click',e=>{if(e.target===mask)closeDlg();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&mask.classList.contains('show'))closeDlg();});
+
+document.getElementById('fSave').addEventListener('click',()=>{
+  const name=document.getElementById('fName').value.trim();
+  const date=document.getElementById('fDate').value;
+  if(!name||!date){toast('请填写剧目名称和观演日期');return;}
+  const id=document.getElementById('fId').value||uid('r');
+  const jobs=pending.map(p=>idbPut({id:p.id,recId:id,blob:p.blob,thumb:p.thumb,name:p.name,type:p.type,size:p.size,createdAt:Date.now()}));
+  removedIds.forEach(pid=>jobs.push(idbDel(pid)));
+  Promise.all(jobs).then(()=>{
+    const rec={id,name,type:document.getElementById('fType').value,date,
+      venue:document.getElementById('fVenue').value.trim(),city:document.getElementById('fCity').value.trim(),
+      price:document.getElementById('fPrice').value,session:document.getElementById('fSession').value.trim(),
+      rating:document.getElementById('fRating').value,note:document.getElementById('fNote').value.trim(),
+      photoIds:existingIds.slice().concat(pending.map(p=>p.id)),createdAt:Date.now(),updatedAt:Date.now()};
+    const i=data.records.findIndex(x=>x.id===id);
+    if(i>=0)data.records[i]=rec;else data.records.push(rec);
+    save();closeDlg();renderAll();toast('已保存');
+  }).catch(()=>toast('保存失败，请检查浏览器存储权限'));
+});
+
+view.addEventListener('click',e=>{
+  const ed=e.target.closest('[data-edit]');if(ed){const r=data.records.find(x=>x.id===ed.dataset.edit);if(r)openDlg(r);return;}
+  const dl=e.target.closest('[data-del]');if(dl){
+    if(!window.confirm('删除这条观演记录？照片也会一起删除。'))return;
+    const r=data.records.find(x=>x.id===dl.dataset.del);
+    const jobs=(r&&r.photoIds||[]).map(id=>idbDel(id));
+    Promise.all(jobs).then(()=>{data.records=data.records.filter(x=>x.id!==dl.dataset.del);save();renderAll();toast('已删除');});
+    return;
+  }
+  const ph=e.target.closest('[data-photo]');if(ph){idbAll().then(ps=>{const p=ps.find(x=>x.id===ph.dataset.photo);if(!p||!p.blob)return;const url=URL.createObjectURL(p.blob);let ov=document.getElementById('pview');if(!ov){ov=document.createElement('div');ov.id='pview';ov.style.cssText='display:none;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.88);align-items:center;justify-content:center;padding:20px;cursor:zoom-out';ov.innerHTML='<img style="max-width:100%;max-height:100%;object-fit:contain">';ov.addEventListener('click',()=>ov.style.display='none');document.body.appendChild(ov);}const im=ov.querySelector('img');if(im._u)URL.revokeObjectURL(im._u);im.src=url;im._u=url;ov.style.display='flex';});return;}
+  const wd=e.target.closest('[data-wdone]');if(wd){const w=data.wishlist.find(x=>x.id===wd.dataset.wdone);if(w){w.done=wd.checked;save();renderAll();}return;}
+  const wl=e.target.closest('[data-wdel]');if(wl){data.wishlist=data.wishlist.filter(x=>x.id!==wl.dataset.wdel);save();renderAll();return;}
+  const wa=e.target.closest('[data-watch]');if(wa){const w=data.wishlist.find(x=>x.id===wa.dataset.watch);if(w){curTab='records';document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.tab==='records'));openDlg({name:w.name,type:w.type,date:new Date().toISOString().slice(0,10)});}return;}
+  const aw=e.target.closest('[data-addwish]');if(aw){const name=aw.dataset.addwish;if(!data.wishlist.some(w=>w.name===name)){data.wishlist.push({id:uid('w'),name,type:'',note:'',done:false});save();renderAll();toast('已加入想看清单');}else toast('已经在想看清单里了');return;}
+});
+
+/* 想看弹窗（复用简化 prompt，避免折叠复杂表单） */
+document.getElementById('addWish').addEventListener('click',()=>{
+  const name=window.prompt('想看的剧目名称：');
+  if(!name||!name.trim())return;
+  const type=window.prompt('类型（话剧/音乐剧/舞剧/戏曲/演唱会/音乐会/魔术马戏/其他，可留空）：')||'';
+  data.wishlist.push({id:uid('w'),name:name.trim(),type:type.trim(),note:'',done:false});
+  save();curTab='wish';document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.tab==='wish'));renderAll();toast('已加入想看清单');
+});
+
+renderAll();
+/* >>> SITE-NAV:BEGIN —— 由 _shared/site-nav.js 自动生成，请勿直接编辑本块 */
+/* ============================================================
+   SITE-NAV v2（2026-11-04）— 站点导航条的「行为层」
+   ------------------------------------------------------------
+   唯一真相源：_shared/site-nav.js，由 inject_shared.py 内联进六页。
+   导航条本体（HTML + CSS）已改为静态块 _shared/site-nav-static.html，
+   放在 <body> 开头随文档解析立即呈现，消除 v1 的首屏闪烁：
+   v1 在 DOMContentLoaded 才 createElement 插入，任务台 FCP 1220ms /
+   DCL 1555ms，中间约 335ms 显示的是没有导航条的旧版布局。
+   本文件只负责：当前页高亮 + 站点级 PWA 注册。幂等、零外部依赖。
+   - 非吸顶：不与各页 sticky 顶栏抢 top:0
+   - 颜色全部取页面自身 CSS 变量，跟随亮/暗主题
+   - 同标签跳转（静态链接无 target="_blank"）
+   ============================================================ */
+(function(){
+  if (typeof document === "undefined") return;
+
+  function currentPage(){
+    var f = "";
+    try { f = decodeURIComponent((location.pathname.split("/").pop() || "index.html")).toLowerCase(); } catch(e){ f = "index.html"; }
+    if (!f || f === "index.html") return "tasks";        /* 根入口仍是任务台副本 */
+    if (f.indexOf("home") >= 0) return "home";
+    if (f.indexOf("任务管理台") >= 0 || f.indexOf("taskhub") >= 0) return "tasks";
+    if (f.indexOf("明信片") >= 0 || f.indexOf("postcard") >= 0) return "postcards";
+    if (f.indexOf("书影音海报墙") >= 0 || f.indexOf("media") >= 0) return "media";
+    if (f.indexOf("观剧") >= 0 || f.indexOf("theatre") >= 0) return "theatre";
+    return "";
+  }
+
+  /* 站点级 PWA：六页共用同一个 sw.js，重复 register 天然幂等；file:// 双击时静默跳过 */
+  function registerSW(){
+    try{
+      if(!("serviceWorker" in navigator)) return;
+      if(location.protocol!=="https:" && location.protocol!=="http:") return;
+      navigator.serviceWorker.register("sw.js").catch(function(){});
+    }catch(e){}
+  }
+
+  function init(){
+    var bar = document.getElementById("__wsn_bar");
+    if (!bar || bar.getAttribute("data-wsn-ready") === "1") return;
+    var cur = currentPage();
+    var a = cur ? bar.querySelector('.__wsn_links a[data-page="' + cur + '"]') : null;
+    if (a){ a.className = "__wsn_on"; a.setAttribute("aria-current", "page"); }
+    bar.setAttribute("data-wsn-ready", "1");
+    registerSW();
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+})();
+/* <<< SITE-NAV:END */
+</script>
+</body>
+</html>

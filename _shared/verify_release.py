@@ -8,9 +8,9 @@
 
 检查项：
   1. index.html 必须是 任务管理台.html 的逐字节副本（发布契约铁律）
-  2. 17 个共享内联块（SHARED×3 + SITE-NAV-HTML×5 + SITE-NAV×5 + MODAL-A11Y×4）与源文件逐字节一致
-  3. 5 页 SITE-NAV-HTML 静态块紧贴 <body> 开头（防止退回 JS 延迟插入导致首屏闪烁）
-  4. 5 页 SHARED TOKENS 标记区与 design_tokens.css 规范块一致
+  2. 19 个共享内联块（SHARED×3 + SITE-NAV-HTML×6 + SITE-NAV×6 + MODAL-A11Y×4）与源文件逐字节一致
+  3. 6 页 SITE-NAV-HTML 静态块紧贴 <body> 开头（防止退回 JS 延迟插入导致首屏闪烁）
+  4. 6 页 SHARED TOKENS 标记区与 design_tokens.css 规范块一致
   5. sw.js PRECACHE 里列出的本地文件必须真实存在
   6. 导航品牌必须是可点击 <a>（D-16 回归守卫）
   7. 弹窗无障碍唯一源守卫（2026-11-16）：四页各恰好一份 MODAL-A11Y、门户零份、
@@ -43,11 +43,11 @@ BLOCKS = [
      "/* >>> SHARED:BEGIN —— 由 _shared/shared.js 自动生成，请勿直接编辑本块 */",
      "/* <<< SHARED:END */"),
     ("SITE-NAV-HTML", "site-nav-static.html",
-     ["任务管理台.html", "明信片追踪.html", "书影音海报墙.html", "home.html", "index.html"],
+     ["任务管理台.html", "明信片追踪.html", "书影音海报墙.html", "观剧记录.html", "home.html", "index.html"],
      "<!-- >>> SITE-NAV-HTML:BEGIN —— 由 _shared/site-nav-static.html 自动生成，请勿直接编辑本块 -->",
      "<!-- <<< SITE-NAV-HTML:END -->"),
     ("SITE-NAV", "site-nav.js",
-     ["任务管理台.html", "明信片追踪.html", "书影音海报墙.html", "home.html", "index.html"],
+     ["任务管理台.html", "明信片追踪.html", "书影音海报墙.html", "观剧记录.html", "home.html", "index.html"],
      "/* >>> SITE-NAV:BEGIN —— 由 _shared/site-nav.js 自动生成，请勿直接编辑本块 */",
      "/* <<< SITE-NAV:END */"),
     ("MODAL-A11Y", "modal-a11y.js",
@@ -56,7 +56,7 @@ BLOCKS = [
      "/* <<< MODAL-A11Y:END */"),
 ]
 A11Y_PAGES = ["任务管理台.html", "明信片追踪.html", "书影音海报墙.html", "index.html"]
-ALL_PAGES = ["任务管理台.html", "明信片追踪.html", "书影音海报墙.html", "home.html", "index.html"]
+ALL_PAGES = ["任务管理台.html", "明信片追踪.html", "书影音海报墙.html", "观剧记录.html", "home.html", "index.html"]
 TOKEN_START = "/* === SHARED TOKENS START === */"
 TOKEN_END = "/* === SHARED TOKENS END === */"
 
@@ -94,7 +94,7 @@ def main():
     else:
         bad("index ≡ 任务管理台（逐字节）", "%s != %s" % (md5(a), md5(b)))
 
-    # 2) 17 个共享内联块（MODAL-A11Y 按页面渲染，海报墙 childList=true）
+    # 2) 19 个共享内联块（MODAL-A11Y 按页面渲染，海报墙 childList=true）
     total = 0
     for name, srcname, targets, begin, end in BLOCKS:
         src_path = os.path.join(HERE, srcname)
@@ -113,10 +113,10 @@ def main():
                 bad("内联块不一致", "%s / %s (%dB vs %dB)" % (name, t, len(m.group(1)), len(src)))
             else:
                 total += 1
-    if total == 17:
-        ok("17 个共享内联块与源文件逐字节一致", "17/17")
+    if total == 19:
+        ok("19 个共享内联块与源文件逐字节一致", "19/19")
     else:
-        bad("共享内联块总数", "%d/17" % total)
+        bad("共享内联块总数", "%d/19" % total)
 
     # 3) 静态导航块紧贴 <body>
     nav_begin = BLOCKS[1][3]
@@ -130,8 +130,8 @@ def main():
             good += 1
         else:
             bad("静态导航块位置", "%s (body=%s, block=%s)" % (t, body.end() if body else -1, k))
-    if good == 5:
-        ok("5 页 SITE-NAV-HTML 紧贴 <body> 开头", "5/5")
+    if good == 6:
+        ok("6 页 SITE-NAV-HTML 紧贴 <body> 开头", "6/6")
 
     # 4) SHARED TOKENS 规范块
     if not os.path.exists(TOKENS):
@@ -154,8 +154,8 @@ def main():
                     bad("SHARED TOKENS 不一致", t)
                 else:
                     hits += 1
-            if hits == 5:
-                ok("5 页 SHARED TOKENS 与 design_tokens.css 一致", "5/5")
+            if hits == 6:
+                ok("6 页 SHARED TOKENS 与 design_tokens.css 一致", "6/6")
 
     # 5) PRECACHE 文件存在性
     sw_path = os.path.join(REPO, "sw.js")

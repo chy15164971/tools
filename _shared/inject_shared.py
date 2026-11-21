@@ -8,10 +8,10 @@
   1) SHARED  —— shared.js，仅任务管理台 / 明信片追踪 / index.html 三页（云同步公共层）
        ⚠️ 不可注入海报墙与门户页 home.html：shared.js 的 esc/toast/setCloudStatus 等顶层声明
           与海报墙同名，整块注入会 SyntaxError 白屏（已实测 6 处冲突）。
-  2) SITE-NAV-HTML —— site-nav-static.html，五页共用，位于 <body> 开头。
+  2) SITE-NAV-HTML —— site-nav-static.html，六页共用，位于 <body> 开头。
        导航条 HTML + CSS 静态渲染，首屏解析即存在，避免 JS 在 DOMContentLoaded 才插入
        造成的「旧版任务台画面闪一下」（实测 FCP 1220ms / DCL 1555ms）。
-  3) SITE-NAV —— site-nav.js，五页共用（行为层：当前页高亮 + 站点级 PWA 注册）。
+  3) SITE-NAV —— site-nav.js，六页共用（行为层：当前页高亮 + 站点级 PWA 注册）。
        不再创建/插入导航条本体；与 SITE-NAV-HTML 配对使用。
   4) MODAL-A11Y —— modal-a11y.js，四页共用（任务台 / 明信片 / index / 海报墙）。
        2026-11-16 遗留风险修复：弹窗无障碍 IIFE 曾同时存在于 shared.js 与海报墙
@@ -57,6 +57,7 @@ BLOCKS = [
         "targets": [os.path.join(PROJ, "任务管理台.html"),
                     os.path.join(PROJ, "明信片追踪.html"),
                     os.path.join(PROJ, "书影音海报墙.html"),
+                    os.path.join(PROJ, "观剧记录.html"),
                     os.path.join(PROJ, "home.html"),
                     os.path.join(PROJ, "index.html")],
         "begin": "<!-- >>> SITE-NAV-HTML:BEGIN —— 由 _shared/site-nav-static.html 自动生成，请勿直接编辑本块 -->",
@@ -68,6 +69,7 @@ BLOCKS = [
         "targets": [os.path.join(PROJ, "任务管理台.html"),
                     os.path.join(PROJ, "明信片追踪.html"),
                     os.path.join(PROJ, "书影音海报墙.html"),
+                    os.path.join(PROJ, "观剧记录.html"),
                     os.path.join(PROJ, "home.html"),
                     os.path.join(PROJ, "index.html")],
         "begin": "/* >>> SITE-NAV:BEGIN —— 由 _shared/site-nav.js 自动生成，请勿直接编辑本块 */",
