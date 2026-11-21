@@ -7,7 +7,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-<script>try{var _wt=localStorage.getItem("wb_theme_v1");if(_wt==="dark")document.documentElement.dataset.theme="dark";}catch(e){}</script>
+<script>try{var _wt=localStorage.getItem("wb_theme_v1");if(!_wt&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)_wt="dark";/* O-7：未显式选择时跟随系统；显式 light 也要落 data-theme，避免系统暗色下首屏闪暗再转亮 */if(_wt)document.documentElement.dataset.theme=_wt;}catch(e){}</script>
 <title>书影音海报墙 · 已看已读已听</title>
 <style>
   :root{

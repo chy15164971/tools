@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>观剧记录 · 工作台</title>
+<script>/* O-7：主题初值统一——未显式选择时跟随系统，避免从其他页跳来时主题闪变 */try{var _t=localStorage.getItem("wb_theme_v1");if(!_t&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)_t="dark";if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
 <style>
   /* === 观剧页私有 token（写在 SHARED TOKENS 标记区之外，sync_tokens.js 不触碰）=== */
   :root{--warm:#F5A623}
@@ -83,6 +84,23 @@ main{max-width:1080px;margin:0 auto;padding:16px}
 .bar-fill{height:100%;background:linear-gradient(90deg,#4F7CFF,#7BA0FF);border-radius:7px;min-width:2px;transition:width .4s}
 .bar-row .bv{text-align:right;color:var(--sub);font-variant-numeric:tabular-nums}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+/* 观演日历（O-1） */
+.cal-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.cal-head b{flex:1;text-align:center;font-size:15px;font-variant-numeric:tabular-nums}
+.cal-nav{width:32px;height:32px;flex:none;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--sub);font:inherit;font-size:15px;line-height:1;cursor:pointer}
+.cal-nav:hover{color:var(--pri-ink);border-color:var(--pri)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-wd{text-align:center;font-size:10px;color:var(--sub);padding:3px 0}
+.cal-cell{position:relative;min-height:40px;border-radius:8px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums}
+.cal-cell.is-empty{background:transparent}
+.cal-cell.has-rec{background:var(--pri-soft);color:var(--pri-ink);font-weight:700;cursor:pointer}  /* 主色当文字必须用 --pri-ink：--pri-deep 在 --pri-soft 上亮色仅 4.15:1、暗色 3.14:1 不达 AA */
+.cal-cell.is-today{box-shadow:inset 0 0 0 1px var(--pri)}
+.cal-cell.sel{box-shadow:inset 0 0 0 2px var(--pri)}
+.cal-cell .cal-dot{position:absolute;bottom:5px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--pri)}
+.cal-sum{margin-top:12px;font-size:12px;color:var(--sub)}
+.cal-sum b{color:var(--pri-ink)}
+.cal-day{margin-top:14px}
+.cal-day h2{font-size:14px;margin:0 0 9px}
 /* 想看 */
 .wish{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:8px}
 .wish .wt{flex:1;min-width:0}
@@ -193,6 +211,7 @@ main{max-width:1080px;margin:0 auto;padding:16px}
   <div class="tabs" id="tabs">
     <button class="tab on" data-tab="records" type="button">观演记录</button>
     <button class="tab" data-tab="stats" type="button">数据统计</button>
+    <button class="tab" data-tab="cal" type="button">观演日历</button>
     <button class="tab" data-tab="wish" type="button">想看清单</button>
     <button class="tab" data-tab="reco" type="button">剧目推荐</button>
   </div>
@@ -323,6 +342,8 @@ function loadThumbs(){return idbAll().then(ps=>{thumbsCache=Object.create(null);
 
 /* ===== 渲染 ===== */
 let curTab='records';
+/* O-1：观演日历当前年月与选中日期（周一为第一列） */
+let calY=new Date().getFullYear(),calM=new Date().getMonth(),calSel='';
 const view=document.getElementById('view');
 const statsBar=document.getElementById('statsBar');
 
@@ -387,6 +408,41 @@ function summaryHtml(){
     +'· 已评分场次：<b>'+rated.length+'</b> / '+rs.length
     +'</div>';
 }
+/* ===== O-1：观演日历视图（对标「剧在」的剧历，补时间轴视角） ===== */
+function calMap(){
+  const m=Object.create(null);
+  data.records.forEach(r=>{const d=String(r.date||'');if(d.length>=10){const k=d.slice(0,10);(m[k]||(m[k]=[])).push(r);}});
+  return m;
+}
+function renderCalendar(){
+  const m=calMap();
+  const pad=n=>String(n).padStart(2,'0');
+  const ym=calY+'-'+pad(calM+1);
+  const startDow=(new Date(calY,calM,1).getDay()+6)%7;   /* 周一为第一列 */
+  const days=new Date(calY,calM+1,0).getDate();
+  const today=localDate(new Date());
+  let cells='';
+  for(let i=0;i<startDow;i++)cells+='<div class="cal-cell is-empty"></div>';
+  for(let d=1;d<=days;d++){
+    const key=ym+'-'+pad(d);
+    const n=(m[key]||[]).length;
+    cells+='<div class="cal-cell'+(n?' has-rec':'')+(key===today?' is-today':'')+(key===calSel?' sel':'')+'" data-cal="'+key+'"'
+      +(n?' role="button" tabindex="0" aria-label="'+key+' 有 '+n+' 场观演"':'')+'>'+d
+      +(n?'<span class="cal-dot"></span>':'')+'</div>';
+  }
+  const monthCount=Object.keys(m).filter(k=>k.slice(0,7)===ym).reduce((s,k)=>s+m[k].length,0);
+  const selList=calSel?(m[calSel]||[]):[];
+  view.innerHTML='<div class="panel">'
+    +'<div class="cal-head">'
+    +'<button class="cal-nav" data-calprev type="button" aria-label="上一月">‹</button>'
+    +'<b>'+calY+' 年 '+(calM+1)+' 月</b>'
+    +'<button class="cal-nav" data-calnext type="button" aria-label="下一月">›</button>'
+    +'</div>'
+    +'<div class="cal-grid">'+['一','二','三','四','五','六','日'].map(w=>'<div class="cal-wd">'+w+'</div>').join('')+cells+'</div>'
+    +'<div class="cal-sum">本月 <b>'+monthCount+'</b> 场 · 剧历累计 '+data.records.length+' 场 · 点有圆点的日期看当日剧目</div>'
+    +(calSel?'<div class="cal-day"><h2>'+esc(calSel)+' · '+selList.length+' 场</h2>'+(selList.length?selList.map(recHtml).join(''):'<div class="empty">这天没有观演记录</div>')+'</div>':'')
+    +'</div>';
+}
 function renderWish(){
   if(!data.wishlist.length){view.innerHTML='<div class="panel"><div class="empty"><div class="big">☆</div>想看的剧目加入这里，之后可以转成观演记录。</div></div>';return;}
   view.innerHTML='<div class="panel"><h2>想看清单 · '+data.wishlist.length+' 部</h2>'+data.wishlist.map(w=>
@@ -420,6 +476,7 @@ function renderReco(){
 function renderAll(){renderStats();loadThumbs().then(()=>{
   if(curTab==='records')renderRecords();
   else if(curTab==='stats')renderStatsView();
+  else if(curTab==='cal')renderCalendar();
   else if(curTab==='wish')renderWish();
   else renderReco();
 });}
@@ -577,7 +634,18 @@ document.getElementById('fSave').addEventListener('click',()=>{
   }).catch(()=>toast('保存失败，请检查浏览器存储权限'));
 });
 
+/* O-1：日历格子声明了 role="button"/tabindex，必须补 Enter/Space 激活，否则键盘不可用 */
+view.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'&&e.key!==' '&&e.key!=='Spacebar')return;
+  const c=e.target.closest('[data-cal]');
+  if(c&&curTab==='cal'){e.preventDefault();c.click();}
+});
 view.addEventListener('click',async e=>{
+  /* O-1：观演日历——年月切换与日期选中放在最前，避免与记录按钮的委托互相干扰 */
+  if(e.target.closest('[data-calprev]')){calM--;if(calM<0){calM=11;calY--;}calSel='';renderCalendar();return;}
+  if(e.target.closest('[data-calnext]')){calM++;if(calM>11){calM=0;calY++;}calSel='';renderCalendar();return;}
+  const calEl=e.target.closest('[data-cal]');
+  if(calEl&&curTab==='cal'){const k=calEl.getAttribute('data-cal');calSel=(calSel===k)?'':k;renderCalendar();return;}
   const ed=e.target.closest('[data-edit]');if(ed){const r=data.records.find(x=>x.id===ed.dataset.edit);if(r)openDlg(r);return;}
   const dl=e.target.closest('[data-del]');if(dl){
     const r=data.records.find(x=>x.id===dl.dataset.del);if(!r)return;
