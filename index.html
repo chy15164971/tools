@@ -11297,12 +11297,21 @@ function mediaSig(m){
   return one(mm.books).concat(one(mm.tvs),one(mm.auds));
 }
 
+/* M-4（2026-11-21 批一）：次级集合签名纳入「内容」而非仅长度。
+   原实现 lists/cats/pris/tagTree/projects/okrs 只比 length、habits 只比 days.length，
+   当云端发生「长度不变的内容修改」（清单改名 / 优先级改标签 / OKR 文案调整）时
+   beforeSig===dataSigOf(obj) 会误判「一致」，跳过 applyCloudSecondary 漏同步。
+   现对每类集合做稳定排序后取内容 JSON，签名既覆盖长度也覆盖内容。 */
+function _secSig(a){
+  return JSON.stringify([...(a||[])].map(v=>(v&&typeof v==='object')?JSON.stringify(v):String(v)).sort());
+}
 function dataSig(){
   const s=x=>JSON.stringify(x||[]);
   return [
     state.tasks.length,(habits||[]).length,(lists||[]).length,(cats||[]).length,(pris||[]).length,(tagTree||[]).length,(state.projects||[]).length,(state.okrs||[]).length
   ].join(",")+"|"+s(state.tasks.map(t=>[t.id,t.done,t.updated||JSON.stringify(t.doneAt||null)||"",t.title||""]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))
-   +"|"+s((habits||[]).map(h=>[h.id,(h.days||[]).length]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))
+   +"|"+s((habits||[]).map(h=>[h.id,(h.days||[]).length,JSON.stringify(h.days||[])]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))
+   +"|"+_secSig(lists)+"|"+_secSig(cats)+"|"+_secSig(pris)+"|"+_secSig(tagTree)+"|"+_secSig(state.projects)+"|"+_secSig(state.okrs)
    +"|"+s(mediaSig(media));
 }
 
@@ -11312,7 +11321,8 @@ function dataSigOf(obj){
   return [
     tasks.length,habits.length,lists.length,cats.length,pris.length,tagTree.length,projects.length,okrs.length
   ].join(",")+"|"+s(tasks.map(t=>[t.id,t.done,t.updated||JSON.stringify(t.doneAt||null)||"",t.title||""]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))
-   +"|"+s(habits.map(h=>[h.id,(h.days||[]).length]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))
+   +"|"+s(habits.map(h=>[h.id,(h.days||[]).length,JSON.stringify(h.days||[])]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))
+   +"|"+_secSig(lists)+"|"+_secSig(cats)+"|"+_secSig(pris)+"|"+_secSig(tagTree)+"|"+_secSig(projects)+"|"+_secSig(okrs)
    +"|"+s(mediaSig(obj.media));
 }
 

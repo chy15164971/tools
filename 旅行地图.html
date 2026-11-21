@@ -115,7 +115,7 @@ aside{width:290px;flex:none;display:flex;flex-direction:column;background:var(--
   #mapWrap{height:52vh;flex:none}
 }
 </style>
-<script src="https://map.qq.com/api/gljs?v=1.exp&key=ARBBZ-Q3Q6Q-HPN53-2LB53-FLS57-TPB23"></script>
+<script src="https://map.qq.com/api/gljs?v=1.exp&key=ARBBZ-Q3Q6Q-HPN53-2LB53-FLS57-TPB23" onerror="window.__TMapLoadFailed=true"></script>
 </head>
 <body>
 <!-- >>> SITE-NAV-HTML:BEGIN —— 由 _shared/site-nav-static.html 自动生成，请勿直接编辑本块 -->
@@ -510,25 +510,48 @@ try{
       worldCountries:Array.isArray(s.worldCountries)?s.worldCountries:[]
     };
   }
-}catch(e){}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
+}catch(e){ toast('历史点亮读取失败，已按空白状态开始'); }
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){toast('保存失败：点亮未写入本机，请检查浏览器存储权限');}}
 let region='china', level='province';
 const listEl=document.getElementById('list');
 const statEl=document.getElementById('stat');
 const asideH=document.getElementById('asideH');
 const searchEl=document.getElementById('search');
 const hintEl=document.getElementById('hint');
-const map=new TMap.Map('map',{center:new TMap.LatLng(35.5,104),zoom:4});
+/* M-1（2026-11-21 批一）：地图引擎可用性守卫。
+   原实现顶层直接 new TMap.Map，一旦 CDN/key/离线导致 TMap 未定义，
+   整个 script 中断，点亮+日记全失效。现改为软降级：地图不可用时仅隐藏底图标记，
+   地点清单与日记 CRUD 照常工作，并给出可见提示。 */
+let map=null, MAP_OK=false;
+try{
+  if(typeof TMap!=='undefined' && TMap.Map && !window.__TMapLoadFailed){
+    map=new TMap.Map('map',{center:new TMap.LatLng(35.5,104),zoom:4});
+    MAP_OK=true;
+  }
+}catch(e){ MAP_OK=false; }
+if(!MAP_OK){
+  try{
+    const mc=document.getElementById('map');
+    if(mc) mc.insertAdjacentHTML('afterbegin','<div class="map-fallback" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;color:var(--muted);font-size:13px;line-height:1.7;z-index:2;background:var(--card)">地图引擎加载失败，底图与标记暂不可用<br>地点清单、点亮记录与日记仍可正常使用</div>');
+  }catch(_){}
+  try{toast('地图引擎加载失败，已切换为清单模式');}catch(_){}
+}
 function pin(color,r,halo){
   const s='<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">'
     +(halo?'<circle cx="16" cy="16" r="15" fill="none" stroke="'+color+'" stroke-opacity="0.32" stroke-width="2"/>':'')
     +'<circle cx="16" cy="16" r="'+r+'" fill="'+color+'" stroke="#fff" stroke-width="2.5"/></svg>';
   return 'data:image/svg+xml,'+encodeURIComponent(s);
 }
-const styles={
-  dim:new TMap.MarkerStyle({width:22,height:22,anchor:{x:11,y:11},src:pin('#aab4c4',5,false)}),
-  lit:new TMap.MarkerStyle({width:32,height:32,anchor:{x:16,y:16},src:pin('#4F7CFF',9,true)})
-};
+/* M-1：MarkerStyle 延迟到引擎可用时构造，避免 TMap 未定义时顶层抛错 */
+let styles=null;
+function ensureStyles(){
+  if(styles || !MAP_OK) return styles;
+  styles={
+    dim:new TMap.MarkerStyle({width:22,height:22,anchor:{x:11,y:11},src:pin('#aab4c4',5,false)}),
+    lit:new TMap.MarkerStyle({width:32,height:32,anchor:{x:16,y:16},src:pin('#4F7CFF',9,true)})
+  };
+  return styles;
+}
 let markerLayer=null;
 
 /* ===== 地点日记 + 照片（IndexedDB 本地大容量存储） ===== */
@@ -632,9 +655,10 @@ function renderList(){
   listEl.innerHTML=html||'<p class="hint">没有匹配的城市</p>';
 }
 function renderMarkers(){
+  if(!MAP_OK || !map) return;   /* M-1：引擎不可用跳过标记渲染，清单仍可点亮 */
   const geos=points().map(p=>({id:p.id,styleId:isOn(p.id)?'lit':'dim',position:new TMap.LatLng(p.lat,p.lng)}));
   if(!markerLayer){
-    markerLayer=new TMap.MultiMarker({map:map,styles:styles,geometries:geos});
+    markerLayer=new TMap.MultiMarker({map:map,styles:ensureStyles(),geometries:geos});
     markerLayer.on('click',e=>{if(e&&e.geometry&&e.geometry.id)toggle(e.geometry.id);});
   }else{
     markerLayer.setGeometries(geos);
@@ -696,6 +720,7 @@ function switchRegion(r){
   document.getElementById('tabChina').classList.toggle('on',r==='china');
   document.getElementById('tabWorld').classList.toggle('on',r==='world');
   document.getElementById('subtabs').style.display='flex';
+  if(!MAP_OK || !map){ setLevel(r==='world'?'country':'province'); return; }   /* M-1：引擎不可用时仍切换清单层级 */
   if(r==='world'){map.setCenter(new TMap.LatLng(20,10));map.setZoom(3);setLevel('country');}
   else{map.setCenter(new TMap.LatLng(35.5,104));map.setZoom(4);setLevel('province');}
 }

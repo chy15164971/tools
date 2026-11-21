@@ -183,6 +183,9 @@ main{max-width:1080px;margin:0 auto;padding:16px}
     <span class="spacer"></span>
     <button class="btn pri" id="addRec" type="button">+ 记一场</button>
     <button class="btn" id="addWish" type="button">+ 想看</button>
+    <button class="btn" id="btnExport" type="button" title="导出全部观演记录、想看与照片为 JSON 备份">导出备份</button>
+    <button class="btn" id="btnImport" type="button" title="从导出的 JSON 备份恢复记录与照片">导入恢复</button>
+    <input type="file" id="importFile" accept="application/json,.json" style="display:none">
   </div>
   <div class="tabs" id="tabs">
     <button class="tab on" data-tab="records" type="button">观演记录</button>
@@ -260,6 +263,11 @@ function idbAll(){return openDB().then(db=>new Promise((res,rej)=>{const r=db.tr
 function idbPut(v){return openDB().then(db=>new Promise((res,rej)=>{const tx=db.transaction('photos','readwrite');tx.objectStore('photos').put(v);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);}));}
 function idbDel(k){return openDB().then(db=>new Promise((res,rej)=>{const tx=db.transaction('photos','readwrite');tx.objectStore('photos').delete(k);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);}));}
 function uid(p){return (p||'r')+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);}
+/* M-5（2026-11-21 批一）：本地日期，避免 toISOString() 在东八区 00:00-08:00 写成前一天 */
+function localDate(d){
+  d=d||new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function stars(n){n=Number(n)||0;return '★'.repeat(n)+'☆'.repeat(5-n);}
 
@@ -420,7 +428,7 @@ function openDlg(rec){
   document.getElementById('dlgTitle').textContent=rec?'编辑观演记录':'记一场';
   document.getElementById('fName').value=rec?rec.name:'';
   fType.value=rec?rec.type:TYPES[0];
-  document.getElementById('fDate').value=rec?rec.date:new Date().toISOString().slice(0,10);
+  document.getElementById('fDate').value=rec?rec.date:localDate();
   document.getElementById('fVenue').value=rec?rec.venue:'';
   document.getElementById('fCity').value=rec?rec.city:'';
   document.getElementById('fPrice').value=rec&&rec.price?rec.price:'';
@@ -500,8 +508,90 @@ view.addEventListener('click',e=>{
   const ph=e.target.closest('[data-photo]');if(ph){idbAll().then(ps=>{const p=ps.find(x=>x.id===ph.dataset.photo);if(!p||!p.blob)return;const url=URL.createObjectURL(p.blob);let ov=document.getElementById('pview');if(!ov){ov=document.createElement('div');ov.id='pview';ov.style.cssText='display:none;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.88);align-items:center;justify-content:center;padding:20px;cursor:zoom-out';ov.innerHTML='<img style="max-width:100%;max-height:100%;object-fit:contain">';ov.addEventListener('click',()=>ov.style.display='none');document.body.appendChild(ov);}const im=ov.querySelector('img');if(im._u)URL.revokeObjectURL(im._u);im.src=url;im._u=url;ov.style.display='flex';});return;}
   const wd=e.target.closest('[data-wdone]');if(wd){const w=data.wishlist.find(x=>x.id===wd.dataset.wdone);if(w){w.done=wd.checked;save();renderAll();}return;}
   const wl=e.target.closest('[data-wdel]');if(wl){data.wishlist=data.wishlist.filter(x=>x.id!==wl.dataset.wdel);save();renderAll();return;}
-  const wa=e.target.closest('[data-watch]');if(wa){const w=data.wishlist.find(x=>x.id===wa.dataset.watch);if(w){curTab='records';document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.tab==='records'));openDlg({name:w.name,type:w.type,date:new Date().toISOString().slice(0,10)});}return;}
+  const wa=e.target.closest('[data-watch]');if(wa){const w=data.wishlist.find(x=>x.id===wa.dataset.watch);if(w){curTab='records';document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.tab==='records'));openDlg({name:w.name,type:w.type,date:localDate()});}return;}
   const aw=e.target.closest('[data-addwish]');if(aw){const name=aw.dataset.addwish;if(!data.wishlist.some(w=>w.name===name)){data.wishlist.push({id:uid('w'),name,type:'',note:'',done:false});save();renderAll();toast('已加入想看清单');}else toast('已经在想看清单里了');return;}
+});
+
+/* ===== M-3（2026-11-21 批一）：导出 / 导入备份（含照片 base64），消除单点丢失 ===== */
+function _blobToDataUrl(blob){
+  return new Promise((res)=>{
+    try{
+      const fr=new FileReader();
+      fr.onload=()=>res(typeof fr.result==='string'?fr.result:'');
+      fr.onerror=()=>res('');
+      fr.readAsDataURL(blob);
+    }catch(e){res('');}
+  });
+}
+function _dataUrlToBlob(u){
+  try{
+    const parts=String(u).split(',');
+    const meta=parts[0]||''; const b64=parts[1]||'';
+    const mime=(meta.match(/data:([^;]+)/)||[])[1]||'application/octet-stream';
+    const bin=atob(b64); const arr=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+    return new Blob([arr],{type:mime});
+  }catch(e){return null;}
+}
+document.getElementById('btnExport').addEventListener('click',async()=>{
+  toast('正在打包照片…');
+  let photos=[];
+  try{
+    const all=await idbAll();
+    photos=await Promise.all(all.map(async p=>({
+      id:p.id, recId:p.recId||'', name:p.name||'', type:p.type||'', createdAt:p.createdAt||0,
+      dataUrl:p.blob?await _blobToDataUrl(p.blob):(p.thumb||'')
+    })));
+  }catch(e){ /* 照片读取失败仍导出文本数据 */ }
+  const payload={
+    _app:'wb-theatre', _ver:1,
+    exportedAt:new Date().toISOString(),
+    records:data.records, wishlist:data.wishlist,
+    photos:photos,
+    counts:{records:data.records.length,wishlist:data.wishlist.length,photos:photos.length}
+  };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='观剧记录_备份_'+localDate()+'.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);   /* 延迟释放，兼容 Firefox/Safari */
+  toast('已导出 '+data.records.length+' 条记录 / '+photos.length+' 张照片');
+});
+document.getElementById('btnImport').addEventListener('click',()=>document.getElementById('importFile').click());
+document.getElementById('importFile').addEventListener('change',e=>{
+  const f=e.target.files&&e.target.files[0]; e.target.value='';
+  if(!f) return;
+  const rd=new FileReader();
+  rd.onload=async()=>{
+    let obj=null;
+    try{ obj=JSON.parse(rd.result); }catch(_){}
+    if(!obj || obj._app!=='wb-theatre' || !Array.isArray(obj.records)){
+      toast('导入失败：不是有效的观剧备份文件'); return;
+    }
+    const recs=obj.records.filter(x=>x&&typeof x.name==='string'&&x.name.trim());
+    const wish=Array.isArray(obj.wishlist)?obj.wishlist.filter(x=>x&&typeof x.name==='string'&&x.name.trim()):[];
+    if(!window.confirm('导入将覆盖当前 '+data.records.length+' 条记录与 '+data.wishlist.length+' 项想看，确定继续？')) return;
+    data.records=recs; data.wishlist=wish; save();
+    let restored=0;
+    try{
+      if(Array.isArray(obj.photos)){
+        for(const p of obj.photos){
+          if(!p||!p.id||!p.dataUrl) continue;
+          const blob=_dataUrlToBlob(p.dataUrl);
+          if(!blob) continue;
+          const existing=await idbAll();
+          if(existing.some(x=>x.id===p.id)) continue;   /* 幂等：已存在跳过 */
+          await idbPut({id:p.id,recId:p.recId||'',blob:blob,thumb:p.dataUrl,name:p.name||'',type:p.type||'',size:blob.size,createdAt:p.createdAt||Date.now()});
+          restored++;
+        }
+      }
+    }catch(e){ /* 照片部分失败不影响文本恢复 */ }
+    loadThumbs().then(()=>renderAll());
+    toast('已导入 '+recs.length+' 条记录 / '+restored+' 张照片');
+  };
+  rd.onerror=()=>toast('导入失败：文件读取错误');
+  rd.readAsText(f);
 });
 
 /* 想看弹窗（复用简化 prompt，避免折叠复杂表单） */
