@@ -2529,9 +2529,11 @@ let customEntries = (()=>{
   catch(e){ return []; }
 })();
 function saveCustom(){
+  let ok=true;  /* C-2：返回写入状态，供调用方门控成功文案，避免 danger 提示被随后的成功 toast 覆盖 */
   try{ localStorage.setItem(CUSTOM_KEY, JSON.stringify(customEntries)); touchSavedAt(); cloudAutoUpload(); }
-  catch(e){ toast("本地存储不可用，新增条目仅本次会话有效", "danger", null, 5000); }
+  catch(e){ ok=false; toast("本地存储不可用，新增条目仅本次会话有效", "danger", null, 5000); }
   syncStats();   /* C-05：新增/删除/撤销后即时刷新门户摘要（纯写 localStorage，不触发 renderAll） */
+  return ok;
 }
 const BASE_MEDIA = MEDIA;
 /* ===== 感想（观后感/读后感/听后感）2026-11-03：localStorage 覆盖层，按条目内容定位 ===== */
@@ -3416,10 +3418,10 @@ document.getElementById("modal").addEventListener("click", e=>{
   confirmWall("确定删除「"+name+"」？删除后 8 秒内可撤销。", "删除").then(ok=>{
     if(!ok) return;
     customEntries.splice(ci,1);
-    saveCustom(); mergeMedia(); renderChips(); renderAll();
+    const saved=saveCustom(); mergeMedia(); renderChips(); renderAll();  /* C-2：按写入结果门控成功文案 */
     if(curView==="stats") renderStatsView();
     mask.classList.remove("show");
-    toast("已删除「"+name+"」", null, ()=>{
+    if(saved) toast("已删除「"+name+"」", null, ()=>{
       customEntries.splice(ci,0,entry);   // 原位恢复
       saveCustom(); mergeMedia(); renderChips(); renderAll();
       if(curView==="stats") renderStatsView();
@@ -3434,8 +3436,8 @@ document.getElementById("modal").addEventListener("click", e=>{
   const en = customEntries[ci]; if(!en) return;
   delete en.status;
   en.date = (()=>{ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); })();   /* C-06：补本地完成月份（口径同新增表单 fDate 默认值）；完成年份/月度节奏/最近完成均以 date 过滤 */
-  saveCustom(); mergeMedia(); renderChips(); renderAll(); syncHash();
-  toast("已移入「已完成」");
+  const saved=saveCustom(); mergeMedia(); renderChips(); renderAll(); syncHash();  /* C-2 */
+  if(saved) toast("已移入「已完成」");
   const nm = MEDIA.find(m=>m._custom && m._ci===ci);
   if(nm) openDetail(nm);   /* 重开详情（mergeMedia 重建了对象，需换新引用保证 ‹› 导航可用） */
 });
@@ -3829,7 +3831,10 @@ F("importFile").addEventListener("change", e=>{
       let n=0;
       for(const [k,v] of Object.entries(revImport)){
         const nk=normReviewKey(k);   /* 2026-11-15：兼容旧版 poster 键 */
-        if(v && typeof v.text==="string" && !reviews[nk]){ reviews[nk]=v; n++; }
+        if(v && (typeof v.text==="string" || v._del)){  /* C-1：与云同步口径一致，按 ts 仲裁并纳入墓碑 */
+          const lv=reviews[nk];
+          if(!lv || (v.ts||0)>(lv.ts||0)){ reviews[nk]=v; n++; }
+        }
       }
       if(n) saveReviews();
       saveCustom(); mergeMedia(); renderChips(); renderAll();

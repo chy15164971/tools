@@ -2405,7 +2405,8 @@ function exportCSV(){
   const csv="﻿"+rows.map(r=>r.map(escC).join(",")).join("\r\n");
   const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name+".csv"; a.click();
-  URL.revokeObjectURL(a.href); toast("已导出 "+name+".csv");
+  setTimeout(function(){ try{ URL.revokeObjectURL(a.href); }catch(_){} }, 1000);  /* C-3：对齐 exportJSON 的延迟释放，防 Firefox/Safari 下载失败 */
+  toast("已导出 "+name+".csv");
 }
 
 function importJSON(file){

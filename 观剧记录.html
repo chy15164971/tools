@@ -115,7 +115,10 @@ main{max-width:1080px;margin:0 auto;padding:16px}
 .thumbs img{width:54px;height:54px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
 .thumbs button{position:absolute;top:-5px;right:-5px;width:18px;height:18px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--sub);font-size:11px;line-height:1;cursor:pointer;padding:0}
 .dact{display:flex;gap:8px;padding:11px 16px;border-top:1px solid var(--line);background:var(--bg)}
-.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:70;background:var(--ink);color:#fff;padding:9px 16px;border-radius:999px;font-size:12px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:70;background:var(--ink);color:#fff;padding:9px 16px;border-radius:999px;font-size:12px;opacity:0;transition:opacity .2s;pointer-events:none;display:flex;align-items:center;gap:12px}
+.toast.has-act{pointer-events:auto}
+.toast .tact{border:0;background:transparent;color:#8ab4ff;font:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:0}
+.toast .tact:hover{text-decoration:underline}
 @media(max-width:680px){
   header{padding:12px 12px 0}
   h1{font-size:15px}
@@ -233,6 +236,18 @@ main{max-width:1080px;margin:0 auto;padding:16px}
   </div>
 </div>
 <div class="toast" id="toast"></div>
+<!-- S-9：Promise 化确认/输入弹窗，替代原生 confirm/prompt（原生弹窗在部分 PWA/内嵌环境会被拦截） -->
+<div class="mask" id="askMask">
+  <div class="panel-dialog" role="dialog" aria-modal="true" aria-labelledby="askTitle" style="width:min(420px,100%)">
+    <div class="dh"><b id="askTitle"></b><button class="x" id="askX" type="button" aria-label="关闭">×</button></div>
+    <div class="db form" id="askBody" style="font-size:13px;line-height:1.6"></div>
+    <input type="text" id="askInput" style="display:none;margin:0 16px 4px;width:calc(100% - 32px);padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:13px" aria-label="输入内容">
+    <div class="dact">
+      <button class="btn pri" id="askOk" type="button">确定</button>
+      <button class="btn" id="askCancel" type="button">取消</button>
+    </div>
+  </div>
+</div>
 
 <script>
 /* ===== 数据层 ===== */
@@ -388,7 +403,7 @@ function normName(s){return String(s||'').replace(/[\s（）()【】\[\]《》]/
 function renderReco(){
   const seen=data.records.map(r=>normName(r.name));
   const typeScore={};data.records.forEach(r=>{if(r.type)typeScore[r.type]=(typeScore[r.type]||0)+1+(Number(r.rating)||0)*0.3;});
-  const pool=LIB.filter(x=>{const n=normName(x.n);return !seen.some(s=>s&&(s===n||(n.length>=2&&s.includes(n))));});
+  const pool=LIB.filter(x=>{const n=normName(x.n);return !seen.some(s=>s&&(s===n||(n.length>=2&&s.includes(n))||(s.length>=2&&n.includes(s))));});  /* S-8：双向去重，避免「歌剧魅影（二刷）」与库中短名互相漏判 */
   const scored=pool.map(x=>({x,s:(typeScore[x.t]||0)*3+hash(x.n)%7*0.1})).sort((a,b)=>b.s-a.s).slice(0,6);
   if(!scored.length){view.innerHTML='<div class="panel"><div class="empty">剧目库里的剧都看过了，太厉害了！</div></div>';return;}
   const fav=Object.entries(typeScore).sort((a,b)=>b[1]-a[1])[0];
@@ -422,7 +437,24 @@ const mask=document.getElementById('mask');
 const fType=document.getElementById('fType');
 TYPES.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;fType.appendChild(o);});
 let pending=[];
-function closeDlg(){mask.classList.remove('show');}
+function formSnapshot(){  /* S-7：表单脏检查快照 */
+  return JSON.stringify({
+    name:document.getElementById('fName').value,type:document.getElementById('fType').value,
+    date:document.getElementById('fDate').value,venue:document.getElementById('fVenue').value,
+    city:document.getElementById('fCity').value,price:document.getElementById('fPrice').value,
+    session:document.getElementById('fSession').value,rating:document.getElementById('fRating').value,
+    note:document.getElementById('fNote').value
+  });
+}
+let _formBase='';
+function isDirty(){return mask.classList.contains('show')&&formSnapshot()!==_formBase;}
+async function closeDlg(force){  /* S-7：有未保存修改时先确认，避免长文误触丢失。注意事件绑定会传入 Event，必须显式判断 ===true */
+  if(force!==true&&isDirty()){
+    const ok=await askConfirm('有未保存的修改，确定关闭吗？');
+    if(!ok)return;
+  }
+  mask.classList.remove('show');
+}
 function openDlg(rec){
   document.getElementById('fId').value=rec?rec.id:'';
   document.getElementById('dlgTitle').textContent=rec?'编辑观演记录':'记一场';
@@ -440,6 +472,7 @@ function openDlg(rec){
   removedIds=[];
   renderThumbs();
   mask.classList.add('show');
+  _formBase=formSnapshot();  /* S-7：记录基线，供脏检查比对 */
   document.getElementById('fName').focus();
 }
 let existingIds=[],removedIds=[];
@@ -469,45 +502,114 @@ document.getElementById('fThumbs').addEventListener('click',e=>{
   const rp=e.target.closest('[data-rp]');if(rp){pending=pending.filter(p=>p.id!==rp.dataset.rp);renderThumbs();return;}
   const rx=e.target.closest('[data-rex]');if(rx){const id=rx.dataset.rex;removedIds.push(id);existingIds=existingIds.filter(x=>x!==id);renderThumbs();}
 });
-function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.opacity='1';clearTimeout(t._t);t._t=setTimeout(()=>t.style.opacity='0',1800);}
+function toast(msg,action,cb,dur){  /* S-10：可选 action（撤销）按钮 */
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast'+(action?' has-act':'');
+  if(action){
+    const b=document.createElement('button');b.type='button';b.className='tact';b.textContent=action;
+    b.addEventListener('click',()=>{t.style.opacity='0';t.className='toast';try{cb&&cb();}catch(_){}});
+    t.appendChild(b);
+  }
+  t.style.opacity='1';clearTimeout(t._t);
+  t._t=setTimeout(()=>{t.style.opacity='0';t.className='toast';},dur||1800);
+}
+/* ===== S-9：Promise 化确认 / 输入弹窗（替代原生 confirm/prompt） ===== */
+let _askResolve=null;
+function _askIsPrompt(){return document.getElementById('askInput').style.display!=='none';}
+function _askClose(v){
+  document.getElementById('askMask').classList.remove('show');
+  const r=_askResolve;_askResolve=null;
+  if(r)r(v);
+}
+function askConfirm(msg){return _askOpen(msg,null);}
+function askPrompt(msg,def){return _askOpen(msg,def);}
+function _askOpen(msg,def){
+  if(_askResolve)_askClose(null);
+  document.getElementById('askTitle').textContent=(def===null?'请确认':'请输入');
+  document.getElementById('askBody').textContent=msg;
+  const inp=document.getElementById('askInput');
+  if(def!==null){inp.style.display='';inp.value=def!=null?def:'';}
+  else{inp.style.display='none';inp.value='';}
+  document.getElementById('askMask').classList.add('show');
+  setTimeout(()=>{if(def!==null){inp.focus();inp.select();}else{document.getElementById('askOk').focus();}},0);
+  return new Promise(res=>{_askResolve=res;});
+}
+const _askCancel=()=>_askClose(_askIsPrompt()?null:false);
+document.getElementById('askOk').addEventListener('click',()=>{
+  _askClose(_askIsPrompt()?(document.getElementById('askInput').value||'').trim()||null:true);
+});
+document.getElementById('askCancel').addEventListener('click',_askCancel);
+document.getElementById('askX').addEventListener('click',_askCancel);
+document.getElementById('askMask').addEventListener('click',e=>{if(e.target.id==='askMask')_askCancel();});
 
 document.getElementById('addRec').addEventListener('click',()=>openDlg(null));
 document.getElementById('dlgX').addEventListener('click',closeDlg);
 document.getElementById('fCancel').addEventListener('click',closeDlg);
 mask.addEventListener('click',e=>{if(e.target===mask)closeDlg();});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&mask.classList.contains('show'))closeDlg();});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&document.getElementById('askMask').classList.contains('show')){document.getElementById('askOk').click();return;}
+  if(e.key==='Escape'&&document.getElementById('askMask').classList.contains('show')){_askCancel();return;}
+  if(e.key==='Escape'&&mask.classList.contains('show'))closeDlg();
+});
 
 document.getElementById('fSave').addEventListener('click',()=>{
   const name=document.getElementById('fName').value.trim();
   const date=document.getElementById('fDate').value;
   if(!name||!date){toast('请填写剧目名称和观演日期');return;}
+  const priceRaw=String(document.getElementById('fPrice').value??'').trim();  /* S-11：票价范围校验（兼容非字符串 value） */
+  let price='';
+  if(priceRaw!==''){
+    price=Number(priceRaw);
+    if(!Number.isFinite(price)||price<0||price>100000){toast('票价需在 0 到 100000 元之间');return;}
+  }
   const id=document.getElementById('fId').value||uid('r');
   const jobs=pending.map(p=>idbPut({id:p.id,recId:id,blob:p.blob,thumb:p.thumb,name:p.name,type:p.type,size:p.size,createdAt:Date.now()}));
   removedIds.forEach(pid=>jobs.push(idbDel(pid)));
   Promise.all(jobs).then(()=>{
     const rec={id,name,type:document.getElementById('fType').value,date,
       venue:document.getElementById('fVenue').value.trim(),city:document.getElementById('fCity').value.trim(),
-      price:document.getElementById('fPrice').value,session:document.getElementById('fSession').value.trim(),
+      price,session:document.getElementById('fSession').value.trim(),
       rating:document.getElementById('fRating').value,note:document.getElementById('fNote').value.trim(),
       photoIds:existingIds.slice().concat(pending.map(p=>p.id)),createdAt:Date.now(),updatedAt:Date.now()};
     const i=data.records.findIndex(x=>x.id===id);
     if(i>=0)data.records[i]=rec;else data.records.push(rec);
-    save();closeDlg();renderAll();toast('已保存');
+    save();closeDlg(true);renderAll();toast('已保存');  /* S-7：保存成功不再触发脏检查确认 */
   }).catch(()=>toast('保存失败，请检查浏览器存储权限'));
 });
 
-view.addEventListener('click',e=>{
+view.addEventListener('click',async e=>{
   const ed=e.target.closest('[data-edit]');if(ed){const r=data.records.find(x=>x.id===ed.dataset.edit);if(r)openDlg(r);return;}
   const dl=e.target.closest('[data-del]');if(dl){
-    if(!window.confirm('删除这条观演记录？照片也会一起删除。'))return;
-    const r=data.records.find(x=>x.id===dl.dataset.del);
-    const jobs=(r&&r.photoIds||[]).map(id=>idbDel(id));
-    Promise.all(jobs).then(()=>{data.records=data.records.filter(x=>x.id!==dl.dataset.del);save();renderAll();toast('已删除');});
+    const r=data.records.find(x=>x.id===dl.dataset.del);if(!r)return;
+    const ok=await askConfirm('删除这条观演记录？照片也会一起删除。');  /* S-9 */
+    if(!ok)return;
+    const ids=(r.photoIds||[]).slice();
+    Promise.all(ids.map(id=>idbGet(id))).then(shots=>{  /* S-10：先缓存照片 Blob 供撤销 */
+      return Promise.all(ids.map(id=>idbDel(id))).then(()=>({shots:shots.filter(Boolean)}));
+    }).then(({shots})=>{
+      const idx=data.records.findIndex(x=>x.id===r.id);
+      if(idx>=0)data.records.splice(idx,1);
+      save();renderAll();
+      toast('已删除「'+r.name+'」','撤销',()=>{  /* S-10：8 秒内可撤销 */
+        data.records.splice(Math.min(idx,data.records.length),0,r);save();
+        Promise.all(shots.map(s=>idbPut(s))).then(()=>loadThumbs().then(renderAll));
+        toast('已撤销删除');
+      },8000);
+    });
     return;
   }
   const ph=e.target.closest('[data-photo]');if(ph){idbAll().then(ps=>{const p=ps.find(x=>x.id===ph.dataset.photo);if(!p||!p.blob)return;const url=URL.createObjectURL(p.blob);let ov=document.getElementById('pview');if(!ov){ov=document.createElement('div');ov.id='pview';ov.style.cssText='display:none;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.88);align-items:center;justify-content:center;padding:20px;cursor:zoom-out';ov.innerHTML='<img style="max-width:100%;max-height:100%;object-fit:contain">';ov.addEventListener('click',()=>ov.style.display='none');document.body.appendChild(ov);}const im=ov.querySelector('img');if(im._u)URL.revokeObjectURL(im._u);im.src=url;im._u=url;ov.style.display='flex';});return;}
   const wd=e.target.closest('[data-wdone]');if(wd){const w=data.wishlist.find(x=>x.id===wd.dataset.wdone);if(w){w.done=wd.checked;save();renderAll();}return;}
-  const wl=e.target.closest('[data-wdel]');if(wl){data.wishlist=data.wishlist.filter(x=>x.id!==wl.dataset.wdel);save();renderAll();return;}
+  const wl=e.target.closest('[data-wdel]');if(wl){  /* S-10：想看删除也提供撤销 */
+    const id=wl.dataset.wdel;
+    const idx=data.wishlist.findIndex(x=>x.id===id);if(idx<0)return;
+    const w=data.wishlist[idx];
+    data.wishlist.splice(idx,1);save();renderAll();
+    toast('已移除想看','撤销',()=>{
+      data.wishlist.splice(Math.min(idx,data.wishlist.length),0,w);save();renderAll();toast('已撤销');
+    },8000);
+    return;
+  }
   const wa=e.target.closest('[data-watch]');if(wa){const w=data.wishlist.find(x=>x.id===wa.dataset.watch);if(w){curTab='records';document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.tab==='records'));openDlg({name:w.name,type:w.type,date:localDate()});}return;}
   const aw=e.target.closest('[data-addwish]');if(aw){const name=aw.dataset.addwish;if(!data.wishlist.some(w=>w.name===name)){data.wishlist.push({id:uid('w'),name,type:'',note:'',done:false});save();renderAll();toast('已加入想看清单');}else toast('已经在想看清单里了');return;}
 });
@@ -571,7 +673,8 @@ document.getElementById('importFile').addEventListener('change',e=>{
     }
     const recs=obj.records.filter(x=>x&&typeof x.name==='string'&&x.name.trim());
     const wish=Array.isArray(obj.wishlist)?obj.wishlist.filter(x=>x&&typeof x.name==='string'&&x.name.trim()):[];
-    if(!window.confirm('导入将覆盖当前 '+data.records.length+' 条记录与 '+data.wishlist.length+' 项想看，确定继续？')) return;
+    const ok=await askConfirm('导入将覆盖当前 '+data.records.length+' 条记录与 '+data.wishlist.length+' 项想看，确定继续？');  /* S-9 */
+    if(!ok)return;
     data.records=recs; data.wishlist=wish; save();
     let restored=0;
     try{
@@ -595,10 +698,10 @@ document.getElementById('importFile').addEventListener('change',e=>{
 });
 
 /* 想看弹窗（复用简化 prompt，避免折叠复杂表单） */
-document.getElementById('addWish').addEventListener('click',()=>{
-  const name=window.prompt('想看的剧目名称：');
+document.getElementById('addWish').addEventListener('click',async()=>{
+  const name=await askPrompt('想看的剧目名称：');  /* S-9 */
   if(!name||!name.trim())return;
-  const type=window.prompt('类型（话剧/音乐剧/舞剧/戏曲/演唱会/音乐会/魔术马戏/其他，可留空）：')||'';
+  const type=await askPrompt('类型（话剧/音乐剧/舞剧/戏曲/演唱会/音乐会/魔术马戏/其他，可留空）：','')||'';
   data.wishlist.push({id:uid('w'),name:name.trim(),type:type.trim(),note:'',done:false});
   save();curTab='wish';document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.tab==='wish'));renderAll();toast('已加入想看清单');
 });

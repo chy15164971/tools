@@ -614,6 +614,9 @@ const dListEl=document.getElementById('dList');
 const dThumbsEl=document.getElementById('dThumbs');
 const dFileEl=document.getElementById('dFile');
 let curPlace=null,curDiaries=[],pendingPhotos=[],existingPhotoIds=[],removedPhotoIds=[],photoThumbMap=Object.create(null),editingMeta={};
+/* S-3 异步缩略图任务 / S-4 保存幂等锁 / S-1 弹窗焦点归还 */
+let pendingThumbJobs=[],saving=false,_diaryLastFocus=null,_diaryLastPid=null;
+const MAX_PHOTO=12*1024*1024;  /* S-5：单张照片上限 12MB，避免 IndexedDB 与内存峰值失控 */
 
 function refreshCounts(){
   return idbAll('diaries').then(ds=>{
@@ -679,6 +682,9 @@ function syncParent(pid,on){
   }
 }
 function toggle(id){
+  /* S-6：重绘前记录键盘焦点所在的列表项 id，renderAll 重建 DOM 后还原，避免键盘用户焦点丢失 */
+  const focusId=(document.activeElement&&document.activeElement.dataset&&document.activeElement.classList.contains('place'))
+    ?document.activeElement.dataset.id:null;
   if(isCityMode()){
     const c=childList().find(x=>x.id===id);
     const arr=state[childBucket()];
@@ -690,6 +696,7 @@ function toggle(id){
     if(i>=0)arr.splice(i,1);else arr.push(id);
   }
   save();renderAll();
+  if(focusId){const el=Array.prototype.find.call(listEl.querySelectorAll('.place'),x=>x.dataset.id===focusId);if(el)el.focus();}
 }
 listEl.addEventListener('click',e=>{
   const d=e.target.closest('[data-diary]');
@@ -741,6 +748,7 @@ function resetForm(){
   document.getElementById('dForm').reset();
   document.getElementById('dEdit').value='';
   pendingPhotos=[];existingPhotoIds=[];removedPhotoIds=[];editingMeta={};
+  pendingThumbJobs=[];  /* S-3：丢弃仍在生成缩略图的旧任务 */
   renderPending();
 }
 function renderPending(){
@@ -779,15 +787,39 @@ function loadDiaries(){
   });
 }
 function openDiary(pid){
+  _diaryLastPid=pid;  /* S-1：loadDiaries() 会重建列表 DOM，保存 pid 以便关闭后重新查询按钮 */
+  _diaryLastFocus=document.activeElement;  /* S-1：记录触发元素，关闭后焦点归还 */
   const p=findPlace(pid);
   curPlace={id:pid,name:p?p.name:pid};
   document.getElementById('dTitle').textContent='地点日记 · '+curPlace.name;
   resetForm();
   diaryMaskEl.classList.add('show');
+  document.body.style.overflow='hidden';  /* S-1：锁背景滚动 */
   document.getElementById('dDate').value=new Date().toISOString().slice(0,10);
   loadDiaries();
+  document.getElementById('dClose').focus();  /* S-1：焦点移入弹窗 */
 }
-function closeDiary(){diaryMaskEl.classList.remove('show');resetForm();}
+function closeDiary(){  /* S-1：解锁滚动、焦点归还触发元素 */
+  diaryMaskEl.classList.remove('show');
+  document.body.style.overflow='';
+  resetForm();
+  const btn=_diaryLastPid?Array.prototype.find.call(document.querySelectorAll('[data-diary]'),x=>x.dataset.diary===_diaryLastPid):null;
+  if(btn&&typeof btn.focus==='function')btn.focus();
+  else if(_diaryLastFocus&&document.contains(_diaryLastFocus)&&typeof _diaryLastFocus.focus==='function')_diaryLastFocus.focus();
+  _diaryLastFocus=null;_diaryLastPid=null;
+}
+/* S-1：页面内轻量焦点陷阱。本弹窗为 .diary-mask，共享层选择器是 .mask，不通用，故不牵动共享门禁。 */
+function _diaryTrapFocus(e){
+  if(e.key!=='Tab'||!diaryMaskEl.classList.contains('show'))return;
+  const panel=diaryMaskEl.querySelector('.diary-panel');
+  if(!panel)return;
+  const f=Array.prototype.slice.call(panel.querySelectorAll('button:not([disabled]),input:not([type="hidden"]):not([disabled]),textarea:not([disabled]),select:not([disabled]),a[href]'));
+  if(!f.length)return;
+  const first=f[0],last=f[f.length-1];
+  if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+  else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+  else if(!panel.contains(document.activeElement)){e.preventDefault();first.focus();}
+}
 function fillForm(id){
   const d=curDiaries.find(x=>x.id===id);if(!d)return;
   document.getElementById('dEdit').value=d.id;
@@ -795,6 +827,7 @@ function fillForm(id){
   document.getElementById('dTitleIn').value=d.title||'';
   document.getElementById('dText').value=d.text||'';
   existingPhotoIds=(d.photoIds||[]).slice();
+  pendingPhotos=[];pendingThumbJobs=[];  /* S-2/S-3：填另一篇日记时清空待传照片与未完成缩略图，防串档漏图 */
   removedPhotoIds=[];editingMeta={createdAt:d.createdAt};
   renderPending();
   document.getElementById('dTitleIn').focus();
@@ -862,7 +895,10 @@ function toast(msg){
 document.getElementById('dClose').addEventListener('click',closeDiary);
 document.getElementById('dCancel').addEventListener('click',closeDiary);
 diaryMaskEl.addEventListener('click',e=>{if(e.target===diaryMaskEl)closeDiary();});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&diaryMaskEl.classList.contains('show'))closeDiary();});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Tab'){_diaryTrapFocus(e);return;}   /* S-1：Tab 在弹窗内回环 */
+  if(e.key==='Escape'&&diaryMaskEl.classList.contains('show'))closeDiary();
+});
 dListEl.addEventListener('click',e=>{
   const ed=e.target.closest('[data-edit]');if(ed){fillForm(ed.dataset.edit);return;}
   const dl=e.target.closest('[data-del]');if(dl){deleteDiary(dl.dataset.del);return;}
@@ -877,26 +913,32 @@ dThumbsEl.addEventListener('click',e=>{
 dFileEl.addEventListener('change',()=>{
   const files=Array.from(dFileEl.files||[]).filter(f=>/^image\//.test(f.type));
   files.forEach(f=>{
+    if(f.size>MAX_PHOTO){toast('「'+(f.name||'照片')+'」超过 12MB，已跳过，请压缩后再传');return;}  /* S-5 */
     const pid=uid('ph');
-    makeThumb(f).then(thumb=>{
+    const job=makeThumb(f).then(thumb=>{  /* S-3：收集异步任务，submit 时统一等待 */
       pendingPhotos.push({id:pid,blob:f,thumb,name:f.name,type:f.type,size:f.size});
       renderPending();
     });
+    pendingThumbJobs.push(job);
   });
   dFileEl.value='';
 });
 document.getElementById('dForm').addEventListener('submit',e=>{
   e.preventDefault();
+  if(saving)return;                 /* S-4：幂等锁，防双击/重复提交生成多篇日记 */
+  saving=true;
   const editId=document.getElementById('dEdit').value||'';
   const date=document.getElementById('dDate').value;
   const title=document.getElementById('dTitleIn').value.trim();
   const text=document.getElementById('dText').value.trim();
   const did=editId||uid('d');
-  const jobs=pendingPhotos.map(p=>idbPut('photos',{
-    id:p.id,diaryId:did,blob:p.blob,thumb:p.thumb,name:p.name,type:p.type,size:p.size,createdAt:Date.now()
-  }));
-  removedPhotoIds.forEach(pid=>jobs.push(idbDel('photos',pid)));
-  Promise.all(jobs).then(()=>{
+  Promise.all(pendingThumbJobs).then(()=>{  /* S-3：等全部异步缩略图就绪，避免新照片漏存 */
+    const jobs=pendingPhotos.map(p=>idbPut('photos',{
+      id:p.id,diaryId:did,blob:p.blob,thumb:p.thumb,name:p.name,type:p.type,size:p.size,createdAt:Date.now()
+    }));
+    removedPhotoIds.forEach(pid=>jobs.push(idbDel('photos',pid)));
+    return Promise.all(jobs);
+  }).then(()=>{
     return idbPut('diaries',{
       id:did,placeId:curPlace.id,placeName:curPlace.name,region,level,
       date,title,text,photoIds:existingPhotoIds.slice().concat(pendingPhotos.map(p=>p.id)),
@@ -904,7 +946,8 @@ document.getElementById('dForm').addEventListener('submit',e=>{
     });
   }).then(()=>{resetForm();return loadDiaries();})
     .then(()=>{toast('日记已保存');})
-    .catch(()=>{toast('保存失败，请检查浏览器本地存储权限');});
+    .catch(()=>{toast('保存失败，请检查浏览器本地存储权限');})
+    .finally(()=>{saving=false;});  /* S-4：无论成功失败都释放锁 */
 });
 refreshCounts();
 </script>
