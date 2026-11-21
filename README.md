@@ -21,8 +21,8 @@
    导航条必须是 `<body>` 开头的静态 HTML，不能退回 JS 延迟插入（会重现首屏闪旧画面）。
 3. 共享色板唯一真相源是 vault `_ops/_workbench/design_tokens.css`；
    私有变量写在 `SHARED TOKENS START/END` 标记区**之外**，否则下次同步会被整块覆盖。
-4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v21）：SW 字节不变就不触发 install，
-   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15→v16→v17、11-19 v18、11-21 v19→v20→v21 均按此处理）。
+4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v22）：SW 字节不变就不触发 install，
+   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15→v16→v17、11-19 v18、11-21 v19→v20→v21、11-22 v22 均按此处理）。
    导航请求用 `fetch(url,{cache:"no-store"})` 绕过 Pages 的 `max-age=600`；
    不要写成 `fetch(e.request, init)`（navigate 模式重建 Request 会抛 TypeError）。
 5. `_shared/` 目录以下划线开头，GitHub Pages 不发布；源文件已内联进五个 HTML，线上 404 属预期。
@@ -244,6 +244,17 @@ P1-9 守卫因 `convertRecord` / `renderStats` 函数体合法改动重冻基线
 - 专项 **26 PASS / 0 FAIL**（改前 3 PASS / 23 FAIL）、全量回归 **63 PASS**（唯一 FAIL 为同步前 G13，同步后 P1-9 复测 42 PASS / 0 FAIL）、焦点 E2E **36 PASS / 0 FAIL**。
 - P1-9 守卫因合法改动触发 G4/G5/G9/G10，先用改前字节 `--old` 对照 40 PASS 证明分辨力，备份 `_P1-9基线_改前_v20.json` 后重冻。
 - 升 `APP_CACHE` v20 → **v21**，线上 9/9 核心文件 MD5 MATCH。执行报告 `deliverables/workbench-audit-1105/批一必须修复_执行报告_20261121.md`。
+
+### 批二「建议优化」（v22，commit `8969472`，2026-11-22）
+
+- 依据 `全站审查报告_20261121.md` 第二批落地 14 项（C-4 keepalive 补传经核实属有意设计权衡，保持现状并披露）：
+  - 地图 S-1~S-6：日记弹窗轻量焦点锁 / Tab 回环 / 滚动锁 / 焦点归还（列表重建后按 pid 重新查询）、填表清 `pendingPhotos` 防串档、submit 等待异步缩略图、保存幂等锁、>12MB 照片闸门、列表重绘焦点恢复。
+  - 观剧 S-7~S-11：表单脏检查、推荐双向去重、原生 `confirm/prompt` → Promise 化弹窗、删除 8 秒撤销（含照片 Blob）、票价 0~100000 校验。
+  - 海报墙 C-1/C-2：导入感想按 ts 仲裁并纳入墓碑（对齐云同步口径）、`saveCustom` 返回写入状态且调用方门控成功文案。
+  - 明信片 C-3：`exportCSV` 延迟 1s revoke（对齐 `exportJSON`）。
+- 专项 **26 PASS / 0 FAIL**（改前对照 0 PASS / 26 FAIL）；观剧验收 **32 PASS**（陈旧断言同步更新）；地图验收 **74 PASS**；全量回归 **64 PASS / 0 FAIL**；焦点 E2E **36 PASS**；P1-9 守卫改前字节对照 40 PASS、重冻后 **42 PASS / 0 FAIL**（备份 `_P1-9基线_改前_v22.json`）。
+- 真浏览器实证：观剧新弹窗 / 票价校验 / 脏检查 / 删除撤销，地图焦点锁与归还 / 12MB 闸门 / 390px 无溢出，全部通过；过程中修复两个真机才暴露的缺陷（事件对象误当 `force` 跳过脏检查、DOM 重建导致焦点归还失效）。
+- 升 `APP_CACHE` v21 → **v22**，线上 5/5 核心文件 MD5 MATCH。执行报告 `deliverables/workbench-audit-1105/批二建议优化_执行报告_20261122.md`。
 
 ## 本机副本
 
