@@ -21,8 +21,8 @@
    导航条必须是 `<body>` 开头的静态 HTML，不能退回 JS 延迟插入（会重现首屏闪旧画面）。
 3. 共享色板唯一真相源是 vault `_ops/_workbench/design_tokens.css`；
    私有变量写在 `SHARED TOKENS START/END` 标记区**之外**，否则下次同步会被整块覆盖。
-4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v20）：SW 字节不变就不触发 install，
-   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15→v16→v17、11-19 v18、11-21 v19→v20 均按此处理）。
+4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v21）：SW 字节不变就不触发 install，
+   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15→v16→v17、11-19 v18、11-21 v19→v20→v21 均按此处理）。
    导航请求用 `fetch(url,{cache:"no-store"})` 绕过 Pages 的 `max-age=600`；
    不要写成 `fetch(e.request, init)`（navigate 模式重建 Request 会抛 TypeError）。
 5. `_shared/` 目录以下划线开头，GitHub Pages 不发布；源文件已内联进五个 HTML，线上 404 属预期。
@@ -237,6 +237,13 @@ P1-9 守卫因 `convertRecord` / `renderStats` 函数体合法改动重冻基线
 改源码（含 `_shared/modal-a11y.js`）→ 重新注入四块 → 同步 `index.html` → 同步 `pc-app` / vault `Projects/` 镜像 → `./check.sh --full` → commit & push →
 等 Pages 构建（`sw.js?cb=<时间戳>` 轮询版本号，注意 10 分钟磁盘缓存）→ 线上 18 个文件 MD5 比对 →
 真浏览器 E2（亮/暗、390×844）。
+
+### 批一「必须修复」（v21，commit `a27a079`，2026-11-21）
+
+- 依据 `全站审查报告_20261121.md` 第一批：M-1 地图引擎加载失败降级（顶层守卫 + onerror + 清单/日记解耦）、M-2 地图 localStorage 读写失败 toast 反馈、M-3 观剧记录导出/导入备份（含照片 base64）、M-4 任务台 `dataSig` 次级集合纳入内容签名（修跨设备漏同步）、M-5 观剧日期改本地拼接（修东八区跨日错位）。
+- 专项 **26 PASS / 0 FAIL**（改前 3 PASS / 23 FAIL）、全量回归 **63 PASS**（唯一 FAIL 为同步前 G13，同步后 P1-9 复测 42 PASS / 0 FAIL）、焦点 E2E **36 PASS / 0 FAIL**。
+- P1-9 守卫因合法改动触发 G4/G5/G9/G10，先用改前字节 `--old` 对照 40 PASS 证明分辨力，备份 `_P1-9基线_改前_v20.json` 后重冻。
+- 升 `APP_CACHE` v20 → **v21**，线上 9/9 核心文件 MD5 MATCH。执行报告 `deliverables/workbench-audit-1105/批一必须修复_执行报告_20261121.md`。
 
 ## 本机副本
 
