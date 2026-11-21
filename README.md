@@ -21,8 +21,8 @@
    导航条必须是 `<body>` 开头的静态 HTML，不能退回 JS 延迟插入（会重现首屏闪旧画面）。
 3. 共享色板唯一真相源是 vault `_ops/_workbench/design_tokens.css`；
    私有变量写在 `SHARED TOKENS START/END` 标记区**之外**，否则下次同步会被整块覆盖。
-4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v19）：SW 字节不变就不触发 install，
-   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15→v16→v17、11-19 v18、11-21 v19 均按此处理）。
+4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v20）：SW 字节不变就不触发 install，
+   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15→v16→v17、11-19 v18、11-21 v19→v20 均按此处理）。
    导航请求用 `fetch(url,{cache:"no-store"})` 绕过 Pages 的 `max-age=600`；
    不要写成 `fetch(e.request, init)`（navigate 模式重建 Request 会抛 TypeError）。
 5. `_shared/` 目录以下划线开头，GitHub Pages 不发布；源文件已内联进五个 HTML，线上 404 属预期。
@@ -221,7 +221,16 @@ P1-9 守卫因 `convertRecord` / `renderStats` 函数体合法改动重冻基线
 - 共享层口径升级：注入器 / 门禁页面清单五页 → 六页，共享内联块 17 → 19，`sync_tokens.js` 纳入观剧页；观剧页原私有 token 收敛为仅 `--warm`，其余走共享 token 唯一源。
 - 陈旧断言更新：媒体放弃 F1、权衡加固 D7 的版本断言改为「≥v18」，遗留风险 A8 门禁块数 17→19；P1-9 守卫因导航函数体合法变化触发 G10，已用改前字节对照 40 PASS 证明分辨力，重冻后 42 PASS / 0 FAIL（旧基线备份 `_P1-9基线_改前_v18.json`）。
 - 本轮门禁：发布门禁 0 失败、TOKENS 六页 IN_SYNC、镜像 23 项可跑、全量回归 **63 PASS / 0 FAIL**、焦点 E2E 36 PASS / 0 FAIL；真浏览器验证六页导航条、观剧 CRUD/统计/推荐去重、v19 预缓存、海报墙↔观剧往返、离线回退、390px 无溢出，0 报错。升 `APP_CACHE` v18 → **v19**。
-- 状态：观剧记录已上线；旅行地图地点日记仍为本地原型（地图 key 需自备，`file://` 双击空白属预期），未上线。
+- 状态：观剧记录已上线。
+
+### 旅行地图（含地点日记）并入站点（v20）
+
+- 用户选择「我提供 key」：旅行地图成为第七个正式页面，接入统一导航条（「地图」项 + `data-page="map"` 高亮）、PWA precache（`PRECACHE` + `NAV_MAP`）、发布门禁与 manifest shortcuts。
+- **地图加载改造**：删除 WorkBuddy 本地代理 `_TMapSecurityConfig.serviceHost`（占位符仅运行时替换，线上必空白），改标准 key 加载 `map.qq.com/api/gljs?v=1.exp&key=<用户自备 key>`；key 由用户提供，需申请 JavaScript API GL 类型并把 `chy15164971.github.io` 加入域名白名单。真浏览器实证：TMap API 加载为 object、地图 canvas 渲染（937×491）、点亮 Marker 生效。
+- 共享层口径升级：注入器 / 门禁页面清单六页 → 七页，共享内联块 19 → 21，`sync_tokens.js` 纳入旅行地图；地图页 token 收敛为 SHARED TOKENS 标记区（走共享唯一源），无私有变量残留。
+- 陈旧断言更新：媒体放弃 F1 / 权衡加固 D7 的版本正则已覆盖 v20（`[2-9]\d`）；低风险批 5.2 正则放宽为 `[1-9][0-9]`；遗留风险 A8 门禁块数 17→21（本轮 19→21）；P1-9 守卫因导航函数体合法变化触发 G10，先用改前字节 `--old` 对照 39 PASS 证明分辨力，备份旧基线 `_P1-9基线_改前_v19.json` 后重冻，工作区 42 PASS / 0 FAIL。
+- 本轮门禁：发布门禁 0 失败、TOKENS 七页 IN_SYNC、镜像 23 项可跑、全量回归 **63 PASS / 0 FAIL**、焦点 E2E 36 PASS / 0 FAIL、上线专项真浏览器 E2E **22 PASS / 0 FAIL**（导航高亮、无代理残留、34 省/46 城、日记 CRUD、点亮持久化、事件隔离、390px 无溢出）。升 `APP_CACHE` v19 → **v20**。
+- 状态：旅行地图与地点日记均已上线；日记照片存本机 IndexedDB，不与 Gist 同步；密集城市 Marker 重叠可能误触邻城（延续边界）。
 
 ## 发布流程
 

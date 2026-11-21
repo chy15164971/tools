@@ -1757,7 +1757,7 @@
 <body>
 <!-- >>> SITE-NAV-HTML:BEGIN —— 由 _shared/site-nav-static.html 自动生成，请勿直接编辑本块 -->
 <!-- 站点统一导航条 · 静态首屏版 v2（2026-11-04）
-     唯一真相源：_shared/site-nav-static.html，由 inject_shared.py 内联到六页 <body> 开头。
+     唯一真相源：_shared/site-nav-static.html，由 inject_shared.py 内联到七页 <body> 开头。
      为什么静态：v1 由 site-nav.js 在 DOMContentLoaded 后才 createElement 插入，任务台 HTML
      约 831KB，实测 FCP 1220ms / DCL 1555ms —— 中间约 335ms 首屏是「没有导航条的旧版
      任务台」，导航条插入后整页下移，用户看到闪一下旧画面。静态渲染后首屏解析即有导航条。
@@ -1795,6 +1795,7 @@
     <a href="明信片追踪.html" data-page="postcards">明信片</a>
     <a href="书影音海报墙.html" data-page="media">海报墙</a>
     <a href="观剧记录.html" data-page="theatre">观剧</a>
+    <a href="旅行地图.html" data-page="map">地图</a>
   </div>
   <span class="__wsn_hint">同一工作台 · 数据保存在本机</span>
 </nav>
@@ -3323,7 +3324,7 @@ function pushTomb(id){ const s=String(id||""); if(!s) return; const i=deletedIds
 /* ============================================================
    SITE-NAV v2（2026-11-04）— 站点导航条的「行为层」
    ------------------------------------------------------------
-   唯一真相源：_shared/site-nav.js，由 inject_shared.py 内联进六页。
+   唯一真相源：_shared/site-nav.js，由 inject_shared.py 内联进七页。
    导航条本体（HTML + CSS）已改为静态块 _shared/site-nav-static.html，
    放在 <body> 开头随文档解析立即呈现，消除 v1 的首屏闪烁：
    v1 在 DOMContentLoaded 才 createElement 插入，任务台 FCP 1220ms /
@@ -3345,10 +3346,11 @@ function pushTomb(id){ const s=String(id||""); if(!s) return; const i=deletedIds
     if (f.indexOf("明信片") >= 0 || f.indexOf("postcard") >= 0) return "postcards";
     if (f.indexOf("书影音海报墙") >= 0 || f.indexOf("media") >= 0) return "media";
     if (f.indexOf("观剧") >= 0 || f.indexOf("theatre") >= 0) return "theatre";
+    if (f.indexOf("旅行地图") >= 0 || f.indexOf("map") >= 0) return "map";
     return "";
   }
 
-  /* 站点级 PWA：六页共用同一个 sw.js，重复 register 天然幂等；file:// 双击时静默跳过 */
+  /* 站点级 PWA：七页共用同一个 sw.js，重复 register 天然幂等；file:// 双击时静默跳过 */
   function registerSW(){
     try{
       if(!("serviceWorker" in navigator)) return;

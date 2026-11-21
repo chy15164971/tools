@@ -1,5 +1,5 @@
 <!-- 站点统一导航条 · 静态首屏版 v2（2026-11-04）
-     唯一真相源：_shared/site-nav-static.html，由 inject_shared.py 内联到六页 <body> 开头。
+     唯一真相源：_shared/site-nav-static.html，由 inject_shared.py 内联到七页 <body> 开头。
      为什么静态：v1 由 site-nav.js 在 DOMContentLoaded 后才 createElement 插入，任务台 HTML
      约 831KB，实测 FCP 1220ms / DCL 1555ms —— 中间约 335ms 首屏是「没有导航条的旧版
      任务台」，导航条插入后整页下移，用户看到闪一下旧画面。静态渲染后首屏解析即有导航条。
@@ -37,6 +37,7 @@
     <a href="明信片追踪.html" data-page="postcards">明信片</a>
     <a href="书影音海报墙.html" data-page="media">海报墙</a>
     <a href="观剧记录.html" data-page="theatre">观剧</a>
+    <a href="旅行地图.html" data-page="map">地图</a>
   </div>
   <span class="__wsn_hint">同一工作台 · 数据保存在本机</span>
 </nav>

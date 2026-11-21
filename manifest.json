@@ -1,7 +1,7 @@
 {
   "name": "工作台",
   "short_name": "工作台",
-  "description": "任务台 / 明信片追踪 / 书影音海报墙 / 观剧记录，共用一个入口",
+  "description": "任务台 / 明信片追踪 / 书影音海报墙 / 观剧记录 / 旅行地图，共用一个入口",
   "start_url": "./home.html",
   "scope": "./",
   "display": "standalone",
@@ -33,6 +33,7 @@
     { "name": "任务管理台", "short_name": "任务台", "url": "./任务管理台.html", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "明信片追踪", "short_name": "明信片", "url": "./明信片追踪.html", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "书影音海报墙", "short_name": "海报墙", "url": "./书影音海报墙.html", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "观剧记录", "short_name": "观剧", "url": "./观剧记录.html", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+    { "name": "观剧记录", "short_name": "观剧", "url": "./观剧记录.html", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "旅行地图", "short_name": "地图", "url": "./旅行地图.html", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }

@@ -11,7 +11,9 @@ const SENT_CACHE="wb-remind-sent";
    缓存可无限增长）。沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存。 */
 /* v19（2026-11-21）：观剧记录并入站点正式页——六页导航条 + 门禁体系，海报墙/观剧页 HTML 字节变化。
    沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存；PRECACHE 与 NAV_MAP 同步纳入观剧页。 */
-const APP_CACHE="wb-app-v19";
+/* v20（2026-11-21）：旅行地图并入站点正式页——七页导航条 + 门禁体系，地图页改标准 key 加载并接入共享层。
+   沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存；PRECACHE 与 NAV_MAP 同步纳入旅行地图。 */
+const APP_CACHE="wb-app-v20";
 /* v9（2026-11-16 低风险批）：海报墙补 viewport-fit / 缩略图 alt / 遮罩前缀，
    任务台与 index 补 -webkit- 前缀，门户降级计数标签纠正口径；另外 navigate
    分支补 res.ok 检查——此前 HTTP 404 会 resolve(!ok) 直接漏给离线用户。
@@ -28,7 +30,7 @@ const APP_CACHE="wb-app-v19";
    v4：页头工作台 logo 改用三卡组 SVG（icons/workbench-icon.svg）并纳入预缓存。
    v3：换了工作台图标 + 导航请求绕过 Pages 的 max-age=600 磁盘缓存。 */
 /* "./" 是目录根，GitHub Pages 在该路径提供的正是 index.html，故不另列 ./index.html。 */
-const PRECACHE=["./", "./home.html", "./任务管理台.html", "./明信片追踪.html", "./书影音海报墙.html", "./观剧记录.html",
+const PRECACHE=["./", "./home.html", "./任务管理台.html", "./明信片追踪.html", "./书影音海报墙.html", "./观剧记录.html", "./旅行地图.html",
                 "./manifest.json", "./媒体自定义条目.js", "./媒体进度看板.html",
                 "./icons/icon-152.png", "./icons/icon-167.png", "./icons/icon-180.png",
                 "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-512-maskable.png",
@@ -125,6 +127,7 @@ const NAV_MAP=[
   ["明信片追踪.html", "./明信片追踪.html"],
   ["书影音海报墙.html", "./书影音海报墙.html"],
   ["观剧记录.html", "./观剧记录.html"],
+  ["旅行地图.html", "./旅行地图.html"],
   ["媒体进度看板.html", "./媒体进度看板.html"],
   ["index.html", "./"],
   ["home.html", "./home.html"]

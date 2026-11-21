@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-把 _shared 下的共享代码内联进五个单文件 HTML（含 index.html——它是任务管理台.html 的逐字节副本）。
+把 _shared 下的共享代码内联进七个单文件 HTML（含 index.html——它是任务管理台.html 的逐字节副本）。
 改完源文件后运行：  python3 _shared/inject_shared.py
 单文件 HTML 仍保持零依赖、可离线、双击即用（内容是内联的，不是 <src> 引用）。
 
@@ -58,6 +58,7 @@ BLOCKS = [
                     os.path.join(PROJ, "明信片追踪.html"),
                     os.path.join(PROJ, "书影音海报墙.html"),
                     os.path.join(PROJ, "观剧记录.html"),
+                    os.path.join(PROJ, "旅行地图.html"),
                     os.path.join(PROJ, "home.html"),
                     os.path.join(PROJ, "index.html")],
         "begin": "<!-- >>> SITE-NAV-HTML:BEGIN —— 由 _shared/site-nav-static.html 自动生成，请勿直接编辑本块 -->",
@@ -70,6 +71,7 @@ BLOCKS = [
                     os.path.join(PROJ, "明信片追踪.html"),
                     os.path.join(PROJ, "书影音海报墙.html"),
                     os.path.join(PROJ, "观剧记录.html"),
+                    os.path.join(PROJ, "旅行地图.html"),
                     os.path.join(PROJ, "home.html"),
                     os.path.join(PROJ, "index.html")],
         "begin": "/* >>> SITE-NAV:BEGIN —— 由 _shared/site-nav.js 自动生成，请勿直接编辑本块 */",
