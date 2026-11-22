@@ -13,7 +13,11 @@ const SENT_CACHE="wb-remind-sent";
    沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存；PRECACHE 与 NAV_MAP 同步纳入观剧页。 */
 /* v20（2026-11-21）：旅行地图并入站点正式页——七页导航条 + 门禁体系，地图页改标准 key 加载并接入共享层。
    沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存；PRECACHE 与 NAV_MAP 同步纳入旅行地图。 */
-const APP_CACHE="wb-app-v26";
+const APP_CACHE="wb-app-v27";
+/* v27（2026-11-22 时间戳）：海报墙书本 date 补到日级（豆瓣导出真实读过日期）、新增心愿单 wishAt、
+   详情弹窗区分「读完于 / 发行于」，并新增只读索引 wb_mediawall_readlog_v1 供时间线取「读完了」；
+   时间线加「含历史读完」开关与月/年精度显示。海报墙与时间线两个 HTML 字节已变，
+   按既定约定升版本强制重新预缓存（只改 HTML 不触发 install）。 */
 /* v26（2026-11-22 时间线）：新增第八页 时间线.html，导航条加「时间线」并注入 TIMELINE-CORE，
    六页 HTML 字节全变、首页多一张汇总卡，按既定约定升版本强制重新预缓存。 */
 /* v9（2026-11-16 低风险批）：海报墙补 viewport-fit / 缩略图 alt / 遮罩前缀，

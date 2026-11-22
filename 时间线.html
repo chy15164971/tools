@@ -110,6 +110,14 @@
   .tools input{flex:1}
   .tools select{flex:none;cursor:pointer}
   .tools input:focus-visible,.tools select:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+  /* 「含历史读完」开关：默认不勾，因为那是 300+ 条只有日期、没有时刻的历史记录 */
+  .donebar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:2px 0 8px;font-size:12.5px;color:var(--tl-sub)}
+  .done-sw{display:inline-flex;align-items:center;gap:7px;cursor:pointer;min-height:24px}
+  .done-sw input{width:15px;height:15px;accent-color:var(--pri-deep);cursor:pointer;flex:none}
+  .done-sw input:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+  .done-sw b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+  .done-sw input:disabled{cursor:not-allowed}
+  .done-tip{line-height:1.5}
 
   /* 时间轴：竖线画在内容区左侧，事件卡自带节点圆点 */
   .feed{position:relative;padding-left:28px;margin-top:14px}
@@ -253,17 +261,30 @@
     </div>
   </div>
 
+  <div class="donebar">
+    <label class="done-sw" for="chkDone">
+      <input type="checkbox" id="chkDone">
+      <span>含历史「读完了」<b id="doneN"></b></span>
+    </label>
+    <span class="done-tip" id="doneTip"></span>
+  </div>
+
   <div class="feed" id="feed" aria-live="polite"></div>
   <div class="more" id="more"></div>
 
   <p class="foot">
     <b>这条线是怎么来的</b>：本页只读，不修改任何页面的数据。它把六个页面保存的记录按时间合并——
-    任务完成（含重复任务每一次实例）、习惯打卡、明信片寄出/抵达/收到、海报墙感想、观剧记录、地图点亮、旅行日记。
+    任务完成（含重复任务每一次实例）、习惯打卡、明信片寄出/抵达/收到、
+    海报墙（写了感想 / 加入心愿单 / 读完了）、观剧记录、地图点亮、旅行日记。
   </p>
   <p class="foot" style="border-top:none;padding-top:0;margin-top:10px">
     <b>读不全的时候</b>：数据存在同一浏览器的同一站点下，换浏览器、换域名、无痕窗口都读不到；
     明信片、观剧、旅行日记只记了日期没记时刻，所以当天没有具体时间，统一排在当天最下方；
-    地图点亮从 2026-11-22 之后才有时间记录，更早点亮的地点无法追溯，故不出现在这里。
+    地图点亮从 2026-11-22 之后才有时间记录，更早点亮的地点无法追溯，故不出现在这里；
+    海报墙的「加入心愿单」同样是 2026-11-22 起才记时刻，更早加的只有条目、没有时间；
+    「读完了」默认不计入（三百多条历史只有日期），勾上开关才显示；
+    电影和音乐在豆瓣导出里没有观看时间——那一列是上映/发行日期，所以这里不会出现「看完了」，
+    也不拿发行日期充数。
   </p>
   <p class="note" id="note"></p>
 </div>
@@ -344,11 +365,13 @@
    - 读不到 / 解析失败一律静默降级为「0 条」，绝不伪造时间。
 
    事件模型：
-     { ts, precise, kind, src, title, sub, href }
-     ts       毫秒时间戳（日级事件取当日 00:00）
+     { ts, precise, kind, src, title, sub, href, variant, lvl }
+     ts       毫秒时间戳（日级事件取当日 00:00，月级取当月 1 日）
      precise  是否有真实时刻。false = 只知道日期（明信片/观剧/日记/补打卡）
      kind     task | habit | postcard | media | theatre | map | diary
      src      去重用的稳定标识（同一任务同一天只留一条，精确版优先）
+     variant  media 专用：review（感想）| wish（加入心愿单）| done（读完）
+     lvl      时间精度：min（显示 M-D HH:MM）| day（M-D）| month（YYYY-MM）| year（YYYY）
    ============================================================ */
 (function(){
   if (typeof window === "undefined") return;
@@ -396,6 +419,24 @@
     return /T\d{1,2}:\d{2}/.test(String(v)) || /^\d{13}$/.test(String(v));
   }
 
+  /* 书影音口径：书本叫想读、音乐/广播剧叫想听、其余（电影/电视剧/真人秀）叫想看 */
+  function wantLabel(t){
+    return t === "书本" ? "想读" : (t === "音乐" || t === "广播剧") ? "想听" : "想看";
+  }
+
+  /* 只认豆瓣导出的粒度：YYYY / YYYY-MM / YYYY-MM-DD。
+     月级落当月 1 日、年级落 1 月 1 日——精度不足就老实标出来（lvl），不假装是那一天。 */
+  function parseLoose(v){
+    var s = String(v || "");
+    var m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) return { ts: new Date(+m[1], +m[2] - 1, +m[3]).getTime(), lvl: "day" };
+    m = s.match(/^(\d{4})-(\d{2})$/);
+    if (m) return { ts: new Date(+m[1], +m[2] - 1, 1).getTime(), lvl: "month" };
+    m = s.match(/^(\d{4})$/);
+    if (m) return { ts: new Date(+m[1], 0, 1).getTime(), lvl: "year" };
+    return null;
+  }
+
   function dayKey(ts){
     var d = new Date(ts);
     return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
@@ -423,12 +464,13 @@
     return e.precise ? e.ts : e.ts + (DAY_MS - 1);
   }
 
-  function collect(){
+  function collect(opts){
+    opts = opts || {};
     var events = [];
     var seen = Object.create(null);
     var counts = { task:0, habit:0, postcard:0, media:0, theatre:0, map:0, diary:0 };
 
-    function push(kind, src, ts, precise, title, sub){
+    function push(kind, src, ts, precise, title, sub, extra){
       if (!ts || !isFinite(ts)) return;
       var k = kind + "|" + src + "|" + dayKey(ts);
       var old = seen[k];
@@ -439,7 +481,9 @@
       }
       var e = {
         ts: +ts, precise: !!precise, kind: kind, src: src,
-        title: title, sub: sub || "", href: HREF[kind]
+        title: title, sub: sub || "", href: HREF[kind],
+        variant: (extra && extra.variant) || "",
+        lvl: (extra && extra.lvl) || (precise ? "min" : "day")
       };
       seen[k] = e;
       events.push(e);
@@ -523,7 +567,38 @@
         var parts = String(k).replace(/^rk1\|/, "").split("|");
         var title = parts[0] || "未命名条目";
         var sub = [parts[1], parts[2]].filter(Boolean).join(" · ");
-        push("media", "rv:" + k, Number(v.ts) || 0, true, "写了感想《" + title + "》", sub);
+        push("media", "rv:" + k, Number(v.ts) || 0, true, "写了感想《" + title + "》", sub, { variant: "review" });
+      });
+    }
+
+    /* ---------- 4b. 海报墙心愿单「加入」----------
+       wishAt 是 2026-11-22 起才记的毫秒时间戳；更早加进心愿单的条目没有时刻，
+       缺就是缺，不拿 date 或今天去冒充。想读/想听/想看按条目类型取名。 */
+    var ce = ls("wb_mediawall_custom_v1");
+    if (Array.isArray(ce)) {
+      ce.forEach(function(it){
+        if (!it || typeof it !== "object") return;
+        var t = Number(it.wishAt) || 0;
+        if (!t) return;
+        var nm = String(it.title || "未命名条目");
+        push("media", "wish:" + nm, t, true,
+             "加入" + wantLabel(it.type) + "《" + nm + "》", String(it.type || ""), { variant: "wish" });
+      });
+    }
+
+    /* ---------- 4c. 海报墙「读完了」（默认不进时间线）----------
+       readlog 由海报墙页单点写入（MEDIA 数组只内联在那页，跨页读不到），只含书本的真实读过日期。
+       电影/音乐条目在豆瓣导出里没有观看时间（现有的 date 是上映/发行日期），所以这边压根没有它们。 */
+    if (opts.withDone) {
+      var rl = ls("wb_mediawall_readlog_v1");
+      var rlItems = (rl && Array.isArray(rl.items)) ? rl.items : [];
+      rlItems.forEach(function(it){
+        if (!it || typeof it !== "object") return;
+        var p = parseLoose(it.d);
+        if (!p || !p.ts) return;
+        var nm = String(it.n || "未命名条目");
+        push("media", "done:" + nm, p.ts, false,
+             "读完了《" + nm + "》", "豆瓣标记", { variant: "done", lvl: p.lvl });
       });
     }
 
@@ -580,7 +655,8 @@
 
   window.__TL_CORE = {
     collect: collect, statsOf: statsOf,
-    parseDay: parseDay, parseStamp: parseStamp, dayKey: dayKey, cmp: cmp, sortTs: sortTs,
+    parseDay: parseDay, parseStamp: parseStamp, parseLoose: parseLoose,
+    dayKey: dayKey, cmp: cmp, sortTs: sortTs, wantLabel: wantLabel,
     KINDS: KINDS, LABEL: LABEL, HREF: HREF
   };
 })();
@@ -600,7 +676,7 @@
 
   var ALL = [];          /* 全量事件，始终按时间降序 */
   var DIY = Object.create(null);  /* 日记事件去重表 */
-  var S = { kind: "", q: "", year: "", limit: PAGE };
+  var S = { kind: "", q: "", year: "", limit: PAGE, withDone: false };
 
   function esc(s){
     return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
@@ -696,16 +772,23 @@
     document.getElementById("sFirst").textContent = first ? fmtDay(first) : "—";
   }
 
-  function evHtml(e){
+  /* 时间戳文案严格跟随精度：min → M-D HH:MM，day → M-D，month → YYYY-MM，year → YYYY。
+     只显示时分分不清「同月不同日」，所以日期始终跟着时刻走；精度不足时也不编造时刻。 */
+  function fmtTime(e){
     var d = new Date(e.ts);
-    /* 只显示时分无法分辨「同月不同日」，所以日期始终跟着时刻走；
-       日级事件只显示 M-D，不编造时刻。 */
     var md = (d.getMonth() + 1) + "-" + pad2(d.getDate());
-    var tm = e.precise ? md + " " + pad2(d.getHours()) + ":" + pad2(d.getMinutes()) : md;
+    var lvl = e.lvl || (e.precise ? "min" : "day");
+    if (lvl === "min") return md + " " + pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+    if (lvl === "month") return d.getFullYear() + "-" + pad2(d.getMonth() + 1);
+    if (lvl === "year") return String(d.getFullYear());
+    return md;
+  }
+
+  function evHtml(e){
     return '<a class="ev k-' + e.kind + '" href="' + e.href + '">'
       + '<div class="t"><span class="tag">' + CORE.LABEL[e.kind] + "</span>"
       + '<span class="tt">' + esc(e.title) + "</span>"
-      + '<span class="tm">' + tm + "</span>"
+      + '<span class="tm">' + fmtTime(e) + "</span>"
       + "</div>"
       + (e.sub ? '<div class="s">' + esc(e.sub) + "</div>" : "")
       + "</a>";
@@ -759,6 +842,41 @@
   });
   Q.addEventListener("input", function(){ S.q = (Q.value || "").trim(); S.limit = PAGE; render(); });
   YEAR.addEventListener("change", function(){ S.year = YEAR.value; S.limit = PAGE; render(); });
+
+  /* ---------------- 「含历史读完」开关 ----------------
+     海报墙把「书本 + 真实读过日期」拍平成 wb_mediawall_readlog_v1 给本页读（那边单点写、这边只读）。
+     没打开过海报墙就没有这份索引，开关如实置灰并说明原因，不伪装成「你还没读过书」。 */
+  var CHK = document.getElementById("chkDone");
+  var DONEN = document.getElementById("doneN");
+  var DONETIP = document.getElementById("doneTip");
+  function readlogCount(){
+    try{
+      var o = JSON.parse(localStorage.getItem("wb_mediawall_readlog_v1") || "null");
+      return (o && Array.isArray(o.items)) ? o.items.length : 0;
+    }catch(e){ return 0; }
+  }
+  function syncDoneSwitch(){
+    var n = readlogCount();
+    if (DONEN) DONEN.textContent = n ? (" " + fmtNum(n) + " 条") : "";
+    if (!n) {
+      S.withDone = false;
+      if (CHK) { CHK.checked = false; CHK.disabled = true; }
+      if (DONETIP) DONETIP.textContent = "还没有这份索引：打开一次海报墙页就会生成（只有日期，影音在豆瓣导出里没有观看时间）";
+      return;
+    }
+    if (CHK) CHK.disabled = false;
+    if (DONETIP) DONETIP.textContent = S.withDone
+      ? "已计入：只有日期、没有时刻；影音没有观看时间，不在其中"
+      : "默认不计入，勾上才显示";
+  }
+  if (CHK) {
+    CHK.addEventListener("change", function(){
+      S.withDone = !!CHK.checked;
+      S.limit = PAGE;
+      refresh(true);
+      if (S.withDone) toast("已计入历史读完记录");
+    });
+  }
 
   /* ---------------- 旅行日记（IndexedDB，只读探测） ----------------
      关键：不能裸 open 以防建出空库。地图页建库时带 version 1 才建 store，
@@ -816,7 +934,8 @@
   /* ---------------- 启动 ---------------- */
   function refresh(silent){
     DIY = Object.create(null);
-    var r = CORE ? CORE.collect() : { events: [], counts: {}, stats: { total: 0 } };
+    syncDoneSwitch();     /* 先定开关可用性与 S.withDone，再收集，避免多收一轮 */
+    var r = CORE ? CORE.collect({ withDone: !!S.withDone }) : { events: [], counts: {}, stats: { total: 0 } };
     ALL = r.events.slice();
     renderChips();
     renderYears();
