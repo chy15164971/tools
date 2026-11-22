@@ -1796,6 +1796,7 @@
     <a href="书影音海报墙.html" data-page="media">海报墙</a>
     <a href="观剧记录.html" data-page="theatre">观剧</a>
     <a href="旅行地图.html" data-page="map">地图</a>
+    <a href="时间线.html" data-page="timeline">时间线</a>
   </div>
   <span class="__wsn_hint">同一工作台 · 数据保存在本机</span>
 </nav>
@@ -3347,6 +3348,7 @@ function pushTomb(id){ const s=String(id||""); if(!s) return; const i=deletedIds
     if (f.indexOf("书影音海报墙") >= 0 || f.indexOf("media") >= 0) return "media";
     if (f.indexOf("观剧") >= 0 || f.indexOf("theatre") >= 0) return "theatre";
     if (f.indexOf("旅行地图") >= 0 || f.indexOf("map") >= 0) return "map";
+    if (f.indexOf("时间线") >= 0 || f.indexOf("timeline") >= 0) return "timeline";
     return "";
   }
 

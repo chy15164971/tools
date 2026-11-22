@@ -4,7 +4,7 @@
 <script>try{var _t=localStorage.getItem("wb_theme_v1")||localStorage.getItem("wb_workbench_theme");if(_t)document.documentElement.setAttribute("data-theme",_t);else if(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)document.documentElement.setAttribute("data-theme","dark");}catch(e){}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>工作台 · 任务台 / 明信片 / 海报墙 / 观剧 / 地图</title>
+<title>工作台 · 任务台 / 明信片 / 海报墙 / 观剧 / 地图 / 时间线</title>
 <meta name="theme-color" content="#4F7CFF">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
@@ -21,6 +21,8 @@
     /* 2026-11-22 五卡：观剧与地图补专属图标配色（此前无这两页，故缺 token） */
     --ico-bg-theatre:#fdf1e7; --ico-fg-theatre:#a8521d;
     --ico-bg-map:#e6f7f1;     --ico-fg-map:#0b7a60;
+    /* 2026-11-22 第六张：时间线（汇总视图，用中性靛蓝与前五张区分） */
+    --ico-bg-tl:#e8eefc;      --ico-fg-tl:#2b4a9e;
     /* 概览卡小字：共享 --sub(#6b7280) 压 --hover(#f4f6fb) 仅 4.471:1，低于 AA 4.5；
        用稍深的灰提到 5.22:1。此变量属门户私有，勿写进 SHARED TOKENS 标记区。 */
     --ov-sub:#5f6875;
@@ -32,6 +34,7 @@
     --ico-bg-media:#2a2140;  --ico-fg-media:#b79aff;
     --ico-bg-theatre:#38251a; --ico-fg-theatre:#f0b083;
     --ico-bg-map:#12312b;     --ico-fg-map:#6fd8b8;
+    --ico-bg-tl:#1b2340;      --ico-fg-tl:#9db4ff;
     --ov-sub:#9aa3b2;  /* 暗色沿用原 --sub，实测 6.20:1 达标 */
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -59,6 +62,15 @@
         border-radius:var(--radius-lg);padding:22px;min-height:300px;box-shadow:var(--shadow);
         transition:transform .18s ease,box-shadow .18s ease;text-decoration:none;color:inherit}
   .card.wide{grid-column:span 3}
+  /* 第六张（时间线）是汇总视图，横跨整行：左侧图标+标题+说明，右侧四个指标，避免全宽卡中间大片留白 */
+  .card.full{grid-column:1/-1;min-height:auto;padding:20px 22px}
+  .full-in{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+  .full-in .ico{margin-bottom:0}
+  .full-in .txt{flex:1 1 240px;min-width:0}
+  .full-in .desc{min-height:0}
+  .card.full .metrics{margin:0;padding:0;border:0;flex:0 1 auto;justify-content:flex-end}
+  .card .ico svg{width:22px;height:22px;display:block}
+  .metric .n.sm{font-size:15px;font-weight:500;line-height:1.45;font-variant-numeric:tabular-nums}
   .card:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover)}
   .card:focus-visible{outline:2px solid var(--pri);outline-offset:3px}
   .card .ico{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;
@@ -68,6 +80,7 @@
   .ico-media{background:var(--ico-bg-media);color:var(--ico-fg-media)}
   .ico-theatre{background:var(--ico-bg-theatre);color:var(--ico-fg-theatre)}
   .ico-map{background:var(--ico-bg-map);color:var(--ico-fg-map)}
+  .ico-tl{background:var(--ico-bg-tl);color:var(--ico-fg-tl)}
   .card h2{font-size:18px;font-weight:600;margin-bottom:4px}
   .card .desc{font-size:13px;color:var(--sub);min-height:40px}
   .metrics{display:flex;gap:18px;flex-wrap:wrap;margin:14px 0 16px;padding:12px 0;
@@ -196,6 +209,7 @@
     <a href="书影音海报墙.html" data-page="media">海报墙</a>
     <a href="观剧记录.html" data-page="theatre">观剧</a>
     <a href="旅行地图.html" data-page="map">地图</a>
+    <a href="时间线.html" data-page="timeline">时间线</a>
   </div>
   <span class="__wsn_hint">同一工作台 · 数据保存在本机</span>
 </nav>
@@ -207,7 +221,7 @@
       <span class="logo" aria-hidden="true"></span>
       <div class="tt">
         <h1>工作台</h1>
-        <p>任务台 · 明信片追踪 · 书影音海报墙 · 观剧记录 · 旅行地图，五个页面共用一个入口</p>
+        <p>任务台 · 明信片追踪 · 书影音海报墙 · 观剧记录 · 旅行地图 · 时间线，六个页面共用一个入口</p>
       </div>
     </div>
     <div class="acts">
@@ -275,6 +289,23 @@
       </div>
       <div class="go">打开旅行地图 →</div>
     </a>
+
+    <a class="card full" href="时间线.html" id="cardTimeline">
+      <div class="full-in">
+        <div class="ico ico-tl" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 3.5v17"/><circle cx="6" cy="8" r="2.4" fill="currentColor" stroke="none"/><circle cx="6" cy="16.5" r="2.4" fill="currentColor" stroke="none"/><path d="M12 8h7.5M12 16.5h5.5"/></svg></div>
+        <div class="txt">
+          <h2>时间线</h2>
+          <div class="desc">把六个页面里发生的事按时间串成一条线：任务完成、习惯打卡、寄出与收到明信片、海报墙感想、观剧、点亮足迹与旅行日记</div>
+        </div>
+        <div class="metrics">
+          <div class="metric"><div class="n" id="mTlAll">—</div><div class="l">可追溯事件</div></div>
+          <div class="metric"><div class="n" id="mTlYear">—</div><div class="l">今年</div></div>
+          <div class="metric"><div class="n" id="mTlMonth">—</div><div class="l">本月</div></div>
+          <div class="metric"><div class="n sm" id="mTlFirst">—</div><div class="l">最早记录</div></div>
+        </div>
+      </div>
+      <div class="go">打开时间线 →</div>
+    </a>
   </div>
 
   <section class="overview" aria-label="本机数据概览">
@@ -286,7 +317,7 @@
       <div class="ov-cell">
         <div class="k">本机记录合计</div>
         <div class="v big" id="ovTotal">—</div>
-        <div class="s">五个页面已保存的记录与点亮数</div>
+        <div class="s">前五页已保存的记录与点亮数</div>
       </div>
       <div class="ov-cell">
         <div class="k">任务数据状态</div>
@@ -314,7 +345,7 @@
         <div class="s" id="ovMapS">待读取</div>
       </div>
     </div>
-    <p class="ov-note">以上数字来自同一浏览器本机保存的摘要（任务 / 明信片 / 媒体 / 观剧 / 地图五项），本页只读不写；显示「—」表示对应页面尚未在本机保存过数据，在该页保存过记录后才会出现。地图的「点亮」读自该页本机状态，地点日记本身存在 IndexedDB，不计入此处。点击卡片进入对应工作台。</p>
+    <p class="ov-note">以上数字来自同一浏览器本机保存的摘要（任务 / 明信片 / 媒体 / 观剧 / 地图五项），本页只读不写；显示「—」表示对应页面尚未在本机保存过数据，在该页保存过记录后才会出现。地图的「点亮」读自该页本机状态，地点日记本身存在 IndexedDB，不计入此处。时间线是汇总视图，自身不保存任何数据，它的数字由前五页的记录实时合并得出。点击卡片进入对应工作台。</p>
   </section>
 
   <div class="foot" id="foot">
@@ -324,6 +355,267 @@
 </div>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>/* >>> TIMELINE-CORE:BEGIN —— 由 _shared/timeline-core.js 自动生成，请勿直接编辑本块 */
+/* ============================================================
+   TIMELINE-CORE（2026-11-22）— 时间线事件解析层
+   ------------------------------------------------------------
+   唯一真相源：_shared/timeline-core.js，由 inject_shared.py 内联进
+   时间线.html 与 home.html（首页只取统计数字，不渲染完整时间轴）。
+
+   为什么抽出来：首页卡片要显示「本年事件数」，时间线页要渲染完整事件流。
+   若两处各写一套解析，一旦某页的数据结构微调（比如明信片字段改名），
+   就会出现「首页显示 120 件、时间线只有 98 件」的口径分叉。
+   项目既有铁律是「唯一真相源 + 注入」，这里沿用同一套机制。
+
+   铁律（与 shared.js 的教训一致）：
+   - 整块必须包在 IIFE 里，只向 window 挂一个 __TL_CORE，
+     不产生任何顶层声明，避免与宿主页面同名变量冲突导致白屏。
+   - 只读 localStorage，不写任何键；不修改任何页面的数据。
+   - 读不到 / 解析失败一律静默降级为「0 条」，绝不伪造时间。
+
+   事件模型：
+     { ts, precise, kind, src, title, sub, href }
+     ts       毫秒时间戳（日级事件取当日 00:00）
+     precise  是否有真实时刻。false = 只知道日期（明信片/观剧/日记/补打卡）
+     kind     task | habit | postcard | media | theatre | map | diary
+     src      去重用的稳定标识（同一任务同一天只留一条，精确版优先）
+   ============================================================ */
+(function(){
+  if (typeof window === "undefined") return;
+
+  var DAY_MS = 86400000;
+  var KINDS = ["task", "habit", "postcard", "media", "theatre", "map", "diary"];
+  var LABEL = { task:"任务", habit:"习惯", postcard:"明信片", media:"海报墙", theatre:"观剧", map:"地图", diary:"日记" };
+  var HREF  = {
+    task:"任务管理台.html", habit:"任务管理台.html",
+    postcard:"明信片追踪.html", media:"书影音海报墙.html",
+    theatre:"观剧记录.html", map:"旅行地图.html", diary:"旅行地图.html"
+  };
+
+  function pad2(n){ return (n < 10 ? "0" : "") + n; }
+
+  function ls(key){
+    try {
+      var raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+
+  /* 只认日期部分，兼容 2026-11-22 / 2026/11/22 / 2026.11.22 / 2026-11-22T10:30 */
+  function parseDay(v){
+    if (v === null || v === undefined || v === "") return 0;
+    var m = String(v).match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+    if (!m) return 0;
+    var t = new Date(+m[1], +m[2] - 1, +m[3]).getTime();
+    return isFinite(t) ? t : 0;
+  }
+
+  /* 任务台的 doneAt 值形如 "2026-11-22T14:30"；也容忍纯数字毫秒与 Date 可解析串 */
+  function parseStamp(v){
+    if (v === null || v === undefined || v === "") return 0;
+    if (typeof v === "number") return isFinite(v) ? v : 0;
+    var s = String(v);
+    var n = Number(s);
+    if (s.length > 10 && isFinite(n)) return n;
+    var t = Date.parse(s.indexOf(" ") > 0 ? s.replace(" ", "T") : s);
+    if (isFinite(t)) return t;
+    return parseDay(s);          /* 只剩日期时退回日级 */
+  }
+
+  function hasTime(v){
+    return /T\d{1,2}:\d{2}/.test(String(v)) || /^\d{13}$/.test(String(v));
+  }
+
+  function dayKey(ts){
+    var d = new Date(ts);
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+  }
+
+  function sameDay(a, b){
+    return dayKey(a) === dayKey(b);
+  }
+
+  /* 日级事件排在当日最后：降序时它落在当天所有精确事件的下方，不会被误读成「凌晨发生」。
+     注意不能靠「ts + 86399999」来达成——那会让它跑到当天最上面，正好相反（调试时踩过）。
+     用显式比较器：先按日，同日精确在前，同精度再按时刻。 */
+  function dayStart(ts){
+    var d = new Date(ts);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }
+  function cmp(a, b){
+    var da = dayStart(a.ts), db = dayStart(b.ts);
+    if (da !== db) return db - da;                      /* 降序：日期晚的在前 */
+    if (a.precise !== b.precise) return a.precise ? -1 : 1;  /* 同日：有时刻的在前 */
+    return b.ts - a.ts;
+  }
+  function sortTs(e){
+    return e.precise ? e.ts : e.ts + (DAY_MS - 1);
+  }
+
+  function collect(){
+    var events = [];
+    var seen = Object.create(null);
+    var counts = { task:0, habit:0, postcard:0, media:0, theatre:0, map:0, diary:0 };
+
+    function push(kind, src, ts, precise, title, sub){
+      if (!ts || !isFinite(ts)) return;
+      var k = kind + "|" + src + "|" + dayKey(ts);
+      var old = seen[k];
+      if (old && (old.precise || !precise)) return;   /* 已有更精确的记录，日级不再重复计 */
+      if (old) {
+        var i = events.indexOf(old);
+        if (i >= 0) events.splice(i, 1);
+      }
+      var e = {
+        ts: +ts, precise: !!precise, kind: kind, src: src,
+        title: title, sub: sub || "", href: HREF[kind]
+      };
+      seen[k] = e;
+      events.push(e);
+      counts[kind]++;
+    }
+
+    /* ---------- 1. 任务完成 ---------- */
+    var tasks = ls("wb_taskhub_v1");
+    if (Array.isArray(tasks)) {
+      tasks.forEach(function(t){
+        if (!t || typeof t !== "object") return;
+        var name = String(t.title || "未命名任务");
+        var sub = String(t.cat || t.pri || "");
+        var id = String(t.id || name);
+        var da = t.doneAt;
+        if (da && typeof da === "object") {
+          Object.keys(da).forEach(function(key){
+            var raw = da[key];
+            var ts = parseStamp(raw);
+            if (!ts) return;
+            push("task", id, ts, hasTime(raw), "完成 " + name, sub);
+          });
+        }
+        /* 老数据只有 doneDates（做完才补 doneAt 之前的历史）：仅在该日没有精确记录时兜底 */
+        var dd = t.doneDates;
+        if (Array.isArray(dd)) {
+          dd.forEach(function(d){
+            var base = parseDay(d);
+            if (!base) return;
+            push("task", id, base, false, "完成 " + name, sub);
+          });
+        }
+      });
+    }
+
+    /* ---------- 2. 习惯打卡 ---------- */
+    var habits = ls("wb_taskhub_habits_v1");
+    if (Array.isArray(habits)) {
+      habits.forEach(function(h){
+        if (!h || typeof h !== "object") return;
+        var days = Array.isArray(h.days) ? h.days : [];
+        var dts = (h.dayTs && typeof h.dayTs === "object") ? h.dayTs : {};
+        var nm = String(h.name || "习惯");
+        var hid = String(h.id || nm);
+        days.forEach(function(d){
+          var base = parseDay(d);
+          if (!base) return;
+          var t = Number(dts[d]) || 0;
+          /* 补打卡时 dayTs 记的是「操作那一刻」，与补的日期不同，那就不该冒充打卡时刻 */
+          var ok = t > 0 && sameDay(t, base);
+          push("habit", hid + ":" + dayKey(base), ok ? t : base, ok, "打卡 · " + nm, "");
+        });
+      });
+    }
+
+    /* ---------- 3. 明信片（寄出 / 抵达 / 收到）---------- */
+    var pc = ls("wb_postcards_v1");
+    if (pc && typeof pc === "object") {
+      var sent = Array.isArray(pc.postcards) ? pc.postcards : [];
+      sent.forEach(function(c){
+        if (!c || typeof c !== "object") return;
+        var who = [c.recipient, c.country, c.city].filter(Boolean).join(" · ");
+        var cid = String(c.id || who);
+        push("postcard", cid + ":sent", parseDay(c.sent), false, "寄出明信片", who);
+        push("postcard", cid + ":arr", parseDay(c.arrived), false, "明信片抵达", who);
+      });
+      var recv = Array.isArray(pc.received) ? pc.received : [];
+      recv.forEach(function(r){
+        if (!r || typeof r !== "object") return;
+        var who = [r.sender, r.country, r.city].filter(Boolean).join(" · ");
+        push("postcard", String(r.id || who) + ":recv", parseDay(r.received), false, "收到明信片", who);
+      });
+    }
+
+    /* ---------- 4. 海报墙感想 ---------- */
+    var rv = ls("wb_mediawall_reviews_v1");
+    if (rv && typeof rv === "object") {
+      Object.keys(rv).forEach(function(k){
+        var v = rv[k];
+        if (!v || typeof v !== "object" || v._del || !v.ts) return;
+        var parts = String(k).replace(/^rk1\|/, "").split("|");
+        var title = parts[0] || "未命名条目";
+        var sub = [parts[1], parts[2]].filter(Boolean).join(" · ");
+        push("media", "rv:" + k, Number(v.ts) || 0, true, "写了感想《" + title + "》", sub);
+      });
+    }
+
+    /* ---------- 5. 观剧记录 ---------- */
+    var th = ls("wb_theatre_v1");
+    if (th && typeof th === "object") {
+      var recs = Array.isArray(th.records) ? th.records : [];
+      recs.forEach(function(r){
+        if (!r || typeof r !== "object") return;
+        var base = parseDay(r.date);
+        if (!base) return;
+        push("theatre", String(r.id || "th" + base), base, false,
+             "看了《" + (r.name || "未命名") + "》", [r.venue, r.type].filter(Boolean).join(" · "));
+      });
+    }
+
+    /* ---------- 6. 地图点亮（v26 起才有 litAt；更早的点亮没有时刻，无法进时间线）---------- */
+    var mp = ls("wb_travel_map_v1");
+    var la = mp && mp.litAt;
+    if (la && typeof la === "object" && !Array.isArray(la)) {
+      Object.keys(la).forEach(function(k){
+        var v = la[k];
+        var t = (v && typeof v === "object") ? Number(v.t) : Number(v);
+        if (!t) return;
+        var nm = (v && typeof v === "object" && v.n) ? String(v.n) : String(k).split(":").pop();
+        push("map", "lit:" + k, t, true, "点亮了 " + nm, "旅行足迹");
+      });
+    }
+
+    events.sort(cmp);
+    return { events: events, counts: counts, stats: statsOf(events) };
+  }
+
+  function statsOf(events){
+    var now = new Date();
+    var cy = now.getFullYear(), cm = now.getMonth();
+    var days = Object.create(null);
+    var thisYear = 0, thisMonth = 0, firstTs = 0, lastTs = 0;
+    events.forEach(function(e){
+      var d = new Date(e.ts);
+      days[dayKey(e.ts)] = 1;
+      if (d.getFullYear() === cy) {
+        thisYear++;
+        if (d.getMonth() === cm) thisMonth++;
+      }
+      if (!firstTs || e.ts < firstTs) firstTs = e.ts;
+      if (e.ts > lastTs) lastTs = e.ts;
+    });
+    return {
+      total: events.length, thisYear: thisYear, thisMonth: thisMonth,
+      days: Object.keys(days).length, firstTs: firstTs, lastTs: lastTs
+    };
+  }
+
+  window.__TL_CORE = {
+    collect: collect, statsOf: statsOf,
+    parseDay: parseDay, parseStamp: parseStamp, dayKey: dayKey, cmp: cmp, sortTs: sortTs,
+    KINDS: KINDS, LABEL: LABEL, HREF: HREF
+  };
+})();
+/* <<< TIMELINE-CORE:END */</script>
 
 <script>
 (function(){
@@ -534,6 +826,29 @@
     }
   }
 
+  /* ===== 摘要：时间线（六源合并统计）=====
+     解析逻辑不在本页复制，走注入的 TIMELINE-CORE（与「时间线」页同一份源码），
+     否则两处口径一旦分叉就会出现「首页说有 120 件、时间线只有 98 件」。
+     只取统计数字，不在这里渲染时间轴。 */
+  var _tlCache = null;
+  function summaryTimeline(){
+    if(_tlCache !== null) return _tlCache;
+    var C = window.__TL_CORE;
+    if(!C){ _tlCache = null; return null; }
+    try{
+      var r = C.collect();
+      _tlCache = (r && r.events && r.events.length) ? r.stats : null;
+    }catch(e){
+      console.warn("[home] 时间线统计读取失败：", e);
+      _tlCache = null;
+    }
+    return _tlCache;
+  }
+  function fmtDay(ts){
+    var d=new Date(ts);
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  }
+
   /* ===== 概览卡：三个摘要数据 + 媒体计数兜底缓存，不写入业务数据 ===== */
   function ovSet(id, v, statusId, okHead, unit){
     setText(id, v);
@@ -565,13 +880,20 @@
   }
 
   function render(keepTime){
+    if(!keepTime) _tlCache=null;   /* 用户点「刷新摘要」时重算；兜底抓取触发的 render(true) 沿用缓存 */
     var t=summaryTasks(), p=summaryPostcards(), m=summaryMedia();
-    var th=summaryTheatre(), mp=summaryMap();
+    var th=summaryTheatre(), mp=summaryMap(), tl=summaryTimeline();
     setText("mTaskOpen", t?t.open:null); setText("mTaskDone", t?t.done:null); setText("mTaskAll", t?t.all:null);
     setText("mPcTransit", p?p.transit:null); setText("mPcArrived", p?p.arrived:null); setText("mPcAll", p?p.all:null);
     setText("mMediaAll", m.total); setText("mMediaCustom", m.custom===null?null:m.custom);
     setText("mThShows", th?th.shows:null); setText("mThWish", th?th.wish:null); setText("mThCity", th?th.cities:null);
     setText("mMapCn", mp?mp.province:null); setText("mMapCity", mp?mp.cnCity:null); setText("mMapWorld", mp?mp.world:null);
+    setText("mTlAll", tl?tl.total:null); setText("mTlYear", tl?tl.thisYear:null); setText("mTlMonth", tl?tl.thisMonth:null);
+    var mTlFirst=document.getElementById("mTlFirst");
+    if(mTlFirst){
+      if(tl && tl.firstTs){ mTlFirst.textContent=fmtDay(tl.firstTs); mTlFirst.classList.remove("dim"); }
+      else { mTlFirst.textContent="—"; mTlFirst.classList.add("dim"); }
+    }
     var lab=document.getElementById("mMediaAllLabel");
     if(lab) lab.textContent="已记录（含自定义 / 代查）";   /* P3-6：两来源口径已对齐，标签不再跳变 */
     renderOverview(t, p, m, th, mp, keepTime);
@@ -622,6 +944,7 @@
     if (f.indexOf("书影音海报墙") >= 0 || f.indexOf("media") >= 0) return "media";
     if (f.indexOf("观剧") >= 0 || f.indexOf("theatre") >= 0) return "theatre";
     if (f.indexOf("旅行地图") >= 0 || f.indexOf("map") >= 0) return "map";
+    if (f.indexOf("时间线") >= 0 || f.indexOf("timeline") >= 0) return "timeline";
     return "";
   }
 

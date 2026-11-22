@@ -160,6 +160,7 @@ aside{width:290px;flex:none;display:flex;flex-direction:column;background:var(--
     <a href="书影音海报墙.html" data-page="media">海报墙</a>
     <a href="观剧记录.html" data-page="theatre">观剧</a>
     <a href="旅行地图.html" data-page="map">地图</a>
+    <a href="时间线.html" data-page="timeline">时间线</a>
   </div>
   <span class="__wsn_hint">同一工作台 · 数据保存在本机</span>
 </nav>
@@ -790,7 +791,10 @@ function hit(p,kw){
     || p.id===q;
 }
 const KEY='wb_travel_map_v1';
-let state={china:[],world:[],cnCities:[],worldCountries:[]};
+/* litAt：点亮时刻表 { 唯一键k: {t:毫秒, n:地名} }。v26 新增，供「时间线」页串联事件。
+   值里存地名，是因为时间线页不加载 550 条地名表也能显示「点亮了葡萄牙」；
+   旧数据没有这个字段，一律按「时刻未知」处理，绝不伪造成当前时间。 */
+let state={china:[],world:[],cnCities:[],worldCountries:[],litAt:{}};
 try{
   const s=JSON.parse(localStorage.getItem(KEY)||'null');
   if(s&&typeof s==='object'){
@@ -798,10 +802,17 @@ try{
       china:Array.isArray(s.china)?s.china:[],
       world:Array.isArray(s.world)?s.world: [],
       cnCities:Array.isArray(s.cnCities)?s.cnCities:[],
-      worldCountries:Array.isArray(s.worldCountries)?s.worldCountries:[]
+      worldCountries:Array.isArray(s.worldCountries)?s.worldCountries:[],
+      litAt:(s.litAt&&typeof s.litAt==='object'&&!Array.isArray(s.litAt))?s.litAt:{}
     };
   }
 }catch(e){ toast('历史点亮读取失败，已按空白状态开始'); }
+function stampLit(p,on){
+  if(!p||!p.k)return;
+  if(!state.litAt||typeof state.litAt!=='object')state.litAt={};
+  if(on)state.litAt[p.k]={t:Date.now(),n:p.name};
+  else delete state.litAt[p.k];
+}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){toast('保存失败：点亮未写入本机，请检查浏览器存储权限');}}
 let region='china', level='province';
 const listEl=document.getElementById('list');
@@ -1009,25 +1020,35 @@ function updateStat(){
 function renderAll(){renderList();renderMarkers();updateStat();}
 function syncParent(pid,on){
   const arr=state[parentBucket()];
-  if(on){if(arr.indexOf(pid)<0)arr.push(pid);}
+  if(on){if(arr.indexOf(pid)<0)arr.push(pid);}   /* 合成点亮不写 litAt：用户点的是城市，不是省份 */
   else{
     const still=childList().some(c=>c[parentKey()]===pid&&state[childBucket()].includes(c.id));
-    if(!still){const i=arr.indexOf(pid);if(i>=0)arr.splice(i,1);}
+    if(!still){
+      const i=arr.indexOf(pid);
+      if(i>=0){
+        arr.splice(i,1);
+        /* 省份被「最后一个城市取消」连带撤销时，必须同时清掉它自己的点亮时刻，
+           否则时间线会留一条「点亮过广东」而地图上广东已经不亮。 */
+        const pp=parentList().find(x=>x.id===pid);
+        if(pp)stampLit(pp,false);
+      }
+    }
   }
 }
 function toggle(id){
   /* S-6：重绘前记录键盘焦点所在的列表项 id，renderAll 重建 DOM 后还原，避免键盘用户焦点丢失 */
   const focusId=(document.activeElement&&document.activeElement.dataset&&document.activeElement.classList.contains('place'))
     ?document.activeElement.dataset.id:null;
+  const _p=(isCityMode()?childList():parentList()).find(x=>x.id===id);
   if(isCityMode()){
     const c=childList().find(x=>x.id===id);
     const arr=state[childBucket()];
     const i=arr.indexOf(id);
-    if(i>=0){arr.splice(i,1);if(c)syncParent(c[parentKey()],false);}
-    else{arr.push(id);if(c)syncParent(c[parentKey()],true);}
+    if(i>=0){arr.splice(i,1);stampLit(_p,false);if(c)syncParent(c[parentKey()],false);}
+    else{arr.push(id);stampLit(_p,true);if(c)syncParent(c[parentKey()],true);}
   }else{
     const arr=state[parentBucket()], i=arr.indexOf(id);
-    if(i>=0)arr.splice(i,1);else arr.push(id);
+    if(i>=0){arr.splice(i,1);stampLit(_p,false);}else{arr.push(id);stampLit(_p,true);}
   }
   save();renderAll();
   if(focusId){const el=Array.prototype.find.call(listEl.querySelectorAll('.place'),x=>x.dataset.id===focusId);if(el)el.focus();}
@@ -1330,6 +1351,7 @@ migrateDiaryKeys().then(refreshCounts).catch(refreshCounts);
     if (f.indexOf("书影音海报墙") >= 0 || f.indexOf("media") >= 0) return "media";
     if (f.indexOf("观剧") >= 0 || f.indexOf("theatre") >= 0) return "theatre";
     if (f.indexOf("旅行地图") >= 0 || f.indexOf("map") >= 0) return "map";
+    if (f.indexOf("时间线") >= 0 || f.indexOf("timeline") >= 0) return "timeline";
     return "";
   }
 

@@ -24,6 +24,7 @@
     if (f.indexOf("书影音海报墙") >= 0 || f.indexOf("media") >= 0) return "media";
     if (f.indexOf("观剧") >= 0 || f.indexOf("theatre") >= 0) return "theatre";
     if (f.indexOf("旅行地图") >= 0 || f.indexOf("map") >= 0) return "map";
+    if (f.indexOf("时间线") >= 0 || f.indexOf("timeline") >= 0) return "timeline";
     return "";
   }
 

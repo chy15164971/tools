@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<script>/* 主题初值统一（与其余七页同口径）：显式选择优先 → 无值跟随系统 → 默认亮色 */try{var _t=localStorage.getItem("wb_theme_v1");if(!_t&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)_t="dark";if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>时间线 · 工作台</title>
+<meta name="theme-color" content="#4F7CFF">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<style>
+  /* === 时间线页私有 token（写在 SHARED TOKENS 标记区之外，sync_tokens.js 不触碰）=== */
+  :root{
+    --tl-task:#2F5FE0;   --tl-task-bg:#eaf0ff;
+    --tl-habit:#0b7a4a;  --tl-habit-bg:#e6f6ec;
+    --tl-pc:#b23c62;     --tl-pc-bg:#fdeaf1;
+    --tl-media:#6d3fd6;  --tl-media-bg:#f0eafe;
+    --tl-th:#a8521d;     --tl-th-bg:#fdf1e7;
+    --tl-map:#0b7a60;    --tl-map-bg:#e6f7f1;
+    --tl-diary:#0b5f8a;  --tl-diary-bg:#e7f2f9;
+    --tl-dim:#8b93a3;
+    /* --sub(#6b7280) 压在页面底色 --bg(#f5f7fb) 上只有 4.16:1，不达 AA；
+       页脚说明、月份标题这类「压在底色而非卡片上」的小字改用这个稍深的灰 */
+    --tl-sub:#5c6472;
+  }
+  [data-theme="dark"]{
+    --tl-task:#8fb0ff;   --tl-task-bg:#1c2740;
+    --tl-habit:#86e0a8;  --tl-habit-bg:#12301f;
+    --tl-pc:#f19ab8;     --tl-pc-bg:#3a1f2c;
+    --tl-media:#b79aff;  --tl-media-bg:#2a2140;
+    --tl-th:#f0b083;     --tl-th-bg:#38251a;
+    --tl-map:#6fd8b8;    --tl-map-bg:#12312b;
+    --tl-diary:#7cc4e8;  --tl-diary-bg:#12283a;
+    --tl-dim:#7c869a;
+    --tl-sub:#9aa3b2;
+  }
+  /* === SHARED TOKENS START === */
+  :root{
+    --bg:#f5f7fb; --card:#ffffff; --ink:#1f2430; --text:#1f2430; --sub:#6b7280; --line:#e7ebf2;
+    /* --pri-ink：主色当**文字**用（#4F7CFF 白底仅 3.71:1 不达标）→ 5.48:1
+       --pri-deep：主色当**底色**、上面压白色小字（12.5–14px 不到大文本门槛）→ 4.73:1
+       纯填充（进度条/图标/色点）继续用 --pri，不受影响。 */
+    --pri-ink:#2F5FE0; --pri-deep:#3D68F0;
+    --pri:#4F7CFF; --pri-soft:#eaf0ff; --ok:#22b07d; --ok-soft:#e7f6ec; --warn:#ff8a3d; --danger:#ef4444;
+    /* 数据色（c4 媒体剧集 / c5 兜底灰在用；c1~c3 已删除，分类/优先级用用户自定义色） */
+    --c4:#ff5c8a; --c5:#9aa0ab; --c6:#9b6bff;
+    --chip-bg:#6b7280;
+    --radius:12px; --radius-sm:8px; --radius-lg:16px; --shadow:0 2px 10px rgba(31,36,48,.06);
+    /* cloudpill / 菜单 hover 此前引用未定义值导致样式退化，统一补全 */
+    --bg2:#f5f7fb; --muted:#6b7280; --hover:#f4f6fb; --soft:#f1f4f9;
+  --accent:#7c5cff; --white:#fff; --ink-strong:#1f2430; }
+  [data-theme="dark"]{
+    --bg:#0f1320; --card:#171c2b; --ink:#e7ebf3; --text:#e7ebf3; --sub:#9aa3b2; --line:#262d3f;
+    --pri-ink:#8FABFF; --pri-deep:#3D68F0;
+    --pri:#5b86ff; --pri-soft:#1c2740; --hover:#1c2236; --bg2:#11162a; --muted:#9aa3b2;
+    --ok:#2dd4a0; --ok-soft:#10312a; --warn:#ff9a52; --danger:#ff5d5d;
+    --c4:#ff7aa6; --c5:#5a6478; --c6:#b08cff;
+    /* 深色下 --muted 是浅灰（#9aa3b2），压白字只有 ~2.4:1 → chip 底色另给一个深灰 */
+    --chip-bg:#5a6478;
+    --shadow:0 2px 10px rgba(0,0,0,.32);
+    --soft:#1c2233;
+  --accent:#9b8cff;
+  /* G19（2026-10-23 修）：dark 补定义 --ink-strong —— 原漏覆盖仍为亮色值 #1f2430，
+     深色下 .today-sec-act:hover 等引用处深字压深底近乎隐形 */
+  --ink-strong:#e7ebf3; }
+  /* === SHARED TOKENS END === */
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+       font-size:15px;background:var(--bg);color:var(--ink);min-height:100vh;min-height:100dvh;line-height:1.6;
+       transition:background .2s ease,color .2s ease}
+  .wrap{max-width:880px;margin:0 auto;padding:20px 18px calc(40px + env(safe-area-inset-bottom))}
+
+  .head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+  .brand{display:flex;align-items:center;gap:12px;flex:1;min-width:220px}
+  .logo{width:36px;height:36px;border-radius:10px;flex:none;display:block;
+        background:url(icons/workbench-icon.svg) center/cover no-repeat;
+        box-shadow:0 2px 8px rgba(79,124,255,.28)}
+  .head h1{font-size:26px;font-weight:600;letter-spacing:.01em;line-height:1.25}
+  .head p{font-size:13px;color:var(--sub);margin-top:4px}
+  .acts{display:flex;gap:8px;flex-wrap:wrap}
+  .btn{font:inherit;font-size:12.5px;padding:7px 13px;border-radius:999px;border:1px solid var(--line);
+       background:var(--card);color:var(--ink);cursor:pointer;transition:background .15s ease,border-color .15s ease}
+  .btn:hover{background:var(--hover);border-color:var(--pri)}
+  .btn:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+  .btn:active{transform:scale(.96)}
+  .ic{width:16px;height:16px;flex:none;vertical-align:-2px;margin-right:5px}
+
+  /* 统计条：跟随筛选结果变化，选「观剧」时看到的就是观剧的今年/本月/最早 */
+  .sum{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .cell{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:13px 15px;box-shadow:var(--shadow)}
+  .cell .k{font-size:12px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cell .v{font-size:23px;font-weight:600;line-height:1.25;margin-top:3px;font-variant-numeric:tabular-nums}
+  .cell .v.sm{font-size:14px;font-weight:500}
+  .cell .v.dim{color:var(--sub);font-weight:400}
+
+  .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:6px}
+  .chips{display:flex;gap:6px;overflow-x:auto;flex:1 1 100%;min-width:0;padding-bottom:2px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:none;font:inherit;font-size:12.5px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);
+        background:var(--card);color:var(--sub);cursor:pointer;white-space:nowrap;transition:background .15s ease,color .15s ease}
+  .chip:hover{background:var(--hover);color:var(--ink)}
+  .chip[aria-pressed="true"]{background:var(--pri-deep);border-color:var(--pri-deep);color:#fff}
+  .chip:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+  .chip .n{opacity:.72;margin-left:4px;font-variant-numeric:tabular-nums}
+  .tools{display:flex;gap:8px;flex:1 1 100%}
+  .tools input,.tools select{font:inherit;font-size:13px;padding:7px 12px;border-radius:999px;
+        border:1px solid var(--line);background:var(--card);color:var(--ink);min-width:0}
+  .tools input{flex:1}
+  .tools select{flex:none;cursor:pointer}
+  .tools input:focus-visible,.tools select:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+
+  /* 时间轴：竖线画在内容区左侧，事件卡自带节点圆点 */
+  .feed{position:relative;padding-left:28px;margin-top:14px}
+  .feed::before{content:"";position:absolute;left:8px;top:10px;bottom:10px;width:2px;border-radius:1px;background:var(--line)}
+  .yr{position:relative;margin:20px 0 4px;font-size:19px;font-weight:600;letter-spacing:.01em}
+  .yr:first-child{margin-top:2px}
+  .yr::before{content:"";position:absolute;left:-26px;top:50%;transform:translateY(-50%);
+        width:13px;height:13px;border-radius:50%;background:var(--pri);box-shadow:0 0 0 4px var(--bg)}
+  .mo{position:sticky;top:0;z-index:2;background:var(--bg);padding:7px 0 6px;font-size:12.5px;
+      font-weight:600;color:var(--tl-sub);letter-spacing:.04em}
+
+  .ev{position:relative;display:block;text-decoration:none;color:inherit;background:var(--card);
+      border:1px solid var(--line);border-radius:var(--radius);padding:11px 14px;margin-bottom:8px;
+      transition:border-color .15s ease,transform .15s ease}
+  .ev:hover{border-color:var(--pri);transform:translateX(2px)}
+  .ev:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+  .ev:active{transform:translateX(1px) scale(.995)}
+  .ev::before{content:"";position:absolute;left:-24px;top:16px;width:9px;height:9px;border-radius:50%;
+      background:var(--kcolor,var(--tl-dim));box-shadow:0 0 0 3px var(--bg)}
+  .ev .t{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+  .ev .tag{font-size:11px;font-weight:600;color:var(--kcolor,var(--sub));background:var(--kbg,var(--soft));
+      padding:1px 7px;border-radius:999px;flex:none;letter-spacing:.02em}
+  .ev .tt{font-size:14px;font-weight:500;line-height:1.45;flex:1;min-width:0;word-break:break-word}
+  .ev .tm{font-size:12px;color:var(--sub);flex:none;font-variant-numeric:tabular-nums}
+  .ev .s{font-size:12px;color:var(--sub);margin-top:3px;word-break:break-word}
+  .k-task{--kcolor:var(--tl-task);--kbg:var(--tl-task-bg)}
+  .k-habit{--kcolor:var(--tl-habit);--kbg:var(--tl-habit-bg)}
+  .k-postcard{--kcolor:var(--tl-pc);--kbg:var(--tl-pc-bg)}
+  .k-media{--kcolor:var(--tl-media);--kbg:var(--tl-media-bg)}
+  .k-theatre{--kcolor:var(--tl-th);--kbg:var(--tl-th-bg)}
+  .k-map{--kcolor:var(--tl-map);--kbg:var(--tl-map-bg)}
+  .k-diary{--kcolor:var(--tl-diary);--kbg:var(--tl-diary-bg)}
+
+  .empty{background:var(--card);border:1px dashed var(--line);border-radius:var(--radius);
+      padding:34px 22px;text-align:center;color:var(--sub);font-size:13.5px;line-height:1.85}
+  .empty b{color:var(--ink);font-weight:600}
+  .empty a{color:var(--pri-ink);text-decoration:none;font-weight:600}
+  .empty a:hover{text-decoration:underline}
+  .more{display:flex;justify-content:center;margin:18px 0 4px}
+  .foot{font-size:12px;color:var(--tl-sub);line-height:1.85;margin-top:24px;border-top:1px solid var(--line);padding-top:14px}
+  .foot b{color:var(--ink);font-weight:600}
+  .note{font-size:12px;color:var(--tl-sub);margin-top:8px;line-height:1.7}
+  .toast{position:fixed;left:50%;transform:translateX(-50%) translateY(8px);
+      bottom:calc(24px + env(safe-area-inset-bottom));max-width:min(88vw,420px);
+      padding:10px 16px;border-radius:11px;background:var(--ink);color:var(--card);font-size:13px;
+      opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease;z-index:50}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  @media(max-width:680px){
+    .wrap{padding:16px 14px calc(36px + env(safe-area-inset-bottom))}
+    .head h1{font-size:22px}
+    .sum{grid-template-columns:repeat(2,1fr);gap:10px}
+    .cell{padding:11px 13px}
+    .cell .v{font-size:21px}
+    .feed{padding-left:22px}
+    .feed::before{left:6px}
+    .ev::before{left:-21px;width:8px;height:8px}
+    .yr::before{left:-22px;width:11px;height:11px}
+    .ev{padding:10px 12px}
+  }
+  @media(prefers-reduced-motion:reduce){
+    *{transition:none!important}
+    .ev:hover,.ev:active{transform:none}
+  }
+</style>
+</head>
+<body>
+<!-- >>> SITE-NAV-HTML:BEGIN —— 由 _shared/site-nav-static.html 自动生成，请勿直接编辑本块 -->
+<!-- 站点统一导航条 · 静态首屏版 v2（2026-11-04）
+     唯一真相源：_shared/site-nav-static.html，由 inject_shared.py 内联到七页 <body> 开头。
+     为什么静态：v1 由 site-nav.js 在 DOMContentLoaded 后才 createElement 插入，任务台 HTML
+     约 831KB，实测 FCP 1220ms / DCL 1555ms —— 中间约 335ms 首屏是「没有导航条的旧版
+     任务台」，导航条插入后整页下移，用户看到闪一下旧画面。静态渲染后首屏解析即有导航条。
+     当前页高亮与 PWA 注册仍由 _shared/site-nav.js 补（纯样式变化，不引起布局跳动）。
+     品牌图标：__wsn_brand 前内联同款三卡组 SVG（与首页 logo / PWA 图标同源），
+     用 inline 而非 <img> 引用外部文件——零额外请求、首屏即显示、离线绝对稳，且不依赖 SW 缓存；
+     渐变 id 加 __wsn_ 前缀避免同页 id 冲突。
+     2026-11-06 D-16：品牌由 <span> 改为 <a href="home.html">，四个子页可点左上角回首页。 -->
+<style id="__wsn_style">
+.__wsn_bar{display:flex;align-items:center;gap:14px;padding:7px 16px;box-sizing:border-box;
+  width:100%;background:var(--card,#fff);color:var(--ink,#1f2430);
+  border-bottom:1px solid var(--line,#e7ebf2);font-size:13px;line-height:1.5;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  position:relative;z-index:1}
+.__wsn_brand{display:inline-flex;align-items:center;gap:7px;font-weight:600;letter-spacing:.02em;white-space:nowrap;color:var(--ink,#1f2430);text-decoration:none;cursor:pointer}
+.__wsn_icon{width:20px;height:20px;border-radius:5px;flex:none;display:block}
+.__wsn_links{display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+.__wsn_links::-webkit-scrollbar{display:none}
+.__wsn_links a{display:inline-flex;align-items:center;min-height:36px;padding:3px 11px;border-radius:999px;text-decoration:none;
+  white-space:nowrap;color:var(--sub,#6b7280);border:1px solid transparent;transition:background .15s ease,color .15s ease}
+.__wsn_links a:hover{background:var(--hover,var(--pri-soft,#eaf0ff));color:var(--ink,#1f2430)}
+.__wsn_links a.__wsn_on{color:#fff;background:var(--pri-deep,#3D68F0);border-color:var(--pri-deep,#3D68F0)}
+.__wsn_hint{font-size:12px;color:var(--sub,#9aa3b2);white-space:nowrap}
+.__wsn_bar a:focus-visible{outline:2px solid var(--pri,#4F7CFF);outline-offset:2px}
+@media(max-width:680px){.__wsn_bar{gap:9px;padding:6px 10px}.__wsn_hint{display:none}
+  .__wsn_brand{min-height:44px}
+  .__wsn_links a{padding:3px 9px;font-size:12px;min-height:44px}}
+@media(prefers-reduced-motion:reduce){.__wsn_links a{transition:none}}
+</style>
+<nav id="__wsn_bar" class="__wsn_bar" aria-label="站点导航">
+  <a class="__wsn_brand" href="home.html" aria-label="工作台首页"><svg class="__wsn_icon" viewBox="0 0 1024 1024" aria-hidden="true"><defs><linearGradient id="__wsn_wbG" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5B86FF"/><stop offset="1" stop-color="#2F5FE0"/></linearGradient></defs><rect width="1024" height="1024" rx="208" fill="url(#__wsn_wbG)"/><rect x="62" y="62" width="900" height="900" rx="208" fill="none" stroke="#FFFFFF" stroke-opacity="0.8" stroke-width="12"/><rect x="208" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="228" y="426" width="128" height="22" rx="11" fill="#4F7CFF"/><rect x="428" y="334" width="168" height="372" rx="34" fill="#FFFFFF"/><rect x="448" y="354" width="128" height="22" rx="11" fill="#D4537E"/><rect x="648" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="668" y="426" width="128" height="22" rx="11" fill="#8B5CF6"/></svg>工作台</a>
+  <div class="__wsn_links">
+    <a href="home.html" data-page="home">首页</a>
+    <a href="任务管理台.html" data-page="tasks">任务台</a>
+    <a href="明信片追踪.html" data-page="postcards">明信片</a>
+    <a href="书影音海报墙.html" data-page="media">海报墙</a>
+    <a href="观剧记录.html" data-page="theatre">观剧</a>
+    <a href="旅行地图.html" data-page="map">地图</a>
+    <a href="时间线.html" data-page="timeline">时间线</a>
+  </div>
+  <span class="__wsn_hint">同一工作台 · 数据保存在本机</span>
+</nav>
+<!-- <<< SITE-NAV-HTML:END -->
+
+<div class="wrap">
+  <div class="head">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"></span>
+      <div>
+        <h1>时间线</h1>
+        <p>把任务台、明信片、海报墙、观剧、地图里发生的事，按时间串成一条线</p>
+      </div>
+    </div>
+    <div class="acts">
+      <button class="btn" id="btnReload" type="button">重新读取</button>
+      <button class="btn" id="btnTheme" type="button" aria-pressed="false" aria-label="切换主题" title="切换主题"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg> 切换主题</button>
+    </div>
+  </div>
+
+  <section class="sum" aria-label="当前筛选范围统计">
+    <div class="cell"><div class="k" id="kTotal">事件</div><div class="v" id="sTotal">—</div></div>
+    <div class="cell"><div class="k">今年</div><div class="v" id="sYear">—</div></div>
+    <div class="cell"><div class="k">本月</div><div class="v" id="sMonth">—</div></div>
+    <div class="cell"><div class="k">最早记录</div><div class="v sm" id="sFirst">—</div></div>
+  </section>
+
+  <div class="bar">
+    <div class="chips" id="chips" role="group" aria-label="按来源筛选"></div>
+    <div class="tools">
+      <input id="q" type="search" placeholder="搜索事件标题或备注…" aria-label="搜索事件">
+      <select id="year" aria-label="按年份筛选"><option value="">全部年份</option></select>
+    </div>
+  </div>
+
+  <div class="feed" id="feed" aria-live="polite"></div>
+  <div class="more" id="more"></div>
+
+  <p class="foot">
+    <b>这条线是怎么来的</b>：本页只读，不修改任何页面的数据。它把六个页面保存的记录按时间合并——
+    任务完成（含重复任务每一次实例）、习惯打卡、明信片寄出/抵达/收到、海报墙感想、观剧记录、地图点亮、旅行日记。
+  </p>
+  <p class="foot" style="border-top:none;padding-top:0;margin-top:10px">
+    <b>读不全的时候</b>：数据存在同一浏览器的同一站点下，换浏览器、换域名、无痕窗口都读不到；
+    明信片、观剧、旅行日记只记了日期没记时刻，所以当天没有具体时间，统一排在当天最下方；
+    地图点亮从 2026-11-22 之后才有时间记录，更早点亮的地点无法追溯，故不出现在这里。
+  </p>
+  <p class="note" id="note"></p>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>/* >>> SITE-NAV:BEGIN —— 由 _shared/site-nav.js 自动生成，请勿直接编辑本块 */
+/* ============================================================
+   SITE-NAV v2（2026-11-04）— 站点导航条的「行为层」
+   ------------------------------------------------------------
+   唯一真相源：_shared/site-nav.js，由 inject_shared.py 内联进七页。
+   导航条本体（HTML + CSS）已改为静态块 _shared/site-nav-static.html，
+   放在 <body> 开头随文档解析立即呈现，消除 v1 的首屏闪烁：
+   v1 在 DOMContentLoaded 才 createElement 插入，任务台 FCP 1220ms /
+   DCL 1555ms，中间约 335ms 显示的是没有导航条的旧版布局。
+   本文件只负责：当前页高亮 + 站点级 PWA 注册。幂等、零外部依赖。
+   - 非吸顶：不与各页 sticky 顶栏抢 top:0
+   - 颜色全部取页面自身 CSS 变量，跟随亮/暗主题
+   - 同标签跳转（静态链接无 target="_blank"）
+   ============================================================ */
+(function(){
+  if (typeof document === "undefined") return;
+
+  function currentPage(){
+    var f = "";
+    try { f = decodeURIComponent((location.pathname.split("/").pop() || "index.html")).toLowerCase(); } catch(e){ f = "index.html"; }
+    if (!f || f === "index.html") return "tasks";        /* 根入口仍是任务台副本 */
+    if (f.indexOf("home") >= 0) return "home";
+    if (f.indexOf("任务管理台") >= 0 || f.indexOf("taskhub") >= 0) return "tasks";
+    if (f.indexOf("明信片") >= 0 || f.indexOf("postcard") >= 0) return "postcards";
+    if (f.indexOf("书影音海报墙") >= 0 || f.indexOf("media") >= 0) return "media";
+    if (f.indexOf("观剧") >= 0 || f.indexOf("theatre") >= 0) return "theatre";
+    if (f.indexOf("旅行地图") >= 0 || f.indexOf("map") >= 0) return "map";
+    if (f.indexOf("时间线") >= 0 || f.indexOf("timeline") >= 0) return "timeline";
+    return "";
+  }
+
+  /* 站点级 PWA：七页共用同一个 sw.js，重复 register 天然幂等；file:// 双击时静默跳过 */
+  function registerSW(){
+    try{
+      if(!("serviceWorker" in navigator)) return;
+      if(location.protocol!=="https:" && location.protocol!=="http:") return;
+      navigator.serviceWorker.register("sw.js").catch(function(){});
+    }catch(e){}
+  }
+
+  function init(){
+    var bar = document.getElementById("__wsn_bar");
+    if (!bar || bar.getAttribute("data-wsn-ready") === "1") return;
+    var cur = currentPage();
+    var a = cur ? bar.querySelector('.__wsn_links a[data-page="' + cur + '"]') : null;
+    if (a){ a.className = "__wsn_on"; a.setAttribute("aria-current", "page"); }
+    bar.setAttribute("data-wsn-ready", "1");
+    registerSW();
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+})();
+/* <<< SITE-NAV:END */</script>
+
+<script>/* >>> TIMELINE-CORE:BEGIN —— 由 _shared/timeline-core.js 自动生成，请勿直接编辑本块 */
+/* ============================================================
+   TIMELINE-CORE（2026-11-22）— 时间线事件解析层
+   ------------------------------------------------------------
+   唯一真相源：_shared/timeline-core.js，由 inject_shared.py 内联进
+   时间线.html 与 home.html（首页只取统计数字，不渲染完整时间轴）。
+
+   为什么抽出来：首页卡片要显示「本年事件数」，时间线页要渲染完整事件流。
+   若两处各写一套解析，一旦某页的数据结构微调（比如明信片字段改名），
+   就会出现「首页显示 120 件、时间线只有 98 件」的口径分叉。
+   项目既有铁律是「唯一真相源 + 注入」，这里沿用同一套机制。
+
+   铁律（与 shared.js 的教训一致）：
+   - 整块必须包在 IIFE 里，只向 window 挂一个 __TL_CORE，
+     不产生任何顶层声明，避免与宿主页面同名变量冲突导致白屏。
+   - 只读 localStorage，不写任何键；不修改任何页面的数据。
+   - 读不到 / 解析失败一律静默降级为「0 条」，绝不伪造时间。
+
+   事件模型：
+     { ts, precise, kind, src, title, sub, href }
+     ts       毫秒时间戳（日级事件取当日 00:00）
+     precise  是否有真实时刻。false = 只知道日期（明信片/观剧/日记/补打卡）
+     kind     task | habit | postcard | media | theatre | map | diary
+     src      去重用的稳定标识（同一任务同一天只留一条，精确版优先）
+   ============================================================ */
+(function(){
+  if (typeof window === "undefined") return;
+
+  var DAY_MS = 86400000;
+  var KINDS = ["task", "habit", "postcard", "media", "theatre", "map", "diary"];
+  var LABEL = { task:"任务", habit:"习惯", postcard:"明信片", media:"海报墙", theatre:"观剧", map:"地图", diary:"日记" };
+  var HREF  = {
+    task:"任务管理台.html", habit:"任务管理台.html",
+    postcard:"明信片追踪.html", media:"书影音海报墙.html",
+    theatre:"观剧记录.html", map:"旅行地图.html", diary:"旅行地图.html"
+  };
+
+  function pad2(n){ return (n < 10 ? "0" : "") + n; }
+
+  function ls(key){
+    try {
+      var raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+
+  /* 只认日期部分，兼容 2026-11-22 / 2026/11/22 / 2026.11.22 / 2026-11-22T10:30 */
+  function parseDay(v){
+    if (v === null || v === undefined || v === "") return 0;
+    var m = String(v).match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+    if (!m) return 0;
+    var t = new Date(+m[1], +m[2] - 1, +m[3]).getTime();
+    return isFinite(t) ? t : 0;
+  }
+
+  /* 任务台的 doneAt 值形如 "2026-11-22T14:30"；也容忍纯数字毫秒与 Date 可解析串 */
+  function parseStamp(v){
+    if (v === null || v === undefined || v === "") return 0;
+    if (typeof v === "number") return isFinite(v) ? v : 0;
+    var s = String(v);
+    var n = Number(s);
+    if (s.length > 10 && isFinite(n)) return n;
+    var t = Date.parse(s.indexOf(" ") > 0 ? s.replace(" ", "T") : s);
+    if (isFinite(t)) return t;
+    return parseDay(s);          /* 只剩日期时退回日级 */
+  }
+
+  function hasTime(v){
+    return /T\d{1,2}:\d{2}/.test(String(v)) || /^\d{13}$/.test(String(v));
+  }
+
+  function dayKey(ts){
+    var d = new Date(ts);
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+  }
+
+  function sameDay(a, b){
+    return dayKey(a) === dayKey(b);
+  }
+
+  /* 日级事件排在当日最后：降序时它落在当天所有精确事件的下方，不会被误读成「凌晨发生」。
+     注意不能靠「ts + 86399999」来达成——那会让它跑到当天最上面，正好相反（调试时踩过）。
+     用显式比较器：先按日，同日精确在前，同精度再按时刻。 */
+  function dayStart(ts){
+    var d = new Date(ts);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }
+  function cmp(a, b){
+    var da = dayStart(a.ts), db = dayStart(b.ts);
+    if (da !== db) return db - da;                      /* 降序：日期晚的在前 */
+    if (a.precise !== b.precise) return a.precise ? -1 : 1;  /* 同日：有时刻的在前 */
+    return b.ts - a.ts;
+  }
+  function sortTs(e){
+    return e.precise ? e.ts : e.ts + (DAY_MS - 1);
+  }
+
+  function collect(){
+    var events = [];
+    var seen = Object.create(null);
+    var counts = { task:0, habit:0, postcard:0, media:0, theatre:0, map:0, diary:0 };
+
+    function push(kind, src, ts, precise, title, sub){
+      if (!ts || !isFinite(ts)) return;
+      var k = kind + "|" + src + "|" + dayKey(ts);
+      var old = seen[k];
+      if (old && (old.precise || !precise)) return;   /* 已有更精确的记录，日级不再重复计 */
+      if (old) {
+        var i = events.indexOf(old);
+        if (i >= 0) events.splice(i, 1);
+      }
+      var e = {
+        ts: +ts, precise: !!precise, kind: kind, src: src,
+        title: title, sub: sub || "", href: HREF[kind]
+      };
+      seen[k] = e;
+      events.push(e);
+      counts[kind]++;
+    }
+
+    /* ---------- 1. 任务完成 ---------- */
+    var tasks = ls("wb_taskhub_v1");
+    if (Array.isArray(tasks)) {
+      tasks.forEach(function(t){
+        if (!t || typeof t !== "object") return;
+        var name = String(t.title || "未命名任务");
+        var sub = String(t.cat || t.pri || "");
+        var id = String(t.id || name);
+        var da = t.doneAt;
+        if (da && typeof da === "object") {
+          Object.keys(da).forEach(function(key){
+            var raw = da[key];
+            var ts = parseStamp(raw);
+            if (!ts) return;
+            push("task", id, ts, hasTime(raw), "完成 " + name, sub);
+          });
+        }
+        /* 老数据只有 doneDates（做完才补 doneAt 之前的历史）：仅在该日没有精确记录时兜底 */
+        var dd = t.doneDates;
+        if (Array.isArray(dd)) {
+          dd.forEach(function(d){
+            var base = parseDay(d);
+            if (!base) return;
+            push("task", id, base, false, "完成 " + name, sub);
+          });
+        }
+      });
+    }
+
+    /* ---------- 2. 习惯打卡 ---------- */
+    var habits = ls("wb_taskhub_habits_v1");
+    if (Array.isArray(habits)) {
+      habits.forEach(function(h){
+        if (!h || typeof h !== "object") return;
+        var days = Array.isArray(h.days) ? h.days : [];
+        var dts = (h.dayTs && typeof h.dayTs === "object") ? h.dayTs : {};
+        var nm = String(h.name || "习惯");
+        var hid = String(h.id || nm);
+        days.forEach(function(d){
+          var base = parseDay(d);
+          if (!base) return;
+          var t = Number(dts[d]) || 0;
+          /* 补打卡时 dayTs 记的是「操作那一刻」，与补的日期不同，那就不该冒充打卡时刻 */
+          var ok = t > 0 && sameDay(t, base);
+          push("habit", hid + ":" + dayKey(base), ok ? t : base, ok, "打卡 · " + nm, "");
+        });
+      });
+    }
+
+    /* ---------- 3. 明信片（寄出 / 抵达 / 收到）---------- */
+    var pc = ls("wb_postcards_v1");
+    if (pc && typeof pc === "object") {
+      var sent = Array.isArray(pc.postcards) ? pc.postcards : [];
+      sent.forEach(function(c){
+        if (!c || typeof c !== "object") return;
+        var who = [c.recipient, c.country, c.city].filter(Boolean).join(" · ");
+        var cid = String(c.id || who);
+        push("postcard", cid + ":sent", parseDay(c.sent), false, "寄出明信片", who);
+        push("postcard", cid + ":arr", parseDay(c.arrived), false, "明信片抵达", who);
+      });
+      var recv = Array.isArray(pc.received) ? pc.received : [];
+      recv.forEach(function(r){
+        if (!r || typeof r !== "object") return;
+        var who = [r.sender, r.country, r.city].filter(Boolean).join(" · ");
+        push("postcard", String(r.id || who) + ":recv", parseDay(r.received), false, "收到明信片", who);
+      });
+    }
+
+    /* ---------- 4. 海报墙感想 ---------- */
+    var rv = ls("wb_mediawall_reviews_v1");
+    if (rv && typeof rv === "object") {
+      Object.keys(rv).forEach(function(k){
+        var v = rv[k];
+        if (!v || typeof v !== "object" || v._del || !v.ts) return;
+        var parts = String(k).replace(/^rk1\|/, "").split("|");
+        var title = parts[0] || "未命名条目";
+        var sub = [parts[1], parts[2]].filter(Boolean).join(" · ");
+        push("media", "rv:" + k, Number(v.ts) || 0, true, "写了感想《" + title + "》", sub);
+      });
+    }
+
+    /* ---------- 5. 观剧记录 ---------- */
+    var th = ls("wb_theatre_v1");
+    if (th && typeof th === "object") {
+      var recs = Array.isArray(th.records) ? th.records : [];
+      recs.forEach(function(r){
+        if (!r || typeof r !== "object") return;
+        var base = parseDay(r.date);
+        if (!base) return;
+        push("theatre", String(r.id || "th" + base), base, false,
+             "看了《" + (r.name || "未命名") + "》", [r.venue, r.type].filter(Boolean).join(" · "));
+      });
+    }
+
+    /* ---------- 6. 地图点亮（v26 起才有 litAt；更早的点亮没有时刻，无法进时间线）---------- */
+    var mp = ls("wb_travel_map_v1");
+    var la = mp && mp.litAt;
+    if (la && typeof la === "object" && !Array.isArray(la)) {
+      Object.keys(la).forEach(function(k){
+        var v = la[k];
+        var t = (v && typeof v === "object") ? Number(v.t) : Number(v);
+        if (!t) return;
+        var nm = (v && typeof v === "object" && v.n) ? String(v.n) : String(k).split(":").pop();
+        push("map", "lit:" + k, t, true, "点亮了 " + nm, "旅行足迹");
+      });
+    }
+
+    events.sort(cmp);
+    return { events: events, counts: counts, stats: statsOf(events) };
+  }
+
+  function statsOf(events){
+    var now = new Date();
+    var cy = now.getFullYear(), cm = now.getMonth();
+    var days = Object.create(null);
+    var thisYear = 0, thisMonth = 0, firstTs = 0, lastTs = 0;
+    events.forEach(function(e){
+      var d = new Date(e.ts);
+      days[dayKey(e.ts)] = 1;
+      if (d.getFullYear() === cy) {
+        thisYear++;
+        if (d.getMonth() === cm) thisMonth++;
+      }
+      if (!firstTs || e.ts < firstTs) firstTs = e.ts;
+      if (e.ts > lastTs) lastTs = e.ts;
+    });
+    return {
+      total: events.length, thisYear: thisYear, thisMonth: thisMonth,
+      days: Object.keys(days).length, firstTs: firstTs, lastTs: lastTs
+    };
+  }
+
+  window.__TL_CORE = {
+    collect: collect, statsOf: statsOf,
+    parseDay: parseDay, parseStamp: parseStamp, dayKey: dayKey, cmp: cmp, sortTs: sortTs,
+    KINDS: KINDS, LABEL: LABEL, HREF: HREF
+  };
+})();
+/* <<< TIMELINE-CORE:END */</script>
+
+<script>
+(function(){
+  "use strict";
+  var CORE = window.__TL_CORE;
+  var FEED = document.getElementById("feed");
+  var MORE = document.getElementById("more");
+  var CHIPS = document.getElementById("chips");
+  var Q = document.getElementById("q");
+  var YEAR = document.getElementById("year");
+  var NOTE = document.getElementById("note");
+  var PAGE = 300;
+
+  var ALL = [];          /* 全量事件，始终按时间降序 */
+  var DIY = Object.create(null);  /* 日记事件去重表 */
+  var S = { kind: "", q: "", year: "", limit: PAGE };
+
+  function esc(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
+    });
+  }
+  function pad2(n){ return (n < 10 ? "0" : "") + n; }
+  function fmtDay(ts){ var d = new Date(ts); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
+  function fmtNum(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+
+  var toastEl = document.getElementById("toast"), toastTimer = null;
+  function toast(msg){
+    if (!toastEl) return;
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove("show"); }, 1800);
+  }
+
+  /* ---------------- 主题 ---------------- */
+  var btnTheme = document.getElementById("btnTheme");
+  function curTheme(){
+    var t = document.documentElement.getAttribute("data-theme");
+    if (t) return t;
+    try { if (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) return "dark"; } catch(e){}
+    return "light";
+  }
+  function syncThemeBtn(){
+    var dark = curTheme() === "dark";
+    if (!btnTheme) return;
+    btnTheme.setAttribute("aria-pressed", dark ? "true" : "false");
+    btnTheme.setAttribute("title", "当前：" + (dark ? "暗色" : "亮色") + "主题 · 点击切换为" + (dark ? "亮色" : "暗色"));
+    btnTheme.setAttribute("aria-label", "当前：" + (dark ? "暗色" : "亮色") + "主题 · 点击切换为" + (dark ? "亮色" : "暗色"));
+  }
+  if (btnTheme) {
+    btnTheme.addEventListener("click", function(){
+      var next = curTheme() === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      try { localStorage.setItem("wb_theme_v1", next); } catch(e){}
+      syncThemeBtn();
+    });
+  }
+  syncThemeBtn();
+
+  /* ---------------- 筛选 ---------------- */
+  function filtered(){
+    var q = S.q.toLowerCase();
+    return ALL.filter(function(e){
+      if (S.kind && e.kind !== S.kind) return false;
+      if (S.year && new Date(e.ts).getFullYear() !== +S.year) return false;
+      if (q && (e.title + " " + e.sub).toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    });
+  }
+
+  function renderChips(){
+    var counts = { "": ALL.length };
+    CORE.KINDS.forEach(function(k){ counts[k] = 0; });
+    ALL.forEach(function(e){ counts[e.kind] = (counts[e.kind] || 0) + 1; });
+    var html = '<button class="chip" type="button" data-kind="" aria-pressed="' + (S.kind === "" ? "true" : "false") + '">全部<span class="n">' + counts[""] + "</span></button>";
+    CORE.KINDS.forEach(function(k){
+      /* 该类一条都没有时仍然显示（灰着），否则用户不知道「这里本来能筛选什么」 */
+      html += '<button class="chip" type="button" data-kind="' + k + '" aria-pressed="' + (S.kind === k ? "true" : "false") + '">'
+            + CORE.LABEL[k] + '<span class="n">' + (counts[k] || 0) + "</span></button>";
+    });
+    CHIPS.innerHTML = html;
+  }
+
+  function renderYears(){
+    var ys = Object.create(null);
+    ALL.forEach(function(e){ ys[new Date(e.ts).getFullYear()] = 1; });
+    var list = Object.keys(ys).map(Number).sort(function(a, b){ return b - a; });
+    var cur = S.year;
+    YEAR.innerHTML = '<option value="">全部年份</option>' + list.map(function(y){
+      return '<option value="' + y + '">' + y + " 年</option>";
+    }).join("");
+    if (cur && list.indexOf(+cur) >= 0) YEAR.value = cur; else { YEAR.value = ""; S.year = ""; }
+  }
+
+  function renderStats(list){
+    var cy = new Date().getFullYear(), cm = new Date().getMonth();
+    var y = 0, m = 0, first = 0;
+    list.forEach(function(e){
+      var d = new Date(e.ts);
+      if (d.getFullYear() === cy) { y++; if (d.getMonth() === cm) m++; }
+      if (!first || e.ts < first) first = e.ts;
+    });
+    var scope = S.kind ? CORE.LABEL[S.kind] : "事件";
+    document.getElementById("kTotal").textContent = scope;
+    document.getElementById("sTotal").textContent = list.length ? fmtNum(list.length) : "0";
+    document.getElementById("sYear").textContent = list.length ? fmtNum(y) : "—";
+    document.getElementById("sMonth").textContent = list.length ? fmtNum(m) : "—";
+    document.getElementById("sFirst").textContent = first ? fmtDay(first) : "—";
+  }
+
+  function evHtml(e){
+    var d = new Date(e.ts);
+    /* 只显示时分无法分辨「同月不同日」，所以日期始终跟着时刻走；
+       日级事件只显示 M-D，不编造时刻。 */
+    var md = (d.getMonth() + 1) + "-" + pad2(d.getDate());
+    var tm = e.precise ? md + " " + pad2(d.getHours()) + ":" + pad2(d.getMinutes()) : md;
+    return '<a class="ev k-' + e.kind + '" href="' + e.href + '">'
+      + '<div class="t"><span class="tag">' + CORE.LABEL[e.kind] + "</span>"
+      + '<span class="tt">' + esc(e.title) + "</span>"
+      + '<span class="tm">' + tm + "</span>"
+      + "</div>"
+      + (e.sub ? '<div class="s">' + esc(e.sub) + "</div>" : "")
+      + "</a>";
+  }
+
+  function render(){
+    var list = filtered();
+    renderStats(list);
+
+    if (!list.length) {
+      FEED.innerHTML = ALL.length
+        ? '<div class="empty">当前筛选下没有事件。<br>换个来源、年份或清空搜索词试试。</div>'
+        : '<div class="empty">还没有可串起来的事件。<br>'
+          + '去 <a href="任务管理台.html">任务台</a> 完成一个任务、<a href="明信片追踪.html">明信片</a> 记一笔寄出、'
+          + '<a href="观剧记录.html">观剧</a> 记一场，回来这里就有了。<br>'
+          + '<span style="font-size:12px">本页只读，各页保存过的记录会自动汇总。</span></div>';
+      MORE.innerHTML = "";
+      return;
+    }
+
+    var shown = list.slice(0, S.limit);
+    var html = "", lastY = null, lastM = null;
+    shown.forEach(function(e){
+      var d = new Date(e.ts);
+      var y = d.getFullYear(), m = d.getMonth() + 1;
+      if (y !== lastY) { html += '<div class="yr">' + y + " 年</div>"; lastY = y; lastM = null; }
+      if (m !== lastM) { html += '<div class="mo">' + m + " 月</div>"; lastM = m; }
+      html += evHtml(e);
+    });
+    FEED.innerHTML = html;
+
+    if (list.length > shown.length) {
+      MORE.innerHTML = '<button class="btn" id="btnMore" type="button">再显示 ' + Math.min(PAGE, list.length - shown.length)
+        + " 条（共 " + fmtNum(list.length) + " 条）</button>";
+      var b = document.getElementById("btnMore");
+      if (b) b.addEventListener("click", function(){ S.limit += PAGE; render(); });
+    } else if (list.length > PAGE) {
+      MORE.innerHTML = '<span class="note">已显示全部 ' + fmtNum(list.length) + " 条</span>";
+    } else {
+      MORE.innerHTML = "";
+    }
+  }
+
+  CHIPS.addEventListener("click", function(e){
+    var b = e.target.closest("[data-kind]");
+    if (!b) return;
+    S.kind = b.getAttribute("data-kind") || "";
+    S.limit = PAGE;
+    renderChips();
+    render();
+  });
+  Q.addEventListener("input", function(){ S.q = (Q.value || "").trim(); S.limit = PAGE; render(); });
+  YEAR.addEventListener("change", function(){ S.year = YEAR.value; S.limit = PAGE; render(); });
+
+  /* ---------------- 旅行日记（IndexedDB，只读探测） ----------------
+     关键：不能裸 open 以防建出空库。地图页建库时带 version 1 才建 store，
+     若本页先用一个不带 store 的 open 把库建出来，地图页下次同版本 open 不会再触发
+     upgradeneeded，日记功能就永久坏了。所以先查 databases() 确认库已存在，且
+     upgradeneeded 触发时立刻 abort 兜底。 */
+  function loadDiaries(){
+    var DB = "wb_travel_diary_db";
+    if (!window.indexedDB) { NOTE.textContent = "当前环境不支持 IndexedDB，地点日记未纳入时间线。"; return; }
+    if (!indexedDB.databases) { NOTE.textContent = "当前浏览器不支持索引库只读探测，地点日记未纳入时间线（其余来源不受影响）。"; return; }
+    var p;
+    try { p = indexedDB.databases(); } catch(e){ return; }
+    p.then(function(list){
+      var exists = (list || []).some(function(d){ return d && d.name === DB; });
+      if (!exists) return;
+      var req;
+      try { req = indexedDB.open(DB, 1); } catch(e){ return; }
+      req.onupgradeneeded = function(){ try { req.transaction.abort(); } catch(e){} };
+      req.onerror = function(){};
+      req.onsuccess = function(){
+        var db = req.result;
+        try {
+          if (!db.objectStoreNames.contains("diaries")) { db.close(); return; }
+          var r = db.transaction("diaries", "readonly").objectStore("diaries").getAll();
+          r.onsuccess = function(){
+            var arr = r.result || [];
+            db.close();
+            var n = 0;
+            arr.forEach(function(d){
+              var base = CORE.parseDay(d && d.date);
+              if (!base) return;
+              var nm = (d && d.placeName) || "某地";
+              var txt = String((d && d.title) || "").trim();
+              var key = "diary|" + nm + "|" + CORE.dayKey(base) + "|" + txt;
+              if (DIY[key]) return;
+              DIY[key] = 1;
+              ALL.push({
+                ts: base, precise: false, kind: "diary",
+                title: "旅行日记 · " + nm,
+                sub: txt.slice(0, 42),
+                href: "旅行地图.html"
+              });
+              n++;
+            });
+            if (!n) return;
+            ALL.sort(CORE.cmp);
+            renderChips(); renderYears(); render();
+          };
+          r.onerror = function(){ db.close(); };
+        } catch(e){ try { db.close(); } catch(_){} }
+      };
+    }).catch(function(){});
+  }
+
+  /* ---------------- 启动 ---------------- */
+  function refresh(silent){
+    DIY = Object.create(null);
+    var r = CORE ? CORE.collect() : { events: [], counts: {}, stats: { total: 0 } };
+    ALL = r.events.slice();
+    renderChips();
+    renderYears();
+    render();
+    if (!silent && r.events.length) toast("已读取 " + fmtNum(r.events.length) + " 条记录");
+    loadDiaries();
+  }
+
+  document.getElementById("btnReload").addEventListener("click", function(){ refresh(false); });
+  refresh(true);
+
+  /* 测试钩子：jsdom 里拿不到闭包内状态，显式暴露只读视图（与地图页 __X 同一做法） */
+  window.__TL = {
+    get events(){ return ALL; },
+    get state(){ return S; },
+    filtered: filtered,
+    render: render,
+    setFilter: function(kind, q, year){
+      S.kind = kind || ""; S.q = q || ""; S.year = year || ""; S.limit = PAGE;
+      renderChips(); renderYears(); render();
+    },
+    CORE: CORE
+  };
+})();
+</script>
+</body>
+</html>
