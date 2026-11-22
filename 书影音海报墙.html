@@ -3,11 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" id="metaTheme" content="#F8FAFC">
+<meta name="theme-color" id="metaTheme" content="#4F7CFF">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <script>try{var _wt=localStorage.getItem("wb_theme_v1");if(!_wt&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)_wt="dark";/* O-7：未显式选择时跟随系统；显式 light 也要落 data-theme，避免系统暗色下首屏闪暗再转亮 */if(_wt)document.documentElement.dataset.theme=_wt;}catch(e){}</script>
+<script>/* P2 软键盘感知（对齐明信片 M-1）：visualViewport 与布局视口的高度差即键盘高度，写入 --kb 供 toast/弹窗避让——.toast-wrap 此前引用 var(--kb) 但全页无人写入，移动端键盘避让是假的 */(function(){var vv=window.visualViewport;if(!vv)return;var root=document.documentElement,last=-1;function upd(){var h=Math.round(Math.max(0,window.innerHeight-vv.height-vv.offsetTop));if(h===last)return;last=h;root.style.setProperty('--kb',h+'px');root.classList.toggle('kb-open',h>0);}vv.addEventListener('resize',upd);vv.addEventListener('scroll',upd);window.addEventListener('orientationchange',function(){setTimeout(upd,250);});document.addEventListener('focusin',function(e){var el=e.target;if(!el||!/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))return;setTimeout(function(){if(root.classList.contains('kb-open')){var smooth=!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);try{el.scrollIntoView({block:'center',behavior:smooth?'smooth':'auto'});}catch(_){el.scrollIntoView(false);}}},300);});upd();})();</script>
 <title>书影音海报墙 · 已看已读已听</title>
 <style>
   :root{
@@ -197,6 +198,9 @@
     .pcard:hover{transform:none;box-shadow:var(--shadow)}
     .pcard:hover .cover img{transform:none}
     .s-item:hover{background:transparent}
+    /* P2：chip/vtab/mini-btn/sib-link 的 translateY(-1px) 触屏复位——
+       sticky hover 会让点过的 chip 长期「浮起 1px」不落回 */
+    .chip:hover,.vtab:hover,.mini-btn:hover,.sib-link:hover{transform:none}
   }
   .pcard .cover{position:relative;width:100%;aspect-ratio:2/3;background:#dfe6f1;overflow:hidden}
   /* 2026-11-02 线上反馈：海报加载期间灰卡像「空卡片」→ 高对比骨架：spinner + 流光，图片加载完成后淡入 */
@@ -3892,7 +3896,10 @@ F("btnExport").addEventListener("click", ()=>{
   const blob = new Blob([JSON.stringify(payload,null,2)], {type:"application/json"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "书影音海报墙_自定义条目_" + new Date().toISOString().slice(0,10) + ".json";
+  /* P2：导出文件名用本地日期（2026-11-22 口径）——toISOString 取 UTC，
+     东八区 0–8 点导出会把文件名写成前一天（对齐 3341 行 fmtTs 的本地日期铁律） */
+  const _d=new Date(), _ymd=_d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");
+  a.download = "书影音海报墙_自定义条目_" + _ymd + ".json";
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
   toast("已导出 " + customEntries.length + " 条自定义条目");
@@ -4261,7 +4268,7 @@ const WALL_THEME_KEY="wb_theme_v1";
 function applyWallTheme(t){
   document.documentElement.dataset.theme=t;
   try{ localStorage.setItem(WALL_THEME_KEY,t); }catch(e){}
-  var m=document.getElementById("metaTheme"); if(m) m.setAttribute("content", t==="dark"?"#0f1320":"#F8FAFC");
+  var m=document.getElementById("metaTheme"); if(m) m.setAttribute("content", t==="dark"?"#0f1320":"#4F7CFF");
   var b=document.getElementById("btnTheme");
   if(b){
     var dark=t==="dark";

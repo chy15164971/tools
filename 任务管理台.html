@@ -410,6 +410,8 @@
   .today-tag{position:absolute;top:5px;right:6px;font-size:11px;font-weight:700;background:var(--pri-deep);color:var(--white);padding:1px 6px;border-radius:8px;letter-spacing:.5px;}
   .chips{display:flex;flex-direction:column;gap:3px;margin-top:4px;}
   .chip{display:flex;align-items:center;gap:5px;font-size:11px;line-height:1.35;border-radius:var(--radius-sm);background:var(--chip-bg);color:var(--white);overflow:hidden;max-width:100%;cursor:pointer;}
+  /* P2：.chip[data-id] 仅月视图任务块（可拖拽改期）——触屏必须关掉浏览器手势接管，否则 pointerdown 拖拽被纵向滚动抢走（.ev/.gbar 同款问题第三次复发）；甘特 KR 条是 .chip[data-kr]，不在此列 */
+  .chip[data-id]{touch-action:none;}
   .chip .ct{font-weight:700;background:rgba(255,255,255,.22);padding:1px 4px;border-radius:4px;flex:none;font-variant-numeric:tabular-nums;}
   .chip .cb{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:6px;}
   .more{font-size:11px;color:var(--sub);padding-left:3px;margin-top:1px;}
@@ -1582,7 +1584,7 @@
        看不懂的色块。改为两行布局：标题在上（沿用已有的 ellipsis 截断）、时间在下作辅，
        日格加高到 88px 容纳 2-3 条。 */
     .dcell{height:88px;padding:4px 5px;}
-    .dcell .chip{font-size:11px;gap:0;flex-direction:column;align-items:stretch;justify-content:center;padding:2px 3px;}
+    .dcell .chip{font-size:11px;gap:0;flex-direction:column;align-items:stretch;justify-content:center;padding:2px 3px;touch-action:none;}  /* P2：月视图任务块可拖拽改期，触屏必须关掉浏览器手势接管（pointerdown 拖拽此前被纵向滚动抢走）——只限日格内 chip，筛选条 chip 不受影响 */
     .dcell .chip .cb{display:block;padding:0 2px;font-size:11px;line-height:1.25;}
     .dcell .chip .ct{font-size:10px;padding:0 2px;color:var(--sub);align-self:flex-start;margin-top:1px;}
     .dcell .chip.overdue::before{width:5px;height:5px;margin-left:0;}
@@ -3504,13 +3506,13 @@ function catsLoad(){ try{ const r=localStorage.getItem(CATS_KEY); if(r){ const a
 
 function prisLoad(){ try{ const r=localStorage.getItem(PRIS_KEY); if(r){ const a=JSON.parse(r); if(Array.isArray(a)&&a.length) pris=a.filter(x=>x&&x.name); } }catch(e){} }
 
-function catsSave(){ try{ localStorage.setItem(CATS_KEY, JSON.stringify(cats)); }catch(e){} markLocalSave(); }
+function catsSave(){ storageSetSafe(CATS_KEY, JSON.stringify(cats)); markLocalSave(); }  /* P2：次级域写盘走安全通道，配额满不再静默丢失（对齐 mediaSave/listsSave/habitSave） */
 
-function prisSave(){ try{ localStorage.setItem(PRIS_KEY, JSON.stringify(pris)); }catch(e){} markLocalSave(); }
+function prisSave(){ storageSetSafe(PRIS_KEY, JSON.stringify(pris)); markLocalSave(); }  /* P2：同上 */
 
 function loadTags(){ try{ const r=localStorage.getItem(TAGS_KEY); if(r){ const a=JSON.parse(r); if(Array.isArray(a)) tagTree=a.filter(x=>x&&x.name).map(x=>({name:x.name, children:Array.isArray(x.children)?x.children.filter(Boolean):[]})); } }catch(e){} }
 
-function saveTags(){ try{ localStorage.setItem(TAGS_KEY, JSON.stringify(tagTree)); }catch(e){} markLocalSave(); }
+function saveTags(){ storageSetSafe(TAGS_KEY, JSON.stringify(tagTree)); markLocalSave(); }  /* P2：同上 */
 
 function catColor(n){
   if(n && n.indexOf("/")>0){
@@ -3653,11 +3655,11 @@ function saveNow(){
 
 function deletedIdsLoad(){ try{ const r=localStorage.getItem("wb_taskhub_deleted_v1"); if(r){ const a=JSON.parse(r)||[]; deletedIds=a.map(normTomb); } }catch(e){ deletedIds=[]; } }
 
-function deletedIdsSave(){ try{ localStorage.setItem("wb_taskhub_deleted_v1", JSON.stringify(deletedIds)); }catch(e){} }
+function deletedIdsSave(){ storageSetSafe("wb_taskhub_deleted_v1", JSON.stringify(deletedIds)); }  /* P2：墓碑写盘走安全通道 */
 
 function trashLoad(){ try{ const a=JSON.parse(localStorage.getItem(TRASH_KEY)||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
 
-function trashSave(a){ try{ localStorage.setItem(TRASH_KEY, JSON.stringify(a)); }catch(e){} }
+function trashSave(a){ storageSetSafe(TRASH_KEY, JSON.stringify(a)); }  /* P2：回收站写盘走安全通道 */
 
 function pushTrash(t, extra){
   if(!t||t.id==null) return;
@@ -3690,7 +3692,7 @@ async function clearTrash(){
 }
 
 // 轻量落盘：写 localStorage + 刷新 savedAt，但不触发 cloudAutoUpload（合并后保存用，避免「合并→保存→自动上传→再合并」死循环）
-function saveQuiet(){ _dataVer++; pruneTaskHistory(); try{ localStorage.setItem(KEY, JSON.stringify(state.tasks)); }catch(e){} markLocalSave(); }
+function saveQuiet(){ _dataVer++; pruneTaskHistory(); storageSetSafe(KEY, JSON.stringify(state.tasks)); markLocalSave(); }  /* P2：静默主保存也走安全通道 */
 
 function flushSave(){ // 关闭/切后台前强制落盘，避免 400ms 内未写入丢失（B2）
   if(_saveTimer || _pendingSaveMsg!==null){ saveNow(); }
@@ -3707,9 +3709,9 @@ function load(){
 
 function annivLoad(){ try{ const r=localStorage.getItem(ANNIV_KEY); if(r){ const a=JSON.parse(r); if(Array.isArray(a)) state.anniv=a; } }catch(e){} if(!Array.isArray(state.anniv)) state.anniv=[]; }
 
-function annivSave(){ if(!Array.isArray(state.anniv)) state.anniv=[]; try{ localStorage.setItem(ANNIV_KEY, JSON.stringify(state.anniv)); }catch(e){} markLocalSave(); cloudAutoUpload(); }
+function annivSave(){ if(!Array.isArray(state.anniv)) state.anniv=[]; storageSetSafe(ANNIV_KEY, JSON.stringify(state.anniv)); markLocalSave(); cloudAutoUpload(); }  /* P2：次级域写盘走安全通道 */
 
-function saveWidgets(){ _dataVer++; try{ localStorage.setItem(WKEY, JSON.stringify(widgetCfg)); }catch(e){} }   /* S1：不走 markLocalSave 的裸写域，单独自增 */
+function saveWidgets(){ _dataVer++; storageSetSafe(WKEY, JSON.stringify(widgetCfg)); }   /* S1：不走 markLocalSave 的裸写域，单独自增；P2：改走安全通道 */
 
 function currentWids(){ return AUTO_WIDS.concat(widgetCfg.custom.map(w=>"c:"+w.id)); }
 
@@ -3735,11 +3737,11 @@ function persistSubOpen(){ try{ localStorage.setItem("wb_today_subopen_v1", JSON
 
 function loadStats(){ try{ const r=localStorage.getItem(STATS_KEY); if(r){ const o=JSON.parse(r); if(o&&Array.isArray(o.history)) stats.history=o.history; } }catch(e){} }
 
-function saveStats(){ try{ localStorage.setItem(STATS_KEY, JSON.stringify(stats)); }catch(e){} markLocalSave(); }
+function saveStats(){ storageSetSafe(STATS_KEY, JSON.stringify(stats)); markLocalSave(); }  /* P2：完成流水走安全通道 */
 
-function saveGanttPrefs(){ try{ localStorage.setItem("wb_taskhub_gantt_v1", JSON.stringify({hideSingle:ganttHideSingle, sort:ganttSort, groups:Array.from(ganttGroupCollapsed)})); }catch(e){} }
+function saveGanttPrefs(){ storageSetSafe("wb_taskhub_gantt_v1", JSON.stringify({hideSingle:ganttHideSingle, sort:ganttSort, groups:Array.from(ganttGroupCollapsed)})); }  /* P2：偏好写盘走安全通道 */
 
-function saveUIPrefs(){ try{ localStorage.setItem("wb_taskhub_ui_v1", JSON.stringify(uiPrefs)); }catch(e){} }
+function saveUIPrefs(){ storageSetSafe("wb_taskhub_ui_v1", JSON.stringify(uiPrefs)); }  /* P2：偏好写盘走安全通道 */
 
 function reviewNotesGet(wk){ try{ return JSON.parse(localStorage.getItem("wb_taskhub_review_notes_v1")||"{}")[wk]||{summary:"",next:""}; }catch(e){ return {summary:"",next:""}; } }
 
@@ -3775,9 +3777,9 @@ function projSave(){
   projectsSave(); document.getElementById("projMask").classList.remove("show"); renderAll(); toast("已保存项目");
 }
 
-function projectsSave(){ try{ localStorage.setItem("wb_taskhub_projects_v1", JSON.stringify(state.projects)); }catch(e){} markLocalSave(); }
+function projectsSave(){ storageSetSafe("wb_taskhub_projects_v1", JSON.stringify(state.projects)); markLocalSave(); }  /* P2：次级域写盘走安全通道 */
 
-function okrsSave(){ try{ localStorage.setItem("wb_taskhub_okrs_v1", JSON.stringify(state.okrs)); }catch(e){} recordOkrTrend(); markLocalSave(); }
+function okrsSave(){ storageSetSafe("wb_taskhub_okrs_v1", JSON.stringify(state.okrs)); recordOkrTrend(); markLocalSave(); }  /* P2：次级域写盘走安全通道 */
 
 function projectsLoad(){ try{ const r=localStorage.getItem("wb_taskhub_projects_v1"); if(r){ const a=JSON.parse(r); if(Array.isArray(a)){ state.projects=a; for(const p of state.projects){ if(p.krId!==undefined && !p.krIds){ p.krIds=p.krId?[p.krId]:[]; } else if(!p.krIds){ p.krIds=[]; } if(p.archived===undefined) p.archived=false; } } } }catch(e){} }
 
@@ -6955,6 +6957,7 @@ function snapshotObj(){
     projects:JSON.parse(JSON.stringify(state.projects||[])),
     okrs:JSON.parse(JSON.stringify(state.okrs||[])),
     anniv:JSON.parse(JSON.stringify(state.anniv||[])),
+    histLen:(stats.history||[]).length,   // P2：完成流水是只追加的数组，撤销时按快照长度截断即可回滚本操作新增的流水条目
     deleted:JSON.parse(JSON.stringify(deletedIds||[]))}; }   // 墓碑一并入快照：撤销「删除」必须同时撤掉墓碑，否则下轮合并又把该条抹掉
   catch(e){ return {t:Date.now(),tasks:[],media:{books:[],tvs:[],auds:[]},habits:[],lists:[],tagTree:[],projects:[],okrs:[],anniv:[],deleted:[]}; }
 }
@@ -6995,6 +6998,12 @@ function applyUndo(s){
   lists = s.lists || [];
   if(Array.isArray(s.deleted)){ deletedIds = s.deleted.map(normTomb); deletedIdsSave(); }  // 旧快照无此字段 → 保持现状
   if(Array.isArray(s.histDrop)) restoreHistory(s.histDrop);   // 删除连带清掉的完成流水一并还回
+  /* P2：撤销也要回滚本操作新增的完成流水——否则撤销完成后趋势图与区间完成数虚高，
+     与顶部「近 7 天完成」对不上。stats.history 只追加（restoreHistory 的去重 push 不减长度），
+     删除场景 histDrop 恢复后长度恰回到快照值，截断条件不会误伤。 */
+  if(typeof s.histLen==="number" && Array.isArray(stats.history) && stats.history.length>s.histLen){
+    stats.history=stats.history.slice(0,s.histLen); saveStats();
+  }
   if(Array.isArray(s.tagTree)){ tagTree=s.tagTree; saveTags(); refreshTagFilter(); }
   /* P0-4：项目 / 目标 / 纪念日还原（旧快照无这些字段 → 保持现状，不清空） */
   if(Array.isArray(s.projects)){ state.projects=s.projects; projectsSave(); }
@@ -7047,7 +7056,7 @@ function saveHabitStyle(){
     targetOn:document.getElementById("hsTargetOn").checked,
     targetColor:document.getElementById("hsTargetColor").value||"#e9ebf1"
   };
-  try{ localStorage.setItem(HABIT_STYLE_KEY, JSON.stringify(s)); }catch(e){}
+  storageSetSafe(HABIT_STYLE_KEY, JSON.stringify(s));  /* P2：打卡样式走安全通道 */
   applyHabitStyle(); closeHabitStyle(); toast("打卡样式已更新");
 }
 
@@ -10171,17 +10180,20 @@ function attachChipDrag(ch){
       if(hover&&hover!==cell) hover.classList.remove("drop");
       if(cell&&cell.dataset.day!==orig){ cell.classList.add("drop"); hover=cell; } else hover=null;
     };
-    const up=ev2=>{
-      ch.removeEventListener("pointermove",mv); ch.removeEventListener("pointerup",up);
+    const cleanup=()=>{   /* P2：up/cancel 共用收尾——pointercancel（来电/手势打断）此前不清理，transform/hover 残留 */
+      ch.removeEventListener("pointermove",mv); ch.removeEventListener("pointerup",up); ch.removeEventListener("pointercancel",cleanup);
       ch.style.transform=""; ch.style.zIndex=""; ch.style.position="";
       if(hover) hover.classList.remove("drop");
+    };
+    const up=ev2=>{
+      cleanup();
       if(moved && hover){
         const deltaDays=Math.round((parseLocal(hover.dataset.day+"T00:00")-parseLocal(orig+"T00:00"))/DAY);
         if(deltaDays) applyDayShift(id, deltaDays, orig);
         ch._suppressClick=true;
       }
     };
-    ch.addEventListener("pointermove",mv); ch.addEventListener("pointerup",up);
+    ch.addEventListener("pointermove",mv); ch.addEventListener("pointerup",up); ch.addEventListener("pointercancel",cleanup);
   });
 }
 
@@ -12275,14 +12287,17 @@ const CmdPalette = (() => {
       {type:"cmd",title:"统计",sub:"完成率与分布",act:()=>go(VIEWS.STATS)},
     ];
     const match=(t,s)=> !q || t.toLowerCase().includes(q) || (s||"").toLowerCase().includes(q);
+    /* P2：项目名 / KR 标题预建查表——此前每个任务都 find+flatMap 全量扫一遍，O(任务×项目×KR) */
+    const projName=Object.create(null);
+    (state.projects||[]).forEach(p=>{ projName[p.id]=(p&&p.name)||""; });
+    const krTitle=Object.create(null);
+    (state.okrs||[]).forEach(o=>{ (o&&o.krs||[]).forEach(k=>{ krTitle[k.id]=(k&&k.title)||""; }); });
     // 命令
     cmds.forEach(c=>{ if(match(c.title,c.sub)) items.push(c); });
     // 任务（O10：标题/描述/标签/项目/KR 均可搜）
     (state.tasks||[]).forEach(t=>{
-      const proj=(state.projects||[]).find(p=>p.id===t.project);
-      const kr=(state.okrs||[]).flatMap(o=>o.krs||[]).find(k=>k.id===t.krId);
-      const hay=[t.title,t.desc,(t.tags||[]).join(" "),(proj&&proj.name)||"",(kr&&kr.title)||""].join(" ");
-      if(match(hay,"")) items.push({type:"task",title:t.title,sub:(t.cat||"")+(t.priority?(" · "+t.priority):"")+(noDate(t)?" · 收件箱":"")+(proj?" · "+proj.name:"")+(kr?" · KR:"+kr.title:""),act:()=>{ if(noDate(t)) go(VIEWS.INBOX); else { state.view=VIEWS.MONTH; syncSeg&&syncSeg(); renderAll(); } openModal(t.id,null); }});
+      const hay=[t.title,t.desc,(t.tags||[]).join(" "),projName[t.project]||"",krTitle[t.krId]||""].join(" ");
+      if(match(hay,"")) items.push({type:"task",title:t.title,sub:(t.cat||"")+(t.priority?(" · "+t.priority):"")+(noDate(t)?" · 收件箱":"")+(projName[t.project]?(" · "+projName[t.project]):"")+(krTitle[t.krId]?(" · KR:"+krTitle[t.krId]):""),act:()=>{ if(noDate(t)) go(VIEWS.INBOX); else { state.view=VIEWS.MONTH; syncSeg&&syncSeg(); renderAll(); } openModal(t.id,null); }});
     });
     // 媒体
     Object.values(media||{}).flat().forEach(m=>{ if(m&&match(m.title)) items.push({type:"media",title:m.title,sub:(m.type||"")+(m.total?(" · "+m.current+"/"+m.total):""),act:()=>{ go(VIEWS.MEDIA); }}); });
@@ -12299,7 +12314,9 @@ const CmdPalette = (() => {
   }
   function render(total, q){
     if(!items.length){ results.innerHTML='<div class="cmd-empty">没有匹配结果</div>'; return; }
-    const hl=s=>{ s=esc(s||""); if(!q) return s; const i=s.toLowerCase().indexOf(q); return i<0?s:(s.slice(0,i)+'<mark>'+s.slice(i,i+q.length)+'</mark>'+s.slice(i+q.length)); };
+    /* P2：高亮改在原串上定位、分段转义——此前先 esc() 再 indexOf(q)，搜索含 & 或 < 的
+       关键词会在已转义的 &amp;/&lt; 中间切开，输出被切坏的标记 */
+    const hl=s=>{ s=s||""; if(!q) return esc(s); const low=s.toLowerCase(); const i=low.indexOf(q); if(i<0) return esc(s); return esc(s.slice(0,i))+'<mark>'+esc(s.slice(i,i+q.length))+'</mark>'+esc(s.slice(i+q.length)); };
     let html="", lastGroup="";
     items.forEach((it,i)=>{
       const g={task:"任务",media:"媒体进度",habit:"习惯",list:"清单",cmd:"命令"}[it.type];

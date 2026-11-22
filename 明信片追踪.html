@@ -202,7 +202,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   /* 相关站点快捷链接（页面底部常驻，可自建 / 编辑 / 删除） */
   .linkbar{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px 13px;box-shadow:var(--shadow);margin-bottom:16px;}
   .lb-head{display:flex;align-items:center;gap:8px;margin-bottom:9px;}
-  .lb-title{font-size:12.5px;font-weight:700;color:var(--sub);letter-spacing:.02em;}
+  .lb-title{font-size:12.5px;font-weight:700;color:var(--sub);letter-spacing:.02em;border:0;background:none;font-family:inherit;padding:0;cursor:pointer;}  /* P2：span→button，补 button reset */
   .lb-edit{margin-left:auto;border:1px solid var(--line);background:var(--bg);color:var(--sub);border-radius:999px;padding:3px 11px;font-size:12px;cursor:pointer;font-family:inherit;min-height:26px;}
   .linkbar.collapsed .lb-list{display:none;}
   .lb-title{cursor:pointer;user-select:none;}
@@ -928,7 +928,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
 
   <!-- 相关站点快捷链接（可自建 / 编辑 / 删除，存本地） -->
   <div class="linkbar collapsed" id="linkBar">
-    <div class="lb-head"><span class="lb-title" id="linkBarToggle" title="点击展开/收起">🔗 相关站点 ▾</span><button type="button" class="lb-edit" id="btnLinkManage" title="管理链接">管理</button></div>
+    <div class="lb-head"><button type="button" class="lb-title" id="linkBarToggle" title="点击展开/收起" aria-expanded="false">🔗 相关站点 ▾</button><button type="button" class="lb-edit" id="btnLinkManage" title="管理链接">管理</button></div>
     <div class="lb-list" id="linkList"></div>
   </div>
 </div>
@@ -4500,7 +4500,7 @@ function openLinkModal(dir, id){
   // P2-12：代寄候选须与源腿「同模式」（单向代寄 vs 往返互寄的字段与步进完全不同，混配出来的pair 无法正确推进）
   const cands = tgtArr.filter(x=>x.id!==id && !(dir==="proxy" && (x.pairId || x.proxyMode!==src.proxyMode)));
   const listEl=document.getElementById("linkPickList");
-  document.getElementById("linkHint").textContent = "选择要与此记录绑定的对方（"+esc(src[nameField]||"未命名")+"）";
+  document.getElementById("linkHint").textContent = "选择要与此记录绑定的对方（"+(src[nameField]||"未命名")+"）";  /* P2：textContent 不解析 HTML，再套 esc 会把 & 显示成 &amp;（双转义） */
   if(!cands.length){ listEl.innerHTML=`<div class="hint" style="padding:10px 0;">没有可关联的对方记录。请先在「${tabLabel(tgtDir)}」新建一条。</div>`; }
   else{
     listEl.innerHTML=cands.map(c=>`<button type="button" class="mitem" data-cid="${c.id}" style="width:100%;margin-bottom:6px;text-align:left;">${esc(c[tgtNameField]||"未命名")} · ${esc(c.country||"—")} · ${esc(c.platform||"")}</button>`).join("");
@@ -5450,7 +5450,7 @@ document.getElementById("linkModal").onclick=e=>{ if(e.target.id==="linkModal") 
 document.getElementById("btnAddWidget").onclick=()=>openWidgetModal(null);
 document.getElementById("wToggle").onclick=()=>{ const b=document.getElementById("btnAddWidget"); b.style.display=b.style.display==="none"?"":"none"; };
 document.getElementById("btnEditStats").onclick=()=>{ widgetEditMode=!widgetEditMode; updateEditButton(); renderStats(); };
-document.getElementById("linkBarToggle").onclick=()=>{ const lb=document.getElementById("linkBar"); const c=lb.classList.toggle("collapsed"); document.getElementById("linkBarToggle").textContent=c?"🔗 相关站点 ▾":"🔗 相关站点 ▴"; };
+document.getElementById("linkBarToggle").onclick=()=>{ const lb=document.getElementById("linkBar"); const t=document.getElementById("linkBarToggle"); const c=lb.classList.toggle("collapsed"); t.textContent=c?"🔗 相关站点 ▾":"🔗 相关站点 ▴"; t.setAttribute("aria-expanded",c?"false":"true"); };  /* P2：span→button（键盘可展开），aria-expanded 同步 */
 document.getElementById("wCancel").onclick=closeWidgetModal;
 document.getElementById("wSave").onclick=saveWidgetModal;
 document.getElementById("wType").onchange=e=>toggleWRows(e.target.value);
@@ -5471,7 +5471,13 @@ document.getElementById("optsClose").onclick=closeOpts;
 document.getElementById("maskOpts").onclick=e=>{ if(e.target.id==="maskOpts"){ /* 防误触：点遮罩不关闭选项管理弹窗 */ } };
 // 点遮罩不再关闭弹窗，避免误触别处丢失未保存内容（关闭请用 ✕ 或取消按钮）
 document.getElementById("btnTheme").onclick=()=>applyTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
-document.getElementById("btnMenu").onclick=()=>document.getElementById("menu").classList.toggle("show");
+document.getElementById("btnMenu").onclick=()=>{ const m=document.getElementById("menu"); m.classList.toggle("show"); m.setAttribute("aria-expanded", m.classList.contains("show")?"true":"false"); };
+/* P2：⋯ 菜单 Esc 关闭并把焦点还给触发按钮（此前 Esc 关不掉，只能点别处） */
+document.addEventListener("keydown",e=>{
+  if(e.key!=="Escape")return;
+  const m=document.getElementById("menu");
+  if(m&&m.classList.contains("show")){ m.classList.remove("show"); m.setAttribute("aria-expanded","false"); document.getElementById("btnMenu").focus(); }
+});
 document.getElementById("btnLinkManage").onclick=openLinkEditor;
 document.getElementById("linksClose").onclick=closeLinkEditor;
 document.getElementById("linksDone").onclick=closeLinkEditor;

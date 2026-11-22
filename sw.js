@@ -13,7 +13,16 @@ const SENT_CACHE="wb-remind-sent";
    沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存；PRECACHE 与 NAV_MAP 同步纳入观剧页。 */
 /* v20（2026-11-21）：旅行地图并入站点正式页——七页导航条 + 门禁体系，地图页改标准 key 加载并接入共享层。
    沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存；PRECACHE 与 NAV_MAP 同步纳入旅行地图。 */
-const APP_CACHE="wb-app-v31";
+const APP_CACHE="wb-app-v32";
+/* v32（2026-11-22 P2 打磨）：八页 HTML / timeline-core 字节变化。
+   SW 级（全站审查 P2）：① 预缓存失败不再 console.warn 后照常 activate——改为 throw 让
+   install 失败，浏览器会按生命周期自动重试；否则弱网下某页预缓存失败即永久缺页，
+   activate 还会无条件删掉旧缓存，离线兜底只能退首页。② 导航请求 no-store→no-cache：
+   no-store 每次跳页全量重下 842KB，no-cache 命中 ETag 走 304 条件重验。
+   页面级：海报墙导出文件名本地日期 / toast 键盘避让 / 触屏 hover 复位 / theme-color 统一，
+   时间线筛选焦点保持 + theme-color 跟随，地图日记脏检查 + 布局 flex 化 + askConfirm，
+   任务台次级域写盘走安全通道 + 撤销回滚统计流水 + 月视图触屏拖拽 + 命令面板性能，
+   明信片双转义 / 折叠条键盘可达 / Esc 关菜单，timeline-core 精确替换补计数递减。 */
 /* v31（2026-11-22 批三体感与无障碍）：八页 HTML / timeline-core / site-nav 字节全部变化。
    页面级：任务台习惯格改 <button>（键盘可达）+ 六个弹窗补 Escape + 状态色全套换语义 token；
    明信片筛选条按视图缓存（搜索不再失焦）+ toast/徽章对比度；地图切层级清搜索词、
@@ -67,19 +76,20 @@ const PRECACHE=["./", "./home.html", "./任务管理台.html", "./明信片追�
 self.addEventListener("install", function(e){
   self.skipWaiting();
   e.waitUntil((async function(){
-    try{
-      const c=await caches.open(APP_CACHE);
-      var failed=[];
-      await Promise.all(PRECACHE.map(function(u){
-        /* 批三：cache:"reload" 强制绕过 GitHub Pages 的 max-age=600 磁盘缓存——
-           否则 install 可能正好把改版前 10 分钟内的旧 HTML 预缓存进 APP_CACHE，
-           离线用户读到的永远是旧版。 */
-        return c.add(new Request(u, {cache:"reload"})).then(function(){}, function(err){
-          failed.push(u); console.warn("[sw] 预缓存失败:", u, err && err.message);
-        });
-      }));
-      if(failed.length) console.warn("[sw] 预缓存完成，失败 "+failed.length+"/"+PRECACHE.length+": "+failed.join(", "));
-    }catch(_){}
+    const c=await caches.open(APP_CACHE);
+    var failed=[];
+    await Promise.all(PRECACHE.map(function(u){
+      /* 批三：cache:"reload" 强制绕过 GitHub Pages 的 max-age=600 磁盘缓存——
+         否则 install 可能正好把改版前 10 分钟内的旧 HTML 预缓存进 APP_CACHE，
+         离线用户读到的永远是旧版。 */
+      return c.add(new Request(u, {cache:"reload"})).then(function(){}, function(err){
+        failed.push(u); console.warn("[sw] 预缓存失败:", u, err && err.message);
+      });
+    }));
+    /* P2：失败即 throw 让 install 失败（浏览器自动重试），旧 SW 继续服务——
+       此前只 warn 后照常 activate，且 activate 无条件删旧缓存，
+       弱网下某页预缓存失败即永久缺页、离线兜底只能退首页。 */
+    if(failed.length) throw new Error("[sw] 预缓存失败 "+failed.length+"/"+PRECACHE.length+" 项: "+failed.join(", "));
   })());
 });
 self.addEventListener("activate", function(e){
@@ -218,7 +228,9 @@ self.addEventListener("fetch", function(e){
   }
   var upstream;
   if(e.request.mode==="navigate"){
-    upstream = fetch(e.request.url, {cache:"no-store", credentials:"same-origin", redirect:"follow"})
+    /* P2：no-store→no-cache——no-store 每次跳页全量重下整页 HTML，
+       no-cache 同样绕过磁盘缓存旧字节但可命中 ETag 走 304 条件重验，跳页便宜得多。 */
+    upstream = fetch(e.request.url, {cache:"no-cache", credentials:"same-origin", redirect:"follow"})
       .then(function(res){ if(res && !res.ok) throw new Error("HTTP "+res.status); return res; })
       .catch(function(){
         return fetch(e.request).then(function(res){

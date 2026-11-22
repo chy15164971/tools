@@ -496,6 +496,7 @@
       if (old) {
         var i = events.indexOf(old);
         if (i >= 0) events.splice(i, 1);
+        counts[old.kind]--;   /* P2：精确事件替换日级条目时同步递减计数，否则 counts 虚增（坏 API） */
       }
       var e = {
         ts: +ts, precise: !!precise, kind: kind, src: src,

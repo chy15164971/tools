@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<script>/* 主题初值统一（与其余七页同口径）：显式选择优先 → 无值跟随系统 → 默认亮色 */try{var _t=localStorage.getItem("wb_theme_v1");if(!_t&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)_t="dark";if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
+<script>/* 主题初值统一（与其余七页同口径）：显式选择优先 → 无值跟随系统 → 默认亮色 */try{var _t=localStorage.getItem("wb_theme_v1");if(!_t&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)_t="dark";if(_t)document.documentElement.setAttribute("data-theme",_t);/* P2：初值是暗色时同步 theme-color，避免暗色系统下打开本页状态栏仍亮蓝 */var _mt=document.querySelector('meta[name="theme-color"]');if(_mt)_mt.setAttribute("content",_t==="dark"?"#0f1320":"#4F7CFF");}catch(e){}</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>时间线 · 工作台</title>
@@ -488,6 +488,7 @@
       if (old) {
         var i = events.indexOf(old);
         if (i >= 0) events.splice(i, 1);
+        counts[old.kind]--;   /* P2：精确事件替换日级条目时同步递减计数，否则 counts 虚增（坏 API） */
       }
       var e = {
         ts: +ts, precise: !!precise, kind: kind, src: src,
@@ -787,6 +788,9 @@
       var next = curTheme() === "dark" ? "light" : "dark";
       document.documentElement.setAttribute("data-theme", next);
       try { localStorage.setItem("wb_theme_v1", next); } catch(e){}
+      /* P2：theme-color 跟随主题（与任务台/海报墙同口径：亮 #4F7CFF / 暗 #0f1320），否则切暗色后状态栏仍亮蓝跳色 */
+      var mt = document.querySelector('meta[name="theme-color"]');
+      if (mt) mt.setAttribute("content", next === "dark" ? "#0f1320" : "#4F7CFF");
       syncThemeBtn();
     });
   }
@@ -804,6 +808,12 @@
   }
 
   function renderChips(){
+    /* P2：整组 innerHTML 重建前记下焦点 chip，重建后还回去——否则键盘用户点一下筛选就掉回 body */
+    var prevKind = null;
+    /* CHIPS.contains 存在性防御：验收测试的元素桩无 contains（真实 DOM 恒有） */
+    if (CHIPS.contains && CHIPS.contains(document.activeElement) && document.activeElement.getAttribute) {
+      prevKind = document.activeElement.getAttribute("data-kind");
+    }
     var counts = { "": ALL.length };
     CORE.KINDS.forEach(function(k){ counts[k] = 0; });
     ALL.forEach(function(e){ counts[e.kind] = (counts[e.kind] || 0) + 1; });
@@ -814,6 +824,10 @@
             + CORE.LABEL[k] + '<span class="n">' + (counts[k] || 0) + "</span></button>";
     });
     CHIPS.innerHTML = html;
+    if (prevKind !== null) {
+      var back = CHIPS.querySelector('button[data-kind="' + prevKind + '"]');
+      if (back) back.focus();
+    }
   }
 
   function renderYears(){

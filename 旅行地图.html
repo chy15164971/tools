@@ -6,7 +6,7 @@
     <title>旅行地图 · 工作台</title>
     <meta name="theme-color" content="#4F7CFF">
     <link rel="manifest" href="manifest.json">
-<script>/* O-7：主题初值统一——未显式选择时跟随系统，避免从其他页跳来时主题闪变 */try{var _t=localStorage.getItem("wb_theme_v1");if(!_t&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)_t="dark";if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
+<script>/* O-7：主题初值统一——未显式选择时跟随系统，避免从其他页跳来时主题闪变 */try{var _t=localStorage.getItem("wb_theme_v1");if(!_t&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)_t="dark";if(_t)document.documentElement.setAttribute("data-theme",_t);/* P2：初值是暗色时同步 theme-color（亮 #4F7CFF / 暗 #0f1320，与任务台/海报墙同口径） */var _mt=document.querySelector('meta[name="theme-color"]');if(_mt)_mt.setAttribute("content",_t==="dark"?"#0f1320":"#4F7CFF");}catch(e){}</script>
 <style>
   /* === 旅行地图页私有 token（写在 SHARED TOKENS 标记区之外，sync_tokens.js 不触碰）=== */
   /* 地图页私有：无额外变量，共享 token 已覆盖全部引用（--pri/--pri-deep/--bg/--card/--ink/--sub/--line/--hover） */
@@ -50,7 +50,7 @@
   /* === SHARED TOKENS END === */
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;height:100%}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);font-size:13px}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);font-size:13px;display:flex;flex-direction:column}  /* P2：flex 列布局，main 撑满剩余高度——此前 390px 下 header 折行后远超 108px，calc 写死减数把地图挤出首屏 */
 header{height:60px;display:flex;align-items:center;gap:12px;padding:0 18px;background:var(--card);border-bottom:1px solid var(--line)}
 h1{font-size:16px;font-weight:600;margin:0;white-space:nowrap}
 .tabs,.subtabs{display:flex;gap:6px}
@@ -60,7 +60,7 @@ h1{font-size:16px;font-weight:600;margin:0;white-space:nowrap}
 .subtab.on{background:var(--hover);border-color:var(--pri);color:var(--pri-deep)}
 .stat{margin-left:auto;color:var(--sub);font-size:12px;white-space:nowrap}
 .clear{min-height:36px;padding:0 12px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--sub);cursor:pointer;font-family:inherit;font-size:12px}
-main{display:flex;gap:12px;padding:12px;height:calc(100% - 60px)}
+main{display:flex;gap:12px;padding:12px;flex:1;min-height:0}  /* P2：flex:1 替代 height:calc(100% - 60px) 写死减数 */
 aside{width:290px;flex:none;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .aside-h{padding:12px 14px 8px;font-size:12px;color:var(--sub);border-bottom:1px solid var(--line)}
 .searchwrap{display:none;padding:8px 10px;border-bottom:1px solid var(--line)}
@@ -93,6 +93,14 @@ aside{width:290px;flex:none;display:flex;flex-direction:column;background:var(--
 .diary-h b{font-size:15px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .diary-x{width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--sub);cursor:pointer;font-size:16px;font-family:inherit;line-height:1}
 .diary-body{overflow-y:auto;padding:12px 16px;flex:1;min-height:80px}
+/* P2：页内确认弹窗（替代 window.confirm——受限 iframe 下原生 confirm 可能静默返回 false） */
+.ask-mask{display:none;position:fixed;inset:0;z-index:90;background:rgba(20,26,40,.44);align-items:center;justify-content:center;padding:16px}
+.ask-mask.show{display:flex}
+.ask-box{width:min(380px,100%);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 12px 44px rgba(20,26,40,.2)}
+.ask-body{font-size:13px;color:var(--ink);line-height:1.6;margin:0 0 16px}
+.ask-btns{display:flex;gap:8px;justify-content:flex-end}
+.ask-btns button{min-height:36px;padding:0 16px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-family:inherit;font-size:13px;cursor:pointer}
+.ask-btns .ask-pri{background:var(--pri-deep);border-color:var(--pri-deep);color:#fff}
 .diary-empty{color:var(--sub);font-size:12px;text-align:center;padding:18px 8px}
 .dentry{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:9px;background:var(--card)}
 .dentry .eh{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--sub)}
@@ -123,7 +131,7 @@ aside{width:290px;flex:none;display:flex;flex-direction:column;background:var(--
   .stat{margin-left:0;font-size:11px}
   .tab,.subtab,.clear{min-height:44px}
   #search{min-height:44px;font-size:16px}
-  main{flex-direction:column;height:calc(100% - 108px);padding:8px;gap:8px}
+  main{flex-direction:column;padding:8px;gap:8px}  /* P2：高度交给 flex，不再写死 calc(100% - 108px) */
   aside{width:100%;height:34vh;flex:none}
   #mapWrap{height:52vh;flex:none}
 }
@@ -219,6 +227,15 @@ aside{width:290px;flex:none;display:flex;flex-direction:column;background:var(--
         <button type="button" class="btn gh" id="dCancel">取消</button>
       </div>
     </form>
+  </div>
+</div>
+<div class="ask-mask" id="askMask">
+  <div class="ask-box" role="dialog" aria-modal="true" aria-labelledby="askBody">
+    <div class="ask-body" id="askBody"></div>
+    <div class="ask-btns">
+      <button type="button" class="ask-pri" id="askOk">确定</button>
+      <button type="button" class="ask-sec" id="askCancel">取消</button>
+    </div>
   </div>
 </div>
 <script>
@@ -1125,8 +1142,8 @@ document.getElementById('tabChina').addEventListener('click',()=>switchRegion('c
 document.getElementById('tabWorld').addEventListener('click',()=>switchRegion('world'));
 document.getElementById('subProv').addEventListener('click',()=>setLevel(region==='china'?'province':'country'));
 document.getElementById('subCity').addEventListener('click',()=>setLevel('city'));
-document.getElementById('clearBtn').addEventListener('click',()=>{
-  if(!window.confirm('清空当前视图的所有标记？'))return;
+document.getElementById('clearBtn').addEventListener('click',async()=>{
+  if(!await askConfirm('清空当前视图的所有标记？'))return;
   /* 2026-11-22 审查：清空必须同步删 litAt，否则时间线会继续报「点亮了 X」而地图已全灭。
      数组里存裸 id，litAt 的键是带表前缀的 k（c:/cc:/w:/wc:），故按当前视图的表反查 k。 */
   const dropLit=(bucketName,list)=>{ (state[bucketName]||[]).forEach(id=>{ const p=list.find(x=>x.id===id); if(p&&p.k) delete state.litAt[p.k]; }); };
@@ -1145,6 +1162,7 @@ setLevel('province');
 
 /* ===== 日记弹窗交互 ===== */
 function resetForm(){
+  _diaryDirty=false;   /* P2：脏检查复位（打开弹窗/关闭弹窗/保存成功三条路径都经过这里） */
   document.getElementById('dForm').reset();
   document.getElementById('dEdit').value='';
   pendingPhotos=[];existingPhotoIds=[];removedPhotoIds=[];editingMeta={};
@@ -1229,11 +1247,12 @@ function fillForm(id){
   existingPhotoIds=(d.photoIds||[]).slice();
   pendingPhotos=[];pendingThumbJobs=[];  /* S-2/S-3：填另一篇日记时清空待传照片与未完成缩略图，防串档漏图 */
   removedPhotoIds=[];editingMeta={createdAt:d.createdAt};
+  _diaryDirty=false;   /* P2：切换编辑对象，以已保存内容为新基准 */
   renderPending();
   document.getElementById('dTitleIn').focus();
 }
-function deleteDiary(id){
-  if(!window.confirm('删除这篇日记？其中的照片也会一起删除。'))return Promise.resolve();
+async function deleteDiary(id){
+  if(!await askConfirm('删除这篇日记？其中的照片也会一起删除。'))return Promise.resolve();
   return idbGet('diaries',id).then(d=>{
     if(!d)return Promise.resolve();
     const del=(d.photoIds||[]).map(pid=>idbDel('photos',pid));
@@ -1292,12 +1311,43 @@ function toast(msg){
   clearTimeout(t._t);t._t=setTimeout(()=>{t.style.opacity='0';},1800);
 }
 
-document.getElementById('dClose').addEventListener('click',closeDiary);
-document.getElementById('dCancel').addEventListener('click',closeDiary);
-diaryMaskEl.addEventListener('click',e=>{if(e.target===diaryMaskEl)closeDiary();});
+/* ===== P2：页内确认弹窗（替代 window.confirm——受限 iframe 下原生 confirm 可能静默返回 false，表现为「点了没反应」）===== */
+const askMaskEl=document.getElementById('askMask');
+let _askResolve=null;
+function _askClose(v){
+  askMaskEl.classList.remove('show');
+  const r=_askResolve;_askResolve=null;
+  if(r)r(v);
+}
+function askConfirm(msg){
+  if(_askResolve)_askClose(false);
+  document.getElementById('askBody').textContent=msg;
+  askMaskEl.classList.add('show');
+  setTimeout(()=>{document.getElementById('askOk').focus();},0);
+  return new Promise(res=>{_askResolve=res;});
+}
+document.getElementById('askOk').addEventListener('click',()=>_askClose(true));
+document.getElementById('askCancel').addEventListener('click',()=>_askClose(false));
+askMaskEl.addEventListener('click',e=>{if(e.target===askMaskEl)_askClose(false);});
+
+/* ===== P2：日记脏检查——几百字长文+已选照片被一次误触（遮罩/Esc/取消）全清，太伤 =====
+   dirty 只由用户输入置位（表单 input/change 冒泡 + 缩略图区删照点击），
+   resetForm（打开/关闭/保存成功）与 fillForm（切换编辑对象）复位。 */
+let _diaryDirty=false;
+async function requestCloseDiary(){
+  if(_diaryDirty && !(await askConfirm('日记内容尚未保存，确定丢弃吗？')))return;
+  closeDiary();
+}
+document.getElementById('dForm').addEventListener('input',()=>{_diaryDirty=true;});
+document.getElementById('dForm').addEventListener('change',()=>{_diaryDirty=true;});
+dThumbsEl.addEventListener('click',e=>{ if(e.target.closest('[data-rmphoto],[data-rmexist]'))_diaryDirty=true; });
+document.getElementById('dClose').addEventListener('click',()=>requestCloseDiary());
+document.getElementById('dCancel').addEventListener('click',()=>requestCloseDiary());
+diaryMaskEl.addEventListener('click',e=>{if(e.target===diaryMaskEl)requestCloseDiary();});
 document.addEventListener('keydown',e=>{
   if(e.key==='Tab'){_diaryTrapFocus(e);return;}   /* S-1：Tab 在弹窗内回环 */
-  if(e.key==='Escape'&&diaryMaskEl.classList.contains('show'))closeDiary();
+  if(e.key==='Escape'&&askMaskEl.classList.contains('show')){_askClose(false);return;}   /* P2：ask 弹窗压在日记弹窗上层，先关它 */
+  if(e.key==='Escape'&&diaryMaskEl.classList.contains('show'))requestCloseDiary();
 });
 dListEl.addEventListener('click',e=>{
   const ed=e.target.closest('[data-edit]');if(ed){fillForm(ed.dataset.edit);return;}
