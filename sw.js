@@ -13,7 +13,7 @@ const SENT_CACHE="wb-remind-sent";
    沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存；PRECACHE 与 NAV_MAP 同步纳入观剧页。 */
 /* v20（2026-11-21）：旅行地图并入站点正式页——七页导航条 + 门禁体系，地图页改标准 key 加载并接入共享层。
    沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存；PRECACHE 与 NAV_MAP 同步纳入旅行地图。 */
-const APP_CACHE="wb-app-v34";
+const APP_CACHE="wb-app-v35";
 /* v32（2026-11-22 P2 打磨）：八页 HTML / timeline-core 字节变化。
    SW 级（全站审查 P2）：① 预缓存失败不再 console.warn 后照常 activate——改为 throw 让
    install 失败，浏览器会按生命周期自动重试；否则弱网下某页预缓存失败即永久缺页，

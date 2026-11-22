@@ -78,7 +78,11 @@
   body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
        font-size:15px;background:var(--bg);color:var(--ink);min-height:100vh;min-height:100dvh;line-height:1.6;
        transition:background .2s ease,color .2s ease}
-  .wrap{max-width:880px;margin:0 auto;padding:20px 18px calc(40px + env(safe-area-inset-bottom))}
+  .wrap{max-width:1360px;margin:0 auto;padding:20px 18px calc(40px + env(safe-area-inset-bottom))}   /* 20261122：880→1360 对齐全站基准；内容列在下方单独限宽，宽框架+窄阅读列 */
+
+  /* 内容列统一限宽 1000 居中：月度事件流是阅读型列表，1360 全宽下单卡行宽过长；
+     头部（品牌+按钮）随框架全宽，其余内容列收窄，层次与行宽都舒服 */
+  .sum,.bar,.donebar,.feed,.foot{max-width:1000px;margin-inline:auto}
 
   .head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
   .brand{display:flex;align-items:center;gap:12px;flex:1;min-width:220px}
