@@ -13,7 +13,7 @@ const SENT_CACHE="wb-remind-sent";
    沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存；PRECACHE 与 NAV_MAP 同步纳入观剧页。 */
 /* v20（2026-11-21）：旅行地图并入站点正式页——七页导航条 + 门禁体系，地图页改标准 key 加载并接入共享层。
    沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存；PRECACHE 与 NAV_MAP 同步纳入旅行地图。 */
-const APP_CACHE="wb-app-v24";
+const APP_CACHE="wb-app-v25";
 /* v9（2026-11-16 低风险批）：海报墙补 viewport-fit / 缩略图 alt / 遮罩前缀，
    任务台与 index 补 -webkit- 前缀，门户降级计数标签纠正口径；另外 navigate
    分支补 res.ok 检查——此前 HTTP 404 会 resolve(!ok) 直接漏给离线用户。
