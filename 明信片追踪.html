@@ -136,9 +136,11 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   .top-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .top-actions>.btn,.top-actions>.cloudpill{height:38px;min-height:38px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;}
   .cloudpill{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;padding:5px 12px;border-radius:999px;background:var(--pri-deep);color:var(--white);border:1px solid var(--pri-deep);box-shadow:0 1px 3px rgba(79,124,255,.25);white-space:nowrap;cursor:pointer;}
-  .cloudpill.ok{background:var(--ok);border-color:var(--ok);}
-  .cloudpill.syncing{background:var(--warn);border-color:var(--warn);}
-  .cloudpill.err{background:var(--danger);border-color:var(--danger);}
+  /* P2 20261122：状态胶囊对齐任务台批三对比度口径——实色底+白字仅 2.77:1，12.5px 读不清；
+     改「浅底 + ink 字」（≥4.5:1），语义靠彩色边框 + 图标继续表达。 */
+  .cloudpill.ok{background:var(--ok-soft);border-color:var(--ok);color:var(--ok-ink);box-shadow:none;}
+  .cloudpill.syncing{background:var(--warn-soft);border-color:var(--warn);color:var(--warn-ink);box-shadow:none;}
+  .cloudpill.err{background:var(--danger-soft);border-color:var(--danger);color:var(--danger-ink);box-shadow:none;}
   .cloudpill.off{background:#e9edf5;color:var(--sub);border-color:#e9edf5;box-shadow:none;}
   .cloudpill .ic{margin-right:0;}
   .cloud-btns{display:flex;gap:10px;flex-wrap:wrap;}
