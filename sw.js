@@ -13,7 +13,7 @@ const SENT_CACHE="wb-remind-sent";
    沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存；PRECACHE 与 NAV_MAP 同步纳入观剧页。 */
 /* v20（2026-11-21）：旅行地图并入站点正式页——七页导航条 + 门禁体系，地图页改标准 key 加载并接入共享层。
    沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存；PRECACHE 与 NAV_MAP 同步纳入旅行地图。 */
-const APP_CACHE="wb-app-v29";
+const APP_CACHE="wb-app-v30";
 /* v29（2026-11-22 批一止血）：四处真缺陷修复，观剧 / 明信片 / 地图三页 HTML 字节已变。
    ① 观剧补 idbGet（删除带照片的记录此前抛 ReferenceError，删除静默失效）；
    ② 观剧照片 src 补转义 + 导入只接受图片 dataURL（此前备份里的 dataUrl 原样当缩略图，构成注入面）；

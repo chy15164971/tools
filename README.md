@@ -22,8 +22,8 @@
    导航条必须是 `<body>` 开头的静态 HTML，不能退回 JS 延迟插入（会重现首屏闪旧画面）。
 3. 共享色板唯一真相源是 vault `_ops/_workbench/design_tokens.css`；
    私有变量写在 `SHARED TOKENS START/END` 标记区**之外**，否则下次同步会被整块覆盖。
-4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v29）：SW 字节不变就不触发 install，
-   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15→v16→v17、11-19 v18、11-21 v19→v20→v21、11-22 v22→v23→v24→v25→v26→v27→v28→v29 均按此处理）。
+4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v30）：SW 字节不变就不触发 install，
+   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15→v16→v17、11-19 v18、11-21 v19→v20→v21、11-22 v22→v23→v24→v25→v26→v27→v28→v29→v30 均按此处理）。
    导航请求用 `fetch(url,{cache:"no-store"})` 绕过 Pages 的 `max-age=600`；
    不要写成 `fetch(e.request, init)`（navigate 模式重建 Request 会抛 TypeError）。
 5. `_shared/` 目录以下划线开头，GitHub Pages 不发布；源文件已内联进八个 HTML，线上 404 属预期。
@@ -368,6 +368,27 @@ v27 只改了文案，遗留一个问题：**同一个 `date` 字段被两种含
 - **行为变化（刻意保守）**：地图城市视图清空时**仍然**连带清空省份桶（沿用旧行为），本批只修 `litAt` 一致性，不改级联语义。
 - 本轮门禁：发布门禁 **0 失败**、镜像 **27+27 项**（含阅读副本）、全量回归 **70 PASS**（+1 本批专项）、焦点 E2E **36 PASS**、P1-9 **42 PASS**、时间线 **98 PASS**、海报墙 **44 PASS**、数据规范化 **27 PASS**。升 `APP_CACHE` v28 → **v29**。
 - **分辨力对照**（新增 `_ops/_测试/站点_批一止血_20261122.冒烟测试.mjs`，30 条断言）：用 `git show HEAD:` 取改前字节放到临时目录、`WB_REPO` 指过去跑同一套 → **22 FAIL / 8 PASS**，证明断言不是空跑（余下 8 条是「未改变行为的守卫」，如切换函数仍用 `hidden`、降级层仍存在）。
+
+### 批二「数据正确性」：重复规则 / 云合并仲裁 / 补打卡 / 代寄脏检查 / 逾期出口（v30，2026-11-22）
+
+承接批一，处理审查报告里的 5 条 P1——**都属"数据算错但界面不报错"的静默型问题**，用户往往几周后才察觉。
+
+| # | 缺陷 | 位置 | 旧行为 |
+|---|---|---|---|
+| 1 | 快速添加「每周三」丢掉星期 | `parseNL` / `recMatch` / `recLabel` | `parseNL` 产出 `{freq:"weekly", day:3}`，而 `recMatch`/`recLabel` 只认 `daysOfWeek` → 快速添加按**创建当天**重复；同一句话在新建弹窗点「识别」却写 `daysOfWeek`（正确）。两条录入路径结果不一致，且重复规则一次设定长期生效 |
+| 2 | 云合并：云端任务命中本地墓碑就丢弃，**不比时间戳** | `mergeTasks` 云端分支 | 同函数本地分支按 `updated` vs 墓碑 `ts` 裁决，云端分支却是 `if(!t\|\|del.has(t.id)) return;` → A 删 T、B 随后编辑 T，则 A 永远看不到 T、B 永远删不掉 T，每次同步互相覆盖一次 |
+| 3 | 补打卡「仅目标日」拿**本周**日期去和任意历史区间求交集 | `confirmHabitBackfill` + `habitWeekTargetDays` | 周一打开时默认区间（today-5~today-1）整段落在上一周 → 交集恒空 → 明明一天没打却提示「所选日期均已打卡」；跨周区间被静默丢弃 |
+| 4 | 单向代寄的往返节点日期不在脏检查字段里 | `明信片追踪.html` `PROXY_FORM_IDS` | 缺 `pEnvSent`/`pEnvRecv`/`pProxyMode`，而 `saveProxyModal` 会写这三项 → 「只改一两个往返节点日期」这个最典型场景按 Esc 无提示丢数据 |
+| 5 | 今日页逾期 14 天窗口外的积压没有出口 | `buildTodayModel` / `todaySectionsHtml` | 15 天前到期的任务从主入口静默消失，而顶部「逾期」功能卡走 `collectOverdueSet`（非重复不限窗口）→ 两个数字当场矛盾 |
+
+- **重复规则改法**：`parseNL` 统一产出 `daysOfWeek`（保留 `rec.day` 兜底兼容）；`recLabel(rec, baseStart)` 新增起算日参数——老数据缺 `daysOfWeek` 时按**起算日的星期**显示（与 `recMatch` 的兜底同口径），此前回退成 `new Date().getDay()` 甚至渲染出「周0」。
+- **云合并改法**：抽出 `aliveByTomb(t, dts)` 作为**唯一判据**，本地/云端两侧都调它：`ts>0` 时 `updated > ts` ⇒ 删除后又被编辑，任务复活并撤销墓碑；`ts==0` 的旧格式墓碑只删「从未编辑过」的任务。任务活着就 `del.delete(id)`，否则过时墓碑会被一路传下去反复误杀。
+- **补打卡改法**：新增 `habitTargetDaysInRange(h, d0, d1)` 在**给定区间内**推导目标日（daily=每天 / weekly=每自然周前 N 天 / custom=勾选星期 / someday=空）；`habitWeekTargetDays` 原样保留给「本周目标日」「本周全完成」等真正按周的功能。
+- **逾期出口**：窗口常量收敛为 `TODAY_BACKLOG_DAYS=14`，新增 `countOlderOverdue(d0, shownIds)`（任务级去重、排除窗口内已展示过的任务、重复任务沿用 90 天视野与 `collectOverdueSet` 同源）→ 今日页底部一行「还有 N 项更早逾期 · 去回顾查看」。**14 天窗口本身刻意保留**（历史积压全铺开会淹没今天）。
+- ⚠️ **踩到的坑（已写成断言）**：切视图最初写成 `go(VIEWS.REVIEW)`——`go()` 是 `CmdPalette` IIFE 内的**私有函数**，非全局，点击时抛 `ReferenceError`，而静态断言与 `node --check` 都看不出来。现改为 `state.view=VIEWS.REVIEW; syncSeg&&syncSeg(); renderAll();`，并加**点击行为断言**（E12）守它。
+- 本轮门禁：发布门禁 **0 失败**、镜像 **27+27 项**、全量回归 **71 PASS**（+1 本批专项）、焦点 E2E **36 PASS**、P1-9 **42 PASS**（已按流程重冻基线）、时间线 **98 PASS**、海报墙 **44 PASS**、数据规范化 **27 PASS**。升 `APP_CACHE` v29 → **v30**。
+- **分辨力对照**（新增 `_ops/_测试/站点_批二数据正确性_20261122.冒烟测试.mjs`，37 条断言）：改前字节（`git show HEAD:`）→ **31 FAIL / 6 PASS**；再把 `bindOlderOverdue` 改回 `go(VIEWS.REVIEW)` → 只有 E5/E12 变红（证明这两条专治该回归）。
+- 决策留痕：今日页逾期窗口**维持 14 天 + 提示行**（不放宽到 90 天）；云合并**按时间戳仲裁**（编辑晚于删除则保留）。
 
 ## 本机副本
 

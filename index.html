@@ -272,6 +272,12 @@
   .today-sec-act{margin-left:auto;min-height:24px;padding:2px 8px;font-size:11.5px;font-weight:600;color:var(--sub);border:1px solid var(--line);background:var(--card);border-radius:7px;cursor:pointer;font-family:inherit;}
   .today-sec-act:hover{background:var(--hover);color:var(--ink-strong);}
   .today-sec-act:focus-visible{outline:2px solid var(--pri);outline-offset:1px;}
+  /* 「还有 N 项更早逾期」：今日页只回溯 14 天，这行负责把窗口外的积压交代清楚。
+     用虚线分隔而不是卡片，避免与「已完成」折叠条抢层级；文案是动作，所以做成按钮。 */
+  .today-more{margin:12px 0 4px;padding-top:10px;border-top:1px dashed var(--line);text-align:left;}
+  .today-more .today-more-btn{min-height:32px;font-size:12.5px;font-weight:600;color:var(--pri-ink);background:var(--pri-soft);border:1px solid transparent;border-radius:8px;padding:4px 10px;cursor:pointer;font-family:inherit;}
+  .today-more .today-more-btn:hover{background:var(--pri-soft);border-color:var(--pri);}
+  .today-more .today-more-btn:focus-visible{outline:2px solid var(--pri);outline-offset:1px;}
   .today-sec-toggle{margin:8px 0 2px;align-self:stretch;text-align:left;font-size:12.5px;font-weight:600;color:var(--pri);
     background:var(--pri-soft);border:1px dashed var(--pri);border-radius:var(--radius);padding:7px 10px;cursor:pointer;min-height:38px;}
   .today-scroll-hint{position:sticky;bottom:0;left:0;right:0;margin-top:4px;text-align:center;font-size:11.5px;font-weight:600;color:var(--pri);
@@ -4215,7 +4221,10 @@ function parseNL(text){
   let date=null, times=[], durationMin=null, rec=null;
   // ---- 重复（每…） ----
   let rm=s.match(/每\s*[天日]/); if(rm){ rec={freq:"daily"}; s=s.replace(rm[0],""); }
-  else { const rw=s.match(/每\s*(?:周|星期|礼拜)\s*([一二三四五六日天七八0-6])/); if(rw){ rec={freq:"weekly", day:wkMap[rw[1]]}; s=s.replace(rw[0],""); }
+  /* P1-1：必须产出 daysOfWeek —— recMatch / recLabel 只认 daysOfWeek，缺省各自回退成
+     「baseStart 的星期」「今天的星期」。此前这里给的是 {day}，于是「每周三」在快速添加
+     路径上按创建当天重复，而新建弹窗的「识别」按钮却写 daysOfWeek（两条录入路径不一致）。 */
+  else { const rw=s.match(/每\s*(?:周|星期|礼拜)\s*([一二三四五六日天七八0-6])/); if(rw){ rec={freq:"weekly", daysOfWeek:[wkMap[rw[1]]]}; s=s.replace(rw[0],""); }
     else { const rmo=s.match(/每\s*(?:个?\s*月)/); if(rmo){ rec={freq:"monthly"}; s=s.replace(rmo[0],""); } } }
   // ---- 单日期 ----
   if(/今\s*天|今日|\btoday\b/i.test(s)){ date=new Date(now); s=s.replace(/今\s*天|今日|\btoday\b/gi,""); }
@@ -4655,11 +4664,15 @@ function computeFuncSummary(){
   return {weekDone, overdue, dueToday, trend, catMap, active, total:tasks.length};
 }
 
+/* 今日页「逾期」的展示窗口（天）。刻意保留 14 天：历史积压全铺开会把「今天」彻底淹没。
+   窗口外的量不再沉默丢弃，由 countOlderOverdue + 今日页底部那行「还有 N 项更早逾期」交代。 */
+const TODAY_BACKLOG_DAYS=14;
+
 /* 今日要处理：数据模型（顶部 widget 与底部整页视图共用，保证两套口径完全一致） */
 function buildTodayModel(){
   const d0=startOfDay(new Date()), now=new Date();
-  window.__todayStats={pending:0, overdue:0};
-  const backlogStart=addDays(d0,-14);
+  window.__todayStats={pending:0, overdue:0, olderOverdue:0};
+  const backlogStart=addDays(d0,-TODAY_BACKLOG_DAYS);
   const insts=filterInsts(getInstances(backlogStart, endOfDay(d0)));
   const overdue=[], due=[];
   for(const i of insts){
@@ -4675,13 +4688,54 @@ function buildTodayModel(){
   due.sort((a,b)=> (gwRank(a.task)-gwRank(b.task)) || (priRank(a.task.priority)-priRank(b.task.priority)) );
   overdue.sort((a,b)=> parseLocal(b.end)-parseLocal(a.end) );
   const urgent=overdue.concat(due);
-  window.__todayStats={pending:urgent.length, overdue:overdue.length};
+  /* P1-2：窗口外的积压量。此前 15 天前到期的任务从主入口静默消失，
+     而顶部「逾期」功能卡走 collectOverdueSet（非重复不限窗口）→ 两个数字当场矛盾。 */
+  const olderOverdue=countOlderOverdue(d0, overdue.map(i=>i.task.id));
+  window.__todayStats={pending:urgent.length, overdue:overdue.length, olderOverdue};
   const todayAll=insts.filter(i=>sameDay(i.date,d0) && !i.dropped && i.start<=endOfDay(d0));
   const done=todayAll.filter(isDone).length, total=todayAll.length;
   /* defer 语义落地（对标 OmniFocus）：把任务推迟到今天之后，就不该再出现在「今日」。
      此前 overdue/due 都不判 start，跨日推迟的任务会同时出现在今日区与逾期待补做里；
      todayAll 的 i.start 守卫（上一行）保证「今日待办 / 进度分母」也不把它算进来。 */
-  return {d0, now, insts, overdue, due, urgent, todayAll, done, total, deferred: insts.filter(i=>!i.dropped && i.start>endOfDay(d0)).length};
+  return {d0, now, insts, overdue, due, urgent, todayAll, done, total, deferred: insts.filter(i=>!i.dropped && i.start>endOfDay(d0)).length, olderOverdue};
+}
+
+/* P1-2：今日页 14 天窗口之外的逾期量（任务级去重，不是实例数）。
+   口径对齐 collectOverdueSet：未完成 / 未标记不补做 / 未 skipMissed；已被本页窗口展示过的任务不重复计。
+   重复任务沿用 90 天视野（与 collectOverdueSet 同一区间 ⇒ getInstances 记忆化命中，不额外付出展开成本）。 */
+function countOlderOverdue(d0, shownIds){
+  const win=addDays(d0,-TODAY_BACKLOG_DAYS);
+  const seen=new Set(shownIds||[]);
+  const hit=new Set();
+  for(const t of (state.tasks||[])){
+    if(!t || !t.end || seen.has(t.id)) continue;
+    if(isRecTask(t)) continue;                       // 重复任务按实例判，见下面的展开
+    if(isTaskDoneNow(t) || t.dropped || t.skipMissed) continue;
+    const e=parseLocal(t.end);
+    if(e instanceof Date && !isNaN(e) && e<win) hit.add(t.id);
+  }
+  for(const i of getInstances(addDays(d0,-90), d0)){
+    if(!i.task || !i.task.id || seen.has(i.task.id)) continue;
+    if(!isRecTask(i.task) || i.task.skipMissed) continue;
+    if(!(i.end<win)) continue;
+    if(isDropped(i.task,i.date) || isDone(i)) continue;
+    hit.add(i.task.id);
+  }
+  return hit.size;
+}
+
+/* 「还有 N 项更早逾期」—— 今日页只回溯 TODAY_BACKLOG_DAYS 天，更早的去「定期回顾」看（那里无时间窗）。
+   放在分区末尾而非逾期分区头：它不是批量操作，是一句说明 + 一个跳转。 */
+function olderOverdueHtml(n){
+  if(!n) return "";
+  return `<div class="today-more"><button class="today-more-btn" type="button" data-goto-review title="今日页只回溯 ${TODAY_BACKLOG_DAYS} 天；更早的逾期在「定期回顾 · 逾期任务」里，无时间窗">还有 ${n} 项更早逾期 · 去回顾查看</button></div>`;
+}
+
+/* ⚠️ 切视图别调 go()——它是命令面板 IIFE 内的私有函数（非全局），在别处调用会在点击时抛
+   ReferenceError，而且静态检查完全看不出来。这里用全站通用的 state.view + syncSeg + renderAll 三段式。 */
+function bindOlderOverdue(root){
+  const b=root && root.querySelector("[data-goto-review]");
+  if(b) b.onclick=()=>{ state.view=VIEWS.REVIEW; syncSeg&&syncSeg(); renderAll(); };
 }
 
 /* 逾期批量顺延到今天：今日页最高频的清理动作。
@@ -4758,13 +4812,21 @@ function quickAddTask(raw){
   return true;
 }
 
-function recLabel(rec){
+/* rec 的 display 版。baseStart 可选：老数据缺 daysOfWeek 时，recMatch 的兜底是
+   「baseStart 的星期」，标签必须同口径 —— 此前这里回退成 `new Date().getDay()`（今天的星期），
+   于是昨天设的「每周三」如果没写 daysOfWeek，标签会随日期漂移。 */
+function recLabel(rec, baseStart){
   if(!rec || rec.freq==="none") return "";
   const names={daily:"每天", weekly:"每周", monthly:"每月", yearly:"每年"};
   const iv = rec.interval && rec.interval>1 ? ("每 "+rec.interval+" ") : "";
   if(rec.freq==="weekly"){
     const wd=["日","一","二","三","四","五","六"];
-    const ds=(rec.daysOfWeek&&rec.daysOfWeek.length)? rec.daysOfWeek.map(n=>"周"+wd[n]).join("、") : "周"+(new Date().getDay());
+    let downs=(rec.daysOfWeek&&rec.daysOfWeek.length)?rec.daysOfWeek:null;
+    if(!downs){
+      const bs=parseLocal(baseStart);
+      downs=(bs instanceof Date && !isNaN(bs))?[bs.getDay()]:null;
+    }
+    const ds=downs?downs.map(n=>"周"+wd[n]).join("、"):"（未指定星期）";
     return (rec.interval&&rec.interval>1 ? ("每 "+rec.interval+" 周 "+ds) : ("每周 "+ds)) + (rec.until? (" · 至 "+rec.until) : "");
   }
   return iv + names[rec.freq] + (rec.until? (" · 至 "+rec.until) : "");
@@ -5396,6 +5458,30 @@ function habitWeekTargetDays(h){
   }
   if(h.freq==="custom" && Array.isArray(h.targetDows)){ return weekDays.filter(d=>h.targetDows.includes(d.getDay())).map(ymd); }
   return []; // someday/未设
+}
+
+/* P1-10：习惯「目标日」在任意区间内的集合。
+   habitWeekTargetDays 只推导**当前自然周**，而补打卡弹窗允许自选任意历史区间，还拿它去和本周目标日
+   求交集 —— 周一打开时默认区间（today-5 ~ today-1）整段落在上一周，交集恒空，于是明明一天没打
+   却提示「所选日期均已打卡」。这里按 freq 直接在给定区间内推导：
+   · daily   → 区间内每一天
+   · weekly  → 每个自然周的前 N 天（周一=0），与「本周目标日」同口径
+   · custom  → 勾选的星期几
+   · someday → 无目标日（返回空，补卡时不会硬塞） */
+function habitTargetDaysInRange(h, d0, d1){
+  const out=[];
+  if(!h || !(d0 instanceof Date) || !(d1 instanceof Date)) return out;
+  const end=startOfDay(d1), cur=new Date(startOfDay(d0).getTime());
+  if(isNaN(cur) || isNaN(end) || cur>end) return out;
+  const n=Math.min(7, Math.max(1, parseInt(h.freqN)||3));
+  while(cur<=end){
+    const dow=cur.getDay();
+    if(h.freq==="daily") out.push(ymd(cur));
+    else if(h.freq==="weekly"){ if(((dow+6)%7) < n) out.push(ymd(cur)); }
+    else if(h.freq==="custom" && Array.isArray(h.targetDows) && h.targetDows.includes(dow)) out.push(ymd(cur));
+    cur.setDate(cur.getDate()+1);
+  }
+  return out;
 }
 
 function habitFitRate(){
@@ -7039,7 +7125,7 @@ function confirmHabitBackfill(){
   let total=0;
   for(const h of targets){
     h.days=h.days||[];
-    const pool = (onlyTarget ? habitWeekTargetDays(h) : days).filter(d=>days.includes(d));
+    const pool = (onlyTarget ? habitTargetDaysInRange(h, d0, d1) : days).filter(d=>days.includes(d));
     if(bfMode==="add"){
       for(const d of pool){ if(!h.days.includes(d)){
         h.days.push(d);
@@ -7523,7 +7609,7 @@ function todayItemHtml(i, compact, ov){
   /* 重复规则标识：用户常问「为什么今天有 3 条一样的」——recLabel 的信息压缩成一个 🔁，
      完整规则（含 daysOfWeek / until）放 title。recLabel 是函数声明，提升可用。 */
   const isRec = !!(i.task.recurrence && i.task.recurrence.freq!=="none");
-  const recTag = isRec ? `<span class="badge rec" title="${esc(recLabel(i.task.recurrence))}" aria-label="重复任务：${esc(recLabel(i.task.recurrence))}">🔁</span>` : "";
+  const recTag = isRec ? `<span class="badge rec" title="${esc(recLabel(i.task.recurrence, i.task.start))}" aria-label="重复任务：${esc(recLabel(i.task.recurrence, i.task.start))}">🔁</span>` : "";
   const barColor = ov ? "var(--danger)" : priColor(p);
   const ibd = (!compact && i.task.desc) ? `<div class="ibd">${esc(i.task.desc)}</div>` : "";
   return `<div class="today-item ${ov?'overdue':''} ${itDone?'done':''} ${isDrop?'dropped no-count':''}" role="button" tabindex="0" aria-label="${esc(i.task.title)}，${esc(when)}${ov?"，已逾期":""}${itDone?"，已完成":""}${isDrop?"，已标记不补做":""}" data-open="${i.task.id}" data-open-date="${ymd(i.date)}">
@@ -7584,6 +7670,7 @@ function todaySectionsHtml(m, itemHtml){
       <button class="today-sec-toggle" data-donesec>${folded?'▸':'▾'} 已完成 ${doneItems.length}</button>
       <div class="today-sec-b" ${folded?'style="display:none"':''}>${ doneItems.map(itemHtml).join("") }</div></div>`;   // 2026-10-19：折叠态也渲染 DOM（仅 display:none 隐藏），撤销按钮留在 DOM 可达——否则点完成后按钮离开 DOM，移动端（无 Ctrl+Z）撤销无路、回归套件找不到按钮（PITFALLS 144）
   }
+  html += olderOverdueHtml(m.olderOverdue);   // 窗口外的积压量，附「去回顾查看」（见 countOlderOverdue）
   return html;
 }
 
@@ -7594,13 +7681,14 @@ function renderToday(){
   const krHtml=renderTodayKrHtml();
   bindTodayHeader();   // 空态也要绑，否则首次进入空列表时密度/最大化按钮无响应
   const qa=todayQuickAddHtml();
-  if(!urgent.length && !done){ list.innerHTML=qa+todayEmptyHtml()+krHtml+hintHtml(); bindQuickAdd(list); renderRing(0,0); bindKrToday(); return; }
+  if(!urgent.length && !done){ list.innerHTML=qa+olderOverdueHtml(m.olderOverdue)+todayEmptyHtml()+krHtml+hintHtml(); bindQuickAdd(list); bindOlderOverdue(list); renderRing(0,0); bindKrToday(); return; }
 
   const compact = todayDensity==="compact";
   const ovSet=new Set(overdue);   // 避免 overdue.includes(i) 的 O(n^2)
   const itemHtml=(i)=> todayItemHtml(i, compact, ovSet.has(i));
   list.innerHTML = qa + todaySectionsHtml(m, itemHtml) + krHtml + hintHtml();
   bindQuickAdd(list);
+  bindOlderOverdue(list);
   renderRing(done,total);
   bindKrToday();
   bindTodayDelegation();
@@ -7628,8 +7716,8 @@ function renderTodayPage(){
     </div>
     <div class="tp-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="今日完成进度"><i style="width:${pct}%"></i></div>`;
   if(!urgent.length && !done){
-    view.innerHTML=`<div class="today-page">${head}${todayQuickAddHtml()}${todayEmptyHtml()}${krHtml}${hintHtml()}</div>`;
-    bindQuickAdd(view); bindKrToday(); bindDens();
+    view.innerHTML=`<div class="today-page">${head}${todayQuickAddHtml()}${olderOverdueHtml(m.olderOverdue)}${todayEmptyHtml()}${krHtml}${hintHtml()}</div>`;
+    bindQuickAdd(view); bindOlderOverdue(view); bindKrToday(); bindDens();
     return;
   }
   const compact = todayDensity==="compact";
@@ -7641,6 +7729,7 @@ function renderTodayPage(){
     ${krHtml}
   </div>`;
   bindQuickAdd(view);
+  bindOlderOverdue(view);
   bindKrToday();
   bindTodayDelegation();
   todaySecAriaReset(view);
@@ -7662,7 +7751,7 @@ function renderTaskDetail(){
   const kv=(k,v)=>`<div class="detail-kv"><div class="dk">${k}</div><div class="dv">${v}</div></div>`;
   let rows="";
   rows += kv("时间", noDate(t) ? "📥 收件箱（不指定日期）" : (fmtRange(parseLocal(t.start), parseLocal(t.end)) + (date? ("<br><span class=\"muted\" style=\"font-size:12px;\">"+ymd(parseLocal(date+"T00:00"))+"</span>") : "")));
-  const rec=recLabel(t.recurrence);
+  const rec=recLabel(t.recurrence, t.start);
   if(rec) rows += kv("重复", esc(rec));
   if(proj) rows += kv("项目", esc(proj.name));
   if(kr) rows += kv("关联目标", `<span class="kr-link" data-kr="${esc(kr.k.id)}" style="color:var(--accent);cursor:pointer;">${esc(kr.o.title)} › ${esc(kr.k.title)}</span>`);
@@ -10690,7 +10779,11 @@ function applyNL(){
   document.getElementById("f_etime").value=fmtTime(parseLocal(r.end));
   if(r.rec){
     const frec=document.getElementById("f_rec"); frec.value=r.rec.freq; toggleRecOpts();
-    if(r.rec.freq==="weekly" && r.rec.day!=null) setWeekChecks([r.rec.day]);
+    /* parseNL 现统一产出 daysOfWeek；保留 rec.day 兜底仅为兼容旧调用方 */
+    if(r.rec.freq==="weekly"){
+      const ds=(r.rec.daysOfWeek&&r.rec.daysOfWeek.length)?r.rec.daysOfWeek:(r.rec.day!=null?[r.rec.day]:[]);
+      if(ds.length) setWeekChecks(ds);
+    }
     toast("已智能识别时间 + 重复"+(noted.length?(" + "+noted.join(" · ")):"")+" ✓");
   } else {
     toast("已智能识别时间"+(noted.length?(" + "+noted.join(" · ")):"")+" ✓");
@@ -11220,19 +11313,25 @@ function mergeTasks(localArr, cloudArr, cloudDeleted){
   const addDel=(o)=>{ const t=normTomb(o); if(t.id) del.set(t.id, t.ts); };
   (deletedIds||[]).forEach(addDel); (cloudDeleted||[]).forEach(addDel);
   const map=new Map();
+  /* 墓碑仲裁的唯一口径 —— 本地与云端必须调同一个判据（P1-9）：
+     此前本地分支按 updated 与墓碑时刻比大小，云端分支却是「命中墓碑就直接丢弃」，
+     于是「A 设备删除 T、B 设备随后编辑 T」会互相抵消：A 永远看不到 T、B 永远删不掉 T。
+     ts>0  → updated 严格晚于墓碑时刻 = 删除之后又被编辑过，任务复活；
+     ts==0 → 旧格式墓碑没有时刻可比，只能删「从未被编辑过」的任务，遇到有 updated 的就当活口。 */
+  const aliveByTomb=(t, dts)=> dts>0 ? (+(t.updated||0) > dts) : (dts===0 ? !!t.updated : true);
   (localArr||[]).forEach(t=>{
     if(!t) return;
     if(t.seed && cloudHas) return; // 演示任务在云端有数据时丢弃
     const dts = del.has(t.id) ? del.get(t.id) : -1;
-    const remove = dts>0 ? ((t.updated||0) < dts)            // 时间戳删除：任务更旧才删
-                 : dts===0 ? (!t.updated)                     // 旧墓碑：仅删从未编辑过的任务
-                 : false;
-    if(remove) return;                          // 墓碑胜出 → 任务被删
-    if(dts===0 && t.updated) del.delete(t.id); // 旧墓碑遇到已编辑任务 → 丢弃该墓碑，避免后续同步反复误杀
+    if(!aliveByTomb(t, dts)) return;            // 墓碑胜出 → 任务被删
+    if(dts>=0) del.delete(t.id);                // 任务活着 ⇒ 该墓碑已过时，撤掉，否则它会被一路传下去反复误杀
     map.set(t.id, t);
   });
   (cloudArr||[]).forEach(t=>{
-    if(!t || del.has(t.id)) return;
+    if(!t) return;
+    const dts = del.has(t.id) ? del.get(t.id) : -1;
+    if(!aliveByTomb(t, dts)) return;            // 云端这份也按同一口径判：删除后才编辑的要能复活
+    if(dts>=0) del.delete(t.id);                // 复活即撤墓碑，别让它在下轮同步里又抹掉这条
     const cur=map.get(t.id);
     if(!cur){ map.set(t.id, t); window.__lastMergeStats.cloudNew++; return; }   // 云端独有 → 并入本地
     if((t.updated||0) > (cur.updated||0)){ map.set(t.id, t); window.__lastMergeStats.cloudWin++; } // 云端更新 → 采用云端

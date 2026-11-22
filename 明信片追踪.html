@@ -5244,7 +5244,9 @@ let convCtx={dir:null, id:null};
 let recSnapshot=null;
 // F9 修复：代寄/活动弹窗与寄出/收到弹窗对齐——Esc 关闭前做表单快照脏检查，防未保存修改被静默丢弃
 let proxySnapshot=null, actSnapshot=null;
-const PROXY_FORM_IDS=["pProxy","pCountry","pCity","pPlatform","pType","pExchange","pCardCount","pDirection","pSent","pProxyRecv","pProxyBack","pGotBack","pNote","pMutualChk"];
+/* P1-11：pEnvSent / pEnvRecv / pProxyMode 此前漏在这张表里 —— saveProxyModal 会写 envSent/envRecv/proxyMode，
+   而单向代寄最典型的操作恰好是「只填一两个往返节点日期」。于是改完后按 Esc 被静默丢弃、且不提示。 */
+const PROXY_FORM_IDS=["pProxy","pCountry","pCity","pPlatform","pType","pExchange","pCardCount","pDirection","pProxyMode","pSent","pProxyRecv","pProxyBack","pGotBack","pEnvSent","pEnvRecv","pNote","pMutualChk"];
 const ACT_FORM_IDS=["aTitle","aKind","aPlatform","aStatus","aCur","aMax","aDeadline","aNote","aUrl","aRotation"];
 
 /* ===== 云同步（GitHub Gist，复用任务台 token/gist，独立文件 postcards.json） ===== */
