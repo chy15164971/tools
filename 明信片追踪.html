@@ -1136,7 +1136,11 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
       </div>
     </div>
 
-    <div class="dtab-panel" data-dtab="local" style="display:none;">
+    <!-- 2026-11-22 审查：初始态必须用 hidden 属性表达。
+         此前这里是 style="display:none;"，而 setPostcardDataTab 只切 hidden 属性、
+         内联样式永不被移除 → 内联 display:none 一路压过 [hidden] 规则，
+         「本地备份」面板永远打不开，导出 / 导入两个按钮完全不可达。 -->
+    <div class="dtab-panel" data-dtab="local" hidden>
       <p class="hint cloud-modal-desc">导出为 JSON 文件保存到本机；换设备或清理缓存前先导出，之后导入即可完整恢复。</p>
       <div class="cloud-btns" style="margin-top:12px;">
         <button class="btn btn-ghost" id="csExport" title="导出 postcards.json 到本机">导出 JSON 备份</button>

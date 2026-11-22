@@ -22,8 +22,8 @@
    导航条必须是 `<body>` 开头的静态 HTML，不能退回 JS 延迟插入（会重现首屏闪旧画面）。
 3. 共享色板唯一真相源是 vault `_ops/_workbench/design_tokens.css`；
    私有变量写在 `SHARED TOKENS START/END` 标记区**之外**，否则下次同步会被整块覆盖。
-4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v28）：SW 字节不变就不触发 install，
-   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15→v16→v17、11-19 v18、11-21 v19→v20→v21、11-22 v22→v23→v24→v25→v26→v27→v28 均按此处理）。
+4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v29）：SW 字节不变就不触发 install，
+   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15→v16→v17、11-19 v18、11-21 v19→v20→v21、11-22 v22→v23→v24→v25→v26→v27→v28→v29 均按此处理）。
    导航请求用 `fetch(url,{cache:"no-store"})` 绕过 Pages 的 `max-age=600`；
    不要写成 `fetch(e.request, init)`（navigate 模式重建 Request 会抛 TypeError）。
 5. `_shared/` 目录以下划线开头，GitHub Pages 不发布；源文件已内联进八个 HTML，线上 404 属预期。
@@ -349,9 +349,29 @@ v27 只改了文案，遗留一个问题：**同一个 `date` 字段被两种含
 - **未动**：影音依然没有观看时间（豆瓣导出「标记日期」整列为空），所以时间线里依然只有书本「读完了」；`wb_mediawall_readlog_v1` 索引、`timeline-core` 的 4b/4c 逻辑不变。
 - 本轮门禁：全量回归 **69 PASS**、海报墙专项 **44 PASS**（+12，新增 A13/A14/A15 字段契约与 C5–C12 反向守卫）、数据规范化 **27 PASS**（+4，5.1 收紧为「date 必须是日级」、5.8/5.9/5.10 release 硬约束）。分辨力对照：把 `release` 改回 `date` 或给影音补 `date` → 4.4/5.6 立即 FAIL。真浏览器验到「书本 读完于 2009-06-07」「电影 发行于 2010-10 且不重复显示年份」「自建电影 完成于 2026-03-04」，390px 无横向溢出、暗色可读。升 `APP_CACHE` v27 → **v28**。
 
+### 批一「止血」：4 个页面级真缺陷 + 门禁两条分辨力缺陷（v29，2026-11-22）
+
+全站审查（`deliverables/workbench-audit-1105/全站审查_20261122.md`）查出 8 条 P0，本批修掉其中 6 条——**全部落在现有测试覆盖之外**：修前 `check.sh --full` 是全绿的（69 PASS + 36 PASS），说明这些不是「测试没跑」，而是「测试没测」。
+
+| # | 缺陷 | 位置 | 旧行为 |
+|---|---|---|---|
+| 1 | 观剧删除带照片的记录抛 `ReferenceError` | `观剧记录.html` 删除回调 | 调用 `idbGet(id)`，但全页只定义了 `idbAll/idbPut/idbDel` → 确认删除后毫无反馈、记录仍在、照片未删 |
+| 2 | 观剧照片 `src` 未转义 + 导入信任备份里的 `dataUrl` | `recHtml` / `renderThumbs` / 导入回调 | `<img src="'+thumbsCache[id]+'"` 直拼；导入把外部 JSON 的 `dataUrl` 原样当缩略图。`_dataUrlToBlob` 对非 dataURL 也返回非空 Blob（`atob('')` 不抛），于是伪造的 `x" onerror="…` 能被存库再拼进属性。file:// 页面同源 → 可读全部 localStorage（任务台/明信片/地图数据都在射程内） |
+| 3 | 明信片「本地备份」面板永远打不开 | `data-dtab="local"` 面板 | 初始态写的是内联 `style="display:none;"`，而 `setPostcardDataTab` 只切 `hidden` 属性、内联样式永不被移除 → 内联 `display:none` 压过 `[hidden]` 规则，切过去整块空白，导出 / 导入按钮完全不可达 |
+| 4 | 地图降级层脱离容器、铺满视口并吃掉全部点击 | `#mapWrap` | 降级层用 `position:absolute;inset:0` 插进 `#map`，但 `#mapWrap`/`#map` 都没有定位上下文 → 包含块退回视口，不透明背景 + `z-index:2` 压在导航条之上，直接推翻它自己写的「清单与日记仍可正常使用」 |
+| 5 | 地图清空标记不清 `litAt` | 清空按钮 | 只清数组不清时刻表 → 时间线继续报「点亮了葡萄牙」而地图已全灭（`litAt` 是时间线点亮事件的唯一来源） |
+| 6 | 发布门禁对重复内联块零分辨力 | `verify_release.py` / `inject_shared.py` | 把 SHARED 块复制两份 + `index.html` 同步 → 门禁 **0 项失败 25/25 PASS**；而文件里有 2 个 `const CFG_DAY_MS`/`PAGE_SIZE`，同一 `<script>` 重复顶层 const → 整页 SyntaxError 白屏。根因：注入器 `pat.sub(count=1)` 只换第一份、门禁只 `re.search` 首个块 |
+| 7 | `--repo` 校验任何副本都是假绿 | `verify_release.py:src_path` | 源文件路径绑在 `HERE`（脚本自身目录），`--repo` 只换产物目录 → 用 tools-site 的脚本校验 `Projects/` 得 25/25 全过，而 Projects 自带脚本跑同一目录报 3 项 FAIL |
+
+- **门禁改法**：源文件改从 `REPO/_shared` 取（副本缺 `_shared` 直接报错，不回退）；每页每块断言 `count(BEGIN)==count(END)==1`；导航断言 `good==7` → `len(nav_pages)`（8 页那句 PASS 此前永远打不出来）；`<body[^>]*>` → `<body\b[^>]*>`（避免命中块内注释）。注入器加写盘前预检 + 原子写（`os.replace`）+ 返回值区分「有变化 / 无变化」。
+- **顺带补的**：`Projects/` 阅读副本此前**落后两版**（`sw.js` 停在 v26、`timeline-core.js` 是旧版），而 `--check-mirror` 只比 `tools-site ↔ pc-app` 从不覆盖它——谁误在 Projects 下跑一次 inject，旧块就整块覆盖回时间线页与首页。现已在 `run_regression.py --check-mirror` 里加第二组 27 项「阅读副本」校验；`sw.js` 的 `NAV_MAP` 也补上了此前漏掉的 `时间线.html`。
+- **行为变化（刻意保守）**：地图城市视图清空时**仍然**连带清空省份桶（沿用旧行为），本批只修 `litAt` 一致性，不改级联语义。
+- 本轮门禁：发布门禁 **0 失败**、镜像 **27+27 项**（含阅读副本）、全量回归 **70 PASS**（+1 本批专项）、焦点 E2E **36 PASS**、P1-9 **42 PASS**、时间线 **98 PASS**、海报墙 **44 PASS**、数据规范化 **27 PASS**。升 `APP_CACHE` v28 → **v29**。
+- **分辨力对照**（新增 `_ops/_测试/站点_批一止血_20261122.冒烟测试.mjs`，30 条断言）：用 `git show HEAD:` 取改前字节放到临时目录、`WB_REPO` 指过去跑同一套 → **22 FAIL / 8 PASS**，证明断言不是空跑（余下 8 条是「未改变行为的守卫」，如切换函数仍用 `hidden`、降级层仍存在）。
+
 ## 本机副本
 
 - `~/.workbuddy/publish/tools-site` = 本仓库（唯一发布源码）。
 - `~/.workbuddy/publish/pc-app` = 回归测试镜像，25 套脚本硬编码读它，必须与本仓库同版。
-- vault `Projects/` = Obsidian 内的本地阅读副本（2026-11-13 已同步为 7e85231）。
+- vault `Projects/` = Obsidian 内的本地阅读副本。**自 2026-11-22 起纳入 `--check-mirror` 的「阅读副本」27 项校验**（此前只比 pc-app，它悄悄落后了两版：`sw.js` 停在 v26、`timeline-core.js` 是旧版；而副本自带 `verify_release.py`，误跑一次 inject 就会把旧块覆盖回两页）。它也有自己的 `_shared/`，所以 `verify_release.py --repo <Projects>` 现在会用副本自己的源比对产物，能真实报红。
   双击打开是 `file://`，localStorage 与线上不同源、数据不互通，日常使用请走线上 URL。

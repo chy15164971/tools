@@ -67,7 +67,9 @@ aside{width:290px;flex:none;display:flex;flex-direction:column;background:var(--
 .place .nm{flex:1;min-width:0}
 .place.on .nm{font-weight:600;color:var(--pri-deep)}
 .place .meta{font-size:11px;color:var(--sub)}
-#mapWrap{flex:1;min-width:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#eef2f8}
+#mapWrap{flex:1;min-width:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#eef2f8;position:relative}
+/* position:relative 是必需的：地图加载失败时降级层用 position:absolute;inset:0 插进 #map，
+   此前 #mapWrap / #map 都没有定位上下文，包含块退回视口 → 降级层铺满整窗并吃掉全部点击。 */
 #map{width:100%;height:100%}
 .prow{display:flex;align-items:center;gap:2px}
 .prow .place{flex:1;min-width:0}
@@ -1108,8 +1110,18 @@ document.getElementById('subProv').addEventListener('click',()=>setLevel(region=
 document.getElementById('subCity').addEventListener('click',()=>setLevel('city'));
 document.getElementById('clearBtn').addEventListener('click',()=>{
   if(!window.confirm('清空当前视图的所有标记？'))return;
-  if(isCityMode()){state[childBucket()]=[];state[parentBucket()]=[];}
-  else{state[parentBucket()]=[];}
+  /* 2026-11-22 审查：清空必须同步删 litAt，否则时间线会继续报「点亮了 X」而地图已全灭。
+     数组里存裸 id，litAt 的键是带表前缀的 k（c:/cc:/w:/wc:），故按当前视图的表反查 k。 */
+  const dropLit=(bucketName,list)=>{ (state[bucketName]||[]).forEach(id=>{ const p=list.find(x=>x.id===id); if(p&&p.k) delete state.litAt[p.k]; }); };
+  if(isCityMode()){
+    dropLit(childBucket(),childList());
+    dropLit(parentBucket(),parentList());
+    state[childBucket()]=[];state[parentBucket()]=[];
+  }
+  else{
+    dropLit(parentBucket(),parentList());
+    state[parentBucket()]=[];
+  }
   save();renderAll();
 });
 setLevel('province');

@@ -13,7 +13,15 @@ const SENT_CACHE="wb-remind-sent";
    沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存；PRECACHE 与 NAV_MAP 同步纳入观剧页。 */
 /* v20（2026-11-21）：旅行地图并入站点正式页——七页导航条 + 门禁体系，地图页改标准 key 加载并接入共享层。
    沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存；PRECACHE 与 NAV_MAP 同步纳入旅行地图。 */
-const APP_CACHE="wb-app-v28";
+const APP_CACHE="wb-app-v29";
+/* v29（2026-11-22 批一止血）：四处真缺陷修复，观剧 / 明信片 / 地图三页 HTML 字节已变。
+   ① 观剧补 idbGet（删除带照片的记录此前抛 ReferenceError，删除静默失效）；
+   ② 观剧照片 src 补转义 + 导入只接受图片 dataURL（此前备份里的 dataUrl 原样当缩略图，构成注入面）；
+   ③ 明信片「本地备份」面板初始态由内联 display:none 改为 hidden 属性（内联样式永不移除，
+      该面板此前永远打不开，导出 / 导入按钮完全不可达）；
+   ④ 地图 #mapWrap 补 position:relative（降级层此前脱离容器铺满视口、吃掉全页点击），
+      清空视图时同步删 litAt（此前时间线继续报已清空的点亮）。
+   沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存。 */
 /* v28（2026-11-22 字段分家）：海报墙内置影音的 date 改名为 release（1377 条），
    date 从此只表示「我完成的日期」。完成年份分布 / 月度完成节奏 / 最近完成 / 兴趣画像
    近期权重 / 最近完成排序全部改按 date，影音发行年份另设「影音发行年代」图表；
@@ -140,6 +148,7 @@ const NAV_MAP=[
   ["观剧记录.html", "./观剧记录.html"],
   ["旅行地图.html", "./旅行地图.html"],
   ["媒体进度看板.html", "./媒体进度看板.html"],
+  ["时间线.html", "./时间线.html"],
   ["index.html", "./"],
   ["home.html", "./home.html"]
 ];

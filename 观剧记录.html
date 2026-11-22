@@ -294,6 +294,9 @@ function openDB(){
   return _dbp;
 }
 function idbAll(){return openDB().then(db=>new Promise((res,rej)=>{const r=db.transaction('photos').objectStore('photos').getAll();r.onsuccess=()=>res(r.result||[]);r.onerror=()=>rej(r.error);}));}
+/* 2026-11-22 审查：删除记录时 Promise.all(ids.map(idG=>idbGet(id))) 调用了本函数，
+   但此前全页只有 idbAll/idbPut/idbDel —— 带照片的记录一删就 ReferenceError，删除静默失效。 */
+function idbGet(k){return openDB().then(db=>new Promise((res,rej)=>{const r=db.transaction('photos').objectStore('photos').get(k);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);}));}
 function idbPut(v){return openDB().then(db=>new Promise((res,rej)=>{const tx=db.transaction('photos','readwrite');tx.objectStore('photos').put(v);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);}));}
 function idbDel(k){return openDB().then(db=>new Promise((res,rej)=>{const tx=db.transaction('photos','readwrite');tx.objectStore('photos').delete(k);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);}));}
 function uid(p){return (p||'r')+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);}
@@ -362,7 +365,7 @@ function renderStats(){
   ].map(x=>'<div class="stat"><div class="n">'+esc(x[1])+'</div><div class="l">'+esc(x[0])+'</div></div>').join('');
 }
 function recHtml(r){
-  const imgs=(r.photoIds||[]).map(id=>thumbsCache[id]?'<img src="'+thumbsCache[id]+'" data-photo="'+esc(id)+'" alt="现场照片">':'').join('');
+  const imgs=(r.photoIds||[]).map(id=>thumbsCache[id]?'<img src="'+esc(thumbsCache[id])+'" data-photo="'+esc(id)+'" alt="现场照片">':'').join('');
   return '<div class="rec" data-rec="'+esc(r.id)+'">'
     +'<div class="rh"><div class="rt">'+esc(r.name)+'</div><span class="badge">'+esc(r.type||'其他')+'</span><span class="stars">'+stars(r.rating)+'</span></div>'
     +'<div class="rmeta">'+(r.date?'<span>'+esc(r.date)+'</span>':'')+(r.venue?'<span>'+esc(r.venue)+'</span>':'')+(r.city?'<span>'+esc(r.city)+'</span>':'')+(r.session?'<span>'+esc(r.session)+'</span>':'')+(Number(r.price)>0?'<span>¥'+Number(r.price)+'</span>':'')+'</div>'
@@ -535,7 +538,7 @@ function openDlg(rec){
 let existingIds=[],removedIds=[];
 function renderThumbs(){
   let h='';
-  existingIds.forEach(id=>{h+='<div><img src="'+(thumbsCache[id]||'')+'" alt="已有照片"><button type="button" data-rex="'+esc(id)+'" aria-label="移除">×</button></div>';});
+  existingIds.forEach(id=>{h+='<div><img src="'+esc(thumbsCache[id]||'')+'" alt="已有照片"><button type="button" data-rex="'+esc(id)+'" aria-label="移除">×</button></div>';});
   pending.forEach(p=>{h+='<div><img src="'+esc(p.thumb)+'" alt="'+esc(p.name)+'"><button type="button" data-rp="'+esc(p.id)+'" aria-label="移除">×</button></div>';});
   document.getElementById('fThumbs').innerHTML=h;
 }
@@ -697,10 +700,13 @@ function _dataUrlToBlob(u){
   try{
     const parts=String(u).split(',');
     const meta=parts[0]||''; const b64=parts[1]||'';
-    const mime=(meta.match(/data:([^;]+)/)||[])[1]||'application/octet-stream';
+    /* 2026-11-22 审查：只认图片 dataURL。原实现对任意字符串都返回非空 Blob
+       （atob('') 不抛），使伪造的 dataUrl 能一路存进库再拼进 <img src>。 */
+    const mime=(meta.match(/^data:image\/(png|jpe?g|webp|gif);base64$/i)||[])[1];
+    if(!mime || !b64) return null;
     const bin=atob(b64); const arr=new Uint8Array(bin.length);
     for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
-    return new Blob([arr],{type:mime});
+    return new Blob([arr],{type:'image/'+mime.toLowerCase()});
   }catch(e){return null;}
 }
 document.getElementById('btnExport').addEventListener('click',async()=>{

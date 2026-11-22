@@ -102,20 +102,50 @@ BLOCKS = [
 
 
 def inject(path, src, begin, end):
+    """返回 True=内容有变化 / False=已是最新。标记块缺失或重复一律抛错（不再静默跳过）。"""
     s = io.open(path, encoding="utf-8").read()
+    # 2026-11-22 审查：count=1 只替换第一份，重复块会残留成第二份顶层 const
+    # → 同一 <script> 内 SyntaxError，整页白屏。此处先断言唯一性。
+    nb, ne = s.count(begin), s.count(end)
+    if nb != 1 or ne != 1:
+        raise RuntimeError("标记块数量异常（BEGIN=%d / END=%d）: %s" % (nb, ne, os.path.basename(path)))
     block = begin + "\n" + src + "\n" + end
     pat = re.compile(re.escape(begin) + r".*?" + re.escape(end), re.S)
-    if not pat.search(s):
-        print("  未找到标记块，跳过:", os.path.basename(path))
-        return False
     s2 = pat.sub(lambda m: block, s, count=1)
-    if s2 != s:
-        io.open(path, "w", encoding="utf-8").write(s2)
+    if s2 == s:
+        return False
+    # 原子写：842KB 文件被中断时不会留下半截（此前先 truncate 再写）
+    tmp = path + ".inject.tmp"
+    with io.open(tmp, "w", encoding="utf-8", newline="") as f:
+        f.write(s2)
+    os.replace(tmp, path)
     return True
 
 
+def precheck():
+    """写盘前一次性校验所有目标的标记块唯一，避免「前几块已落盘、后面才报错」的半成品状态。"""
+    problems, cache = [], {}
+    for b in BLOCKS:
+        for p in b["targets"]:
+            if not os.path.exists(p):
+                continue
+            if p not in cache:
+                cache[p] = io.open(p, encoding="utf-8").read()
+            s = cache[p]
+            nb, ne = s.count(b["begin"]), s.count(b["end"])
+            if nb != 1 or ne != 1:
+                problems.append("%s / %s (BEGIN=%d END=%d)" % (b["name"], os.path.basename(p), nb, ne))
+    if problems:
+        print("预检失败：以下页面的共享块标记缺失或重复，未写入任何文件")
+        for x in problems:
+            print("   ", x)
+        print("处理：把多余那份标记块删掉（或从干净版本恢复该页）再重跑。")
+        sys.exit(1)
+
+
 def main():
-    failed = []
+    precheck()
+    changed, failed = [], []
     for b in BLOCKS:
         if not os.path.exists(b["src"]):
             print("缺少源文件:", b["src"]); sys.exit(1)
@@ -125,14 +155,19 @@ def main():
             if not os.path.exists(p):
                 print("  跳过（文件不存在）:", os.path.basename(p)); continue
             src = b["render"](p) if b.get("render") else base_src
-            ok = inject(p, src, b["begin"], b["end"])
-            if ok: print("  已同步:", os.path.basename(p))
-            else: failed.append((b["name"], os.path.basename(p)))
+            try:
+                if inject(p, src, b["begin"], b["end"]):
+                    print("  已同步:", os.path.basename(p)); changed.append(os.path.basename(p))
+                else:
+                    print("  无变化:", os.path.basename(p))
+            except RuntimeError as e:
+                failed.append((b["name"], os.path.basename(p), str(e)))
     # 2026-11-04 审查轮修复：目标文件缺标记块时此前只打印不报错、退出码仍为 0，
     # 会造成「注入看似成功其实整页没更新」的静默失效（QA P2-19）。
     if failed:
-        print("注入失败（缺标记块）:", failed)
+        print("注入失败（标记块异常）:", failed)
         sys.exit(1)
+    print("完成：%d 个页面文件有改动" % len(set(changed)))
 
 
 if __name__ == "__main__":

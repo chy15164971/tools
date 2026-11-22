@@ -3,13 +3,14 @@
 
 用法：
     python3 _shared/verify_release.py                 # 检查本仓库
-    python3 _shared/verify_release.py --repo DIR      # 检查指定发布仓库
+    python3 _shared/verify_release.py --repo DIR      # 检查指定发布仓库（源文件同样取 DIR/_shared）
     python3 _shared/verify_release.py --tokens PATH   # 指定 design_tokens.css（默认 vault 那份）
 
 检查项：
   1. index.html 必须是 任务管理台.html 的逐字节副本（发布契约铁律）
-  2. 25 个共享内联块（SHARED×3 + SITE-NAV-HTML×8 + SITE-NAV×8 + MODAL-A11Y×4 + TIMELINE-CORE×2）与源文件逐字节一致
-  3. 7 页 SITE-NAV-HTML 静态块紧贴 <body> 开头（防止退回 JS 延迟插入导致首屏闪烁）
+  2. 25 个共享内联块（SHARED×3 + SITE-NAV-HTML×8 + SITE-NAV×8 + MODAL-A11Y×4 + TIMELINE-CORE×2）与源文件逐字节一致，
+     且每页每个块**恰好一份**（重复会让同一 <script> 出现两份顶层 const → 白屏）
+  3. 8 页 SITE-NAV-HTML 静态块紧贴 <body> 开头（防止退回 JS 延迟插入导致首屏闪烁）
   4. 8 页 SHARED TOKENS 标记区与 design_tokens.css 规范块一致
   5. sw.js PRECACHE 里列出的本地文件必须真实存在
   6. 导航品牌必须是可点击 <a>（D-16 回归守卫）
@@ -99,17 +100,28 @@ def main():
         bad("index ≡ 任务管理台（逐字节）", "%s != %s" % (md5(a), md5(b)))
 
     # 2) 25 个共享内联块（MODAL-A11Y 按页面渲染，海报墙 childList=true；TIMELINE-CORE 仅时间线页 + 首页）
+    # 2026-11-22 审查修复：源文件路径此前绑在 HERE（脚本自身目录），--repo 只换了产物目录，
+    # 于是「用 A 的源比 B 的产物」永远比出假绿（实测 --repo Projects 得 25/25 全过，
+    # 而 Projects 自带脚本跑同一目录报 3 项 FAIL）。现改为从 REPO/_shared 取源，
+    # 副本缺 _shared 时直接报错，不再回退——宁可红，不要假绿。
     total = 0
+    src_dir = os.path.join(REPO, "_shared")
     for name, srcname, targets, begin, end in BLOCKS:
-        src_path = os.path.join(HERE, srcname)
+        src_path = os.path.join(src_dir, srcname)
         if not os.path.exists(src_path):
-            bad("共享源文件", srcname)
+            bad("共享源文件缺失", "%s（%s 下没有 _shared，无法校验内联块）" % (srcname, REPO))
             continue
         base_src = read(src_path).rstrip()
         for t in targets:
             src = a11y_src(t == "书影音海报墙.html") if name == "MODAL-A11Y" else base_src
             p = os.path.join(REPO, t)
             html = read(p)
+            # 唯一性优先：重复块会让同一 <script> 出现两份顶层 const → SyntaxError 白屏，
+            # 而下面那个非贪婪 re.search 只比第一份，恰好看不见第二份（2026-11-22 实测可全绿发布）。
+            nb, ne = html.count(begin), html.count(end)
+            if nb != 1 or ne != 1:
+                bad("内联块重复", "%s / %s (BEGIN=%d END=%d)" % (name, t, nb, ne))
+                continue
             m = re.search(re.escape(begin) + r"\n(.*?)\n" + re.escape(end), html, re.S)
             if not m:
                 bad("内联块缺失", "%s / %s" % (name, t))
@@ -125,17 +137,20 @@ def main():
     # 3) 静态导航块紧贴 <body>
     nav_begin = BLOCKS[1][3]
     nav_end = BLOCKS[1][4]
+    nav_pages = BLOCKS[1][2]
     good = 0
-    for t in BLOCKS[1][2]:
+    for t in nav_pages:
         html = read(os.path.join(REPO, t))
-        body = re.search(r"<body[^>]*>", html)
+        # <body\b 避免命中块内注释里的 "<body>…" 字样；取块之前的那次真实标签
+        body = re.search(r"<body\b[^>]*>", html)
         k = html.find(nav_begin)
         if body and k >= 0 and 0 <= k - body.end() <= 16:
             good += 1
         else:
             bad("静态导航块位置", "%s (body=%s, block=%s)" % (t, body.end() if body else -1, k))
-    if good == 7:
-        ok("7 页 SITE-NAV-HTML 紧贴 <body> 开头", "7/7")
+    # 2026-11-22：此前写死 good == 7，而实际是 8 页 → 那句 PASS 永远打不出来
+    if good == len(nav_pages):
+        ok("%d 页 SITE-NAV-HTML 紧贴 <body> 开头" % len(nav_pages), "%d/%d" % (good, len(nav_pages)))
 
     # 4) SHARED TOKENS 规范块
     if not os.path.exists(TOKENS):
@@ -183,7 +198,7 @@ def main():
                 ok("PRECACHE 清单本地文件齐备", "%d 项" % len(urls))
 
     # 6) 导航品牌可点
-    nav_path = os.path.join(HERE, "site-nav-static.html")
+    nav_path = os.path.join(src_dir, "site-nav-static.html")
     if os.path.exists(nav_path):
         nav = read(nav_path)
         if re.search(r'<a\s+class="__wsn_brand"[^>]*href="home\.html"', nav):
@@ -202,7 +217,7 @@ def main():
     if "/* >>> MODAL-A11Y:BEGIN" in home:
         bad("门户不应注入弹窗无障碍块", "home.html")
         a11y_ok = False
-    shared = read(os.path.join(HERE, "shared.js"))
+    shared = read(os.path.join(src_dir, "shared.js"))
     if "new MutationObserver" in shared:
         bad("shared.js 仍有第二份无障碍 IIFE", "单一事实源被破坏")
         a11y_ok = False
