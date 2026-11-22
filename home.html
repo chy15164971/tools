@@ -23,6 +23,9 @@
     --ico-bg-map:#e6f7f1;     --ico-fg-map:#0b7a60;
     /* 2026-11-22 第六张：时间线（汇总视图，用中性靛蓝与前五张区分） */
     --ico-bg-tl:#e8eefc;      --ico-fg-tl:#2b4a9e;
+    /* 博客合并两卡：随笔（青）/ 作品集（陶土红），与时间线页 kind 色同源 */
+    --ico-bg-notes:#e6f5f7;   --ico-fg-notes:#0d7a8a;
+    --ico-bg-work:#faebe9;    --ico-fg-work:#a8483f;
     /* 概览卡小字：共享 --sub(#6b7280) 压 --hover(#f4f6fb) 仅 4.471:1，低于 AA 4.5；
        用稍深的灰提到 5.22:1。此变量属门户私有，勿写进 SHARED TOKENS 标记区。 */
     --ov-sub:#5f6875;
@@ -35,6 +38,8 @@
     --ico-bg-theatre:#38251a; --ico-fg-theatre:#f0b083;
     --ico-bg-map:#12312b;     --ico-fg-map:#6fd8b8;
     --ico-bg-tl:#1b2340;      --ico-fg-tl:#9db4ff;
+    --ico-bg-notes:#0d3238;   --ico-fg-notes:#6fd0dc;
+    --ico-bg-work:#3a1d1a;    --ico-fg-work:#f0a08f;
     --ov-sub:#9aa3b2;  /* 暗色沿用原 --sub，实测 6.20:1 达标 */
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -81,6 +86,8 @@
   .ico-theatre{background:var(--ico-bg-theatre);color:var(--ico-fg-theatre)}
   .ico-map{background:var(--ico-bg-map);color:var(--ico-fg-map)}
   .ico-tl{background:var(--ico-bg-tl);color:var(--ico-fg-tl)}
+  .ico-notes{background:var(--ico-bg-notes);color:var(--ico-fg-notes)}
+  .ico-work{background:var(--ico-bg-work);color:var(--ico-fg-work)}
   .card h2{font-size:18px;font-weight:600;margin-bottom:4px}
   .card .desc{font-size:13px;color:var(--sub);min-height:40px}
   .metrics{display:flex;gap:18px;flex-wrap:wrap;margin:14px 0 16px;padding:12px 0;
@@ -217,6 +224,8 @@
     <a href="书影音海报墙.html" data-page="media">海报墙</a>
     <a href="观剧记录.html" data-page="theatre">观剧</a>
     <a href="旅行地图.html" data-page="map">地图</a>
+    <a href="随笔.html" data-page="notes">随笔</a>
+    <a href="作品集.html" data-page="portfolio">作品集</a>
     <a href="时间线.html" data-page="timeline">时间线</a>
   </div>
   <span class="__wsn_hint">同一工作台 · 数据保存在本机</span>
@@ -298,12 +307,36 @@
       <div class="go">打开旅行地图 →</div>
     </a>
 
+    <a class="card wide" href="随笔.html" id="cardNotes">
+      <div class="ico ico-notes" aria-hidden="true">✎</div>
+      <h2>随笔</h2>
+      <div class="desc">写作、笔记与生活记录，Markdown 页内编辑，从个人博客迁入</div>
+      <div class="metrics">
+        <div class="metric"><div class="n" id="mNotesAll">—</div><div class="l">文章</div></div>
+        <div class="metric"><div class="n" id="mNotesYear">—</div><div class="l">今年更新</div></div>
+        <div class="metric"><div class="n" id="mNotesLast">—</div><div class="l">最近更新</div></div>
+      </div>
+      <div class="go">打开随笔 →</div>
+    </a>
+
+    <a class="card wide" href="作品集.html" id="cardPortfolio">
+      <div class="ico ico-work" aria-hidden="true">▤</div>
+      <h2>作品集</h2>
+      <div class="desc">设计、摄影与插画练习，从个人博客图库迁入工作台</div>
+      <div class="metrics">
+        <div class="metric"><div class="n" id="mPfAll">—</div><div class="l">作品</div></div>
+        <div class="metric"><div class="n" id="mPfCats">—</div><div class="l">分类</div></div>
+        <div class="metric"><div class="n" id="mPfCustom">—</div><div class="l">自定义添加</div></div>
+      </div>
+      <div class="go">打开作品集 →</div>
+    </a>
+
     <a class="card full" href="时间线.html" id="cardTimeline">
       <div class="full-in">
         <div class="ico ico-tl" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 3.5v17"/><circle cx="6" cy="8" r="2.4" fill="currentColor" stroke="none"/><circle cx="6" cy="16.5" r="2.4" fill="currentColor" stroke="none"/><path d="M12 8h7.5M12 16.5h5.5"/></svg></div>
         <div class="txt">
           <h2>时间线</h2>
-          <div class="desc">把六个页面里发生的事按时间串成一条线：任务完成、习惯打卡、寄出与收到明信片、海报墙感想与心愿单、观剧、点亮足迹与旅行日记</div>
+          <div class="desc">把八个页面里发生的事按时间串成一条线：任务完成、习惯打卡、寄出与收到明信片、海报墙感想与心愿单、观剧、点亮足迹与旅行日记、随笔更新、作品入集</div>
         </div>
         <div class="metrics">
           <div class="metric"><div class="n" id="mTlAll">—</div><div class="l">可追溯事件</div></div>
@@ -395,12 +428,13 @@
   if (typeof window === "undefined") return;
 
   var DAY_MS = 86400000;
-  var KINDS = ["task", "habit", "postcard", "media", "theatre", "map", "diary"];
-  var LABEL = { task:"任务", habit:"习惯", postcard:"明信片", media:"海报墙", theatre:"观剧", map:"地图", diary:"日记" };
+  var KINDS = ["task", "habit", "postcard", "media", "theatre", "map", "note", "work", "diary"];
+  var LABEL = { task:"任务", habit:"习惯", postcard:"明信片", media:"海报墙", theatre:"观剧", map:"地图", note:"随笔", work:"作品", diary:"日记" };
   var HREF  = {
     task:"任务管理台.html", habit:"任务管理台.html",
     postcard:"明信片追踪.html", media:"书影音海报墙.html",
-    theatre:"观剧记录.html", map:"旅行地图.html", diary:"旅行地图.html"
+    theatre:"观剧记录.html", map:"旅行地图.html",
+    note:"随笔.html", work:"作品集.html", diary:"旅行地图.html"
   };
 
   function pad2(n){ return (n < 10 ? "0" : "") + n; }
@@ -486,7 +520,7 @@
     opts = opts || {};
     var events = [];
     var seen = Object.create(null);
-    var counts = { task:0, habit:0, postcard:0, media:0, theatre:0, map:0, diary:0 };
+    var counts = { task:0, habit:0, postcard:0, media:0, theatre:0, map:0, note:0, work:0, diary:0 };
 
     function push(kind, src, ts, precise, title, sub, extra){
       if (!ts || !isFinite(ts)) return;
@@ -655,6 +689,32 @@
         if (!t) return;
         var nm = (v && typeof v === "object" && v.n) ? String(v.n) : String(k).split(":").pop();
         push("map", "lit:" + k, t, true, "点亮了 " + nm, "旅行足迹");
+      });
+    }
+
+    /* ---------- 6. 随笔 + 作品集（博客合并 20261122）----------
+       随笔记 updatedAt（最后编辑时刻，分钟级精确）；作品记 createdAt（日期级）。
+       数据键由各自页面拥有，本层只读不写。作品集键是全量快照 {items,del}，内置九件
+       首次打开作品集页时种入——没打开过就没有作品事件，口径与页面一致。 */
+    var es = ls("wb_notes_v1");
+    if (Array.isArray(es)) {
+      es.forEach(function(n){
+        if (!n || !n.id) return;
+        var t = Number(n.updatedAt) || Number(n.createdAt) || 0;
+        if (!t) return;
+        push("note", "note:" + n.id, t, true, "随笔 · " + (n.title || "无题"),
+             (n.tags || []).join(" / "));
+      });
+    }
+    var pf = ls("wb_portfolio_v1");
+    if (pf && Array.isArray(pf.items)) {
+      var del = Array.isArray(pf.del) ? pf.del : [];
+      pf.items.forEach(function(c){
+        if (!c || !c.id || del.indexOf(c.id) >= 0) return;
+        var d = parseDay(c.createdAt);
+        if (!d) return;
+        push("work", "work:" + c.id, d, false, "作品 · " + (c.title || "未命名"),
+             c.cat ? String(c.cat) : "");
       });
     }
 
@@ -984,6 +1044,30 @@
     var d=new Date(ts);
     return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
   }
+  /* 博客合并两卡：随笔（wb_notes_v1 数组）/ 作品集（wb_portfolio_v1 快照 {items,del}），只读不写 */
+  function summaryNotes(){
+    var a=read("wb_notes_v1");
+    if(!Array.isArray(a)||!a.length) return null;
+    var now=new Date(), cy=now.getFullYear(), last=0, yearCnt=0;
+    a.forEach(function(n){
+      var t=Number(n&&n.updatedAt)||Number(n&&n.createdAt)||0;
+      if(!t) return;
+      if(new Date(t).getFullYear()===cy) yearCnt++;
+      if(t>last) last=t;
+    });
+    return { all:a.length, year:yearCnt, last:last?fmtDay(last):null };
+  }
+  function summaryPortfolio(){
+    var o=read("wb_portfolio_v1");
+    if(!o||!Array.isArray(o.items)) return null;
+    var del=Array.isArray(o.del)?o.del:[];
+    var items=o.items.filter(function(x){ return x&&x.id&&del.indexOf(x.id)<0; });
+    if(!items.length) return null;
+    var cats={};
+    items.forEach(function(x){ cats[x.cat||"其他"]=1; });
+    var custom=items.filter(function(x){ return !x.builtin; }).length;
+    return { all:items.length, cats:Object.keys(cats).length, custom:custom };
+  }
   /* 批三：日记存 IndexedDB，summaryTimeline 的同步 collect 读不到 → 首页此前「本年事件数」
      与时间线页口径分叉（时间线页含日记、首页不含）。异步取日记事件回填同一套统计。
      覆盖 _tlCache 后，下一次 render(false)（用户点刷新）仍会重新 collect+extra，无幽灵数据。 */
@@ -1038,11 +1122,14 @@
     if(!keepTime) _tlCache=null;   /* 用户点「刷新摘要」时重算；兜底抓取触发的 render(true) 沿用缓存 */
     var t=summaryTasks(), p=summaryPostcards(), m=summaryMedia();
     var th=summaryTheatre(), mp=summaryMap(), tl=summaryTimeline();
+    var es=summaryNotes(), pf=summaryPortfolio();
     setText("mTaskOpen", t?t.open:null); setText("mTaskDone", t?t.done:null); setText("mTaskAll", t?t.all:null);
     setText("mPcTransit", p?p.transit:null); setText("mPcArrived", p?p.arrived:null); setText("mPcAll", p?p.all:null);
     setText("mMediaAll", m.total); setText("mMediaCustom", m.custom===null?null:m.custom);
     setText("mThShows", th?th.shows:null); setText("mThWish", th?th.wish:null); setText("mThCity", th?th.cities:null);
     setText("mMapCn", mp?mp.province:null); setText("mMapCity", mp?mp.cnCity:null); setText("mMapWorld", mp?mp.world:null);
+    setText("mNotesAll", es?es.all:null); setText("mNotesYear", es?es.year:null); setText("mNotesLast", es?es.last:null);
+    setText("mPfAll", pf?pf.all:null); setText("mPfCats", pf?pf.cats:null); setText("mPfCustom", pf?pf.custom:null);
     setText("mTlAll", tl?tl.total:null); setText("mTlYear", tl?tl.thisYear:null); setText("mTlMonth", tl?tl.thisMonth:null);
     var mTlFirst=document.getElementById("mTlFirst");
     if(mTlFirst){
@@ -1100,6 +1187,8 @@
     if (f.indexOf("书影音海报墙") >= 0 || f.indexOf("media") >= 0) return "media";
     if (f.indexOf("观剧") >= 0 || f.indexOf("theatre") >= 0) return "theatre";
     if (f.indexOf("旅行地图") >= 0 || f.indexOf("map") >= 0) return "map";
+    if (f.indexOf("随笔") >= 0 || f.indexOf("notes") >= 0) return "notes";
+    if (f.indexOf("作品集") >= 0 || f.indexOf("portfolio") >= 0) return "portfolio";
     if (f.indexOf("时间线") >= 0 || f.indexOf("timeline") >= 0) return "timeline";
     return "";
   }

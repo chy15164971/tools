@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<script>/* 主题初值统一（与其余七页同口径）：显式选择优先 → 无值跟随系统 → 默认亮色 */try{var _t=localStorage.getItem("wb_theme_v1");if(!_t&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)_t="dark";if(_t)document.documentElement.setAttribute("data-theme",_t);/* 初值是暗色时同步 theme-color */var _mt=document.querySelector('meta[name="theme-color"]');if(_mt)_mt.setAttribute("content",_t==="dark"?"#0f1320":"#4F7CFF");}catch(e){}</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>作品集 · 工作台</title>
+<meta name="theme-color" content="#4F7CFF">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<style>
+  /* === SHARED TOKENS START === */
+  :root{
+    --bg:#f5f7fb; --card:#ffffff; --ink:#1f2430; --text:#1f2430; --sub:#6b7280; --line:#e7ebf2;
+    /* --pri-ink：主色当**文字**用（#4F7CFF 白底仅 3.71:1 不达标）→ 5.48:1
+       --pri-deep：主色当**底色**、上面压白色小字（12.5–14px 不到大文本门槛）→ 4.73:1
+       纯填充（进度条/图标/色点）继续用 --pri，不受影响。 */
+    --pri-ink:#2F5FE0; --pri-deep:#3D68F0;
+    --pri:#4F7CFF; --pri-soft:#eaf0ff; --ok:#22b07d; --ok-soft:#e7f6ec; --warn:#ff8a3d; --danger:#ef4444;
+    /* 语义色三件套（2026-11-22 批三补）：--x 只做填充，文字一律用 --x-ink 压在 --x-soft 上。
+       起因：状态胶囊/徽章此前是「品牌色底 + 白字」，实测 --ok 底白字 2.77:1、深色 --ok 底白字
+       仅 1.90:1；而 11–12.5px 的状态文字恰是用户最需要一眼读准的内容。
+       数值：ok-ink 4.58:1 / warn-ink 4.86:1 / danger-ink 5.15:1（压各自 soft 底，均过 AA 4.5:1）。 */
+    --ok-ink:#167d55; --warn-soft:#fff5e6; --warn-ink:#a25a0f; --danger-soft:#fdecec; --danger-ink:#c62828;
+    /* 数据色（c4 媒体剧集 / c5 兜底灰在用；c1~c3 已删除，分类/优先级用用户自定义色） */
+    --c4:#ff5c8a; --c5:#9aa0ab; --c6:#9b6bff;
+    --chip-bg:#6b7280;
+    --radius:12px; --radius-sm:8px; --radius-lg:16px; --shadow:0 2px 10px rgba(31,36,48,.06);
+    /* cloudpill / 菜单 hover 此前引用未定义值导致样式退化，统一补全 */
+    --bg2:#f5f7fb; --muted:#6b7280; --hover:#f4f6fb; --soft:#f1f4f9;
+  --accent:#7c5cff; --white:#fff; --ink-strong:#1f2430; }
+  [data-theme="dark"]{
+    --bg:#0f1320; --card:#171c2b; --ink:#e7ebf3; --text:#e7ebf3; --sub:#9aa3b2; --line:#262d3f;
+    --pri-ink:#8FABFF; --pri-deep:#3D68F0;
+    --pri:#5b86ff; --pri-soft:#1c2740; --hover:#1c2236; --bg2:#11162a; --muted:#9aa3b2;
+    --ok:#2dd4a0; --ok-soft:#10312a; --warn:#ff9a52; --danger:#ff5d5d;
+    /* 深色语义色三件套：底色翻深、ink 翻浅，同样保证压 --x-soft 时 ≥4.5:1
+       （ok-ink 7.38 / warn-ink 8.84 / danger-ink 5.19） */
+    --ok-ink:#2dd4a0; --warn-soft:#33240f; --warn-ink:#ffb877; --danger-soft:#3a1a1c; --danger-ink:#ff5d5d;
+    --c4:#ff7aa6; --c5:#5a6478; --c6:#b08cff;
+    /* 深色下 --muted 是浅灰（#9aa3b2），压白字只有 ~2.4:1 → chip 底色另给一个深灰 */
+    --chip-bg:#5a6478;
+    --shadow:0 2px 10px rgba(0,0,0,.32);
+    --soft:#1c2233;
+  --accent:#9b8cff;
+  /* G19（2026-10-23 修）：dark 补定义 --ink-strong —— 原漏覆盖仍为亮色值 #1f2430，
+     深色下 .today-sec-act:hover 等引用处深字压深底近乎隐形 */
+  --ink-strong:#e7ebf3; }
+  /* === SHARED TOKENS END === */
+
+/* ---- 作品集页私有变量（标记区之外） ---- */
+:root{
+  --pf-sub:#6b7280; --pf-chip:#eef1f7; --pf-chip-on:#2F5FE0;
+}
+[data-theme="dark"]{
+  --pf-sub:#9aa3b2; --pf-chip:#1c2236; --pf-chip-on:#3D68F0;
+}
+
+html,body{margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+     background:var(--bg);color:var(--ink);font-size:14px;line-height:1.6;
+     display:flex;flex-direction:column;min-height:100vh}
+.wrap{max-width:1360px;margin:0 auto;padding:20px 18px calc(40px + env(safe-area-inset-bottom));flex:1;width:100%;box-sizing:border-box}
+/* 内容列限宽 1000 居中（与时间线同口径：宽框架 + 窄阅读列） */
+.head,.pf-bar,.pf-grid,.pf-foot{max-width:1000px;margin-left:auto;margin-right:auto}
+
+.head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.brand{display:flex;align-items:center;gap:12px;flex:1;min-width:220px}
+.logo{width:36px;height:36px;border-radius:10px;flex:none;display:block;
+      background:url(icons/workbench-icon.svg) center/cover no-repeat;
+      box-shadow:0 2px 8px rgba(79,124,255,.28)}
+.head h1{font-size:26px;font-weight:600;letter-spacing:.01em;line-height:1.25;margin:0}
+.head p{font-size:13px;color:var(--pf-sub);margin:4px 0 0}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);
+     background:var(--card);color:var(--ink);font-size:13px;cursor:pointer;transition:background .15s ease,border-color .15s ease}
+.btn:hover{background:var(--hover)}
+.btn.pri{background:var(--pri-deep);border-color:var(--pri-deep);color:#fff}
+.btn.pri:hover{filter:brightness(1.06)}
+.btn:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+.btn svg{width:15px;height:15px}
+
+.pf-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.chip{padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:var(--pf-chip);
+      color:var(--ink);font-size:12.5px;cursor:pointer;transition:background .15s ease,color .15s ease}
+.chip[aria-pressed="true"]{background:var(--pf-chip-on);border-color:var(--pf-chip-on);color:#fff}
+.chip:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+.pf-count{font-size:12.5px;color:var(--pf-sub);margin-left:auto}
+
+.pf-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:900px){.pf-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.pf-grid{grid-template-columns:1fr}}
+.pf-item{position:relative;margin:0;padding:0;border:1px solid var(--line);border-radius:var(--radius-lg);overflow:hidden;
+         background:var(--card);cursor:zoom-in;transition:transform .18s ease,box-shadow .18s ease;text-align:left}
+.pf-item:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover,0 6px 20px rgba(31,36,48,.12))}
+.pf-item:focus-visible{outline:2px solid var(--pri);outline-offset:3px}
+.pf-item img{display:block;width:100%;aspect-ratio:10/7;object-fit:cover;background:var(--soft)}
+.pf-item figcaption{padding:10px 14px 12px}
+.pf-item .t{font-size:14px;font-weight:600;color:var(--ink)}
+.pf-item .c{font-size:12.5px;color:var(--pf-sub);margin-top:2px}
+.pf-item .tag{position:absolute;top:10px;left:10px;padding:3px 10px;border-radius:999px;font-size:11.5px;
+              background:rgba(15,19,32,.62);color:#fff;backdrop-filter:blur(2px)}
+.pf-empty{max-width:1000px;margin:40px auto;text-align:center;color:var(--pf-sub);font-size:13.5px;
+          border:1px dashed var(--line);border-radius:var(--radius-lg);padding:48px 20px}
+.pf-foot{margin-top:26px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--pf-sub);line-height:1.85}
+
+/* ---- 大图查看（lightbox） ---- */
+.lb-mask{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+         background:rgba(10,13,22,.72);padding:20px}
+.lb-mask.show{display:flex}
+.lb-box{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);
+        max-width:min(920px,94vw);max-height:92vh;display:flex;flex-direction:column;overflow:auto;box-shadow:var(--shadow)}
+.lb-img{width:100%;max-height:58vh;object-fit:contain;background:#0e1220;display:block}
+.lb-body{padding:16px 20px 18px}
+.lb-title{font-size:16px;font-weight:600;color:var(--ink);margin:0}
+.lb-cap{font-size:13px;color:var(--pf-sub);margin:6px 0 0}
+.lb-meta{font-size:12px;color:var(--pf-sub);margin-top:8px}
+.lb-acts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.lb-nav{position:fixed;top:50%;transform:translateY(-50%);z-index:61;width:44px;height:44px;border-radius:50%;
+        border:0;background:rgba(255,255,255,.16);color:#fff;font-size:20px;cursor:pointer;display:none;align-items:center;justify-content:center}
+.lb-mask.show ~ .lb-nav,.lb-nav.show{display:flex}
+.lb-nav:hover{background:rgba(255,255,255,.3)}
+.lb-nav:focus-visible{outline:2px solid #fff;outline-offset:2px}
+#lbPrev{left:12px}#lbNext{right:12px}
+@media(hover:none){.pf-item:hover{transform:none;box-shadow:none}.lb-nav{opacity:.9}}
+
+/* ---- 表单弹窗（新增/编辑） ---- */
+.m-mask{position:fixed;inset:0;z-index:70;display:none;align-items:flex-start;justify-content:center;
+        background:rgba(15,19,32,.5);padding:8vh 16px 16px;overflow:auto}
+.m-mask.show{display:flex}
+.m-box{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);
+       width:min(460px,94vw);padding:18px 20px;box-shadow:var(--shadow)}
+.m-box h2{margin:0 0 12px;font-size:16px}
+.fld{display:block;margin-bottom:12px}
+.fld span{display:block;font-size:12.5px;color:var(--pf-sub);margin-bottom:5px}
+.fld input,.fld select,.fld textarea{width:100%;box-sizing:border-box;font:inherit;font-size:13px;padding:8px 10px;
+        border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--card);color:var(--ink)}
+.fld input:focus-visible,.fld select:focus-visible,.fld textarea:focus-visible{outline:2px solid var(--pri);outline-offset:1px}
+.fld .hint{font-size:11.5px;color:var(--pf-sub);margin-top:4px}
+.m-acts{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
+
+/* ---- 确认弹窗（替代 window.confirm，与观剧/地图同语义） ---- */
+.ask-mask{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;background:rgba(15,19,32,.5)}
+.ask-mask.show{display:flex}
+.ask-box{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);width:min(360px,92vw);padding:18px 20px;box-shadow:var(--shadow)}
+.ask-box .t{font-size:14.5px;font-weight:600;color:var(--ink)}
+.ask-box .b{font-size:13px;color:var(--pf-sub);margin-top:6px}
+.ask-acts{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+
+/* ---- toast ---- */
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(8px);
+       background:var(--ink);color:var(--bg);font-size:13px;padding:9px 16px;border-radius:999px;opacity:0;
+       transition:opacity .2s ease,transform .2s ease;pointer-events:none;z-index:90;max-width:86vw}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media(prefers-reduced-motion:reduce){.pf-item,.toast,.btn,.chip{transition:none}.pf-item:hover{transform:none}}
+</style>
+</head>
+<body>
+<!-- >>> SITE-NAV-HTML:BEGIN —— 由 _shared/site-nav-static.html 自动生成，请勿直接编辑本块 -->
+<!-- 站点统一导航条 · 静态首屏版 v2（2026-11-04）
+     唯一真相源：_shared/site-nav-static.html，由 inject_shared.py 内联到七页 <body> 开头。
+     为什么静态：v1 由 site-nav.js 在 DOMContentLoaded 后才 createElement 插入，任务台 HTML
+     约 831KB，实测 FCP 1220ms / DCL 1555ms —— 中间约 335ms 首屏是「没有导航条的旧版
+     任务台」，导航条插入后整页下移，用户看到闪一下旧画面。静态渲染后首屏解析即有导航条。
+     当前页高亮与 PWA 注册仍由 _shared/site-nav.js 补（纯样式变化，不引起布局跳动）。
+     品牌图标：__wsn_brand 前内联同款三卡组 SVG（与首页 logo / PWA 图标同源），
+     用 inline 而非 <img> 引用外部文件——零额外请求、首屏即显示、离线绝对稳，且不依赖 SW 缓存；
+     渐变 id 加 __wsn_ 前缀避免同页 id 冲突。
+     2026-11-06 D-16：品牌由 <span> 改为 <a href="home.html">，四个子页可点左上角回首页。 -->
+<style id="__wsn_style">
+.__wsn_bar{display:flex;align-items:center;gap:14px;padding:7px 16px;box-sizing:border-box;
+  width:100%;background:var(--card,#fff);color:var(--ink,#1f2430);
+  border-bottom:1px solid var(--line,#e7ebf2);font-size:13px;line-height:1.5;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  position:relative;z-index:1}
+.__wsn_brand{display:inline-flex;align-items:center;gap:7px;font-weight:600;letter-spacing:.02em;white-space:nowrap;color:var(--ink,#1f2430);text-decoration:none;cursor:pointer}
+.__wsn_icon{width:20px;height:20px;border-radius:5px;flex:none;display:block}
+.__wsn_links{display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+.__wsn_links::-webkit-scrollbar{display:none}
+.__wsn_links a{display:inline-flex;align-items:center;min-height:36px;padding:3px 11px;border-radius:999px;text-decoration:none;
+  white-space:nowrap;color:var(--sub,#6b7280);border:1px solid transparent;transition:background .15s ease,color .15s ease}
+.__wsn_links a:hover{background:var(--hover,var(--pri-soft,#eaf0ff));color:var(--ink,#1f2430)}
+.__wsn_links a.__wsn_on{color:#fff;background:var(--pri-deep,#3D68F0);border-color:var(--pri-deep,#3D68F0)}
+.__wsn_hint{font-size:12px;color:var(--sub,#9aa3b2);white-space:nowrap}
+.__wsn_bar a:focus-visible{outline:2px solid var(--pri,#4F7CFF);outline-offset:2px}
+@media(max-width:680px){.__wsn_bar{gap:9px;padding:6px 10px}.__wsn_hint{display:none}
+  .__wsn_brand{min-height:44px}
+  .__wsn_links a{padding:3px 9px;font-size:12px;min-height:44px}}
+@media(prefers-reduced-motion:reduce){.__wsn_links a{transition:none}}
+</style>
+<nav id="__wsn_bar" class="__wsn_bar" aria-label="站点导航">
+  <a class="__wsn_brand" href="home.html" aria-label="工作台首页"><svg class="__wsn_icon" viewBox="0 0 1024 1024" aria-hidden="true"><defs><linearGradient id="__wsn_wbG" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5B86FF"/><stop offset="1" stop-color="#2F5FE0"/></linearGradient></defs><rect width="1024" height="1024" rx="208" fill="url(#__wsn_wbG)"/><rect x="62" y="62" width="900" height="900" rx="208" fill="none" stroke="#FFFFFF" stroke-opacity="0.8" stroke-width="12"/><rect x="208" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="228" y="426" width="128" height="22" rx="11" fill="#4F7CFF"/><rect x="428" y="334" width="168" height="372" rx="34" fill="#FFFFFF"/><rect x="448" y="354" width="128" height="22" rx="11" fill="#D4537E"/><rect x="648" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="668" y="426" width="128" height="22" rx="11" fill="#8B5CF6"/></svg>工作台</a>
+  <div class="__wsn_links">
+    <a href="home.html" data-page="home">首页</a>
+    <a href="任务管理台.html" data-page="tasks">任务台</a>
+    <a href="明信片追踪.html" data-page="postcards">明信片</a>
+    <a href="书影音海报墙.html" data-page="media">海报墙</a>
+    <a href="观剧记录.html" data-page="theatre">观剧</a>
+    <a href="旅行地图.html" data-page="map">地图</a>
+    <a href="随笔.html" data-page="notes">随笔</a>
+    <a href="作品集.html" data-page="portfolio">作品集</a>
+    <a href="时间线.html" data-page="timeline">时间线</a>
+  </div>
+  <span class="__wsn_hint">同一工作台 · 数据保存在本机</span>
+</nav>
+<!-- <<< SITE-NAV-HTML:END -->
+
+<div class="wrap">
+  <div class="head">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"></span>
+      <div>
+        <h1>作品集</h1>
+        <p>设计、摄影与插画练习，从个人博客图库迁入工作台</p>
+      </div>
+    </div>
+    <div class="acts">
+      <button class="btn pri" id="pfAdd" type="button">+ 添加作品</button>
+      <button class="btn" id="pfExport" type="button" title="导出条目元数据（图片本体在 assets 目录）">导出</button>
+      <button class="btn" id="pfImport" type="button" title="从 JSON 恢复条目元数据">导入</button>
+    </div>
+  </div>
+
+  <div class="pf-bar" id="pfChips" role="group" aria-label="按分类筛选"></div>
+  <div class="pf-grid" id="pfGrid"></div>
+  <div class="pf-empty" id="pfEmpty" hidden>这个分类还没有作品。点右上角「添加作品」放进第一件。</div>
+
+  <div class="pf-foot">
+    图片本体存放于站点 <code>assets/portfolio/</code> 目录；标题、说明与自定义条目保存在本机（localStorage），
+    可用「导出 / 导入」做备份迁移。新增作品填写站内相对路径（如 <code>assets/portfolio/xxx.png</code>）即可。
+  </div>
+</div>
+
+<!-- 大图查看 -->
+<div class="lb-mask" id="lbMask" role="dialog" aria-modal="true" aria-label="作品大图查看">
+  <div class="lb-box">
+    <img class="lb-img" id="lbImg" alt="">
+    <div class="lb-body">
+      <h2 class="lb-title" id="lbTitle"></h2>
+      <p class="lb-cap" id="lbCap"></p>
+      <p class="lb-meta" id="lbMeta"></p>
+      <div class="lb-acts">
+        <button class="btn" id="lbEdit" type="button">编辑信息</button>
+        <button class="btn" id="lbDel" type="button">删除作品</button>
+        <button class="btn" id="lbClose" type="button">关闭</button>
+      </div>
+    </div>
+  </div>
+</div>
+<button class="lb-nav" id="lbPrev" type="button" aria-label="上一件">‹</button>
+<button class="lb-nav" id="lbNext" type="button" aria-label="下一件">›</button>
+
+<!-- 新增 / 编辑表单 -->
+<div class="m-mask" id="pfFormMask" role="dialog" aria-modal="true" aria-label="作品信息表单">
+  <div class="m-box">
+    <h2 id="pfFormTitle">添加作品</h2>
+    <label class="fld"><span>标题</span><input id="fTitle" maxlength="60" placeholder="作品名"></label>
+    <label class="fld"><span>分类</span>
+      <select id="fCat">
+        <option value="设计">设计</option><option value="摄影">摄影</option><option value="插画">插画</option>
+        <option value="其他">其他</option>
+      </select>
+    </label>
+    <label class="fld"><span>说明</span><textarea id="fCap" rows="2" maxlength="120" placeholder="一句话说明（可选）"></textarea></label>
+    <label class="fld"><span>图片路径 <b id="fSrcLabel"></b></span>
+      <input id="fSrc" placeholder="assets/portfolio/xxx.png">
+      <div class="hint">站内相对路径。线上可用外链 https:// 图片；file:// 本地打开时外链需联网加载。</div>
+    </label>
+    <div class="m-acts">
+      <button class="btn" id="fCancel" type="button">取消</button>
+      <button class="btn pri" id="fSave" type="button">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 确认弹窗 -->
+<div class="ask-mask" id="askMask" role="alertdialog" aria-modal="true" aria-label="确认操作">
+  <div class="ask-box">
+    <div class="t" id="askTitle">确认</div>
+    <div class="b" id="askBody"></div>
+    <div class="ask-acts">
+      <button class="btn" id="askCancel" type="button">取消</button>
+      <button class="btn pri" id="askOk" type="button">确定</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>/* >>> SITE-NAV:BEGIN —— 由 _shared/site-nav.js 自动生成，请勿直接编辑本块 */
+/* ============================================================
+   SITE-NAV v2（2026-11-04）— 站点导航条的「行为层」
+   ------------------------------------------------------------
+   唯一真相源：_shared/site-nav.js，由 inject_shared.py 内联进七页。
+   导航条本体（HTML + CSS）已改为静态块 _shared/site-nav-static.html，
+   放在 <body> 开头随文档解析立即呈现，消除 v1 的首屏闪烁：
+   v1 在 DOMContentLoaded 才 createElement 插入，任务台 FCP 1220ms /
+   DCL 1555ms，中间约 335ms 显示的是没有导航条的旧版布局。
+   本文件只负责：当前页高亮 + 站点级 PWA 注册。幂等、零外部依赖。
+   - 非吸顶：不与各页 sticky 顶栏抢 top:0
+   - 颜色全部取页面自身 CSS 变量，跟随亮/暗主题
+   - 同标签跳转（静态链接无 target="_blank"）
+   ============================================================ */
+(function(){
+  if (typeof document === "undefined") return;
+
+  function currentPage(){
+    var f = "";
+    try { f = decodeURIComponent((location.pathname.split("/").pop() || "index.html")).toLowerCase(); } catch(e){ f = "index.html"; }
+    if (!f || f === "index.html") return "tasks";        /* 根入口仍是任务台副本 */
+    if (f.indexOf("home") >= 0) return "home";
+    if (f.indexOf("任务管理台") >= 0 || f.indexOf("taskhub") >= 0) return "tasks";
+    if (f.indexOf("明信片") >= 0 || f.indexOf("postcard") >= 0) return "postcards";
+    if (f.indexOf("书影音海报墙") >= 0 || f.indexOf("media") >= 0) return "media";
+    if (f.indexOf("观剧") >= 0 || f.indexOf("theatre") >= 0) return "theatre";
+    if (f.indexOf("旅行地图") >= 0 || f.indexOf("map") >= 0) return "map";
+    if (f.indexOf("随笔") >= 0 || f.indexOf("notes") >= 0) return "notes";
+    if (f.indexOf("作品集") >= 0 || f.indexOf("portfolio") >= 0) return "portfolio";
+    if (f.indexOf("时间线") >= 0 || f.indexOf("timeline") >= 0) return "timeline";
+    return "";
+  }
+
+  /* 站点级 PWA：七页共用同一个 sw.js，重复 register 天然幂等；file:// 双击时静默跳过 */
+  function registerSW(){
+    try{
+      if(!("serviceWorker" in navigator)) return;
+      if(location.protocol!=="https:" && location.protocol!=="http:") return;
+      /* 批三：updateViaCache:"none" —— SW 脚本自身也走 max-age=600，
+         默认策略下浏览器可能从 HTTP 缓存拿旧 sw.js，更新检查失效拖 24h。 */
+      navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(function(){});
+    }catch(e){}
+  }
+
+  function init(){
+    var bar = document.getElementById("__wsn_bar");
+    if (!bar || bar.getAttribute("data-wsn-ready") === "1") return;
+    var cur = currentPage();
+    var a = cur ? bar.querySelector('.__wsn_links a[data-page="' + cur + '"]') : null;
+    if (a){ a.className = "__wsn_on"; a.setAttribute("aria-current", "page"); }
+    bar.setAttribute("data-wsn-ready", "1");
+    registerSW();
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+})();
+/* <<< SITE-NAV:END */</script>
+<script>
+(function(){
+"use strict";
+var KEY="wb_portfolio_v1";
+/* 内置九件：来自博客图库（chy15164971.github.io，2026-09-14 定稿）。
+   图片本体已迁入 assets/portfolio/；这里只存元数据，用户改动走覆盖层。 */
+var BUILTIN=[
+  {id:"g01",cat:"设计",title:"配色探索",caption:"靛蓝与暖灰的三色板",src:"assets/portfolio/g01.png",createdAt:"2026-09-14"},
+  {id:"g02",cat:"设计",title:"海报练习",caption:"极简排版海报练习",src:"assets/portfolio/g02.png",createdAt:"2026-09-14"},
+  {id:"g03",cat:"设计",title:"字体实验",caption:"衬线与无衬线对比",src:"assets/portfolio/g03.png",createdAt:"2026-09-14"},
+  {id:"g04",cat:"摄影",title:"窗边的早晨",caption:"逆光下的白瓷杯",src:"assets/portfolio/g04.png",createdAt:"2026-09-14"},
+  {id:"g05",cat:"摄影",title:"云雾远峰",caption:"清晨的山脊线",src:"assets/portfolio/g05.png",createdAt:"2026-09-14"},
+  {id:"g06",cat:"摄影",title:"黄昏咖啡馆",caption:"街角暖光",src:"assets/portfolio/g06.png",createdAt:"2026-09-14"},
+  {id:"g07",cat:"插画",title:"桌上的花",caption:"水彩静物",src:"assets/portfolio/g07.png",createdAt:"2026-09-14"},
+  {id:"g08",cat:"插画",title:"退潮滩涂",caption:"扁平风海岸",src:"assets/portfolio/g08.png",createdAt:"2026-09-14"},
+  {id:"g09",cat:"插画",title:"林间光斑",caption:"矢量光斑练习",src:"assets/portfolio/g09.png",createdAt:"2026-09-14"}
+];
+var CATS=["全部","设计","摄影","插画","其他"];
+
+/* 全量快照 + 墓碑模式：首次运行把内置九件种入 localStorage（时间线才能读到）；
+   内置扩充时升 SEED_VER，补种「未在快照且未被删」的内置件，用户删除走 del 墓碑防复活 */
+var SEED_VER=1;
+var st=loadSt();
+function loadSt(){
+  var raw=null, fresh=false;
+  try{ raw=localStorage.getItem(KEY); }catch(e){}
+  if(raw){ try{
+    var o=JSON.parse(raw);
+    if(o && Array.isArray(o.items)) return mergeSeed({seedVer:o.seedVer||1, items:o.items, del:Array.isArray(o.del)?o.del:[], ts:o.ts||0});
+  }catch(e){} }
+  fresh=true;
+  var s={seedVer:SEED_VER, items:BUILTIN.map(function(b){ return Object.assign({builtin:true},b); }), del:[], ts:0};
+  /* 首次运行立即落盘：时间线读 localStorage，种入只驻内存则作品事件永远不可见 */
+  if(fresh){ try{ localStorage.setItem(KEY,JSON.stringify(s)); }catch(e){} }
+  return s;
+}
+function mergeSeed(s){
+  if(s.seedVer>=SEED_VER) return s;
+  BUILTIN.forEach(function(b){
+    var exists=s.items.some(function(x){ return x.id===b.id; });
+    if(!exists && s.del.indexOf(b.id)<0) s.items.push(Object.assign({builtin:true},b));
+  });
+  s.seedVer=SEED_VER;
+  return s;
+}
+function saveSt(){ st.ts=Date.now(); try{ localStorage.setItem(KEY,JSON.stringify(st)); }catch(e){ toast("保存失败：本地存储空间不足"); return false; } return true; }
+function saveOv(){ return saveSt(); }   /* 兼容内部既有调用名 */
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
+function toast(msg){ var t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toast._h); toast._h=setTimeout(function(){ t.classList.remove("show"); },2200); }
+
+function allItems(){
+  var del=st.del||[];
+  return st.items.filter(function(it){ return it && it.id && del.indexOf(it.id)<0; });
+}
+function curCat(){ return document.querySelector(".chip[aria-pressed='true']"); }
+function curCatVal(){ var c=curCat(); return c?c.getAttribute("data-cat"):"全部"; }
+
+/* ---- 筛选 chips ---- */
+function renderChips(){
+  var box=document.getElementById("pfChips");
+  var cats=CATS.slice();
+  /* 自定义条目里出现新分类时自动补 chip */
+  allItems().forEach(function(it){ if(cats.indexOf(it.cat)<0) cats.push(it.cat); });
+  var cur=curCatVal();
+  var html="";
+  cats.forEach(function(c){
+    html+='<button class="chip" type="button" data-cat="'+esc(c)+'" aria-pressed="'+(c===cur?"true":"false")+'">'+esc(c)+"</button>";
+  });
+  var n=document.createElement("span"); n.className="pf-count";
+  var cnt=allItems().filter(function(it){ return cur==="全部"||it.cat===cur; }).length;
+  n.textContent=cnt+" 件";
+  box.innerHTML=html;
+  box.appendChild(n);
+  box.querySelectorAll(".chip").forEach(function(ch){
+    ch.addEventListener("click",function(){
+      box.querySelectorAll(".chip").forEach(function(x){ x.setAttribute("aria-pressed","false"); });
+      ch.setAttribute("aria-pressed","true");
+      renderGrid();
+      var c2=document.getElementById("pfChips").querySelector(".pf-count"); if(c2) renderChips();
+    });
+  });
+}
+
+/* ---- 网格 ---- */
+var view=[];
+function renderGrid(){
+  var grid=document.getElementById("pfGrid");
+  var cat=curCatVal();
+  view=allItems().filter(function(it){ return cat==="全部"||it.cat===cat; });
+  view.sort(function(a,b){ return String(a.createdAt||"").localeCompare(String(b.createdAt||"")) || String(a.id).localeCompare(String(b.id)); });
+  var html="";
+  view.forEach(function(it,i){
+    html+='<figure class="pf-item" tabindex="0" role="button" data-i="'+i+'" aria-label="查看 '+esc(it.title)+'">'
+        + '<span class="tag">'+esc(it.cat)+"</span>"
+        + '<img loading="lazy" src="'+esc(it.src)+'" alt="'+esc(it.title)+"："+esc(it.caption)+'">'
+        + '<figcaption><div class="t">'+esc(it.title)+'</div><div class="c">'+esc(it.caption||"")+"</div></figcaption></figure>";
+  });
+  grid.innerHTML=html;
+  document.getElementById("pfEmpty").hidden=view.length>0;
+  grid.querySelectorAll(".pf-item").forEach(function(el){
+    el.addEventListener("click",function(){ openLb(+el.getAttribute("data-i")); });
+    el.addEventListener("keydown",function(ev){ if(ev.key==="Enter"||ev.key===" "){ ev.preventDefault(); openLb(+el.getAttribute("data-i")); } });
+  });
+}
+
+/* ---- 大图查看 ---- */
+var lbIdx=-1, lbLastFocus=null;
+function openLb(i){
+  if(i<0||i>=view.length) return;
+  lbIdx=i;
+  var it=view[i];
+  document.getElementById("lbImg").src=it.src;
+  document.getElementById("lbImg").alt=it.title+"："+(it.caption||"");
+  document.getElementById("lbTitle").textContent=it.title;
+  document.getElementById("lbCap").textContent=it.caption||"";
+  document.getElementById("lbMeta").textContent="分类 "+it.cat+(it.createdAt?" · "+it.createdAt:"")+(it.builtin?"":" · 自定义");
+  lbLastFocus=document.activeElement;
+  document.getElementById("lbMask").classList.add("show");
+  document.getElementById("lbPrev").classList.add("show");
+  document.getElementById("lbNext").classList.add("show");
+  document.getElementById("lbClose").focus();
+}
+function closeLb(){
+  document.getElementById("lbMask").classList.remove("show");
+  document.getElementById("lbPrev").classList.remove("show");
+  document.getElementById("lbNext").classList.remove("show");
+  if(lbLastFocus&&lbLastFocus.focus) lbLastFocus.focus();
+  lbLastFocus=null;
+}
+function step(d){ if(lbIdx<0) return; openLb((lbIdx+d+view.length)%view.length); }
+
+/* ---- 焦点回环（与地图/观剧同款轻量 trap） ---- */
+function trap(e,maskId){
+  var mask=document.getElementById(maskId);
+  if(!mask.classList.contains("show")) return false;
+  var f=mask.querySelectorAll("button,input,select,textarea,[tabindex='0']");
+  if(!f.length) return false;
+  var first=f[0],last=f[f.length-1];
+  if(e.shiftKey&&document.activeElement===first){ e.preventDefault(); last.focus(); return true; }
+  if(!e.shiftKey&&document.activeElement===last){ e.preventDefault(); first.focus(); return true; }
+  return false;
+}
+
+/* ---- 确认弹窗 ---- */
+var askResolve=null;
+function askConfirm(title,body){
+  document.getElementById("askTitle").textContent=title;
+  document.getElementById("askBody").textContent=body;
+  document.getElementById("askMask").classList.add("show");
+  document.getElementById("askOk").focus();
+  return new Promise(function(res){ askResolve=res; });
+}
+function settle(v){
+  document.getElementById("askMask").classList.remove("show");
+  var r=askResolve; askResolve=null; if(r) r(v);
+}
+
+/* ---- 表单（新增 / 编辑） ---- */
+var editId=null, formLastFocus=null;
+function openForm(item){
+  editId=item?item.id:null;
+  document.getElementById("pfFormTitle").textContent=item?"编辑作品信息":"添加作品";
+  document.getElementById("fTitle").value=item?item.title:"";
+  document.getElementById("fCat").value=item?item.cat:"设计";
+  document.getElementById("fCap").value=item?item.caption||"":"";
+  document.getElementById("fSrc").value=item?item.src:"";
+  document.getElementById("fSrc").disabled=!!item;
+  document.getElementById("fSrcLabel").textContent=item?"（编辑时不可改，删除后重加即可）":"";
+  formLastFocus=document.activeElement;
+  document.getElementById("pfFormMask").classList.add("show");
+  document.getElementById("fTitle").focus();
+}
+function closeForm(){
+  document.getElementById("pfFormMask").classList.remove("show");
+  if(formLastFocus&&formLastFocus.focus) formLastFocus.focus();
+}
+function saveForm(){
+  var title=document.getElementById("fTitle").value.trim();
+  var cat=document.getElementById("fCat").value;
+  var cap=document.getElementById("fCap").value.trim();
+  var src=document.getElementById("fSrc").value.trim();
+  if(!title){ toast("请填写标题"); document.getElementById("fTitle").focus(); return; }
+  if(!editId&&!src){ toast("请填写图片路径"); document.getElementById("fSrc").focus(); return; }
+  if(editId){
+    var it=st.items.find(function(x){ return x.id===editId; });
+    if(!it){ toast("条目不存在"); return; }
+    it.title=title; it.cat=cat; it.caption=cap;
+  }else{
+    if(st.items.some(function(x){ return x.src===src; })){ toast("该图片路径已存在"); return; }
+    st.items.push({id:"u"+Date.now().toString(36),title:title,cat:cat,caption:cap,src:src,createdAt:new Date().toISOString().slice(0,10)});
+  }
+  if(saveOv()){ closeForm(); refresh(); toast(editId?"已保存":"已添加"); }
+}
+
+/* ---- 事件绑定 ---- */
+document.getElementById("pfAdd").addEventListener("click",function(){ openForm(null); });
+document.getElementById("lbClose").addEventListener("click",closeLb);
+document.getElementById("lbPrev").addEventListener("click",function(){ step(-1); });
+document.getElementById("lbNext").addEventListener("click",function(){ step(1); });
+document.getElementById("lbEdit").addEventListener("click",function(){ if(lbIdx>=0) openForm(view[lbIdx]); });
+document.getElementById("lbDel").addEventListener("click",function(){
+  if(lbIdx<0) return;
+  var it=view[lbIdx];
+  askConfirm("删除作品","删除「"+it.title+"」？仅移除条目，图片文件仍保留在 assets 目录。").then(function(ok){
+    if(!ok) return;
+    if(it.builtin){ st.del.push(it.id); }
+    st.items=st.items.filter(function(x){ return x.id!==it.id; });
+    saveOv(); closeLb(); refresh(); toast("已删除");
+  });
+});
+document.getElementById("fCancel").addEventListener("click",closeForm);
+document.getElementById("fSave").addEventListener("click",saveForm);
+document.getElementById("askOk").addEventListener("click",function(){ settle(true); });
+document.getElementById("askCancel").addEventListener("click",function(){ settle(false); });
+document.getElementById("lbMask").addEventListener("click",function(e){ if(e.target.id==="lbMask") closeLb(); });
+document.getElementById("pfFormMask").addEventListener("click",function(e){ if(e.target.id==="pfFormMask") closeForm(); });
+document.getElementById("askMask").addEventListener("click",function(e){ if(e.target.id==="askMask") settle(false); });
+
+document.addEventListener("keydown",function(e){
+  if(e.key==="Tab"){
+    if(trap(e,"lbMask")||trap(e,"pfFormMask")||trap(e,"askMask")) return;
+    return;
+  }
+  if(e.key!=="Escape") return;
+  if(document.getElementById("askMask").classList.contains("show")){ settle(false); return; }
+  if(document.getElementById("pfFormMask").classList.contains("show")){ closeForm(); return; }
+  if(document.getElementById("lbMask").classList.contains("show")){ closeLb(); return; }
+});
+document.addEventListener("keydown",function(e){
+  if(!document.getElementById("lbMask").classList.contains("show")) return;
+  if(e.key==="ArrowLeft") step(-1);
+  if(e.key==="ArrowRight") step(1);
+});
+
+/* ---- 导出 / 导入（全量快照：内置件 + 自定义 + 删除墓碑） ---- */
+document.getElementById("pfExport").addEventListener("click",function(){
+  var blob=new Blob([JSON.stringify({app:"workbuddy-portfolio",ver:1,data:st},null,2)],{type:"application/json"});
+  var a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="作品集_元数据_"+new Date().toISOString().slice(0,10)+".json";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ try{ URL.revokeObjectURL(a.href); }catch(e){} },1200);
+  toast("已导出元数据");
+});
+document.getElementById("pfImport").addEventListener("click",function(){
+  var inp=document.createElement("input"); inp.type="file"; inp.accept="application/json,.json";
+  inp.onchange=function(){
+    var f=inp.files&&inp.files[0]; if(!f) return;
+    var rd=new FileReader();
+    rd.onload=function(){
+      try{
+        var j=JSON.parse(rd.result);
+        var d=j&&j.data&&j.data.data?j.data.data:(j&&j.data)||null;
+        if(!d||!Array.isArray(d.items)) throw 0;
+        askConfirm("导入元数据","将用导出文件覆盖当前的作品集数据（含删除记录），继续？").then(function(ok){
+          if(!ok) return;
+          st=mergeSeed({seedVer:d.seedVer||1, items:d.items, del:Array.isArray(d.del)?d.del:[], ts:Date.now()});
+          saveOv(); refresh(); toast("已导入");
+        });
+      }catch(e){ toast("文件格式不正确，导入取消"); }
+    };
+    rd.readAsText(f);
+  };
+  inp.click();
+});
+
+function refresh(){ renderChips(); renderGrid(); }
+refresh();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<script>/* 主题初值统一（与其余七页同口径）：显式选择优先 → 无值跟随系统 → 默认亮色 */try{var _t=localStorage.getItem("wb_theme_v1");if(!_t&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)_t="dark";if(_t)document.documentElement.setAttribute("data-theme",_t);var _mt=document.querySelector('meta[name="theme-color"]');if(_mt)_mt.setAttribute("content",_t==="dark"?"#0f1320":"#4F7CFF");}catch(e){}</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>随笔 · 工作台</title>
+<meta name="theme-color" content="#4F7CFF">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<style>
+  /* === SHARED TOKENS START === */
+  :root{
+    --bg:#f5f7fb; --card:#ffffff; --ink:#1f2430; --text:#1f2430; --sub:#6b7280; --line:#e7ebf2;
+    /* --pri-ink：主色当**文字**用（#4F7CFF 白底仅 3.71:1 不达标）→ 5.48:1
+       --pri-deep：主色当**底色**、上面压白色小字（12.5–14px 不到大文本门槛）→ 4.73:1
+       纯填充（进度条/图标/色点）继续用 --pri，不受影响。 */
+    --pri-ink:#2F5FE0; --pri-deep:#3D68F0;
+    --pri:#4F7CFF; --pri-soft:#eaf0ff; --ok:#22b07d; --ok-soft:#e7f6ec; --warn:#ff8a3d; --danger:#ef4444;
+    /* 语义色三件套（2026-11-22 批三补）：--x 只做填充，文字一律用 --x-ink 压在 --x-soft 上。
+       起因：状态胶囊/徽章此前是「品牌色底 + 白字」，实测 --ok 底白字 2.77:1、深色 --ok 底白字
+       仅 1.90:1；而 11–12.5px 的状态文字恰是用户最需要一眼读准的内容。
+       数值：ok-ink 4.58:1 / warn-ink 4.86:1 / danger-ink 5.15:1（压各自 soft 底，均过 AA 4.5:1）。 */
+    --ok-ink:#167d55; --warn-soft:#fff5e6; --warn-ink:#a25a0f; --danger-soft:#fdecec; --danger-ink:#c62828;
+    /* 数据色（c4 媒体剧集 / c5 兜底灰在用；c1~c3 已删除，分类/优先级用用户自定义色） */
+    --c4:#ff5c8a; --c5:#9aa0ab; --c6:#9b6bff;
+    --chip-bg:#6b7280;
+    --radius:12px; --radius-sm:8px; --radius-lg:16px; --shadow:0 2px 10px rgba(31,36,48,.06);
+    /* cloudpill / 菜单 hover 此前引用未定义值导致样式退化，统一补全 */
+    --bg2:#f5f7fb; --muted:#6b7280; --hover:#f4f6fb; --soft:#f1f4f9;
+  --accent:#7c5cff; --white:#fff; --ink-strong:#1f2430; }
+  [data-theme="dark"]{
+    --bg:#0f1320; --card:#171c2b; --ink:#e7ebf3; --text:#e7ebf3; --sub:#9aa3b2; --line:#262d3f;
+    --pri-ink:#8FABFF; --pri-deep:#3D68F0;
+    --pri:#5b86ff; --pri-soft:#1c2740; --hover:#1c2236; --bg2:#11162a; --muted:#9aa3b2;
+    --ok:#2dd4a0; --ok-soft:#10312a; --warn:#ff9a52; --danger:#ff5d5d;
+    /* 深色语义色三件套：底色翻深、ink 翻浅，同样保证压 --x-soft 时 ≥4.5:1
+       （ok-ink 7.38 / warn-ink 8.84 / danger-ink 5.19） */
+    --ok-ink:#2dd4a0; --warn-soft:#33240f; --warn-ink:#ffb877; --danger-soft:#3a1a1c; --danger-ink:#ff5d5d;
+    --c4:#ff7aa6; --c5:#5a6478; --c6:#b08cff;
+    /* 深色下 --muted 是浅灰（#9aa3b2），压白字只有 ~2.4:1 → chip 底色另给一个深灰 */
+    --chip-bg:#5a6478;
+    --shadow:0 2px 10px rgba(0,0,0,.32);
+    --soft:#1c2233;
+  --accent:#9b8cff;
+  /* G19（2026-10-23 修）：dark 补定义 --ink-strong —— 原漏覆盖仍为亮色值 #1f2430，
+     深色下 .today-sec-act:hover 等引用处深字压深底近乎隐形 */
+  --ink-strong:#e7ebf3; }
+  /* === SHARED TOKENS END === */
+
+/* ---- 随笔页私有变量（标记区之外） ---- */
+:root{ --es-sub:#6b7280; }
+[data-theme="dark"]{ --es-sub:#9aa3b2; }
+
+html,body{margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+     background:var(--bg);color:var(--ink);font-size:14px;line-height:1.6;
+     display:flex;flex-direction:column;min-height:100vh}
+.wrap{max-width:1360px;margin:0 auto;padding:20px 18px calc(40px + env(safe-area-inset-bottom));flex:1;width:100%;box-sizing:border-box}
+.head,.es-bar,.es-list,.es-foot{max-width:1000px;margin-left:auto;margin-right:auto}
+
+.head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.brand{display:flex;align-items:center;gap:12px;flex:1;min-width:220px}
+.logo{width:36px;height:36px;border-radius:10px;flex:none;display:block;
+      background:url(icons/workbench-icon.svg) center/cover no-repeat;
+      box-shadow:0 2px 8px rgba(79,124,255,.28)}
+.head h1{font-size:26px;font-weight:600;letter-spacing:.01em;line-height:1.25;margin:0}
+.head p{font-size:13px;color:var(--es-sub);margin:4px 0 0}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);
+     background:var(--card);color:var(--ink);font-size:13px;cursor:pointer;transition:background .15s ease,border-color .15s ease}
+.btn:hover{background:var(--hover)}
+.btn.pri{background:var(--pri-deep);border-color:var(--pri-deep);color:#fff}
+.btn.pri:hover{filter:brightness(1.06)}
+.btn:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+
+.es-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.es-bar input{flex:1;min-width:200px;font:inherit;font-size:13px;padding:8px 14px;border:1px solid var(--line);
+      border-radius:999px;background:var(--card);color:var(--ink)}
+.es-bar input:focus-visible{outline:2px solid var(--pri);outline-offset:1px}
+.es-count{font-size:12.5px;color:var(--es-sub)}
+
+.es-list{display:flex;flex-direction:column;gap:12px}
+.es-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);padding:16px 20px;
+         cursor:pointer;transition:transform .18s ease,box-shadow .18s ease}
+.es-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-hover,0 6px 20px rgba(31,36,48,.12))}
+.es-card:focus-visible{outline:2px solid var(--pri);outline-offset:3px}
+.es-card h2{margin:0;font-size:16.5px;font-weight:600;color:var(--ink)}
+.es-card .snip{font-size:13px;color:var(--es-sub);margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.es-card .meta{font-size:12px;color:var(--es-sub);margin-top:8px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.es-card .tag{padding:2px 9px;border-radius:999px;background:var(--pri-soft);color:var(--pri-ink);font-size:11.5px}
+.es-empty{text-align:center;color:var(--es-sub);font-size:13.5px;border:1px dashed var(--line);border-radius:var(--radius-lg);padding:48px 20px}
+.es-foot{margin-top:26px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--es-sub);line-height:1.85}
+
+/* ---- 阅读弹窗 ---- */
+.m-mask{position:fixed;inset:0;z-index:60;display:none;align-items:flex-start;justify-content:center;
+        background:rgba(15,19,32,.5);padding:6vh 16px 16px;overflow:auto}
+.m-mask.show{display:flex}
+.m-box{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);
+       width:min(760px,94vw);padding:22px 26px;box-shadow:var(--shadow);margin-bottom:6vh}
+.m-box.narrow{width:min(560px,94vw)}
+.m-acts{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;flex-wrap:wrap}
+
+/* ---- Markdown 渲染排版 ---- */
+.md{font-size:14.5px;line-height:1.85;color:var(--ink)}
+.md h1,.md h2,.md h3{line-height:1.4;margin:1.3em 0 .5em}
+.md h1{font-size:22px}.md h2{font-size:18.5px}.md h3{font-size:16px}
+.md p{margin:.7em 0}
+.md a{color:var(--pri-ink)}
+.md code{background:var(--soft);border-radius:6px;padding:2px 6px;font-size:13px;
+         font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.md pre{background:var(--soft);border:1px solid var(--line);border-radius:var(--radius-sm);padding:12px 14px;overflow:auto}
+.md pre code{background:none;padding:0}
+.md blockquote{margin:.8em 0;padding:4px 14px;border-left:3px solid var(--pri);background:var(--pri-soft);border-radius:0 8px 8px 0;color:var(--ink)}
+.md ul,.md ol{padding-left:1.6em;margin:.6em 0}
+.md img{max-width:100%;border-radius:var(--radius-sm)}
+.md hr{border:0;border-top:1px solid var(--line);margin:1.4em 0}
+.md table{border-collapse:collapse;margin:.8em 0;width:100%}
+.md th,.md td{border:1px solid var(--line);padding:6px 10px;font-size:13px;text-align:left}
+
+/* ---- 编辑器 ---- */
+.ed-title{width:100%;box-sizing:border-box;font:inherit;font-size:16px;font-weight:600;padding:9px 12px;
+          border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--card);color:var(--ink);margin-bottom:10px}
+.ed-tags{width:100%;box-sizing:border-box;font:inherit;font-size:12.5px;padding:7px 12px;
+         border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--card);color:var(--ink);margin-bottom:10px}
+.ed-bar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.ed-bar .btn.on{background:var(--pri-deep);border-color:var(--pri-deep);color:#fff}
+.ed-area{width:100%;box-sizing:border-box;font:13px/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+         min-height:44vh;padding:12px;border:1px solid var(--line);border-radius:var(--radius-sm);
+         background:var(--card);color:var(--ink);resize:vertical}
+.ed-area:focus-visible,.ed-title:focus-visible,.ed-tags:focus-visible{outline:2px solid var(--pri);outline-offset:1px}
+.ed-hint{font-size:11.5px;color:var(--es-sub);margin-top:6px}
+
+/* ---- 确认弹窗 ---- */
+.ask-mask{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;background:rgba(15,19,32,.5)}
+.ask-mask.show{display:flex}
+.ask-box{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);width:min(360px,92vw);padding:18px 20px;box-shadow:var(--shadow)}
+.ask-box .t{font-size:14.5px;font-weight:600;color:var(--ink)}
+.ask-box .b{font-size:13px;color:var(--es-sub);margin-top:6px}
+.ask-acts{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(8px);
+       background:var(--ink);color:var(--bg);font-size:13px;padding:9px 16px;border-radius:999px;opacity:0;
+       transition:opacity .2s ease,transform .2s ease;pointer-events:none;z-index:90;max-width:86vw}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media(prefers-reduced-motion:reduce){.es-card,.toast,.btn{transition:none}.es-card:hover{transform:none}}
+</style>
+</head>
+<body>
+<!-- >>> SITE-NAV-HTML:BEGIN —— 由 _shared/site-nav-static.html 自动生成，请勿直接编辑本块 -->
+<!-- 站点统一导航条 · 静态首屏版 v2（2026-11-04）
+     唯一真相源：_shared/site-nav-static.html，由 inject_shared.py 内联到七页 <body> 开头。
+     为什么静态：v1 由 site-nav.js 在 DOMContentLoaded 后才 createElement 插入，任务台 HTML
+     约 831KB，实测 FCP 1220ms / DCL 1555ms —— 中间约 335ms 首屏是「没有导航条的旧版
+     任务台」，导航条插入后整页下移，用户看到闪一下旧画面。静态渲染后首屏解析即有导航条。
+     当前页高亮与 PWA 注册仍由 _shared/site-nav.js 补（纯样式变化，不引起布局跳动）。
+     品牌图标：__wsn_brand 前内联同款三卡组 SVG（与首页 logo / PWA 图标同源），
+     用 inline 而非 <img> 引用外部文件——零额外请求、首屏即显示、离线绝对稳，且不依赖 SW 缓存；
+     渐变 id 加 __wsn_ 前缀避免同页 id 冲突。
+     2026-11-06 D-16：品牌由 <span> 改为 <a href="home.html">，四个子页可点左上角回首页。 -->
+<style id="__wsn_style">
+.__wsn_bar{display:flex;align-items:center;gap:14px;padding:7px 16px;box-sizing:border-box;
+  width:100%;background:var(--card,#fff);color:var(--ink,#1f2430);
+  border-bottom:1px solid var(--line,#e7ebf2);font-size:13px;line-height:1.5;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  position:relative;z-index:1}
+.__wsn_brand{display:inline-flex;align-items:center;gap:7px;font-weight:600;letter-spacing:.02em;white-space:nowrap;color:var(--ink,#1f2430);text-decoration:none;cursor:pointer}
+.__wsn_icon{width:20px;height:20px;border-radius:5px;flex:none;display:block}
+.__wsn_links{display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+.__wsn_links::-webkit-scrollbar{display:none}
+.__wsn_links a{display:inline-flex;align-items:center;min-height:36px;padding:3px 11px;border-radius:999px;text-decoration:none;
+  white-space:nowrap;color:var(--sub,#6b7280);border:1px solid transparent;transition:background .15s ease,color .15s ease}
+.__wsn_links a:hover{background:var(--hover,var(--pri-soft,#eaf0ff));color:var(--ink,#1f2430)}
+.__wsn_links a.__wsn_on{color:#fff;background:var(--pri-deep,#3D68F0);border-color:var(--pri-deep,#3D68F0)}
+.__wsn_hint{font-size:12px;color:var(--sub,#9aa3b2);white-space:nowrap}
+.__wsn_bar a:focus-visible{outline:2px solid var(--pri,#4F7CFF);outline-offset:2px}
+@media(max-width:680px){.__wsn_bar{gap:9px;padding:6px 10px}.__wsn_hint{display:none}
+  .__wsn_brand{min-height:44px}
+  .__wsn_links a{padding:3px 9px;font-size:12px;min-height:44px}}
+@media(prefers-reduced-motion:reduce){.__wsn_links a{transition:none}}
+</style>
+<nav id="__wsn_bar" class="__wsn_bar" aria-label="站点导航">
+  <a class="__wsn_brand" href="home.html" aria-label="工作台首页"><svg class="__wsn_icon" viewBox="0 0 1024 1024" aria-hidden="true"><defs><linearGradient id="__wsn_wbG" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5B86FF"/><stop offset="1" stop-color="#2F5FE0"/></linearGradient></defs><rect width="1024" height="1024" rx="208" fill="url(#__wsn_wbG)"/><rect x="62" y="62" width="900" height="900" rx="208" fill="none" stroke="#FFFFFF" stroke-opacity="0.8" stroke-width="12"/><rect x="208" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="228" y="426" width="128" height="22" rx="11" fill="#4F7CFF"/><rect x="428" y="334" width="168" height="372" rx="34" fill="#FFFFFF"/><rect x="448" y="354" width="128" height="22" rx="11" fill="#D4537E"/><rect x="648" y="406" width="168" height="300" rx="34" fill="#FFFFFF"/><rect x="668" y="426" width="128" height="22" rx="11" fill="#8B5CF6"/></svg>工作台</a>
+  <div class="__wsn_links">
+    <a href="home.html" data-page="home">首页</a>
+    <a href="任务管理台.html" data-page="tasks">任务台</a>
+    <a href="明信片追踪.html" data-page="postcards">明信片</a>
+    <a href="书影音海报墙.html" data-page="media">海报墙</a>
+    <a href="观剧记录.html" data-page="theatre">观剧</a>
+    <a href="旅行地图.html" data-page="map">地图</a>
+    <a href="随笔.html" data-page="notes">随笔</a>
+    <a href="作品集.html" data-page="portfolio">作品集</a>
+    <a href="时间线.html" data-page="timeline">时间线</a>
+  </div>
+  <span class="__wsn_hint">同一工作台 · 数据保存在本机</span>
+</nav>
+<!-- <<< SITE-NAV-HTML:END -->
+
+<div class="wrap">
+  <div class="head">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"></span>
+      <div>
+        <h1>随笔</h1>
+        <p>写作、笔记与生活记录，从个人博客迁入工作台，本机保存</p>
+      </div>
+    </div>
+    <div class="acts">
+      <button class="btn pri" id="esAdd" type="button">+ 写一篇</button>
+      <button class="btn" id="esExport" type="button" title="导出全部文章为 JSON">导出</button>
+      <button class="btn" id="esImport" type="button" title="从 JSON 恢复文章">导入</button>
+    </div>
+  </div>
+
+  <div class="es-bar">
+    <input id="esQ" type="search" placeholder="搜索标题、正文或标签…" aria-label="搜索文章">
+    <span class="es-count" id="esCount"></span>
+  </div>
+
+  <div class="es-list" id="esList"></div>
+  <div class="es-empty" id="esEmpty" hidden>还没有文章。点右上角「写一篇」开始——支持 Markdown，写完自动保存到本机。</div>
+
+  <div class="es-foot">
+    文章保存在本机（localStorage），可用「导出 / 导入」做备份迁移。Markdown 支持：标题、粗斜体、链接、图片、
+    行内与围栏代码、引用、有序/无序列表、表格、分隔线。写下的每一篇都会进入「时间线」页面按更新时间聚合。
+  </div>
+</div>
+
+<!-- 阅读弹窗 -->
+<div class="m-mask" id="readMask" role="dialog" aria-modal="true" aria-label="阅读文章">
+  <div class="m-box">
+    <div id="readBody" class="md"></div>
+    <div class="m-acts">
+      <button class="btn" id="readEdit" type="button">编辑</button>
+      <button class="btn" id="readDel" type="button">删除</button>
+      <button class="btn" id="readClose" type="button">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 编辑器弹窗 -->
+<div class="m-mask" id="edMask" role="dialog" aria-modal="true" aria-label="文章编辑器">
+  <div class="m-box">
+    <input class="ed-title" id="edTitle" maxlength="80" placeholder="标题" aria-label="文章标题">
+    <input class="ed-tags" id="edTags" maxlength="80" placeholder="标签，逗号分隔（可选）" aria-label="文章标签">
+    <div class="ed-bar">
+      <button class="btn" id="edTabEdit" type="button" aria-pressed="true">编辑</button>
+      <button class="btn" id="edTabPrev" type="button" aria-pressed="false">预览</button>
+    </div>
+    <textarea class="ed-area" id="edArea" placeholder="用 Markdown 写正文…"></textarea>
+    <div class="ed-hint" id="edPrevHint" hidden>以下是 Markdown 预览效果</div>
+    <div class="md" id="edPrev" hidden></div>
+    <div class="m-acts">
+      <button class="btn" id="edCancel" type="button">取消</button>
+      <button class="btn pri" id="edSave" type="button">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 确认弹窗 -->
+<div class="ask-mask" id="askMask" role="alertdialog" aria-modal="true" aria-label="确认操作">
+  <div class="ask-box">
+    <div class="t" id="askTitle">确认</div>
+    <div class="b" id="askBody"></div>
+    <div class="ask-acts">
+      <button class="btn" id="askCancel" type="button">取消</button>
+      <button class="btn pri" id="askOk" type="button">确定</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>/* >>> SITE-NAV:BEGIN —— 由 _shared/site-nav.js 自动生成，请勿直接编辑本块 */
+/* ============================================================
+   SITE-NAV v2（2026-11-04）— 站点导航条的「行为层」
+   ------------------------------------------------------------
+   唯一真相源：_shared/site-nav.js，由 inject_shared.py 内联进七页。
+   导航条本体（HTML + CSS）已改为静态块 _shared/site-nav-static.html，
+   放在 <body> 开头随文档解析立即呈现，消除 v1 的首屏闪烁：
+   v1 在 DOMContentLoaded 才 createElement 插入，任务台 FCP 1220ms /
+   DCL 1555ms，中间约 335ms 显示的是没有导航条的旧版布局。
+   本文件只负责：当前页高亮 + 站点级 PWA 注册。幂等、零外部依赖。
+   - 非吸顶：不与各页 sticky 顶栏抢 top:0
+   - 颜色全部取页面自身 CSS 变量，跟随亮/暗主题
+   - 同标签跳转（静态链接无 target="_blank"）
+   ============================================================ */
+(function(){
+  if (typeof document === "undefined") return;
+
+  function currentPage(){
+    var f = "";
+    try { f = decodeURIComponent((location.pathname.split("/").pop() || "index.html")).toLowerCase(); } catch(e){ f = "index.html"; }
+    if (!f || f === "index.html") return "tasks";        /* 根入口仍是任务台副本 */
+    if (f.indexOf("home") >= 0) return "home";
+    if (f.indexOf("任务管理台") >= 0 || f.indexOf("taskhub") >= 0) return "tasks";
+    if (f.indexOf("明信片") >= 0 || f.indexOf("postcard") >= 0) return "postcards";
+    if (f.indexOf("书影音海报墙") >= 0 || f.indexOf("media") >= 0) return "media";
+    if (f.indexOf("观剧") >= 0 || f.indexOf("theatre") >= 0) return "theatre";
+    if (f.indexOf("旅行地图") >= 0 || f.indexOf("map") >= 0) return "map";
+    if (f.indexOf("随笔") >= 0 || f.indexOf("notes") >= 0) return "notes";
+    if (f.indexOf("作品集") >= 0 || f.indexOf("portfolio") >= 0) return "portfolio";
+    if (f.indexOf("时间线") >= 0 || f.indexOf("timeline") >= 0) return "timeline";
+    return "";
+  }
+
+  /* 站点级 PWA：七页共用同一个 sw.js，重复 register 天然幂等；file:// 双击时静默跳过 */
+  function registerSW(){
+    try{
+      if(!("serviceWorker" in navigator)) return;
+      if(location.protocol!=="https:" && location.protocol!=="http:") return;
+      /* 批三：updateViaCache:"none" —— SW 脚本自身也走 max-age=600，
+         默认策略下浏览器可能从 HTTP 缓存拿旧 sw.js，更新检查失效拖 24h。 */
+      navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(function(){});
+    }catch(e){}
+  }
+
+  function init(){
+    var bar = document.getElementById("__wsn_bar");
+    if (!bar || bar.getAttribute("data-wsn-ready") === "1") return;
+    var cur = currentPage();
+    var a = cur ? bar.querySelector('.__wsn_links a[data-page="' + cur + '"]') : null;
+    if (a){ a.className = "__wsn_on"; a.setAttribute("aria-current", "page"); }
+    bar.setAttribute("data-wsn-ready", "1");
+    registerSW();
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+})();
+/* <<< SITE-NAV:END */</script>
+<script>
+(function(){
+"use strict";
+var KEY="wb_notes_v1";
+var notes=load();
+function load(){
+  try{ var raw=localStorage.getItem(KEY); if(raw){ var a=JSON.parse(raw); if(Array.isArray(a)) return a; } }catch(e){}
+  return [];
+}
+function save(){ try{ localStorage.setItem(KEY,JSON.stringify(notes)); }catch(e){ toast("保存失败：本地存储空间不足（文章过长时可拆篇或导出备份）"); return false; } return true; }
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
+function toast(msg){ var t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toast._h); toast._h=setTimeout(function(){ t.classList.remove("show"); },2200); }
+function pad2(n){ return n<10?"0"+n:String(n); }
+function fmtTs(ts){ var d=new Date(ts); return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate()); }
+
+/* ---- 安全 Markdown 渲染：先整体转义，再做语法替换（不引入任何未转义原文） ---- */
+function renderMd(src){
+  var lines=String(src||"").replace(/\r\n?/g,"\n").split("\n");
+  var out=[], i=0, inCode=false, codeBuf=[], listStack=[];
+  function flushList(){ while(listStack.length){ out.push("</"+listStack.pop()+">"); } }
+  function safeUrl(u){
+    /* 只放行 http(s)/mailto/站内相对路径，拦 javascript:/vbscript:/data: 等危险 scheme */
+    var s=String(u||"").trim();
+    if(/^(https?:|mailto:|\/)/i.test(s) || !/^[a-z][a-z0-9+.-]*:/i.test(s)) return s;
+    return "";
+  }
+  function inline(s){
+    s=esc(s);
+    s=s.replace(/`([^`]+)`/g,function(_,c){ return "<code>"+c+"</code>"; });
+    /* u 取自已转义文本（引号已是 &quot;，无法逃出属性），safeUrl 只做 scheme 过滤，勿再转义 */
+    s=s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g,function(_,alt,u){
+      var ok=safeUrl(u);
+      return ok?'<img src="'+ok+'" alt="'+alt+'">':esc("!["+alt+"]("+u+")");
+    });
+    s=s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,function(_,t,u){
+      var ok=safeUrl(u);
+      return ok?'<a href="'+ok+'" target="_blank" rel="noopener noreferrer">'+t+"</a>":esc(t+" ("+u+")");
+    });
+    s=s.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");
+    s=s.replace(/\*([^*]+)\*/g,"<em>$1</em>");
+    return s;
+  }
+  for(; i<lines.length; i++){
+    var L=lines[i];
+    if(/^```/.test(L)){
+      if(inCode){ out.push("<pre><code>"+codeBuf.join("\n")+"</code></pre>"); codeBuf=[]; inCode=false; }
+      else{ flushList(); inCode=true; }
+      continue;
+    }
+    if(inCode){ codeBuf.push(L); continue; }
+    var h=L.match(/^(#{1,3})\s+(.*)$/);
+    if(h){ flushList(); out.push("<h"+h[1].length+">"+inline(h[2])+"</h"+h[1].length+">"); continue; }
+    if(/^\s*(---+|\*\*\*+)\s*$/.test(L)){ flushList(); out.push("<hr>"); continue; }
+    var bq=L.match(/^>\s?(.*)$/);
+    if(bq){ flushList(); out.push("<blockquote>"+inline(bq[1])+"</blockquote>"); continue; }
+    var ul=L.match(/^\s*[-*]\s+(.*)$/);
+    if(ul){ if(listStack[listStack.length-1]!=="ul"){ flushList(); out.push("<ul>"); listStack.push("ul"); } out.push("<li>"+inline(ul[1])+"</li>"); continue; }
+    var ol=L.match(/^\s*\d+\.\s+(.*)$/);
+    if(ol){ if(listStack[listStack.length-1]!=="ol"){ flushList(); out.push("<ol>"); listStack.push("ol"); } out.push("<li>"+inline(ol[1])+"</li>"); continue; }
+    /* 表格行：| a | b | */
+    if(/^\s*\|.*\|\s*$/.test(L) && i+1<lines.length && /^\s*\|[\s:|-]+\|\s*$/.test(lines[i+1])){
+      flushList();
+      var rows=[], head=splitRow(L);
+      i+=2;
+      while(i<lines.length && /^\s*\|.*\|\s*$/.test(lines[i])){ rows.push(splitRow(lines[i])); i++; }
+      i--;
+      out.push("<table><thead><tr>"+head.map(function(c){ return "<th>"+inline(c)+"</th>"; }).join("")+"</tr></thead><tbody>"
+        + rows.map(function(r){ return "<tr>"+r.map(function(c){ return "<td>"+inline(c)+"</td>"; }).join("")+"</tr>"; }).join("")+"</tbody></table>");
+      continue;
+    }
+    if(!L.trim()){ flushList(); continue; }
+    flushList();
+    out.push("<p>"+inline(L)+"</p>");
+  }
+  if(inCode) out.push("<pre><code>"+codeBuf.join("\n")+"</code></pre>");
+  flushList();
+  return out.join("\n");
+  function splitRow(l){ return l.trim().replace(/^\||\|$/g,"").split("|").map(function(c){ return c.trim(); }); }
+}
+
+/* ---- 列表 ---- */
+function snippet(md){ var t=renderMd(md).replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim(); return t.slice(0,120); }
+function curQ(){ return document.getElementById("esQ").value.trim().toLowerCase(); }
+function renderList(){
+  var q=curQ();
+  var arr=notes.slice().sort(function(a,b){ return (b.updatedAt||0)-(a.updatedAt||0); });
+  if(q) arr=arr.filter(function(n){
+    var hay=(n.title+" "+(n.tags||[]).join(" ")+" "+n.md).toLowerCase();
+    return hay.indexOf(q)>=0;
+  });
+  var box=document.getElementById("esList");
+  var html="";
+  arr.forEach(function(n){
+    var tags=(n.tags||[]).map(function(t){ return '<span class="tag">'+esc(t)+"</span>"; }).join("");
+    html+='<article class="es-card" tabindex="0" role="button" data-id="'+esc(n.id)+'" aria-label="阅读 '+esc(n.title)+'">'
+        + "<h2>"+esc(n.title||"无题")+"</h2>"
+        + '<div class="snip">'+esc(snippet(n.md))+"</div>"
+        + '<div class="meta"><span>'+esc(fmtTs(n.updatedAt||n.createdAt))+"</span>"+tags+"</div></article>";
+  });
+  box.innerHTML=html;
+  document.getElementById("esEmpty").hidden=arr.length>0;
+  document.getElementById("esCount").textContent=q?(arr.length+" / "+notes.length+" 篇"):(notes.length+" 篇");
+  box.querySelectorAll(".es-card").forEach(function(el){
+    el.addEventListener("click",function(){ openRead(el.getAttribute("data-id")); });
+    el.addEventListener("keydown",function(ev){ if(ev.key==="Enter"||ev.key===" "){ ev.preventDefault(); openRead(el.getAttribute("data-id")); } });
+  });
+}
+
+/* ---- 阅读 ---- */
+var readId=null, readLastFocus=null;
+function openRead(id){
+  var n=notes.find(function(x){ return x.id===id; }); if(!n) return;
+  readId=id;
+  document.getElementById("readBody").innerHTML="<h1>"+esc(n.title||"无题")+"</h1>"+renderMd(n.md);
+  readLastFocus=document.activeElement;
+  document.getElementById("readMask").classList.add("show");
+  document.getElementById("readClose").focus();
+}
+function closeRead(){
+  document.getElementById("readMask").classList.remove("show");
+  if(readLastFocus&&readLastFocus.focus) readLastFocus.focus();
+  readLastFocus=null;
+}
+
+/* ---- 编辑器 ---- */
+var edId=null, edLastFocus=null;
+function openEditor(n){
+  edId=n?n.id:null;
+  document.getElementById("edTitle").value=n?n.title||"":"";
+  document.getElementById("edTags").value=n?(n.tags||[]).join(", "):"";
+  document.getElementById("edArea").value=n?n.md||"":"";
+  showTab("edit");
+  edLastFocus=document.activeElement;
+  document.getElementById("edMask").classList.add("show");
+  document.getElementById("edTitle").focus();
+}
+function showTab(tab){
+  var ed=tab==="edit";
+  document.getElementById("edTabEdit").setAttribute("aria-pressed",ed?"true":"false");
+  document.getElementById("edTabPrev").setAttribute("aria-pressed",ed?"false":"true");
+  document.getElementById("edTabEdit").className="btn"+(ed?" on":"");
+  document.getElementById("edTabPrev").className="btn"+(ed?"":" on");
+  document.getElementById("edArea").hidden=!ed;
+  document.getElementById("edPrev").hidden=ed;
+  document.getElementById("edPrevHint").hidden=ed;
+  if(!ed) document.getElementById("edPrev").innerHTML=renderMd(document.getElementById("edArea").value)||"<p>（空）</p>";
+}
+function closeEditor(){
+  document.getElementById("edMask").classList.remove("show");
+  if(edLastFocus&&edLastFocus.focus) edLastFocus.focus();
+}
+function saveEditor(){
+  var title=document.getElementById("edTitle").value.trim()||"无题";
+  var tags=document.getElementById("edTags").value.split(/[,，]/).map(function(s){ return s.trim(); }).filter(Boolean);
+  var md=document.getElementById("edArea").value.replace(/\s+$/,"");
+  if(!md){ toast("正文还是空的"); document.getElementById("edArea").focus(); return; }
+  var now=Date.now();
+  if(edId){
+    var n=notes.find(function(x){ return x.id===edId; });
+    n.title=title; n.tags=tags; n.md=md; n.updatedAt=now;
+  }else{
+    notes.push({id:"n"+Date.now().toString(36)+Math.random().toString(36).slice(2,6), title:title, tags:tags, md:md, createdAt:now, updatedAt:now});
+  }
+  if(save()){ closeEditor(); renderList(); toast("已保存"); }
+}
+
+/* ---- 确认弹窗 ---- */
+var askResolve=null;
+function askConfirm(title,body){
+  document.getElementById("askTitle").textContent=title;
+  document.getElementById("askBody").textContent=body;
+  document.getElementById("askMask").classList.add("show");
+  document.getElementById("askOk").focus();
+  return new Promise(function(res){ askResolve=res; });
+}
+function settle(v){
+  document.getElementById("askMask").classList.remove("show");
+  var r=askResolve; askResolve=null; if(r) r(v);
+}
+
+/* ---- 焦点回环 ---- */
+function trap(e,maskId){
+  var mask=document.getElementById(maskId);
+  if(!mask.classList.contains("show")) return false;
+  var f=mask.querySelectorAll("button,input,select,textarea,[tabindex='0']");
+  if(!f.length) return false;
+  var first=f[0],last=f[f.length-1];
+  if(e.shiftKey&&document.activeElement===first){ e.preventDefault(); last.focus(); return true; }
+  if(!e.shiftKey&&document.activeElement===last){ e.preventDefault(); first.focus(); return true; }
+  return false;
+}
+
+/* ---- 事件绑定 ---- */
+document.getElementById("esAdd").addEventListener("click",function(){ openEditor(null); });
+document.getElementById("esQ").addEventListener("input",renderList);
+document.getElementById("readClose").addEventListener("click",closeRead);
+document.getElementById("readEdit").addEventListener("click",function(){
+  var n=notes.find(function(x){ return x.id===readId; });
+  closeRead(); if(n) openEditor(n);
+});
+document.getElementById("readDel").addEventListener("click",function(){
+  var n=notes.find(function(x){ return x.id===readId; }); if(!n) return;
+  askConfirm("删除文章","删除「"+(n.title||"无题")+"」？删除后不可恢复（除非事先导出过备份）。").then(function(ok){
+    if(!ok) return;
+    notes=notes.filter(function(x){ return x.id!==readId; });
+    save(); closeRead(); renderList(); toast("已删除");
+  });
+});
+document.getElementById("edTabEdit").addEventListener("click",function(){ showTab("edit"); });
+document.getElementById("edTabPrev").addEventListener("click",function(){ showTab("prev"); });
+document.getElementById("edCancel").addEventListener("click",closeEditor);
+document.getElementById("edSave").addEventListener("click",saveEditor);
+document.getElementById("askOk").addEventListener("click",function(){ settle(true); });
+document.getElementById("askCancel").addEventListener("click",function(){ settle(false); });
+document.getElementById("readMask").addEventListener("click",function(e){ if(e.target.id==="readMask") closeRead(); });
+document.getElementById("edMask").addEventListener("click",function(e){ if(e.target.id==="edMask") closeEditor(); });
+document.getElementById("askMask").addEventListener("click",function(e){ if(e.target.id==="askMask") settle(false); });
+
+document.addEventListener("keydown",function(e){
+  if(e.key==="Tab"){
+    if(trap(e,"readMask")||trap(e,"edMask")||trap(e,"askMask")) return;
+    return;
+  }
+  if(e.key!=="Escape") return;
+  if(document.getElementById("askMask").classList.contains("show")){ settle(false); return; }
+  if(document.getElementById("edMask").classList.contains("show")){ askConfirm("放弃编辑","尚未保存的内容将丢失，确定关闭编辑器？").then(function(ok){ if(ok) closeEditor(); }); return; }
+  if(document.getElementById("readMask").classList.contains("show")){ closeRead(); return; }
+});
+
+/* ---- 导出 / 导入 ---- */
+document.getElementById("esExport").addEventListener("click",function(){
+  var blob=new Blob([JSON.stringify({app:"workbuddy-notes",ver:1,data:notes},null,2)],{type:"application/json"});
+  var a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="随笔_全量_"+new Date().toISOString().slice(0,10)+".json";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ try{ URL.revokeObjectURL(a.href); }catch(e){} },1200);
+  toast("已导出 "+notes.length+" 篇");
+});
+document.getElementById("esImport").addEventListener("click",function(){
+  var inp=document.createElement("input"); inp.type="file"; inp.accept="application/json,.json";
+  inp.onchange=function(){
+    var f=inp.files&&inp.files[0]; if(!f) return;
+    var rd=new FileReader();
+    rd.onload=function(){
+      try{
+        var j=JSON.parse(rd.result);
+        var arr=j&&j.data&&Array.isArray(j.data.data)?j.data.data:(Array.isArray(j.data)?j.data:null);
+        if(!arr) throw 0;
+        askConfirm("导入文章","将导入 "+arr.length+" 篇（同 id 的现有文章会被覆盖），继续？").then(function(ok){
+          if(!ok) return;
+          arr.forEach(function(im){
+            var ix=notes.findIndex(function(x){ return x.id===im.id; });
+            if(ix>=0) notes[ix]=im; else notes.push(im);
+          });
+          save(); renderList(); toast("已导入");
+        });
+      }catch(e){ toast("文件格式不正确，导入取消"); }
+    };
+    rd.readAsText(f);
+  };
+  inp.click();
+});
+
+renderList();
+})();
+</script>
+</body>
+</html>

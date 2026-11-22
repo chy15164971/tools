@@ -13,7 +13,7 @@ const SENT_CACHE="wb-remind-sent";
    沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存；PRECACHE 与 NAV_MAP 同步纳入观剧页。 */
 /* v20（2026-11-21）：旅行地图并入站点正式页——七页导航条 + 门禁体系，地图页改标准 key 加载并接入共享层。
    沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存；PRECACHE 与 NAV_MAP 同步纳入旅行地图。 */
-const APP_CACHE="wb-app-v37";
+const APP_CACHE="wb-app-v38";
 /* v32（2026-11-22 P2 打磨）：八页 HTML / timeline-core 字节变化。
    SW 级（全站审查 P2）：① 预缓存失败不再 console.warn 后照常 activate——改为 throw 让
    install 失败，浏览器会按生命周期自动重试；否则弱网下某页预缓存失败即永久缺页，
@@ -71,7 +71,11 @@ const PRECACHE=["./", "./home.html", "./任务管理台.html", "./明信片追�
                 "./icons/icon-152.png", "./icons/icon-167.png", "./icons/icon-180.png",
                 "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-512-maskable.png",
                 "./icons/favicon.ico", "./icons/workbench-icon.svg",
-                "./icons/timeline-icon.svg", "./icons/timeline-icon-180.png", "./icons/timeline-icon-192.png"];
+                "./icons/timeline-icon.svg", "./icons/timeline-icon-180.png", "./icons/timeline-icon-192.png",
+                "./随笔.html", "./作品集.html",
+                "./assets/portfolio/g01.png", "./assets/portfolio/g02.png", "./assets/portfolio/g03.png",
+                "./assets/portfolio/g04.png", "./assets/portfolio/g05.png", "./assets/portfolio/g06.png",
+                "./assets/portfolio/g07.png", "./assets/portfolio/g08.png", "./assets/portfolio/g09.png"];
 
 // 2026-11-04 站点统一：预缓存门户 + 三个子页，离线可从任一页兜底回工作台首页
 self.addEventListener("install", function(e){

@@ -28,12 +28,13 @@
   if (typeof window === "undefined") return;
 
   var DAY_MS = 86400000;
-  var KINDS = ["task", "habit", "postcard", "media", "theatre", "map", "diary"];
-  var LABEL = { task:"任务", habit:"习惯", postcard:"明信片", media:"海报墙", theatre:"观剧", map:"地图", diary:"日记" };
+  var KINDS = ["task", "habit", "postcard", "media", "theatre", "map", "note", "work", "diary"];
+  var LABEL = { task:"任务", habit:"习惯", postcard:"明信片", media:"海报墙", theatre:"观剧", map:"地图", note:"随笔", work:"作品", diary:"日记" };
   var HREF  = {
     task:"任务管理台.html", habit:"任务管理台.html",
     postcard:"明信片追踪.html", media:"书影音海报墙.html",
-    theatre:"观剧记录.html", map:"旅行地图.html", diary:"旅行地图.html"
+    theatre:"观剧记录.html", map:"旅行地图.html",
+    note:"随笔.html", work:"作品集.html", diary:"旅行地图.html"
   };
 
   function pad2(n){ return (n < 10 ? "0" : "") + n; }
@@ -119,7 +120,7 @@
     opts = opts || {};
     var events = [];
     var seen = Object.create(null);
-    var counts = { task:0, habit:0, postcard:0, media:0, theatre:0, map:0, diary:0 };
+    var counts = { task:0, habit:0, postcard:0, media:0, theatre:0, map:0, note:0, work:0, diary:0 };
 
     function push(kind, src, ts, precise, title, sub, extra){
       if (!ts || !isFinite(ts)) return;
@@ -288,6 +289,32 @@
         if (!t) return;
         var nm = (v && typeof v === "object" && v.n) ? String(v.n) : String(k).split(":").pop();
         push("map", "lit:" + k, t, true, "点亮了 " + nm, "旅行足迹");
+      });
+    }
+
+    /* ---------- 6. 随笔 + 作品集（博客合并 20261122）----------
+       随笔记 updatedAt（最后编辑时刻，分钟级精确）；作品记 createdAt（日期级）。
+       数据键由各自页面拥有，本层只读不写。作品集键是全量快照 {items,del}，内置九件
+       首次打开作品集页时种入——没打开过就没有作品事件，口径与页面一致。 */
+    var es = ls("wb_notes_v1");
+    if (Array.isArray(es)) {
+      es.forEach(function(n){
+        if (!n || !n.id) return;
+        var t = Number(n.updatedAt) || Number(n.createdAt) || 0;
+        if (!t) return;
+        push("note", "note:" + n.id, t, true, "随笔 · " + (n.title || "无题"),
+             (n.tags || []).join(" / "));
+      });
+    }
+    var pf = ls("wb_portfolio_v1");
+    if (pf && Array.isArray(pf.items)) {
+      var del = Array.isArray(pf.del) ? pf.del : [];
+      pf.items.forEach(function(c){
+        if (!c || !c.id || del.indexOf(c.id) >= 0) return;
+        var d = parseDay(c.createdAt);
+        if (!d) return;
+        push("work", "work:" + c.id, d, false, "作品 · " + (c.title || "未命名"),
+             c.cat ? String(c.cat) : "");
       });
     }
 
