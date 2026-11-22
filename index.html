@@ -2609,9 +2609,36 @@
       <select id="bfHabit" class="bf-select"></select>
     </div>
     <label class="hs-inline" style="margin-top:10px;display:block"><input type="checkbox" id="bfTargetOnly"> 仅作用于各习惯的目标日（按频率 / 自定义日）；不勾则作用于范围内每一天</label>
+    <div class="field" id="bfTimeWrap" style="margin-top:10px">
+      <label>打卡时刻（可选）</label>
+      <input type="time" id="bfTime" class="bf-input">
+      <p class="hint" style="margin:4px 0 0">填了则时间线按该时刻精确显示；不填则补记只按日期显示（不确定真实时刻就留空，诚实优于编造）</p>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="bfCancel" type="button">取消</button>
       <button class="btn btn-pri" id="bfConfirm" type="button">补打</button>
+    </div>
+  </div>
+</div>
+
+<!-- 补记时刻校准 弹窗 -->
+<div class="mask" id="habitCalMask">
+  <div class="modal">
+    <h2>🧹 校准补记时刻</h2>
+    <p class="hint" id="calHint" style="margin-top:0">打卡 / 完成的「日期」都是准的，只有后面补记时产生的「分钟时刻」不准。扫描出来统一校准为下面的默认时刻（只影响时间线等处的精确显示，不改连续天数与统计）。</p>
+    <div class="row2">
+      <div class="field"><label>默认时刻</label><input type="time" id="calTime" class="bf-input" value="21:00"></div>
+      <div class="field"><label>操作</label>
+        <div style="display:flex;gap:8px;align-items:center;min-height:38px">
+          <button class="btn btn-ghost btn-sm" id="calScan" type="button">扫描补记</button>
+          <button class="btn btn-ghost btn-sm" id="calUndo" type="button" title="恢复上次校准前的数据">撤销上次校准</button>
+        </div>
+      </div>
+    </div>
+    <div id="calList" style="max-height:320px;overflow:auto;margin-top:10px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="calCancel" type="button">关闭</button>
+      <button class="btn btn-pri" id="calApply" type="button" disabled>应用校准</button>
     </div>
   </div>
 </div>
@@ -4213,9 +4240,23 @@ function getDoneAt(t, date){
 function setDoneAt(t, date, iso){
   t.doneAt = t.doneAt || {};
   const k = doneAtKey(t, date);
-  if(iso===null || iso==="") delete t.doneAt[k];
+  if(iso===null || iso===""){ delete t.doneAt[k]; if(t.doneBf) delete t.doneBf[k]; }
   else t.doneAt[k] = iso;
 }
+
+/* 补记标记（doneBf）：在非今日日期格上补完成时，doneAt 的时刻其实是「补操作那一刻的钟点」，
+   不代表真实完成时刻。打了标记后时间线只按日期显示（诚实降级，不冒充精准）；
+   用户之后在弹窗里显式改完成时间（applyDoneTime）视为确认精准，标记自动清除。
+   ⚠️ 习惯侧不能这么做：dayTs 兼任云端墓碑仲裁（必须记真实操作时刻），
+   习惯的显示时刻走独立字段 h.dayTime，见 confirmHabitBackfill / toggleHabitDay。 */
+function markDoneBf(t, date){
+  if(!date) return;
+  const today=ymd(startOfDay(new Date()));
+  if(ymdOf(date)===today) return;          // 今日完成时刻真实，不标
+  t.doneBf=t.doneBf||{};
+  t.doneBf[doneAtKey(t, date)]=1;
+}
+function clearDoneBf(t, date){ if(t && t.doneBf) delete t.doneBf[doneAtKey(t, date)]; }
 
 function fmtDoneAt(iso){ // 短式：同日仅显示 HH:MM；跨天才显示 MM-DD HH:MM
   if(!iso) return "";
@@ -4868,14 +4909,14 @@ function toggleDone(id, date){
   if(!recurring){
     const nd = (t.status==="done")?"todo":"done";
     goingDone = nd==="done";
-    if(goingDone){ pushHistory(t, date); setDoneAt(t, date, markIso); }
+    if(goingDone){ pushHistory(t, date); setDoneAt(t, date, markIso); markDoneBf(t, date); }
     else { clearDoneState(t, date); }
     t.status = nd;
   } else{
     t.doneDates=t.doneDates||[];
     const k=date; const ix=t.doneDates.indexOf(k);
     if(ix>=0){ clearDoneState(t, k); }
-    else { t.doneDates.push(k); setDoneAt(t, k, markIso); pushHistory(t, date); }
+    else { t.doneDates.push(k); setDoneAt(t, k, markIso); markDoneBf(t, k); pushHistory(t, date); }
     goingDone = ix<0;
   }
   const subChanged = setAllSubsDone(t, date, goingDone);   // 父任务完成 ⇄ 子任务全勾
@@ -4955,10 +4996,12 @@ function applyDoneTime(opt){
       if(!ctxIsEditing){
         t.doneDates=t.doneDates.filter(x=>x!==ctxOld);
         if(t.doneAt && t.doneAt[ctxOld]!==undefined) delete t.doneAt[ctxOld];
+        clearDoneBf(t, ctxOld);   // 旧发生日的补记标记随旧记录一并清掉
       }
     }
     if(!t.doneDates.includes(dv)) t.doneDates.push(dv);
     setDoneAt(t, dv, iso);
+    clearDoneBf(t, dv);   // 用户在弹窗里显式确认了时刻 ⇒ 补记标记清除（视为精准）
     // 改完成日期会切换「编辑哪一次」的上下文；仅当新日期确实是本重复任务的发生日才切换，
     // 否则保持原 editingDate，避免随后的保存/删除/推迟误命中到一个不存在的发生日。
     if(recMatch(parseLocal(dv+"T00:00"), t.recurrence, parseLocal(t.start))) editingDate=dv;
@@ -4967,6 +5010,7 @@ function applyDoneTime(opt){
     if(!wasDone){ t.status="done"; pushHistory(t, dv); }
     else retargetHistoryDate(t, null, dv);
     setDoneAt(t, null, iso);
+    clearDoneBf(t, null);   // 用户显式确认时刻 ⇒ 清补记标记（key="self"）
   }
   save();
   renderDoneAtField(dv); syncDoneBtn(); refreshDerived(); renderAll();
@@ -7133,7 +7177,7 @@ async function habitQuick(id){
     const wk=habitWeekDays().map(ymd);
     const removed=h.days.filter(d=>wk.includes(d));
     h.days=h.days.filter(d=>!wk.includes(d));
-    removed.forEach(d=>{ if(h.dayTs) delete h.dayTs[d]; pushKindTomb("habitday", habitDayKey(h.id,d)); });   // 批量取消同样要传播
+    removed.forEach(d=>{ if(h.dayTs) delete h.dayTs[d]; if(h.dayTime) delete h.dayTime[d]; pushKindTomb("habitday", habitDayKey(h.id,d)); });   // 批量取消同样要传播（dayTime 显示时刻一并作废）
     toast("已清空本周");
   } else return;
   habitSave(); renderAll();
@@ -7147,6 +7191,8 @@ function confirmHabitBackfill(){
   const days=rangeDays(d0,d1).map(ymd);
   const onlyTarget=document.getElementById("bfTargetOnly").checked;
   const sel=document.getElementById("bfHabit").value;
+  const bfHm=(document.getElementById("bfTime").value||"").trim();   // 打卡时刻（可选，HH:MM）
+  if(bfHm && !/^\d{1,2}:\d{2}$/.test(bfHm)){ toast("打卡时刻格式应为 HH:MM"); return; }
   const targets = sel==="all" ? habits.filter(h=>!h.archived) : habits.filter(h=>!h.archived && h.id===sel);
   if(!targets.length){ toast("没有可应用的习惯"); return; }
   let total=0;
@@ -7156,7 +7202,8 @@ function confirmHabitBackfill(){
     if(bfMode==="add"){
       for(const d of pool){ if(!h.days.includes(d)){
         h.days.push(d);
-        h.dayTs=h.dayTs||{}; h.dayTs[d]=Date.now();     // P2-3：与单格打卡同口径，记时刻解「云端残留墓碑」死锁
+        h.dayTs=h.dayTs||{}; h.dayTs[d]=Date.now();     // P2-3：与单格打卡同口径，记时刻解「云端残留墓碑」死锁（仲裁必须用真实操作时刻，不能改成补的目标时刻）
+        if(bfHm){ h.dayTime=h.dayTime||{}; h.dayTime[d]=bfHm; }   // 用户填了时刻 ⇒ 显示层用它（时间线精确显示）；没填则时间线按日期诚实降级
         clearKindTomb("habitday", habitDayKey(h.id,d));  // P2-3：补打卡要清墓碑，否则被旧墓碑回滚
         total++;
       } }
@@ -7166,6 +7213,7 @@ function confirmHabitBackfill(){
       h.days=h.days.filter(d=>!pool.includes(d));
       removed.forEach(d=>{                              // P2-2：与单格取消 / 本周清空同口径
         if(h.dayTs) delete h.dayTs[d];
+        if(h.dayTime) delete h.dayTime[d];              // 显示时刻随取消一并作废
         pushKindTomb("habitday", habitDayKey(h.id,d));   // 取消打卡必须能跨设备传播
       });
       total += before - h.days.length;
@@ -7188,6 +7236,7 @@ function toggleHabitDay(id, day){
   if(ix>=0){
     h.days.splice(ix,1);
     if(h.dayTs) delete h.dayTs[day];                  // 取消 ⇒ 打卡时刻一并作废，让墓碑重新生效
+    if(h.dayTime) delete h.dayTime[day];              // 显示时刻一并作废
     pushKindTomb("habitday", habitDayKey(id, day));   // 取消打卡也要能跨设备传播，否则会被别的设备并回来
   }else{
     h.days.push(day);
@@ -10024,7 +10073,7 @@ function noSearchNote(viewName){
 /* ：习惯视图工具条与空态原先各写一份（按钮组 HTML 复制两遍、绑定逻辑复制两遍），
    抽成统一生成 + 统一绑定，改按钮时只需改一处。 */
 function habitActionsHtml(){
-  return '<div class="habit-actions"><button class="btn btn-ghost btn-sm" id="habitBackfill" title="补打或取消过去某段日期的打卡">📅 补打/取消</button><button class="btn btn-ghost btn-sm" id="habitStyle" title="自定义打卡格子颜色/字体">🎨 打卡样式</button><button class="btn btn-pri btn-sm" id="habitAdd">+ 添加习惯</button></div>';
+  return '<div class="habit-actions"><button class="btn btn-ghost btn-sm" id="habitBackfill" title="补打或取消过去某段日期的打卡">📅 补打/取消</button><button class="btn btn-ghost btn-sm" id="habitCalBtn" title="扫描历史补记，把不精准的时刻统一校准">🧹 校准时刻</button><button class="btn btn-ghost btn-sm" id="habitStyle" title="自定义打卡格子颜色/字体">🎨 打卡样式</button><button class="btn btn-pri btn-sm" id="habitAdd">+ 添加习惯</button></div>';
 }
 
 function setBfMode(mode){
@@ -10036,6 +10085,118 @@ function setBfMode(mode){
     ? "选一段日期范围，把漏掉的打卡一次性补上。只做「补」，不会取消已有的打卡。"
     : "选一段日期范围，把这段时间内误打的卡一次性取消。只做「取消」，不会新增打卡。";
   document.getElementById("bfConfirm").textContent = isAdd ? "补打" : "取消打卡";
+  const tw=document.getElementById("bfTimeWrap"); if(tw) tw.style.display = isAdd ? "" : "none";   // 时刻只对「补打」有意义
+}
+
+/* ===== 补记时刻校准（20261122）：历史补卡的分钟时刻不精准，一次性校准 =====
+   嫌疑识别口径：
+   · 习惯：dayTs[d] 的日期 ≠ d ⇒ 补操作时刻（时间线此前已自动按日期降级显示）。
+     校准写 h.dayTime[d]=默认时刻让时间线恢复精确显示；dayTs 一律不动——它兼任云端墓碑仲裁。
+   · 任务：stats.history 的 ts 日期 ≠ 发生日 d ⇒ 补记（同一 id+发生日取最近一条）。
+     反查 doneAt（重复任务 key=发生日，普通任务 key="self"），把值改为 发生日+默认时刻 并清 doneBf。
+     history 触顶丢弃（historyDropped）的旧记录识别不了，如实不列。
+   应用前把将被修改的字段快照进 localStorage wb_taskhub_cal_backup_v1，「撤销上次校准」整体还原。 */
+let calRows=[];
+const CAL_BACKUP_KEY="wb_taskhub_cal_backup_v1";
+
+function openHabitCal(){ renderCalList([], ""); document.getElementById("habitCalMask").classList.add("show"); }
+function closeHabitCal(){ document.getElementById("habitCalMask").classList.remove("show"); }
+
+function calSameDay(ts, dayStr){
+  const d=new Date(ts); if(!(d instanceof Date)||isNaN(d)) return false;
+  return ymd(d)===String(dayStr).slice(0,10);
+}
+
+function scanCal(){
+  const rows=[];
+  (habits||[]).forEach(h=>{
+    if(!h || h.archived || !Array.isArray(h.days)) return;
+    h.days.forEach(d=>{
+      const ts=+((h.dayTs||{})[d]||0);
+      if(ts && !calSameDay(ts, d)) rows.push({kind:"habit", h, d, ts});
+    });
+  });
+  const map=new Map();
+  (stats.history||[]).forEach(x=>{
+    if(!x || !x.id || !x.d || !x.ts) return;
+    if(calSameDay(x.ts, x.d)) return;                 // 实时完成，非补记
+    const k=x.id+"|"+x.d;
+    const prev=map.get(k);
+    if(!prev || x.ts>prev.ts) map.set(k, x);
+  });
+  map.forEach(x=>{
+    const t=state.tasks.find(z=>z.id===x.id); if(!t) return;
+    const key=isRecTask(t)? x.d : "self";
+    if(!t.doneAt || t.doneAt[key]===undefined) return; // 已被取消或清空，跳过
+    rows.push({kind:"task", t, key, histDay:x.d});
+  });
+  calRows=rows;
+  renderCalList(rows, rows.length
+    ? ("共发现 "+rows.length+" 条补记（默认全选）")
+    : ("未发现补记——历史数据里没有「操作时刻与打卡/完成日期不符」的记录。（stats.history 上限 "+HISTORY_MAX+" 条，更早被丢弃的补记无法识别）"));
+}
+
+function renderCalList(rows, msg){
+  const box=document.getElementById("calList"), applyBtn=document.getElementById("calApply");
+  if(!box || !applyBtn) return;
+  if(!rows.length){ box.innerHTML='<p class="hint">'+esc(msg||"点「扫描补记」开始检查。")+'</p>'; applyBtn.disabled=true; return; }
+  let html="";
+  rows.forEach((r,i)=>{
+    if(r.kind==="habit"){
+      const cur=(r.h.dayTime||{})[r.d];
+      html+='<label class="hs-inline" style="display:block"><input type="checkbox" class="cal-ck" data-i="'+i+'" checked> '
+        + esc(r.h.name||"习惯")+" · "+r.d.slice(5).replace("-","/")+" 补记于 "
+        + new Date(r.ts).toLocaleString("zh-CN",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})
+        + (cur?("（已有时刻 "+cur+"，将被覆盖）"):"")+"</label>";
+    }else{
+      html+='<label class="hs-inline" style="display:block"><input type="checkbox" class="cal-ck" data-i="'+i+'" checked> '
+        + esc(r.t.title||"任务")+" · 完成日 "+r.histDay.slice(5).replace("-","/")
+        + " · 记录时刻 "+String(r.t.doneAt[r.key]||"").replace("T"," ")+"</label>";
+    }
+  });
+  box.innerHTML=html;
+  applyBtn.disabled=false;
+}
+
+async function applyCal(){
+  const hm=(document.getElementById("calTime").value||"").trim();
+  if(!/^\d{1,2}:\d{2}$/.test(hm)){ toast("请先填默认时刻（HH:MM）"); return; }
+  const cks=Array.from(document.querySelectorAll(".cal-ck:checked"));
+  if(!cks.length){ toast("请先勾选要校准的条目"); return; }
+  const ok=await confirmDialog("把选中的 "+cks.length+" 条补记时刻校准为 "+hm+"？只影响时间线等处的分钟显示，不改连续天数与统计。可随时点「撤销上次校准」回退。", {ok:"校准"});
+  if(!ok) return;
+  const bak={ts:Date.now(), habits:[], tasks:[]};
+  const seenH=new Set(), seenT=new Set();
+  cks.forEach(ck=>{
+    const r=calRows[+ck.dataset.i]; if(!r) return;
+    if(r.kind==="habit"){
+      if(!seenH.has(r.h.id)){ seenH.add(r.h.id); bak.habits.push({id:r.h.id, dayTime:JSON.parse(JSON.stringify(r.h.dayTime||{}))}); }
+      r.h.dayTime=r.h.dayTime||{}; r.h.dayTime[r.d]=hm;
+    }else{
+      if(!seenT.has(r.t.id)){ seenT.add(r.t.id); bak.tasks.push({id:r.t.id, doneAt:JSON.parse(JSON.stringify(r.t.doneAt||{})), doneBf:JSON.parse(JSON.stringify(r.t.doneBf||{}))}); }
+      r.t.doneAt[r.key]=r.histDay+"T"+hm;
+      if(r.t.doneBf) delete r.t.doneBf[r.key];   // 校准值视为用户确认 ⇒ 清补记标记
+    }
+  });
+  try{ localStorage.setItem(CAL_BACKUP_KEY, JSON.stringify(bak)); }catch(e){}
+  habitSave(); save(); renderAll();
+  renderCalList([], "已校准 "+cks.length+" 条 ✓（时间线将按 "+hm+" 显示这些补记；反悔点「撤销上次校准」）");
+  toast("已校准 "+cks.length+" 条补记时刻 ✓");
+}
+
+function undoCal(){
+  let bak=null;
+  try{ bak=JSON.parse(localStorage.getItem(CAL_BACKUP_KEY)||"null"); }catch(e){}
+  if(!bak){ toast("没有可撤销的校准记录"); return; }
+  confirmDialog("撤销上次校准（"+new Date(bak.ts).toLocaleTimeString()+"），恢复 "+bak.habits.length+" 个习惯、"+bak.tasks.length+" 个任务的时刻数据？").then(ok=>{
+    if(!ok) return;
+    bak.habits.forEach(b=>{ const h=(habits||[]).find(x=>x.id===b.id); if(h) h.dayTime=b.dayTime; });
+    bak.tasks.forEach(b=>{ const t=state.tasks.find(x=>x.id===b.id); if(t){ t.doneAt=b.doneAt; t.doneBf=b.doneBf; } });
+    try{ localStorage.removeItem(CAL_BACKUP_KEY); }catch(e){}
+    habitSave(); save(); renderAll();
+    renderCalList([], "已撤销上次校准，数据已还原。");
+    toast("已撤销上次校准 ✓");
+  });
 }
 
 function renderHabit(){
@@ -10865,6 +11026,7 @@ function bindHabitActions(root){
   const a=root.querySelector("#habitAdd"); if(a) a.onclick=()=>openHabit(null);
   const st=root.querySelector("#habitStyle"); if(st) st.onclick=openHabitStyle;
   const bf=root.querySelector("#habitBackfill"); if(bf) bf.onclick=openHabitBackfill;
+  const cb=root.querySelector("#habitCalBtn"); if(cb) cb.onclick=openHabitCal;
 }
 
 function openHabitBackfill(){
@@ -12597,6 +12759,11 @@ document.getElementById("bfCancel").onclick=closeHabitBackfill;
 document.getElementById("bfModeAdd").onclick=()=>setBfMode("add");
 document.getElementById("bfModeRemove").onclick=()=>setBfMode("remove");
 document.getElementById("habitBackfillMask").onclick=e=>{ if(e.target.id==="habitBackfillMask") closeHabitBackfill(); };
+document.getElementById("calScan").onclick=scanCal;
+document.getElementById("calApply").onclick=applyCal;
+document.getElementById("calUndo").onclick=undoCal;
+document.getElementById("calCancel").onclick=closeHabitCal;
+document.getElementById("habitCalMask").onclick=e=>{ if(e.target.id==="habitCalMask") closeHabitCal(); };
 document.getElementById("helpMask").onclick=e=>{ if(e.target.id==="helpMask") e.currentTarget.classList.remove("show"); };
 document.getElementById("f_nodate").onchange=toggleNoDate;
 document.getElementById("btnOpts").onclick=openOpts;
@@ -12654,7 +12821,7 @@ document.getElementById("okrDelete").onclick=okrDelete;
 
 /* ===== 键盘快捷键 ===== */
 document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"){ if(document.getElementById("confirmMask")&&document.getElementById("confirmMask").classList.contains("show")) return; /* 批三 A11Y：补齐此前 Escape 关不掉的 6 个弹窗（有专用 close 的走 close，纯展示的直接摘 show，与各自遮罩点击行为一致） */ if(typeof closeBatchProps==="function"&&document.getElementById("batchPropsMask").classList.contains("show")){ closeBatchProps(); return; } if(typeof closeHabitBackfill==="function"&&document.getElementById("habitBackfillMask").classList.contains("show")){ closeHabitBackfill(); return; } if(typeof closeHabitStyle==="function"&&document.getElementById("hbStyleMask").classList.contains("show")){ closeHabitStyle(); return; } const ms=["helpMask","okrMask","projMask","mergeMask","tagMask","optMask"]; for(const id of ms){ const m=document.getElementById(id); if(m&&m.classList.contains("show")) m.classList.remove("show"); } return; }
+  if(e.key==="Escape"){ if(document.getElementById("confirmMask")&&document.getElementById("confirmMask").classList.contains("show")) return; /* 批三 A11Y：补齐此前 Escape 关不掉的 6 个弹窗（有专用 close 的走 close，纯展示的直接摘 show，与各自遮罩点击行为一致） */ if(typeof closeBatchProps==="function"&&document.getElementById("batchPropsMask").classList.contains("show")){ closeBatchProps(); return; } if(typeof closeHabitBackfill==="function"&&document.getElementById("habitBackfillMask").classList.contains("show")){ closeHabitBackfill(); return; } if(typeof closeHabitCal==="function"&&document.getElementById("habitCalMask").classList.contains("show")){ closeHabitCal(); return; } if(typeof closeHabitStyle==="function"&&document.getElementById("hbStyleMask").classList.contains("show")){ closeHabitStyle(); return; } const ms=["helpMask","okrMask","projMask","mergeMask","tagMask","optMask"]; for(const id of ms){ const m=document.getElementById(id); if(m&&m.classList.contains("show")) m.classList.remove("show"); } return; }
   if(inField() || e.ctrlKey || e.metaKey || e.altKey) return;
   /* P1-12：弹窗打开时屏蔽全局快捷键。此前只看 inField()，焦点落在弹窗内**按钮**上时 inField() 为 false，
      按 N 会 openModal(null,null) 静默丢弃当前编辑（脏检查拦不住，它只挂在 Esc/遮罩路径）；

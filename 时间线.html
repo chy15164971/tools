@@ -515,7 +515,10 @@
             var raw = da[key];
             var ts = parseStamp(raw);
             if (!ts) return;
-            push("task", id, ts, hasTime(raw), "完成 " + name, sub);
+            /* 补记降级：toggleDone 在非今日日期格补完成时给 doneBf[key] 打标（该时刻只是
+               补操作时的钟点），时间线只按日期显示，不冒充精准（与习惯 sameDay 启发式同哲学）。 */
+            var bf = t.doneBf && t.doneBf[key];
+            push("task", id, ts, bf ? false : hasTime(raw), "完成 " + name, sub);
           });
         }
         /* 老数据只有 doneDates（做完才补 doneAt 之前的历史）：仅在该日没有精确记录时兜底 */
@@ -543,6 +546,14 @@
           var base = parseDay(d);
           if (!base) return;
           var t = Number(dts[d]) || 0;
+          /* 用户确认的显示时刻（dayTime）：批量补卡弹窗填了时刻 ⇒ 精确显示。
+             dayTs 保持真实操作时刻兼任墓碑仲裁，显示层与其解耦。 */
+          var hm = (h.dayTime && typeof h.dayTime === "object") ? String(h.dayTime[d] || "") : "";
+          if (/^\d{1,2}:\d{2}$/.test(hm)) {
+            var hp = hm.split(":");
+            push("habit", hid + ":" + dayKey(base), base + (+hp[0]) * 3600000 + (+hp[1]) * 60000, true, "打卡 · " + nm, "");
+            return;
+          }
           /* 补打卡时 dayTs 记的是「操作那一刻」，与补的日期不同，那就不该冒充打卡时刻 */
           var ok = t > 0 && sameDay(t, base);
           push("habit", hid + ":" + dayKey(base), ok ? t : base, ok, "打卡 · " + nm, "");
