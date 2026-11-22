@@ -598,7 +598,7 @@
 
     /* ---------- 4c. 海报墙「读完了」（默认不进时间线）----------
        readlog 由海报墙页单点写入（MEDIA 数组只内联在那页，跨页读不到），只含书本的真实读过日期。
-       电影/音乐条目在豆瓣导出里没有观看时间（现有的 date 是上映/发行日期），所以这边压根没有它们。 */
+       电影/音乐条目在豆瓣导出里没有观看时间（v28 起它们的上映/发行日期改存在 release 字段），所以这边压根没有它们。 */
     if (opts.withDone) {
       var rl = ls("wb_mediawall_readlog_v1");
       var rlItems = (rl && Array.isArray(rl.items)) ? rl.items : [];
