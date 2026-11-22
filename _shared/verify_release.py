@@ -196,6 +196,31 @@ def main():
                 bad("PRECACHE 指向不存在的文件", ", ".join(missing))
             else:
                 ok("PRECACHE 清单本地文件齐备", "%d 项" % len(urls))
+            # 批三：反向断言——随站发布的本地资源都必须在 PRECACHE 里（防「新增页面忘记进预缓存，离线 404」）。
+            # index.html 由 "./" 覆盖；sw.js 是 SW 脚本自身、README/check.sh 不是站点资源，均不要求。
+            if m:
+                prec = set(urls)
+                ship = []
+                for fn in sorted(os.listdir(REPO)):
+                    if not fn.endswith(".html"):
+                        continue
+                    if fn == "index.html":
+                        if "./" not in prec: ship.append("./ (index.html)")
+                    elif "./" + fn not in prec:
+                        ship.append("./" + fn)
+                for fn in ("manifest.json", "媒体自定义条目.js"):
+                    if os.path.exists(os.path.join(REPO, fn)) and "./" + fn not in prec:
+                        ship.append("./" + fn)
+                icons_dir = os.path.join(REPO, "icons")
+                if os.path.isdir(icons_dir):
+                    for fn in sorted(os.listdir(icons_dir)):
+                        if fn.startswith("."): continue
+                        if "./icons/" + fn not in prec:
+                            ship.append("./icons/" + fn)
+                if ship:
+                    bad("站点资源未进 PRECACHE（离线 404 风险）", ", ".join(ship))
+                else:
+                    ok("PRECACHE 反向覆盖完整", "页面 / 图标 / 静态资源全部收录")
 
     # 6) 导航品牌可点
     nav_path = os.path.join(src_dir, "site-nav-static.html")

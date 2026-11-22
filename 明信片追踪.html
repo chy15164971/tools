@@ -32,6 +32,11 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
        纯填充（进度条/图标/色点）继续用 --pri，不受影响。 */
     --pri-ink:#2F5FE0; --pri-deep:#3D68F0;
     --pri:#4F7CFF; --pri-soft:#eaf0ff; --ok:#22b07d; --ok-soft:#e7f6ec; --warn:#ff8a3d; --danger:#ef4444;
+    /* 语义色三件套（2026-11-22 批三补）：--x 只做填充，文字一律用 --x-ink 压在 --x-soft 上。
+       起因：状态胶囊/徽章此前是「品牌色底 + 白字」，实测 --ok 底白字 2.77:1、深色 --ok 底白字
+       仅 1.90:1；而 11–12.5px 的状态文字恰是用户最需要一眼读准的内容。
+       数值：ok-ink 4.58:1 / warn-ink 4.86:1 / danger-ink 5.15:1（压各自 soft 底，均过 AA 4.5:1）。 */
+    --ok-ink:#167d55; --warn-soft:#fff5e6; --warn-ink:#a25a0f; --danger-soft:#fdecec; --danger-ink:#c62828;
     /* 数据色（c4 媒体剧集 / c5 兜底灰在用；c1~c3 已删除，分类/优先级用用户自定义色） */
     --c4:#ff5c8a; --c5:#9aa0ab; --c6:#9b6bff;
     --chip-bg:#6b7280;
@@ -44,6 +49,9 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
     --pri-ink:#8FABFF; --pri-deep:#3D68F0;
     --pri:#5b86ff; --pri-soft:#1c2740; --hover:#1c2236; --bg2:#11162a; --muted:#9aa3b2;
     --ok:#2dd4a0; --ok-soft:#10312a; --warn:#ff9a52; --danger:#ff5d5d;
+    /* 深色语义色三件套：底色翻深、ink 翻浅，同样保证压 --x-soft 时 ≥4.5:1
+       （ok-ink 7.38 / warn-ink 8.84 / danger-ink 5.19） */
+    --ok-ink:#2dd4a0; --warn-soft:#33240f; --warn-ink:#ffb877; --danger-soft:#3a1a1c; --danger-ink:#ff5d5d;
     --c4:#ff7aa6; --c5:#5a6478; --c6:#b08cff;
     /* 深色下 --muted 是浅灰（#9aa3b2），压白字只有 ~2.4:1 → chip 底色另给一个深灰 */
     --chip-bg:#5a6478;
@@ -66,7 +74,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   [data-theme="dark"] .btn-danger{ border-color:var(--line); }
   [data-theme="dark"] .opt-del{ border-color:var(--line); }
   [data-theme="dark"] .opt-del:hover{ background:rgba(255,107,107,.14); }
-  [data-theme="dark"] .badge.badge-duesoon{ background:rgba(255,154,77,.16); color:var(--warn); }
+  [data-theme="dark"] .badge.badge-duesoon{ background:var(--warn-soft); color:var(--warn-ink); }
   /* 中-3（2026-10-24）：暗色下 .badge.ok 改半透明浅绿底 + 亮绿字，保证 AA（亮色已用 --ok-soft + #147a53） */
   [data-theme="dark"] .badge.ok{ background:rgba(45,212,160,.15); color:var(--ok); }
   [data-theme="dark"] .sp-node{ border-color:var(--line); color:var(--muted); }
@@ -124,7 +132,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   .btn-pri:active{transform:scale(.97);}
   .btn-ghost{background:var(--card);color:var(--ink);border:1px solid var(--line);}
   .btn-sm{padding:7px 11px;min-height:36px;font-size:13px;border-radius:var(--radius-sm);}
-  .btn-danger{background:var(--card);color:var(--danger);border:1px solid #ffd9d9;}
+  .btn-danger{background:var(--card);color:var(--danger-ink);border:1px solid var(--danger-soft);}  /* 批三：--danger 亮色白底 3.76:1 → --danger-ink 5.15:1；边框 #ffd9d9 深色下突兀 → token */
   .top-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .top-actions>.btn,.top-actions>.cloudpill{height:38px;min-height:38px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;}
   .cloudpill{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;padding:5px 12px;border-radius:999px;background:var(--pri-deep);color:var(--white);border:1px solid var(--pri-deep);box-shadow:0 1px 3px rgba(79,124,255,.25);white-space:nowrap;cursor:pointer;}
@@ -310,7 +318,7 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   .stat .n,.pg-info,.badge,.rot-no,.lb-item b,td .dot+span,.w-showhidden,td[data-label*="日"],td[data-label*="天数"]{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";}   /* 低-2：寄出日/到达日/收到日/在途天数/往返天数数字列宽稳定 */
   .badge.ok{background:var(--ok-soft);color:#147a53;font-weight:700;}
   .badge.badge-overdue{background:rgba(239,68,68,.16);color:var(--danger);font-weight:700;}
-  .badge.badge-duesoon{background:rgba(245,166,35,.18);color:#c4760a;font-weight:700;}
+  .badge.badge-duesoon{background:var(--warn-soft);color:var(--warn-ink);font-weight:700;}  /* 批三：#c4760a 压 rgba 混合底 <4.5:1，换语义 token */
   /* 代寄「状态」列只 8%，长状态（如"对方已收·我方进行中"）会溢出到邻列；允换行 + 限宽，pill 自然变高一行 */
   td[data-label="状态"] .badge{max-width:100%;white-space:normal;text-align:center;line-height:1.25;word-break:break-all;}
   .thumb{width:34px;height:34px;object-fit:cover;border-radius:6px;border:1px solid var(--line);vertical-align:middle;cursor:pointer;transition:transform .15s, box-shadow .15s;}
@@ -388,9 +396,9 @@ var _rmReduce=function(){try{return !!(window.matchMedia&&window.matchMedia('(pr
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0;}
   .toast{position:fixed;left:50%;max-width:min(92vw,460px);text-align:center;bottom:calc(24px + env(safe-area-inset-bottom,0px) + var(--kb,0px));   /* P2-13：原先无 max-width，62 字的配额警告两端溢出屏幕 */ /* M-13：补底部手势条安全区 */transform:translateX(-50%) translateY(16px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:11px;font-size:13.5px;opacity:0;transition:opacity .25s, transform .25s;z-index:120;pointer-events:none;display:flex;align-items:center;gap:12px;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
-  .toast.success{background:var(--ok);color:var(--white);}
-  .toast.danger{background:var(--danger);color:var(--white);}
-  .toast.warn{background:var(--warn);color:var(--ink-strong);}
+  .toast.success{background:var(--ok-soft);color:var(--ok-ink);border:1px solid var(--ok);}   /* 批三：--ok 底白字 2.77:1 / 深色 1.90:1 → soft+ink 双主题过 AA */
+  .toast.danger{background:var(--danger-soft);color:var(--danger-ink);border:1px solid var(--danger);}
+  .toast.warn{background:var(--warn-soft);color:var(--warn-ink);border:1px solid var(--warn);}  /* 原 --warn 底 + ink-strong：深色下浅字压橙底 ~1.9:1 */
   /* 批 A（2026-10-24）：撤销按钮——容器 pointer-events:none 会连带屏蔽，须显式放开；此前两页共用的 toast() 注入了该按钮但本页缺样式 → 按钮不可点（高-1）。与任务台 .toast-undo 对齐。 */
   .toast-undo{pointer-events:auto;flex:none;background:rgba(255,255,255,.22);border:0;color:inherit;font:inherit;font-weight:600;padding:5px 12px;border-radius:8px;cursor:pointer;min-height:30px;}
   .toast-undo:hover{background:rgba(255,255,255,.34);}
@@ -2110,7 +2118,9 @@ function pushTomb(id){ const s=String(id||""); if(!s) return; const i=deletedIds
     try{
       if(!("serviceWorker" in navigator)) return;
       if(location.protocol!=="https:" && location.protocol!=="http:") return;
-      navigator.serviceWorker.register("sw.js").catch(function(){});
+      /* 批三：updateViaCache:"none" —— SW 脚本自身也走 max-age=600，
+         默认策略下浏览器可能从 HTTP 缓存拿旧 sw.js，更新检查失效拖 24h。 */
+      navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(function(){});
     }catch(e){}
   }
 
@@ -3711,6 +3721,18 @@ function fillOptions(selId, arr){
 function buildFilterBar(){
   const cfg=FILTER_BAR_CFG[view];
   const wrap=document.getElementById("filters");
+  /* 批三：renderAllNow 每次都重跑本函数，此前无条件 innerHTML 重建整个筛选条——
+     任意保存/标记动作都会把搜索框和下拉销毁重建，正在输入的焦点直接丢失（值虽回写、光标没了）。
+     同视图且已构建时只刷新选项与值，DOM 不动；切视图时 dataset 不匹配走完整重建。 */
+  if(wrap.dataset.builtView===view){
+    const f=cfg.filter();
+    cfg.selects.forEach(s=>{ fillOptions(s.id, s.src().map(p=>p[s.field])); const el=document.getElementById(s.id); if(el) el.value=f[s.field]||""; });
+    if(cfg.sort){ const el=document.getElementById(cfg.sort.id); if(el) el.value=sort[cfg.sort.key]||""; }
+    const se=document.getElementById(cfg.search.id);
+    if(se && document.activeElement!==se) se.value=f.q||"";   // 正在输入时不回写，避免打断光标
+    CHIP_GROUPS[view].forEach((c,i)=>renderChipGroup(view, i));
+    return;
+  }
   const selHtml=cfg.selects.map(s=>`<select id="${s.id}" data-ph="${s.ph}"><option value="">${s.ph}</option></select>`).join("");
   const sortHtml=cfg.sort?`<select id="${cfg.sort.id}" data-ph="排序"><option value="">默认排序</option>${cfg.sort.opts.map(([v,l])=>`<option value="${v}">${l}</option>`).join("")}</select>`:"";
   wrap.innerHTML=cfg.chips.map(id=>`<div class="chips" id="${id}"></div>`).join("")+selHtml+sortHtml+
@@ -3733,6 +3755,7 @@ function buildFilterBar(){
     if(cfg.sort){ const el=document.getElementById(cfg.sort.id); if(el) el.value=sort[cfg.sort.key]||""; }
     const se=document.getElementById(cfg.search.id); if(se) se.value=f.q||"";
   }catch(e){}
+  wrap.dataset.builtView=view;   // 批三：标记当前视图已构建，下次 renderAllNow 走轻量同步路径
 }
 
 function renderFilters(){ buildFilterBar(); }
@@ -3742,7 +3765,11 @@ function renderChipsGeneric(elId, entries, curKey, allLabel, dataAttr, onPick){
   const mk=(k,label,active)=>`<span class="chip ${active?"active":""}" role="button" tabindex="0" data-${dataAttr}="${k}">${esc(label)}</span>`;  // P2：chip 加 role/tabindex，键盘可达（焦点环复用 [role="button"]:focus-visible）
   const all=mk("all",allLabel,curKey==="all");
   const opts=entries.map(e=>mk(e.k,e.label,curKey===e.k)).join("");
+  /* 批三：内容没变就不重建（保住键盘焦点）；变了也要把焦点还到同 key 的 chip 上 */
+  if(el.innerHTML===all+opts) return;
+  const focusedChip=el.contains(document.activeElement) && document.activeElement.classList.contains("chip") ? document.activeElement.dataset[dataAttr] : null;
   el.innerHTML=all+opts;
+  if(focusedChip!=null){ const again=[...el.querySelectorAll(".chip")].find(c=>c.dataset[dataAttr]===focusedChip); if(again) again.focus(); }
   el.querySelectorAll(".chip").forEach(ch=>{
     ch.onclick=()=>{ onPick(ch.dataset[dataAttr]); };
     ch.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); onPick(ch.dataset[dataAttr]); } };

@@ -33,7 +33,9 @@
     try{
       if(!("serviceWorker" in navigator)) return;
       if(location.protocol!=="https:" && location.protocol!=="http:") return;
-      navigator.serviceWorker.register("sw.js").catch(function(){});
+      /* 批三：updateViaCache:"none" —— SW 脚本自身也走 max-age=600，
+         默认策略下浏览器可能从 HTTP 缓存拿旧 sw.js，更新检查失效拖 24h。 */
+      navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(function(){});
     }catch(e){}
   }
 

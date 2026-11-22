@@ -13,7 +13,15 @@ const SENT_CACHE="wb-remind-sent";
    沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存；PRECACHE 与 NAV_MAP 同步纳入观剧页。 */
 /* v20（2026-11-21）：旅行地图并入站点正式页——七页导航条 + 门禁体系，地图页改标准 key 加载并接入共享层。
    沿用既有约定：只改 HTML 不触发 install，故升版本强制重新预缓存；PRECACHE 与 NAV_MAP 同步纳入旅行地图。 */
-const APP_CACHE="wb-app-v30";
+const APP_CACHE="wb-app-v31";
+/* v31（2026-11-22 批三体感与无障碍）：八页 HTML / timeline-core / site-nav 字节全部变化。
+   页面级：任务台习惯格改 <button>（键盘可达）+ 六个弹窗补 Escape + 状态色全套换语义 token；
+   明信片筛选条按视图缓存（搜索不再失焦）+ toast/徽章对比度；地图切层级清搜索词、
+   日记默认本地日期、toast 反色；观剧保存幂等锁、toast 反色；时间线核心新增 loadDiaryEvents
+   与 collect extra 合并（首页摘要含日记，与时间线页口径对齐）。
+   SW 级：预缓存改 cache:"reload"（绕过 Pages max-age=600 预缓存旧 HTML）、
+   静态资源 no-cache 条件重验、注册加 updateViaCache:"none"；
+   观剧/地图补 manifest 与 theme-color。 */
 /* v29（2026-11-22 批一止血）：四处真缺陷修复，观剧 / 明信片 / 地图三页 HTML 字节已变。
    ① 观剧补 idbGet（删除带照片的记录此前抛 ReferenceError，删除静默失效）；
    ② 观剧照片 src 补转义 + 导入只接受图片 dataURL（此前备份里的 dataUrl 原样当缩略图，构成注入面）；
@@ -63,7 +71,10 @@ self.addEventListener("install", function(e){
       const c=await caches.open(APP_CACHE);
       var failed=[];
       await Promise.all(PRECACHE.map(function(u){
-        return c.add(u).then(function(){}, function(err){
+        /* 批三：cache:"reload" 强制绕过 GitHub Pages 的 max-age=600 磁盘缓存——
+           否则 install 可能正好把改版前 10 分钟内的旧 HTML 预缓存进 APP_CACHE，
+           离线用户读到的永远是旧版。 */
+        return c.add(new Request(u, {cache:"reload"})).then(function(){}, function(err){
           failed.push(u); console.warn("[sw] 预缓存失败:", u, err && err.message);
         });
       }));
@@ -216,7 +227,9 @@ self.addEventListener("fetch", function(e){
         });
       });
   }else{
-    upstream = fetch(e.request);
+    /* 批三：no-cache 条件重验（304 便宜）——GitHub Pages max-age=600 会让
+       媒体自定义条目.js 等静态资源在改版后 10 分钟内还是旧字节。 */
+    upstream = fetch(e.request, {cache:"no-cache"});
   }
   e.respondWith(
     upstream.catch(function(){

@@ -28,6 +28,11 @@
        纯填充（进度条/图标/色点）继续用 --pri，不受影响。 */
     --pri-ink:#2F5FE0; --pri-deep:#3D68F0;
     --pri:#4F7CFF; --pri-soft:#eaf0ff; --ok:#22b07d; --ok-soft:#e7f6ec; --warn:#ff8a3d; --danger:#ef4444;
+    /* 语义色三件套（2026-11-22 批三补）：--x 只做填充，文字一律用 --x-ink 压在 --x-soft 上。
+       起因：状态胶囊/徽章此前是「品牌色底 + 白字」，实测 --ok 底白字 2.77:1、深色 --ok 底白字
+       仅 1.90:1；而 11–12.5px 的状态文字恰是用户最需要一眼读准的内容。
+       数值：ok-ink 4.58:1 / warn-ink 4.86:1 / danger-ink 5.15:1（压各自 soft 底，均过 AA 4.5:1）。 */
+    --ok-ink:#167d55; --warn-soft:#fff5e6; --warn-ink:#a25a0f; --danger-soft:#fdecec; --danger-ink:#c62828;
     /* 数据色（c4 媒体剧集 / c5 兜底灰在用；c1~c3 已删除，分类/优先级用用户自定义色） */
     --c4:#ff5c8a; --c5:#9aa0ab; --c6:#9b6bff;
     --chip-bg:#6b7280;
@@ -40,6 +45,9 @@
     --pri-ink:#8FABFF; --pri-deep:#3D68F0;
     --pri:#5b86ff; --pri-soft:#1c2740; --hover:#1c2236; --bg2:#11162a; --muted:#9aa3b2;
     --ok:#2dd4a0; --ok-soft:#10312a; --warn:#ff9a52; --danger:#ff5d5d;
+    /* 深色语义色三件套：底色翻深、ink 翻浅，同样保证压 --x-soft 时 ≥4.5:1
+       （ok-ink 7.38 / warn-ink 8.84 / danger-ink 5.19） */
+    --ok-ink:#2dd4a0; --warn-soft:#33240f; --warn-ink:#ffb877; --danger-soft:#3a1a1c; --danger-ink:#ff5d5d;
     --c4:#ff7aa6; --c5:#5a6478; --c6:#b08cff;
     /* 深色下 --muted 是浅灰（#9aa3b2），压白字只有 ~2.4:1 → chip 底色另给一个深灰 */
     --chip-bg:#5a6478;
@@ -97,9 +105,12 @@
   .ic{width:16px;height:16px;flex:none;vertical-align:-2px;margin-right:5px;}   /* 内联 SVG 图标统一尺寸（P2：替换 emoji）；默认与右侧文字留 5px 呼吸间距 */
   .cloudpill{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;padding:5px 12px;border-radius:999px;background:var(--pri-deep);color:var(--white);border:1px solid var(--pri);box-shadow:0 1px 3px rgba(79,124,255,.25);white-space:nowrap;cursor:pointer;}
   .cloudpill .ic{width:14px;height:14px;margin-right:0;}
-  .cloudpill.ok{background:var(--ok);border-color:var(--ok);box-shadow:0 1px 3px rgba(52,199,89,.25);}
-  .cloudpill.syncing{background:var(--warn);border-color:var(--warn);box-shadow:0 1px 3px rgba(255,159,64,.25);}
-  .cloudpill.err{background:var(--danger);border-color:var(--danger);box-shadow:0 1px 3px rgba(255,92,92,.25);}
+  /* 批三对比度：状态胶囊此前是「品牌色底 + 白字」，--ok 底白字实测 2.77:1、深色 --ok 底白字 1.90:1，
+     12.5px 的「已同步」几乎读不出来。改为与站内徽章一致的「浅底 + ink 字」（≥4.5:1），
+     底色只退到边框，语义靠彩色边框 + 图标继续表达。 */
+  .cloudpill.ok{background:var(--ok-soft);border-color:var(--ok);color:var(--ok-ink);box-shadow:none;}
+  .cloudpill.syncing{background:var(--warn-soft);border-color:var(--warn);color:var(--warn-ink);box-shadow:none;}
+  .cloudpill.err{background:var(--danger-soft);border-color:var(--danger);color:var(--danger-ink);box-shadow:none;}
   .cloudpill.off{background:#e9edf5;color:var(--sub);border-color:#e9edf5;box-shadow:none;} /* 仅本地：中性灰底，不抢色 */
   /* 云同步面板（与「明信片追踪」云弹窗统一样式，P0） */
   .cloud-status-card{display:flex;align-items:flex-start;gap:12px;padding:13px 14px;border-radius:var(--radius);border:0.5px solid var(--line);background:var(--bg);margin-bottom:14px;min-height:58px;}
@@ -134,7 +145,7 @@
   .btn-pri:active{transform:scale(.97);}
   .btn-ghost{background:var(--card);color:var(--ink);border:1px solid var(--line);}
   .btn-sm{padding:7px 11px;min-height:36px;font-size:13px;border-radius:var(--radius-sm);}
-  .btn-danger{background:var(--card);color:var(--danger);border:1px solid #ffd9d9;}
+  .btn-danger{background:var(--card);color:var(--danger-ink);border:1px solid #ffd9d9;}   /* 批三：#ef4444 白底 3.76:1 → danger-ink 4.98:1 */
   .btn-success{background:var(--ok);color:var(--white);}
   .btn-success:active{transform:scale(.97);}
 
@@ -315,9 +326,9 @@
   .detail-h{display:flex;align-items:flex-start;gap:10px;margin:0 0 12px;}
   .detail-h .dt{font-size:17px;font-weight:700;line-height:1.35;margin:0;flex:1;min-width:0;word-break:break-word;}
   .detail-status{font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;flex:none;white-space:nowrap;}
-  .detail-status.done{background:var(--ok-soft);color:var(--ok);}
+  .detail-status.done{background:var(--ok-soft);color:var(--ok-ink);}   /* 批三：#22b07d 压 ok-soft 仅 2.48:1 */
   .detail-status.dropped{background:var(--bg2);color:var(--sub);}
-  .detail-status.todo{background:var(--pri-soft);color:var(--pri);}
+  .detail-status.todo{background:var(--pri-soft);color:var(--pri-ink);}   /* 批三：--pri 压 pri-soft 3.25:1 → pri-ink 4.8:1 */
   .detail-badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
   .detail-grid{display:flex;flex-direction:column;gap:9px;margin-bottom:14px;}
   .detail-kv{display:grid;grid-template-columns:74px minmax(0,1fr);gap:10px;font-size:13.5px;align-items:start;}
@@ -829,7 +840,7 @@
   .stale-chip{display:inline-block;margin-left:5px;font-size:11px;font-weight:700;line-height:1.5;
     color:var(--warn);background:#fff5e6;border:1px solid var(--warn);border-radius:999px;padding:0 5px;vertical-align:1px;}
   /* 小节标题右侧的「整理 N 个遗留值」按钮 */
-  .sec-fix{margin-left:auto;border:1px solid var(--warn);background:#fff5e6;color:var(--warn);border-radius:999px;
+  .sec-fix{margin-left:auto;border:1px solid var(--warn);background:var(--warn-soft);color:var(--warn-ink);border-radius:999px;   /* 批三：#ff8a3d 压 #fff5e6 仅 2.17:1 */
     padding:3px 10px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;min-height:26px;flex:none;}
   .sec-fix:hover{background:var(--warn);color:var(--white);}
   .trend{display:flex;align-items:flex-end;gap:10px;height:150px;padding:6px 12px 0;overflow:hidden;}
@@ -894,7 +905,7 @@
   [data-theme="dark"] .badge.p0{ background:rgba(255,93,93,.16); color:#ff9b9b; }
   [data-theme="dark"] .badge.p1{ background:rgba(255,154,82,.16); color:#ffb27a; }
   [data-theme="dark"] .badge.p2{ background:var(--line); color:var(--sub); }
-  [data-theme="dark"] .badge.gw{ background:rgba(255,154,82,.16); color:var(--warn); }
+  [data-theme="dark"] .badge.gw{ background:var(--warn-soft); color:var(--warn-ink); }   /* 批三：与亮色同口径，不再叠 rgba 半透明底 */
   [data-theme="dark"] .badge.ok{ background:rgba(45,212,160,.15); color:var(--ok); }
   [data-theme="dark"] .mcard.tv .mbadge{ background:rgba(255,122,166,.16); }
   [data-theme="dark"] .mcard.aud .mbadge{ background:rgba(155,107,255,.2); }
@@ -1061,7 +1072,12 @@
   .hinfo .hbottom{display:flex;align-items:center;gap:8px;min-width:0;}
   .hinfo .hstreak{font-size:11px;color:var(--sub);flex:none;}
   .hrow.paused .hinfo .hname{text-decoration:line-through;}
-  .hcell{height:32px;border-radius:var(--radius-sm);background:var(--line);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--ink);font-weight:600;cursor:pointer;transition:.12s;user-select:none;}
+  /* 批三 A11Y：打卡格改为 <button>。按钮自带内边距/边框/字体族，必须显式清零，
+     否则 7 列网格会被撑破（默认 border 2px + padding 1px 6px）。 */
+  .hcell{height:32px;width:100%;border:0;padding:0;appearance:none;-webkit-appearance:none;font-family:inherit;
+    border-radius:var(--radius-sm);background:var(--line);display:flex;align-items:center;justify-content:center;
+    font-size:13px;color:var(--ink);font-weight:600;cursor:pointer;transition:.12s;user-select:none;}
+  .hcell:focus-visible{outline:2px solid var(--pri);outline-offset:2px;z-index:1;}   /* 键盘焦点环：按钮化后必须看得见落在哪一格 */
   .hcell:hover{filter:brightness(.96);}
   .hcell.done{background:var(--ok);color:var(--white);font-weight:700;}
   .hcell.today{font-weight:700;color:var(--pri);}            /* 今天：蓝色字提示，去掉蓝框（恢复之前显示方式） */
@@ -1200,7 +1216,7 @@
 .pbar-fill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#4f8cff,var(--accent));border-radius:9px;}
 .pbar-fill.okr{background:linear-gradient(90deg,#ff9a5a,#ff6b6b);}
 .pbar span{position:relative;z-index:1;padding-left:8px;line-height:18px;}
-.badge.gw{background:#fff3e0;color:#d9822b;}
+.badge.gw{background:var(--warn-soft);color:var(--warn-ink);}   /* 批三：#d9822b 压 #fff3e0 仅 2.67:1 */
 .badge.ok{background:var(--ok-soft);color:#147a53;}
 .okr-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px;}
 .okr-top{display:flex;align-items:center;justify-content:space-between;}
@@ -1519,7 +1535,7 @@
     /* 习惯打卡区更紧凑，避免 Sun 列贴边 */
     .habitpanel h3 .btn-sm{padding:6px 9px;min-height:40px;font-size:12.5px;}   /* G20/F3：原 34px 特异性 (0,2,1) 压过 ≤860 档 .btn-sm 的 40px，手机/平板击穿触控契约 */
     .hrow{grid-template-columns:minmax(92px,1.3fr) repeat(7,minmax(0,1fr));gap:4px;}
-    .hcell{height:28px;font-size:12px;}
+    .hcell{height:32px;font-size:12px;}   /* 批三：28px 拇指易误触，抬到 32px（7 列 × 390px 下的上限） */
     .hinfo .hname{font-size:13px;}
     .today-list{width:100%;padding:0;}
     .today-item{width:100%;}
@@ -3363,7 +3379,9 @@ function pushTomb(id){ const s=String(id||""); if(!s) return; const i=deletedIds
     try{
       if(!("serviceWorker" in navigator)) return;
       if(location.protocol!=="https:" && location.protocol!=="http:") return;
-      navigator.serviceWorker.register("sw.js").catch(function(){});
+      /* 批三：updateViaCache:"none" —— SW 脚本自身也走 max-age=600，
+         默认策略下浏览器可能从 HTTP 缓存拿旧 sw.js，更新检查失效拖 24h。 */
+      navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(function(){});
     }catch(e){}
   }
 
@@ -9928,7 +9946,12 @@ function habitRowHtml(h, weekDays, todayKey, restoreMode){
   const cells=weekDays.map(d=>{
     const k=ymd(d), on=days.includes(k), isToday=k===todayKey;
     const tgt=targets.includes(k);
-    return `<div class="hcell${on?' done':''}${isToday?' today':''}${tgt?' target':''}${(paused||archived)?' disabled':''}" data-id="${h.id}" data-day="${k}">${d.getDate()}</div>`;
+    /* 批三 A11Y：打卡格是 <button>（此前纯 div + onclick，键盘完全打不开）。
+       暂停/归档用 aria-disabled 而不是 disabled —— 点击仍要能弹出「已暂停，请先恢复」的说明，
+       真 disabled 会吞掉事件，用户只会觉得点了没反应。
+       无障碍名不写「已打卡/未打卡」：状态交给 aria-pressed 表达，避免局部补丁时要同步改三处文案。 */
+    const cellLbl=`${h.name} ${k}`;
+    return `<button type="button" class="hcell${on?' done':''}${isToday?' today':''}${tgt?' target':''}${(paused||archived)?' disabled':''}" data-id="${esc(h.id)}" data-day="${k}" aria-pressed="${on?'true':'false'}" aria-label="${esc(cellLbl)}" title="${esc(cellLbl)}"${(paused||archived)?' aria-disabled="true"':''}>${d.getDate()}</button>`;
   }).join("");
   const freqLabel = {daily:"每天",weekly:"每周"+(h.freqN||3)+"次",custom:"自定义",someday:"灵活"}[h.freq]||"";
   const goalHtml = goal>0 ? `<span class="hgoal${met?' met':''}" data-hid="${h.id}" title="本周目标进度（每周 ${goal} 次就算完成）">${met?'✓达标':(cnt+'/'+goal)}</span>` : "";
@@ -10049,6 +10072,7 @@ function patchHabitCell(id, day, done){
   document.querySelectorAll('#view .hcell[data-id="'+id+'"][data-day="'+day+'"]').forEach(c=>cells.push(c));
   for(const c of cells){
     c.classList.toggle("done", done);
+    c.setAttribute("aria-pressed", done ? "true" : "false");   /* 批三：局部补丁也要同步无障碍状态 */
     if(done){ c.classList.add("pop"); setTimeout(()=>c.classList.remove("pop"), 280); }
   }
 }
@@ -12613,7 +12637,7 @@ document.getElementById("okrDelete").onclick=okrDelete;
 
 /* ===== 键盘快捷键 ===== */
 document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"){ if(document.getElementById("confirmMask")&&document.getElementById("confirmMask").classList.contains("show")) return; const ms=["helpMask","okrMask","projMask"]; for(const id of ms){ const m=document.getElementById(id); if(m&&m.classList.contains("show")) m.classList.remove("show"); } return; }
+  if(e.key==="Escape"){ if(document.getElementById("confirmMask")&&document.getElementById("confirmMask").classList.contains("show")) return; /* 批三 A11Y：补齐此前 Escape 关不掉的 6 个弹窗（有专用 close 的走 close，纯展示的直接摘 show，与各自遮罩点击行为一致） */ if(typeof closeBatchProps==="function"&&document.getElementById("batchPropsMask").classList.contains("show")){ closeBatchProps(); return; } if(typeof closeHabitBackfill==="function"&&document.getElementById("habitBackfillMask").classList.contains("show")){ closeHabitBackfill(); return; } if(typeof closeHabitStyle==="function"&&document.getElementById("hbStyleMask").classList.contains("show")){ closeHabitStyle(); return; } const ms=["helpMask","okrMask","projMask","mergeMask","tagMask","optMask"]; for(const id of ms){ const m=document.getElementById(id); if(m&&m.classList.contains("show")) m.classList.remove("show"); } return; }
   if(inField() || e.ctrlKey || e.metaKey || e.altKey) return;
   /* P1-12：弹窗打开时屏蔽全局快捷键。此前只看 inField()，焦点落在弹窗内**按钮**上时 inField() 为 false，
      按 N 会 openModal(null,null) 静默丢弃当前编辑（脏检查拦不住，它只挂在 Esc/遮罩路径）；

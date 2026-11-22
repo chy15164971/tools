@@ -132,7 +132,7 @@
       }
       var e = {
         ts: +ts, precise: !!precise, kind: kind, src: src,
-        title: title, sub: sub || "", href: HREF[kind],
+        title: title, sub: sub || "", href: (extra && extra.href) || HREF[kind],
         variant: (extra && extra.variant) || "",
         lvl: (extra && extra.lvl) || (precise ? "min" : "day")
       };
@@ -279,6 +279,20 @@
       });
     }
 
+    /* ---------- 6b. 外部补充事件（批三）----------
+       diary 存在 IndexedDB，collect 是同步函数读不到。异步消费者（首页摘要）用
+       loadDiaryEvents() 拿到日记事件后，经 opts.extra 走同一条 push 去重管线，
+       保证与时间线页「含日记」口径一致。 */
+    if (Array.isArray(opts.extra)) {
+      opts.extra.forEach(function(e){
+        if (!e || typeof e !== "object") return;
+        var ts = Number(e.ts) || parseDay(e.ts);
+        if (!ts) return;
+        push(String(e.kind || "diary"), String(e.src || ts), ts, !!e.precise,
+             String(e.title || ""), String(e.sub || ""), e);
+      });
+    }
+
     events.sort(cmp);
     return { events: events, counts: counts, stats: statsOf(events) };
   }
@@ -304,8 +318,55 @@
     };
   }
 
+  /* ---------- 日记异步源（批三，只读）----------
+     供不需要 NOTE 文案、只要统计数字的消费者（首页摘要）使用。
+     与地图页的建库约定一致：先 databases() 探测库存在再 open(1)，
+     upgradeneeded 立即 abort，绝不替地图页建出空库。任何失败静默返回空数组。 */
+  function loadDiaryEvents(done){
+    if (typeof done !== "function") return;
+    function empty(){ done([]); }
+    if (!window.indexedDB || !indexedDB.databases) { empty(); return; }
+    var DB = "wb_travel_diary_db";
+    var p;
+    try { p = indexedDB.databases(); } catch(e){ empty(); return; }
+    p.then(function(list){
+      var exists = (list || []).some(function(d){ return d && d.name === DB; });
+      if (!exists) { empty(); return; }
+      var req;
+      try { req = indexedDB.open(DB, 1); } catch(e){ empty(); return; }
+      req.onupgradeneeded = function(){ try { req.transaction.abort(); } catch(e){} };
+      req.onerror = empty;
+      req.onsuccess = function(){
+        var db = req.result;
+        try {
+          if (!db.objectStoreNames.contains("diaries")) { db.close(); empty(); return; }
+          var r = db.transaction("diaries", "readonly").objectStore("diaries").getAll();
+          r.onsuccess = function(){
+            var arr = r.result || [];
+            db.close();
+            var out = [];
+            arr.forEach(function(d){
+              var base = parseDay(d && d.date);
+              if (!base) return;
+              var nm = (d && d.placeName) || "某地";
+              var txt = String((d && d.title) || "").trim();
+              out.push({
+                ts: base, precise: false, kind: "diary",
+                src: nm + "|" + txt,
+                title: "旅行日记 · " + nm,
+                sub: txt.slice(0, 42)
+              });
+            });
+            done(out);
+          };
+          r.onerror = function(){ try { db.close(); } catch(e){} empty(); };
+        } catch(e){ try { db.close(); } catch(_){} empty(); }
+      };
+    }).catch(empty);
+  }
+
   window.__TL_CORE = {
-    collect: collect, statsOf: statsOf,
+    collect: collect, statsOf: statsOf, loadDiaryEvents: loadDiaryEvents,
     parseDay: parseDay, parseStamp: parseStamp, parseLoose: parseLoose,
     dayKey: dayKey, cmp: cmp, sortTs: sortTs, wantLabel: wantLabel,
     KINDS: KINDS, LABEL: LABEL, HREF: HREF

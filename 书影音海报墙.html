@@ -535,6 +535,11 @@
        纯填充（进度条/图标/色点）继续用 --pri，不受影响。 */
     --pri-ink:#2F5FE0; --pri-deep:#3D68F0;
     --pri:#4F7CFF; --pri-soft:#eaf0ff; --ok:#22b07d; --ok-soft:#e7f6ec; --warn:#ff8a3d; --danger:#ef4444;
+    /* 语义色三件套（2026-11-22 批三补）：--x 只做填充，文字一律用 --x-ink 压在 --x-soft 上。
+       起因：状态胶囊/徽章此前是「品牌色底 + 白字」，实测 --ok 底白字 2.77:1、深色 --ok 底白字
+       仅 1.90:1；而 11–12.5px 的状态文字恰是用户最需要一眼读准的内容。
+       数值：ok-ink 4.58:1 / warn-ink 4.86:1 / danger-ink 5.15:1（压各自 soft 底，均过 AA 4.5:1）。 */
+    --ok-ink:#167d55; --warn-soft:#fff5e6; --warn-ink:#a25a0f; --danger-soft:#fdecec; --danger-ink:#c62828;
     /* 数据色（c4 媒体剧集 / c5 兜底灰在用；c1~c3 已删除，分类/优先级用用户自定义色） */
     --c4:#ff5c8a; --c5:#9aa0ab; --c6:#9b6bff;
     --chip-bg:#6b7280;
@@ -547,6 +552,9 @@
     --pri-ink:#8FABFF; --pri-deep:#3D68F0;
     --pri:#5b86ff; --pri-soft:#1c2740; --hover:#1c2236; --bg2:#11162a; --muted:#9aa3b2;
     --ok:#2dd4a0; --ok-soft:#10312a; --warn:#ff9a52; --danger:#ff5d5d;
+    /* 深色语义色三件套：底色翻深、ink 翻浅，同样保证压 --x-soft 时 ≥4.5:1
+       （ok-ink 7.38 / warn-ink 8.84 / danger-ink 5.19） */
+    --ok-ink:#2dd4a0; --warn-soft:#33240f; --warn-ink:#ffb877; --danger-soft:#3a1a1c; --danger-ink:#ff5d5d;
     --c4:#ff7aa6; --c5:#5a6478; --c6:#b08cff;
     /* 深色下 --muted 是浅灰（#9aa3b2），压白字只有 ~2.4:1 → chip 底色另给一个深灰 */
     --chip-bg:#5a6478;
@@ -4408,7 +4416,9 @@ cloudBoot();   /* 云同步启动：读配置 → 首次拉取合并（async，�
     try{
       if(!("serviceWorker" in navigator)) return;
       if(location.protocol!=="https:" && location.protocol!=="http:") return;
-      navigator.serviceWorker.register("sw.js").catch(function(){});
+      /* 批三：updateViaCache:"none" —— SW 脚本自身也走 max-age=600，
+         默认策略下浏览器可能从 HTTP 缓存拿旧 sw.js，更新检查失效拖 24h。 */
+      navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(function(){});
     }catch(e){}
   }
 

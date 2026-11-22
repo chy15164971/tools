@@ -22,8 +22,8 @@
    导航条必须是 `<body>` 开头的静态 HTML，不能退回 JS 延迟插入（会重现首屏闪旧画面）。
 3. 共享色板唯一真相源是 vault `_ops/_workbench/design_tokens.css`；
    私有变量写在 `SHARED TOKENS START/END` 标记区**之外**，否则下次同步会被整块覆盖。
-4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v30）：SW 字节不变就不触发 install，
-   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15→v16→v17、11-19 v18、11-21 v19→v20→v21、11-22 v22→v23→v24→v25→v26→v27→v28→v29→v30 均按此处理）。
+4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v31）：SW 字节不变就不触发 install，
+   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15→v16→v17、11-19 v18、11-21 v19→v20→v21、11-22 v22→v23→v24→v25→v26→v27→v28→v29→v30→v31 均按此处理）。
    导航请求用 `fetch(url,{cache:"no-store"})` 绕过 Pages 的 `max-age=600`；
    不要写成 `fetch(e.request, init)`（navigate 模式重建 Request 会抛 TypeError）。
 5. `_shared/` 目录以下划线开头，GitHub Pages 不发布；源文件已内联进八个 HTML，线上 404 属预期。
@@ -389,6 +389,17 @@ v27 只改了文案，遗留一个问题：**同一个 `date` 字段被两种含
 - 本轮门禁：发布门禁 **0 失败**、镜像 **27+27 项**、全量回归 **71 PASS**（+1 本批专项）、焦点 E2E **36 PASS**、P1-9 **42 PASS**（已按流程重冻基线）、时间线 **98 PASS**、海报墙 **44 PASS**、数据规范化 **27 PASS**。升 `APP_CACHE` v29 → **v30**。
 - **分辨力对照**（新增 `_ops/_测试/站点_批二数据正确性_20261122.冒烟测试.mjs`，37 条断言）：改前字节（`git show HEAD:`）→ **31 FAIL / 6 PASS**；再把 `bindOlderOverdue` 改回 `go(VIEWS.REVIEW)` → 只有 E5/E12 变红（证明这两条专治该回归）。
 - 决策留痕：今日页逾期窗口**维持 14 天 + 提示行**（不放宽到 90 天）；云合并**按时间戳仲裁**（编辑晚于删除则保留）。
+
+### 批三「体感与无障碍」：习惯格键盘化 / 筛选条不失焦 / 状态色 token / 口径对齐 / SW 加固（v31，2026-11-22）
+
+- **任务台**：习惯打卡格 div → `<button>`（键盘此前完全打不开），`aria-pressed` + `aria-label`，暂停/归档用 `aria-disabled` 保留点击说明路径；`patchHabitCell` 局部补丁同步 aria；Escape 链补 6 个此前关不掉的弹窗（batchProps/habitBackfill/hbStyle/merge/tag/opt）；状态色全套换语义 token（cloudpill/detail-status/badge.gw/sec-fix/btn-danger）。
+- **明信片**：`buildFilterBar` 按视图缓存 DOM（`dataset.builtView` 短路），任意保存动作不再销毁搜索框打断输入；`renderChipsGeneric` 内容不变跳过重建、重建后焦点还给同 key chip；badge-duesoon/btn-danger/toast 三态换 soft+ink token。
+- **地图**：切层级/区域清搜索词（`clearSearchWord`，连带取消飞点定时器）；日记默认日期改本地拼接（`toISOString` 在东八区 0–8 点会写昨天）；toast 文字 `var(--bg)` 自动反转。
+- **观剧**：保存幂等锁 `_savingRec`（防双击重复入库，finally 释放）；toast 反色；补 manifest / theme-color / viewport-fit。
+- **时间线口径**：核心新增 `loadDiaryEvents()`（只读探测 IndexedDB，与地图页建库约定一致）+ `collect({extra})` 合并管线；首页摘要异步并入日记（此前首页不含日记，与时间线页「本年事件数」分叉）。时间线页自身 loader 不动。
+- **SW/发布链**：预缓存 `cache:"reload"`（绕过 Pages max-age=600 预缓存旧 HTML）；静态资源 `no-cache` 条件重验；注册加 `updateViaCache:"none"`；观剧/地图补 PWA 元信息；`verify_release` 新增 **PRECACHE 反向断言**（站点资源未进预缓存即报红）。
+- 文字安全色 `--ok-ink / --warn-soft / --warn-ink / --danger-soft / --danger-ink` 已进 design_tokens.css 与 8 页 SHARED TOKENS（sync_tokens 同步）。
+- 本轮门禁：发布门禁 **0 失败**（含新反向断言）、镜像 **27+27 项**、全量回归 **72 PASS**（+1 本批专项 49 断言）、焦点 E2E **36 PASS**、P1-9 **42 PASS**（基线已重冻，备份 `_P1-9基线_改前_v30批三.json`）。分辨力对照：改前字节 **46 FAIL / 3 PASS**。升 `APP_CACHE` v30 → **v31**。
 
 ## 本机副本
 

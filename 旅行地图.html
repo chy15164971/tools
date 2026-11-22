@@ -2,8 +2,10 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>旅行地图 · 工作台</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <title>旅行地图 · 工作台</title>
+    <meta name="theme-color" content="#4F7CFF">
+    <link rel="manifest" href="manifest.json">
 <script>/* O-7：主题初值统一——未显式选择时跟随系统，避免从其他页跳来时主题闪变 */try{var _t=localStorage.getItem("wb_theme_v1");if(!_t&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)_t="dark";if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
 <style>
   /* === 旅行地图页私有 token（写在 SHARED TOKENS 标记区之外，sync_tokens.js 不触碰）=== */
@@ -16,6 +18,11 @@
        纯填充（进度条/图标/色点）继续用 --pri，不受影响。 */
     --pri-ink:#2F5FE0; --pri-deep:#3D68F0;
     --pri:#4F7CFF; --pri-soft:#eaf0ff; --ok:#22b07d; --ok-soft:#e7f6ec; --warn:#ff8a3d; --danger:#ef4444;
+    /* 语义色三件套（2026-11-22 批三补）：--x 只做填充，文字一律用 --x-ink 压在 --x-soft 上。
+       起因：状态胶囊/徽章此前是「品牌色底 + 白字」，实测 --ok 底白字 2.77:1、深色 --ok 底白字
+       仅 1.90:1；而 11–12.5px 的状态文字恰是用户最需要一眼读准的内容。
+       数值：ok-ink 4.58:1 / warn-ink 4.86:1 / danger-ink 5.15:1（压各自 soft 底，均过 AA 4.5:1）。 */
+    --ok-ink:#167d55; --warn-soft:#fff5e6; --warn-ink:#a25a0f; --danger-soft:#fdecec; --danger-ink:#c62828;
     /* 数据色（c4 媒体剧集 / c5 兜底灰在用；c1~c3 已删除，分类/优先级用用户自定义色） */
     --c4:#ff5c8a; --c5:#9aa0ab; --c6:#9b6bff;
     --chip-bg:#6b7280;
@@ -28,6 +35,9 @@
     --pri-ink:#8FABFF; --pri-deep:#3D68F0;
     --pri:#5b86ff; --pri-soft:#1c2740; --hover:#1c2236; --bg2:#11162a; --muted:#9aa3b2;
     --ok:#2dd4a0; --ok-soft:#10312a; --warn:#ff9a52; --danger:#ff5d5d;
+    /* 深色语义色三件套：底色翻深、ink 翻浅，同样保证压 --x-soft 时 ≥4.5:1
+       （ok-ink 7.38 / warn-ink 8.84 / danger-ink 5.19） */
+    --ok-ink:#2dd4a0; --warn-soft:#33240f; --warn-ink:#ffb877; --danger-soft:#3a1a1c; --danger-ink:#ff5d5d;
     --c4:#ff7aa6; --c5:#5a6478; --c6:#b08cff;
     /* 深色下 --muted 是浅灰（#9aa3b2），压白字只有 ~2.4:1 → chip 底色另给一个深灰 */
     --chip-bg:#5a6478;
@@ -1075,8 +1085,15 @@ searchEl.addEventListener('input',function(){
     if(one.length===1){map.setCenter(new TMap.LatLng(one[0].lat,one[0].lng));map.setZoom(5);}
   },260);
 });
+/* 批三：切层级/切区域时旧搜索词会继续过滤新清单（中国搜「广东」切到世界，清单看似空白其实是残留过滤）。
+   统一在此清词；唯一命中自动飞点的定时器也一并取消。 */
+function clearSearchWord(){
+  if(searchEl.value){ searchEl.value=''; }
+  if(_flyTimer){ clearTimeout(_flyTimer); _flyTimer=null; }
+}
 function setLevel(l){
   level=l;
+  clearSearchWord();
   const isCity=l==='city';
   document.getElementById('subProv').textContent=region==='china'?'省份':'国家';
   document.getElementById('subCity').textContent='城市';
@@ -1178,7 +1195,7 @@ function openDiary(pid){
   resetForm();
   diaryMaskEl.classList.add('show');
   document.body.style.overflow='hidden';  /* S-1：锁背景滚动 */
-  document.getElementById('dDate').value=new Date().toISOString().slice(0,10);
+  { const _d=new Date(); document.getElementById('dDate').value=_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0'); }  /* 批三：toISOString().slice(0,10) 是 UTC 日期，东八区 0-8 点会默认成昨天 */
   loadDiaries();
   document.getElementById('dClose').focus();  /* S-1：焦点移入弹窗 */
 }
@@ -1268,7 +1285,7 @@ function toast(msg){
   let t=document.getElementById('dToast');
   if(!t){
     t=document.createElement('div');t.id='dToast';
-    t.style.cssText='position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:70;background:var(--ink);color:#fff;padding:9px 16px;border-radius:999px;font-size:12px;opacity:0;transition:opacity .2s;pointer-events:none';
+    t.style.cssText='position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:70;background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:12px;opacity:0;transition:opacity .2s;pointer-events:none';  /* 批三：color:#fff 在深色主题压浅字底 1.9:1，改取 --bg 自动反转 */
     document.body.appendChild(t);
   }
   t.textContent=msg;t.style.opacity='1';
@@ -1372,7 +1389,9 @@ migrateDiaryKeys().then(refreshCounts).catch(refreshCounts);
     try{
       if(!("serviceWorker" in navigator)) return;
       if(location.protocol!=="https:" && location.protocol!=="http:") return;
-      navigator.serviceWorker.register("sw.js").catch(function(){});
+      /* 批三：updateViaCache:"none" —— SW 脚本自身也走 max-age=600，
+         默认策略下浏览器可能从 HTTP 缓存拿旧 sw.js，更新检查失效拖 24h。 */
+      navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(function(){});
     }catch(e){}
   }
 
