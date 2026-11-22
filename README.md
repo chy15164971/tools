@@ -1,6 +1,6 @@
 # 工作台站点（tools）
 
-单文件零依赖 HTML 工作台：门户 `home.html` + 三个子应用（任务管理台 / 明信片追踪 / 书影音海报墙）。
+单文件零依赖 HTML 工作台：门户 `home.html` + 六个子应用（任务管理台 / 明信片追踪 / 书影音海报墙 / 观剧记录 / 旅行地图 / 时间线）。
 本地优先 localStorage，GitHub Gist 为可选云同步，无账号体系、无后端。
 
 线上：https://chy15164971.github.io/tools/home.html
@@ -10,8 +10,9 @@
 
 1. **`index.html` 必须逐字节等于 `任务管理台.html`**。改完任务台后执行
    `cp 任务管理台.html index.html`，否则用户从根路径进入的是旧版。
-2. 五页的共享代码由 `_shared/inject_shared.py` 注入四块：`SHARED`（任务台/明信片/index）、
-   `SITE-NAV-HTML`（五页）、`SITE-NAV`（五页）、`MODAL-A11Y`（任务台/明信片/index/海报墙）。
+2. 八页的共享代码由 `_shared/inject_shared.py` 注入五块：`SHARED`（任务台/明信片/index）、
+   `SITE-NAV-HTML`（八页）、`SITE-NAV`（八页）、`MODAL-A11Y`（任务台/明信片/index/海报墙）、
+   `TIMELINE-CORE`（时间线/首页，事件解析唯一源）。共 25 个内联块，发布门禁逐字节比对。
    **不要在页面里直接编辑标记区内的内容**，改源文件 `shared.js` / `site-nav-static.html` /
    `site-nav.js` / `modal-a11y.js` 后重新注入。
    ⚠️ `MODAL-A11Y` 是弹窗无障碍 IIFE 的**唯一真相源**（2026-11-16 收敛，此前 shared.js 与
@@ -21,11 +22,11 @@
    导航条必须是 `<body>` 开头的静态 HTML，不能退回 JS 延迟插入（会重现首屏闪旧画面）。
 3. 共享色板唯一真相源是 vault `_ops/_workbench/design_tokens.css`；
    私有变量写在 `SHARED TOKENS START/END` 标记区**之外**，否则下次同步会被整块覆盖。
-4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v24）：SW 字节不变就不触发 install，
-   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15→v16→v17、11-19 v18、11-21 v19→v20→v21、11-22 v22→v23→v24 均按此处理）。
+4. **改任何 HTML 字节都要升 `APP_CACHE` 版本号**（当前 v26）：SW 字节不变就不触发 install，
+   已安装 PWA 会继续从旧预缓存读页面（2026-11-13 v6、11-15 v7、11-16 v8→v9→v10→v11→v12、11-17 v13→v14、11-18 v15→v16→v17、11-19 v18、11-21 v19→v20→v21、11-22 v22→v23→v24→v25→v26 均按此处理）。
    导航请求用 `fetch(url,{cache:"no-store"})` 绕过 Pages 的 `max-age=600`；
    不要写成 `fetch(e.request, init)`（navigate 模式重建 Request 会抛 TypeError）。
-5. `_shared/` 目录以下划线开头，GitHub Pages 不发布；源文件已内联进五个 HTML，线上 404 属预期。
+5. `_shared/` 目录以下划线开头，GitHub Pages 不发布；源文件已内联进八个 HTML，线上 404 属预期。
 
 ## 一键校验
 
@@ -306,6 +307,18 @@ P1-9 守卫因 `convertRecord` / `renderStats` 函数体合法改动重冻基线
   - **改前对照**：城市版 **69 PASS / 19 FAIL**、日记版 **11 FAIL**（S4/S6/D2/D7 + M1/M3/M4/M5/M6/M7/M8），证明新断言有分辨力而非空跑。
   - 四条关联冒烟测试全绿：批一 26 / 批二 26 / 批三 **27** / 首页与观剧 **57**。批三 `O8-1` 原写死占位符旧文案，改为「占位符含国家 + 国家模式确实显示搜索框」，文案会改、显隐条件才是实质。
 - 升 `APP_CACHE` v24 → **v25**。
+
+### 时间线（第八页，v26，commit `0474ba6`，2026-11-22）
+
+用户需求：把各页面不同的事件按时间线串联起来。
+
+- **只读聚合**：`时间线.html` 直读六源已有数据（任务 `doneAt` / 习惯 `days`+`dayTs` / 明信片 `sent·arrived·received` / 海报墙感想 `ts` / 观剧 `date` / 地图 `litAt` + IndexedDB 日记），**不写任何业务数据键**（唯写共用 `wb_theme_v1`）。各页已有各自的云同步/墓碑/合并，再存副本即第三套要仲裁的数据。
+- **解析唯一源**：`_shared/timeline-core.js` 注入时间线与首页（首页第六卡显示本年事件数），共享内联块 21 → **25**。
+- **地图补记点亮时刻**：`state.litAt = { 唯一键k: {t, n} }`。合成点亮不写、连带撤销要删、键必须带前缀（`gd` 既是广东也是格林纳达）。2026-11-22 之前的点亮无法追溯，页脚已注明。
+- **不伪造时刻**：日级事件显示 `11-20` 而非 `11-20 00:00`，排序用显式比较器（先按日 → 同日精确在前 → 同精度按时刻）。
+- **日记只读探测**：先 `indexedDB.databases()` 确认库存在再 open（裸 open 会在库不存在时建出空库，导致地图页 store 永久建不起来）。
+- 共享层口径升级：注入器 / 门禁页面清单七页 → 八页，`sync_tokens.js` 纳入时间线页；首页第六张卡 `card full` 全宽，六卡 = 3×span2 + 2×span3 + 1×span12。
+- 本轮门禁：发布门禁 0 失败、TOKENS 八页 IN_SYNC、镜像 27 项、全量回归 **68 PASS**、焦点 E2E **36 PASS**、P1-9 **42 PASS**（因导航新增一项触发 G10，已 `--old` 对照 → 备份旧基线 → 重冻）。时间线测试 75 PASS、地图 97 PASS（新增 WH1–WH9）。升 `APP_CACHE` v25 → **v26**。
 
 ## 本机副本
 
