@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="时间线图标">
+  <defs>
+    <linearGradient id="tlG" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5B86FF"/>
+      <stop offset="1" stop-color="#2F5FE0"/>
+    </linearGradient>
+    <radialGradient id="tlH" cx="180" cy="120" r="640" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- 蓝紫对角渐变底（与工作台图标同源） -->
+  <rect width="1024" height="1024" rx="208" fill="url(#tlG)"/>
+  <!-- 左上柔光 -->
+  <rect width="1024" height="1024" rx="208" fill="url(#tlH)"/>
+  <!-- 白色圆角描边 -->
+  <rect x="62" y="62" width="900" height="900" rx="208" fill="none" stroke="#FFFFFF" stroke-opacity="0.8" stroke-width="12"/>
+  <!-- 时间轴竖脊 -->
+  <rect x="352" y="232" width="56" height="560" rx="28" fill="#FFFFFF"/>
+  <!-- 节点 1（粉芯）：与卡片语言同源的白底 + 达标前景色 -->
+  <circle cx="380" cy="372" r="84" fill="#FFFFFF"/>
+  <circle cx="380" cy="372" r="38" fill="#B23C62"/>
+  <!-- 节点 2（紫芯） -->
+  <circle cx="380" cy="652" r="84" fill="#FFFFFF"/>
+  <circle cx="380" cy="652" r="38" fill="#6D3FD6"/>
+  <!-- 分支条 1 -->
+  <rect x="500" y="340" width="296" height="64" rx="32" fill="#FFFFFF"/>
+  <rect x="500" y="424" width="196" height="40" rx="20" fill="#DBE3F5"/>
+  <!-- 分支条 2 -->
+  <rect x="500" y="620" width="232" height="64" rx="32" fill="#FFFFFF"/>
+  <rect x="500" y="704" width="160" height="40" rx="20" fill="#DBE3F5"/>
+</svg>
